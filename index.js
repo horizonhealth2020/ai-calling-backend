@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 // === Convoso routing config (put your real numbers here) ===
 // These are the numbers your Convoso queues listen on.
 // You can put them in Railway env vars instead of hardcoding.
-const CONVOSO_SALES_NUMBER   = process.env.CONVOSO_SALES_NUMBER   || "+15550000001";
+const CONVOSO_SALES_NUMBER   = process.env.CONVOSO_SALES_NUMBER   || "+18887990190";
 const CONVOSO_BILLING_NUMBER = process.env.CONVOSO_BILLING_NUMBER || "+15550000002";
 const CONVOSO_GENERAL_NUMBER = process.env.CONVOSO_GENERAL_NUMBER || "+15550000003";
 
