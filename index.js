@@ -176,39 +176,37 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 app.post("/tools/getRoutingTarget", async (req, res) => {
   try {
     const { intent, qualification_status } = req.body || {};
-    console.log("[getRoutingTarget] request:", { intent, qualification_status });
+    
+    console.log("[getRoutingTarget] request:", req.body);
 
     let routing_target = "general";
-    let phone_number   = CONVOSO_GENERAL_NUMBER;
+    let phone_number = process.env.CONVOSO_GENERAL_NUMBER;
 
-    // Simple examples — adjust to your needs:
     if (qualification_status === "qualified" && intent === "sales") {
       routing_target = "sales_queue";
-      phone_number   = CONVOSO_SALES_NUMBER;
+      phone_number = process.env.CONVOSO_SALES_NUMBER;
+
     } else if (intent === "billing" || intent === "billing_question") {
       routing_target = "billing_queue";
-      phone_number   = CONVOSO_BILLING_NUMBER;
-    } else if (intent === "sales") {
-      // interest is sales but not fully qualified yet
-      routing_target = "sales_queue";
-      phone_number   = CONVOSO_SALES_NUMBER;
+      phone_number = process.env.CONVOSO_BILLING_NUMBER;
+
+    } else if (intent === "cancellation" || intent === "cancel plan") {
+      routing_target = "retention_queue";
+      phone_number = process.env.CONVOSO_RETENTION_NUMBER;
+
     } else {
       routing_target = "general_queue";
-      phone_number   = CONVOSO_GENERAL_NUMBER;
-    } else if (intent === "cancellation" || intent === "cancel plan") {
-      routing_target = "billing_queue";
-      } else if (intent === "customer service" || intent === "questions on current plan") {
-      routing_target = "billing_queue";
+      phone_number = process.env.CONVOSO_GENERAL_NUMBER;
+    }
 
-    res.json({
-      routing_target,
-      phone_number,
-    });
+    res.json({ routing_target, phone_number });
+
   } catch (err) {
-    console.error("[getRoutingTarget] error", err);
+    console.error("[getRoutingTarget] error:", err);
     res.status(500).json({ error: "getRoutingTarget failed" });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`AI calling backend listening on port ${PORT}`);
