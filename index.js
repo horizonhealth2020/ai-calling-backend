@@ -382,6 +382,7 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
 });
 
 // -------------------------------------------------
+// -------------------------------------------------
 // Tool 4: scheduleCallback (Riley)
 //  - Used when caller wants a specific callback time instead of transfer
 //  - Right now this uses Convoso lead update to store callback info;
@@ -443,4 +444,7 @@ app.post("/tools/scheduleCallback", async (req, res) => {
       convoso_result: convosoResult,
     });
   } catch (err) {
-    console.error("[scheduleCa]()
+    console.error("[scheduleCallback] error:", err);
+    res.status(500).json({ error: "scheduleCallback failed" });
+  }
+});
