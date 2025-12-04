@@ -31,26 +31,106 @@ app.get("/health", (req, res) => {
 app.post("/tools/getLead", async (req, res) => {
   try {
     const { phone, lead_id } = req.body || {};
+// Tool endpoint: getLead
+app.post("/tools/getLead", async (req, res) => {
+  try {
+    const { phone, lead_id } = req.body || {};
 
-    // TODO: replace this with real DB/CRM lookup
-    console.log("[getLead] request:", { phone, lead_id });
+    if (!phone && !lead_id) {
+      return res.status(400).json({ error: "phone or lead_id is required" });
+    }
 
+    const authToken = process.env.CONVOSO_AUTH_TOKEN;
+    if (!authToken) {
+      console.error("[getLead] Missing CONVOSO_API env var");
+      return res.status(500).json({ error: "Server misconfigured" });
+    }
+
+    // Build the Convoso search URL
+    // We only really need auth_token + phone_number (and maybe limit)
+    const searchParams = new URLSearchParams({
+      auth_token: authToken,
+      lead_id: lead_id || "",
+      list_id: "",
+      user_id: "",
+      status: "",
+      offset: "0",
+      limit: "10",
+      created_by: "",
+      email: "",
+      last_modified_by: "",
+      owner_id: "",
+      first_name: "",
+      last_name: "",
+      phone_number: phone || "",     
+      alt_phone_1: "",
+      alt_phone_2: "",
+      address1: "",
+      address2: "",
+      city: "",
+      state: "",
+      province: "",
+      postal_code: "",
+      country: "",
+      gender: "",
+      date_of_birth: "",
+      plan_sold: "",
+      member_id: "",
+      created_at_start_date: "",
+      created_at_end_date: "",
+      updated_at_start_date: "",
+      updated_at_end_date: "",
+      deleted_at_start: "",
+      deleted_at_end: "",
+      archived_at_start: "",
+      archived_at_end: "",
+      last_call_start_date: "",
+      last_call_end_date: ""
+    });
+
+    const url = `https://api.convoso.com/v1/leads/search?${searchParams.toString()}`;
+
+    console.log("[getLead] Convoso URL:", url);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error("[getLead] Convoso error status:", response.status);
+      return res.status(502).json({ error: "Convoso search failed" });
+    }
+
+    const data = await response.json();
+    console.log("[getLead] Convoso response:", data);
+
+    // Convoso's response shape may be something like:
+    // { data: [ { id, first_name, last_name, phone_number, state, ... } ], ... }
+    const convosoLead = Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null;
+
+    if (!convosoLead) {
+      return res.json({ lead: null });
+    }
+
+    // Map Convoso fields to what your Vapi agent expects
     const lead = {
-      id: lead_id || "lead_dummy",
-      first_name: "John",
-      last_name: "Doe",
-      phone: phone || "+15555550123",
-      state: "FL",
-      product_interest: "under_65_health",
-      tags: ["test"],
+      id: convosoLead.id,
+      first_name: convosoLead.first_name,
+      last_name: convosoLead.last_name,
+      phone: convosoLead.phone_number,
+      state: convosoLead.state,
+      // add whatever else you need from convosoLead:
+      // product_interest: convosoLead.plan_sold, etc.
+      tags: [],
+      raw: convosoLead // optional: keep full raw object
     };
 
-    res.json({ lead });
+    return res.json({ lead });
+
   } catch (err) {
-    console.error("[getLead] error", err);
+    console.error("[getLead] error:", err);
     res.status(500).json({ error: "getLead failed" });
   }
 });
+
+    
 
 // -------------------------------------------------
 // Tool 2: logCallOutcome
@@ -115,7 +195,10 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
     } else {
       routing_target = "general_queue";
       phone_number   = CONVOSO_GENERAL_NUMBER;
-    }
+    } else if (intent === "cancellation" || intent === "cancel plan") {
+      routing_target = "billing_queue";
+      } else if (intent === "customer service" || intent === "questions on current plan") {
+      routing_target = "billing_queue";
 
     res.json({
       routing_target,
