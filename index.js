@@ -1,17 +1,17 @@
-// server.js or index.js
-
 const express = require("express");
 const cors = require("cors");
+const fetch = require("node-fetch"); // for calling Convoso
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // === Convoso routing config (put your real numbers here) ===
 // These are the numbers your Convoso queues listen on.
-// You can put them in Railway env vars instead of hardcoding.
-const CONVOSO_SALES_NUMBER   = process.env.CONVOSO_SALES_NUMBER   || "+18887990190";
-const CONVOSO_BILLING_NUMBER = process.env.CONVOSO_BILLING_NUMBER || "+15550000002";
-const CONVOSO_GENERAL_NUMBER = process.env.CONVOSO_GENERAL_NUMBER || "+15550000003";
+// Ideally you set them as Railway env vars, with these as defaults:
+const CONVOSO_SALES_NUMBER     = process.env.CONVOSO_SALES_NUMBER     || "+18887990190";
+const CONVOSO_BILLING_NUMBER   = process.env.CONVOSO_BILLING_NUMBER   || "+15550000002";
+const CONVOSO_GENERAL_NUMBER   = process.env.CONVOSO_GENERAL_NUMBER   || "+15550000003";
+const CONVOSO_RETENTION_NUMBER = process.env.CONVOSO_RETENTION_NUMBER || "+15550000004";
 
 app.use(cors());
 app.use(express.json());
@@ -20,18 +20,14 @@ app.use(express.json());
 // Healthcheck
 // -------------------------------------------------
 app.get("/health", (req, res) => {
-  res.json({ ok: true, env: "ai-calling-backend" });
+  res.json({ ok: true, env: "ai-calling-backend", version: "v1-getLead-routing" });
 });
 
 // -------------------------------------------------
 // Tool 1: getLead
 //  - Called near the start of a call to fetch lead info
-//  - For now returns dummy data; later you can plug in CRM/DB
+//  - Uses Convoso lead search API by phone or lead_id
 // -------------------------------------------------
-app.post("/tools/getLead", async (req, res) => {
-  try {
-    const { phone, lead_id } = req.body || {};
-// Tool endpoint: getLead
 app.post("/tools/getLead", async (req, res) => {
   try {
     const { phone, lead_id } = req.body || {};
@@ -42,12 +38,11 @@ app.post("/tools/getLead", async (req, res) => {
 
     const authToken = process.env.CONVOSO_AUTH_TOKEN;
     if (!authToken) {
-      console.error("[getLead] Missing CONVOSO_API env var");
+      console.error("[getLead] Missing CONVOSO_AUTH_TOKEN env var");
       return res.status(500).json({ error: "Server misconfigured" });
     }
 
     // Build the Convoso search URL
-    // We only really need auth_token + phone_number (and maybe limit)
     const searchParams = new URLSearchParams({
       auth_token: authToken,
       lead_id: lead_id || "",
@@ -62,7 +57,7 @@ app.post("/tools/getLead", async (req, res) => {
       owner_id: "",
       first_name: "",
       last_name: "",
-      phone_number: phone || "",     
+      phone_number: phone || "",
       alt_phone_1: "",
       alt_phone_2: "",
       address1: "",
@@ -99,13 +94,15 @@ app.post("/tools/getLead", async (req, res) => {
     }
 
     const data = await response.json();
-    console.log("[getLead] Convoso response:", data);
+    console.log("[getLead] Convoso response (truncated):", JSON.stringify(data).slice(0, 500));
 
-    // Convoso's response shape may be something like:
-    // { data: [ { id, first_name, last_name, phone_number, state, ... } ], ... }
-    const convosoLead = Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null;
+    const convosoLead =
+      data && Array.isArray(data.data) && data.data.length > 0
+        ? data.data[0]
+        : null;
 
     if (!convosoLead) {
+      // No lead found for that phone/lead_id
       return res.json({ lead: null });
     }
 
@@ -116,10 +113,11 @@ app.post("/tools/getLead", async (req, res) => {
       last_name: convosoLead.last_name,
       phone: convosoLead.phone_number,
       state: convosoLead.state,
-      // add whatever else you need from convosoLead:
-      // product_interest: convosoLead.plan_sold, etc.
+      // Add more if needed:
+      // product_interest: convosoLead.plan_sold,
+      // member_id: convosoLead.member_id,
       tags: [],
-      raw: convosoLead // optional: keep full raw object
+      raw: convosoLead // optional, for debugging
     };
 
     return res.json({ lead });
@@ -130,12 +128,9 @@ app.post("/tools/getLead", async (req, res) => {
   }
 });
 
-    
-
 // -------------------------------------------------
 // Tool 2: logCallOutcome
 //  - Called near the end of call (or on transfer) to log outcome
-//  - For now just logs; later you can push into Convoso/CRM
 // -------------------------------------------------
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
@@ -176,27 +171,27 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 app.post("/tools/getRoutingTarget", async (req, res) => {
   try {
     const { intent, qualification_status } = req.body || {};
-    
+
     console.log("[getRoutingTarget] request:", req.body);
 
-    let routing_target = "general";
-    let phone_number = process.env.CONVOSO_GENERAL_NUMBER;
+    let routing_target = "general_queue";
+    let phone_number = CONVOSO_GENERAL_NUMBER;
 
     if (qualification_status === "qualified" && intent === "sales") {
       routing_target = "sales_queue";
-      phone_number = process.env.CONVOSO_SALES_NUMBER;
+      phone_number = CONVOSO_SALES_NUMBER;
 
     } else if (intent === "billing" || intent === "billing_question") {
       routing_target = "billing_queue";
-      phone_number = process.env.CONVOSO_BILLING_NUMBER;
+      phone_number = CONVOSO_BILLING_NUMBER;
 
     } else if (intent === "cancellation" || intent === "cancel plan") {
       routing_target = "retention_queue";
-      phone_number = process.env.CONVOSO_RETENTION_NUMBER;
+      phone_number = CONVOSO_RETENTION_NUMBER;
 
     } else {
       routing_target = "general_queue";
-      phone_number = process.env.CONVOSO_GENERAL_NUMBER;
+      phone_number = CONVOSO_GENERAL_NUMBER;
     }
 
     res.json({ routing_target, phone_number });
@@ -206,7 +201,6 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
     res.status(500).json({ error: "getRoutingTarget failed" });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`AI calling backend listening on port ${PORT}`);
