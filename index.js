@@ -4,6 +4,7 @@
 //  - Convoso webhooks
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (currently Vapi)
+const { startOutboundCall } = require("./voiceGateway"); 
 
 const express = require("express");
 const cors = require("cors");
@@ -80,7 +81,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     const lead = req.body || {};
     console.log("[Convoso webhook] new-lead payload:", lead);
 
-    // Try to get a phone number from common field names
     const customerNumber =
       lead.phone_number ||
       lead.phone ||
