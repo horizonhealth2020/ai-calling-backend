@@ -1,1 +1,1 @@
-const { startOutboundCall } = require("./voiceGateway");
+const fetch = require("node-fetch");
