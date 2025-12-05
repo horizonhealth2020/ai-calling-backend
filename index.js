@@ -383,6 +383,51 @@ app.post("/tools/scheduleCallback", async (req, res) => {
     res.status(500).json({ error: "scheduleCallback failed" });
   }
 });
+// ----- DEBUG: DIRECT TEST CALL TO MORGAN -----
+// Call this to test Morgan outbound without Convoso.
+app.post("/debug/test-call", async (req, res) => {
+  try {
+    const { phone } = req.body || {};
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing 'phone' in body. Example: { \"phone\": \"+13055551234\" }"
+      });
+    }
+
+    // Normalize like we do in the webhook
+    let customerNumber = String(phone).trim();
+    if (!customerNumber.startsWith("+")) {
+      customerNumber = "+1" + customerNumber.replace(/\D/g, "");
+    }
+
+    console.log("[DEBUG /debug/test-call] starting Morgan call to:", customerNumber);
+
+    const result = await startOutboundCall({
+      agentName: "Morgan",
+      toNumber: customerNumber,
+      metadata: { source: "debug-test-call" },
+      callName: "Morgan Debug Test",
+    });
+
+    console.log("[DEBUG /debug/test-call] Vapi result:", result);
+
+    return res.json({
+      success: true,
+      message: "Outbound call requested",
+      provider: result.provider,
+      call_id: result.callId,
+      raw: result.raw,
+    });
+  } catch (err) {
+    console.error("[DEBUG /debug/test-call] error:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Unknown error",
+    });
+  }
+});
 
 // ----- START SERVER -----
 app.listen(PORT, () => {
