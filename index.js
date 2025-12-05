@@ -1,6 +1,14 @@
+// index.js
+//
+// Main Express backend:
+//  - Convoso webhooks
+//  - Tools for Morgan & Riley
+//  - Uses voiceGateway for outbound calls (currently Vapi)
+
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch"); // for calling Convoso + Vapi
+const fetch = require("node-fetch"); // used for Convoso API calls
+const { startOutboundCall } = require("./voiceGateway");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,17 +22,11 @@ const CONVOSO_RETENTION_NUMBER = process.env.CONVOSO_RETENTION_NUMBER || "+15550
 // === Convoso auth ===
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 
-// === Vapi config ===
-const VAPI_API_KEY               = process.env.VAPI_API_KEY;
-const VAPI_MORGAN_ASSISTANT_ID   = process.env.VAPI_MORGAN_ASSISTANT_ID; // outbound qualifier
-const VAPI_RILEY_ASSISTANT_ID    = process.env.VAPI_RILEY_ASSISTANT_ID;  // customer service intake (optional)
-const VAPI_PHONE_NUMBER_ID       = process.env.VAPI_PHONE_NUMBER_ID;     // Vapi phoneNumberId Morgan dials from
-
 app.use(cors());
 app.use(express.json());
 
 // -------------------------------------------------
-// Helper: call Convoso lead update
+// Helper: updateConvosoLead
 //  - Generic helper used by Morgan + Riley tools
 // -------------------------------------------------
 async function updateConvosoLead(leadId, fields = {}) {
@@ -40,7 +42,7 @@ async function updateConvosoLead(leadId, fields = {}) {
     lead_id: String(leadId),
   });
 
-  // Pass through any additional fields (status, custom fields, notes, etc.)
+  // Attach additional fields
   Object.entries(fields).forEach(([key, value]) => {
     if (value === undefined || value === null) return;
     params.append(key, String(value));
@@ -62,69 +64,16 @@ async function updateConvosoLead(leadId, fields = {}) {
 }
 
 // -------------------------------------------------
-// Helper: call Vapi outbound /call for Morgan
-//  - Used when Convoso sends new lead → we trigger Morgan
-// -------------------------------------------------
-async function startVapiOutboundCallForMorgan({ customerNumber, metadata = {} }) {
-  if (!VAPI_API_KEY) {
-    throw new Error("Missing VAPI_API_KEY env var");
-  }
-  if (!VAPI_MORGAN_ASSISTANT_ID) {
-    throw new Error("Missing VAPI_MORGAN_ASSISTANT_ID env var");
-  }
-  if (!VAPI_PHONE_NUMBER_ID) {
-    throw new Error("Missing VAPI_PHONE_NUMBER_ID env var");
-  }
-  if (!customerNumber) {
-    throw new Error("customerNumber is required to start Vapi call");
-  }
-
-  const payload = {
-    assistantId: VAPI_MORGAN_ASSISTANT_ID,
-    phoneNumberId: VAPI_PHONE_NUMBER_ID,
-    customer: {
-      number: customerNumber,
-    },
-    metadata: {
-      source: "convoso",
-      ...metadata,
-    },
-    name: "Morgan Outbound Qualifier",
-  };
-
-  console.log("[Vapi] create call payload:", payload);
-
-  const response = await fetch("https://api.vapi.ai/call", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${VAPI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[Vapi] create call error:", response.status, text);
-    throw new Error("Vapi create call failed");
-  }
-
-  const data = await response.json();
-  console.log("[Vapi] create call response:", JSON.stringify(data).slice(0, 500));
-  return data;
-}
-
-// -------------------------------------------------
 // Healthcheck
 // -------------------------------------------------
 app.get("/health", (req, res) => {
-  res.json({ ok: true, env: "ai-calling-backend", version: "v2-morgan-riley" });
+  res.json({ ok: true, env: "ai-calling-backend", version: "v3-voice-gateway" });
 });
 
 // -------------------------------------------------
 // WEBHOOK: Convoso → Railway (new lead for Morgan)
 //  - Convoso sends lead data here
-//  - We trigger an outbound Vapi call using Morgan
+//  - We trigger an outbound call via voiceGateway (Morgan)
 // -------------------------------------------------
 app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
@@ -133,7 +82,11 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 
     // Try to get a phone number from common field names
     const customerNumber =
-      lead.phone_number || lead.phone || lead.phoneNumber || lead.Phone || lead.PHONE;
+      lead.phone_number ||
+      lead.phone ||
+      lead.phoneNumber ||
+      lead.Phone ||
+      lead.PHONE;
 
     if (!customerNumber) {
       return res.status(400).json({ error: "Missing phone number in Convoso payload" });
@@ -143,16 +96,20 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       convosoLeadId: lead.id || lead.lead_id,
       convosoListId: lead.list_id,
       convosoRaw: lead,
+      source: "convoso",
     };
 
-    const vapiCall = await startVapiOutboundCallForMorgan({
-      customerNumber,
+    const voiceResult = await startOutboundCall({
+      agentName: "Morgan",
+      toNumber: customerNumber,
       metadata,
+      callName: "Morgan Outbound Qualifier",
     });
 
     res.json({
       success: true,
-      vapi_call_id: vapiCall.id || null,
+      provider: voiceResult.provider,
+      call_id: voiceResult.callId,
     });
   } catch (err) {
     console.error("[Convoso webhook] error:", err);
@@ -268,7 +225,7 @@ app.post("/tools/logCallOutcome", async (req, res) => {
       disposition,           // free-text or enum
       notes,                 // summary from AI
       should_transfer_now,   // true/false
-      agent_name,            // "Morgan" | "Riley" | etc.
+      agent_name,            // "Morgan" | "Riley"
       convoso_update_fields, // optional: { fieldName: value, ... }
     } = req.body || {};
 
@@ -285,18 +242,14 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 
     let convosoResult = null;
 
-    // Push outcome into Convoso (if we have a lead_id)
     if (lead_id) {
       const updateFields = {
-        // These keys depend on how your Convoso fields are named.
-        // "status" is a standard Convoso field; notes/disposition may be custom.
         status: qualification_status || undefined,
         disposition: disposition || undefined,
         notes: notes || undefined,
         ...(convoso_update_fields || {}),
       };
 
-      // Remove undefined/empty fields to avoid clearing values unintentionally
       Object.keys(updateFields).forEach((k) => {
         if (
           updateFields[k] === undefined ||
@@ -346,23 +299,16 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
     const isQualified = qualification_status === "qualified";
     const isRiley = agent === "riley";
 
-    // Sales routing (Morgan only)
     if (isQualified && intent === "sales" && !isRiley) {
       routing_target = "sales_queue";
       phone_number = CONVOSO_SALES_NUMBER;
-    }
-    // Billing questions
-    else if (intent === "billing" || intent === "billing_question") {
+    } else if (intent === "billing" || intent === "billing_question") {
       routing_target = "billing_queue";
       phone_number = CONVOSO_BILLING_NUMBER;
-    }
-    // Retention / cancellations
-    else if (intent === "cancellation" || intent === "cancel plan" || intent === "retention") {
+    } else if (intent === "cancellation" || intent === "cancel plan" || intent === "retention") {
       routing_target = "retention_queue";
       phone_number = CONVOSO_RETENTION_NUMBER;
-    }
-    // Fallback
-    else {
+    } else {
       routing_target = "general_queue";
       phone_number = CONVOSO_GENERAL_NUMBER;
     }
@@ -381,7 +327,6 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
   }
 });
 
-// -------------------------------------------------
 // -------------------------------------------------
 // Tool 4: scheduleCallback (Riley)
 //  - Used when caller wants a specific callback time instead of transfer
@@ -416,8 +361,6 @@ app.post("/tools/scheduleCallback", async (req, res) => {
       convoso_update_fields,
     });
 
-    // Strategy: store callback time + notes in Convoso fields.
-    // Replace these keys with your actual Convoso custom fields.
     const updateFields = {
       callback_time: scheduled_time_iso,
       callback_timezone: timezone || "",
@@ -433,9 +376,6 @@ app.post("/tools/scheduleCallback", async (req, res) => {
       console.error("[scheduleCallback] Convoso update failed:", err);
     }
 
-    // If you later get the official "callbacks insert" URL from Convoso,
-    // you can call it here instead of (or in addition to) updateConvosoLead.
-
     res.json({
       success: true,
       action: "callback_scheduled",
@@ -447,4 +387,8 @@ app.post("/tools/scheduleCallback", async (req, res) => {
     console.error("[scheduleCallback] error:", err);
     res.status(500).json({ error: "scheduleCallback failed" });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`AI calling backend listening on port ${PORT}`);
 });
