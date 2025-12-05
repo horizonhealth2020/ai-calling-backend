@@ -1,9 +1,6 @@
 // voiceGateway.js
-//
-// Simple Vapi-only implementation of startOutboundCall.
-// Once this is stable, you can re-introduce Twilio/abstraction later.
 
-const fetch = require("node-fetch");
+// No node-fetch require – use global fetch in Node 18+
 
 // --- Vapi env vars ---
 const VAPI_API_KEY             = process.env.VAPI_API_KEY;
