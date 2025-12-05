@@ -4,7 +4,6 @@
 //  - Convoso webhooks
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (currently Vapi)
-const { startOutboundCall } = require("./voiceGateway"); 
 
 const express = require("express");
 const cors = require("cors");
