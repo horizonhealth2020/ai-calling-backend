@@ -1,46 +1,51 @@
 // index.js
 //
 // Main Express backend:
-//  - app.post("/webhooks/convoso/new-lead", async (req, res) => {
+app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
-    // Log the raw payload so you can see exactly what Convoso is sending
     console.log("[Convoso webhook] raw payload:", JSON.stringify(req.body, null, 2));
 
-    // Some Convoso setups may wrap data under objects like "lead" or "call_log".
-    const body = req.body || {};
-    const leadSection = body.lead || body.Lead || body; // fallback to root
-    const callLogSection = body.call_log || body.callLog || {};
+    let body = req.body || {};
 
-    // Try to pull phone number from multiple possible spots
-    const customerNumber =
-      leadSection.phone_number ||
+    // If Convoso sends { url: "...", params: "{...json...}" } like in the Test screen,
+    // parse body.params as JSON to get the actual lead fields.
+    if (body && typeof body.params === "string") {
+      try {
+        const parsedParams = JSON.parse(body.params);
+        console.log("[Convoso webhook] parsed params:", parsedParams);
+        body = parsedParams;
+      } catch (e) {
+        console.error("[Convoso webhook] Failed to parse body.params JSON:", e);
+      }
+    }
+
+    // At this point, body should look like:
+    // { first_name: "john", last_name: "test", phone_number: "3055027658", list_id: 29689, state: "" }
+
+    const customerNumberRaw =
       body.phone_number ||
-      callLogSection.phone_number ||
-      body.inbound_number ||
-      body.caller_id ||
-      body.callerid ||
-      leadSection.phone ||
-      leadSection.phoneNumber ||
-      leadSection.Phone ||
-      leadSection.PHONE;
+      body.phone ||
+      body.phoneNumber ||
+      body.Phone ||
+      body.PHONE;
 
-    if (!customerNumber) {
-      console.error("[Convoso webhook] Missing phone number. Payload was:", body);
-
-      // Return 200 so Convoso doesn't treat this as a hard failure, but include info
+    if (!customerNumberRaw) {
+      console.error("[Convoso webhook] Missing phone number. Body was:", body);
       return res.status(200).json({
         success: false,
         error: "Missing phone number in Convoso payload",
       });
     }
 
+    // Normalize phone to E.164-ish: if it doesn't start with "+", assume US +1
+    let customerNumber = String(customerNumberRaw).trim();
+    if (!customerNumber.startsWith("+")) {
+      customerNumber = "+1" + customerNumber.replace(/\D/g, "");
+    }
+
     const metadata = {
-      convosoLeadId:
-        leadSection.lead_id ||
-        body.lead_id ||
-        leadSection.id ||
-        body.id,
-      convosoListId: leadSection.list_id || body.list_id,
+      convosoLeadId: body.lead_id || body.id || null,
+      convosoListId: body.list_id || null,
       convosoRaw: body,
       source: "convoso",
     };
@@ -52,7 +57,7 @@
       callName: "Morgan Outbound Qualifier",
     });
 
-    res.json({
+    return res.json({
       success: true,
       provider: voiceResult.provider,
       call_id: voiceResult.callId,
@@ -62,6 +67,7 @@
     res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
   }
 });
+
 
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (currently Vapi)
