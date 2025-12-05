@@ -1,7 +1,68 @@
 // index.js
 //
 // Main Express backend:
-//  - Convoso webhooks
+//  - app.post("/webhooks/convoso/new-lead", async (req, res) => {
+  try {
+    // Log the raw payload so you can see exactly what Convoso is sending
+    console.log("[Convoso webhook] raw payload:", JSON.stringify(req.body, null, 2));
+
+    // Some Convoso setups may wrap data under objects like "lead" or "call_log".
+    const body = req.body || {};
+    const leadSection = body.lead || body.Lead || body; // fallback to root
+    const callLogSection = body.call_log || body.callLog || {};
+
+    // Try to pull phone number from multiple possible spots
+    const customerNumber =
+      leadSection.phone_number ||
+      body.phone_number ||
+      callLogSection.phone_number ||
+      body.inbound_number ||
+      body.caller_id ||
+      body.callerid ||
+      leadSection.phone ||
+      leadSection.phoneNumber ||
+      leadSection.Phone ||
+      leadSection.PHONE;
+
+    if (!customerNumber) {
+      console.error("[Convoso webhook] Missing phone number. Payload was:", body);
+
+      // Return 200 so Convoso doesn't treat this as a hard failure, but include info
+      return res.status(200).json({
+        success: false,
+        error: "Missing phone number in Convoso payload",
+      });
+    }
+
+    const metadata = {
+      convosoLeadId:
+        leadSection.lead_id ||
+        body.lead_id ||
+        leadSection.id ||
+        body.id,
+      convosoListId: leadSection.list_id || body.list_id,
+      convosoRaw: body,
+      source: "convoso",
+    };
+
+    const voiceResult = await startOutboundCall({
+      agentName: "Morgan",
+      toNumber: customerNumber,
+      metadata,
+      callName: "Morgan Outbound Qualifier",
+    });
+
+    res.json({
+      success: true,
+      provider: voiceResult.provider,
+      call_id: voiceResult.callId,
+    });
+  } catch (err) {
+    console.error("[Convoso webhook] error:", err);
+    res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
+  }
+});
+
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (currently Vapi)
 
