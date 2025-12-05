@@ -3,7 +3,7 @@
 // Main Express backend:
 app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
-    console.log("[Convoso webhook] raw payload:", JSON.stringify(req.body, null, 2));
+    console.log("[Convoso webhook] raw payload:", JSON.stringify(req.body, null, 2)); 
 
     let body = req.body || {};
 
