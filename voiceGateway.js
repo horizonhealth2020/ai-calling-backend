@@ -1,14 +1,11 @@
 // voiceGateway.js
 
-// No node-fetch require – use global fetch in Node 18+
-
 // --- Vapi env vars ---
 const VAPI_API_KEY             = process.env.VAPI_API_KEY;
 const VAPI_MORGAN_ASSISTANT_ID = process.env.VAPI_MORGAN_ASSISTANT_ID;
 const VAPI_RILEY_ASSISTANT_ID  = process.env.VAPI_RILEY_ASSISTANT_ID || null;
 
 // Support one or many phoneNumberIds for Vapi, comma-separated
-// e.g. VAPI_PHONE_NUMBER_IDS=pn_123,pn_456
 let vapiPhoneNumberIds = [];
 if (process.env.VAPI_PHONE_NUMBER_IDS) {
   vapiPhoneNumberIds = process.env.VAPI_PHONE_NUMBER_IDS
@@ -43,17 +40,29 @@ function getAssistantIdForAgent(agentName, explicitAssistantId) {
   return null;
 }
 
+// 🔧 Helper to normalize any phone input to E.164 (US default)
+function normalizeToE164(raw) {
+  if (!raw) return null;
+
+  let s = String(raw).trim();
+
+  // Remove everything except digits and +
+  s = s.replace(/[^\d+]/g, "");
+
+  // If it starts with + and has at least 8–10 digits, assume it's already E.164-ish
+  if (s.startsWith("+")) {
+    return s;
+  }
+
+  // Otherwise assume US and prepend +1
+  const digitsOnly = s.replace(/\D/g, "");
+  if (!digitsOnly) return null;
+
+  return "+1" + digitsOnly;
+}
+
 /**
  * PUBLIC: startOutboundCall
- *
- * @param {Object} args
- * @param {string} args.agentName - "Morgan" | "Riley" | etc.
- * @param {string} [args.assistantId] - Optional override assistant id
- * @param {string} args.toNumber - Customer phone number in E.164, e.g. "+13055551234"
- * @param {Object} [args.metadata] - Extra metadata object
- * @param {string} [args.callName] - Optional human label for the call
- *
- * @returns {Promise<{ provider: string, callId: string | null, raw: any }>}
  */
 async function startOutboundCall({
   agentName,
@@ -70,6 +79,12 @@ async function startOutboundCall({
     throw new Error("startOutboundCall requires toNumber");
   }
 
+  // ⬇️ Normalize here no matter what the caller passes
+  const customerNumber = normalizeToE164(toNumber);
+  if (!customerNumber) {
+    throw new Error(`Invalid toNumber: "${toNumber}" could not be normalized to E.164`);
+  }
+
   const resolvedAssistantId = getAssistantIdForAgent(agentName, assistantId);
   if (!resolvedAssistantId) {
     throw new Error(
@@ -83,7 +98,7 @@ async function startOutboundCall({
     assistantId: resolvedAssistantId,
     phoneNumberId,
     customer: {
-      number: toNumber,
+      number: customerNumber,
     },
     metadata,
     name: callName || `${agentName || "Agent"} Outbound Call`,
@@ -116,7 +131,6 @@ async function startOutboundCall({
   };
 }
 
-// IMPORTANT: this is what index.js imports
 module.exports = {
   startOutboundCall,
 };
