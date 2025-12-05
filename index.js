@@ -7,8 +7,9 @@
  
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch");
+// No node-fetch require needed if using Node 18+ (Railway default)
 const { startOutboundCall } = require("./voiceGateway");
+
 
 // ----- BASIC SETUP -----
 const app = express();
