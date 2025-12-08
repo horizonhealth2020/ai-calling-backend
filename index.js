@@ -13,10 +13,16 @@ const { startOutboundCall } = require("./voiceGateway");
 
 // ----- BASIC SETUP -----
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 app.use(cors());
+
+// Parse JSON (for your own test calls, etc.)
 app.use(express.json());
+
+// Parse Convoso-style form posts (application/x-www-form-urlencoded)
+app.use(express.urlencoded({ extended: true }));
+
 
 // ----- CONVOSO CONFIG -----
 const CONVOSO_SALES_NUMBER     = process.env.CONVOSO_SALES_NUMBER     || "+18887990190";
