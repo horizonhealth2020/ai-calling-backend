@@ -5,6 +5,7 @@
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (Vapi)
 
+
 const express = require("express");
 const cors = require("cors");
 const { startOutboundCall } = require("./voiceGateway");
@@ -72,9 +73,7 @@ app.get("/health", (req, res) => {
 // ----- WEBHOOK: CONVOSO → MORGAN OUTBOUND -----
 app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
-    console.log("[Convoso webhook] headers:", req.headers);
-    console.log("[Convoso webhook] raw body:", req.body);
-
+  
     let body = req.body || {};
 
     // ------------------------------
@@ -95,7 +94,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       if (onlyKey.trim().startsWith("{")) {
         try {
           const parsed = JSON.parse(onlyKey);
-          console.log("[Convoso webhook] parsed lone JSON key:", parsed);
+    
           body = parsed;
         } catch (e) {
           console.error("[Convoso webhook] failed to parse lone JSON key:", e);
