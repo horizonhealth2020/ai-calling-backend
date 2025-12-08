@@ -417,7 +417,7 @@ app.post("/tools/logCallOutcome", async (req, res) => {
     });
   } catch (err) {
     console.error("[logCallOutcome] error:", err);
-    res.status(500).json({ error: "logCallOutcome failed" });
+    res.status(500).json({ error: "logCallOutcome failed" }); 
   }
 });
 
