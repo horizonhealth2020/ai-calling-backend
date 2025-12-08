@@ -180,3 +180,63 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         error: "No lead_id (and could not resolve from phone)",
       });
     }
+
+    // Get existing notes
+    const existing = await fetchConvosoLeadById(lead_id);
+    const pastNotes = existing?.notes?.trim() || "";
+
+    // Append logic
+    let finalNotes = notes?.trim() || "";
+    if (pastNotes) {
+      finalNotes = `${pastNotes}\n\n---\n${finalNotes}`;
+    }
+
+    const updateFields = {
+      status: qualification_status || undefined,
+      disposition: disposition || undefined,
+      notes: finalNotes,
+      ...(convoso_update_fields || {}),
+    };
+
+    // Remove empty keys
+    Object.keys(updateFields).forEach((k) => {
+      if (!updateFields[k]) delete updateFields[k];
+    });
+
+    const convoso_result = await updateConvosoLead(lead_id, updateFields);
+
+    res.json({
+      success: true,
+      convoso_result,
+      should_transfer_now: !!should_transfer_now,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "logCallOutcome failed" });
+  }
+});
+
+
+// ---------------------------
+// TOOL: getRoutingTarget
+// ---------------------------
+app.post("/tools/getRoutingTarget", (req, res) => {
+  const { intent, qualification_status, agent_name } = req.body;
+  const agent = (agent_name || "").toLowerCase();
+
+  let routing_target = "general_queue";
+  let phone_number = CONVOSO_GENERAL_NUMBER;
+
+  if (qualification_status === "qualified" && intent === "sales" && agent !== "riley") {
+    routing_target = "sales_queue";
+    phone_number = CONVOSO_SALES_NUMBER;
+  }
+
+  res.json({ routing_target, phone_number });
+});
+
+
+// ---------------------------
+// START SERVER
+// ---------------------------
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
