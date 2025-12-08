@@ -291,6 +291,8 @@ app.post("/tools/getLead", async (req, res) => {
     res.status(500).json({ error: "getLead failed" });
   }
 });
+async function fetchConvosoLeadById(leadId) { ... }
+async function fetchConvosoLeadByPhone(phone) { ... }
 
 // ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
