@@ -292,14 +292,9 @@ app.post("/tools/getLead", async (req, res) => {
 });
 
 // ----- TOOL: logCallOutcome -----
+// ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
-    // 🔍 Dump exactly what Vapi sent
-    console.log(
-      "[logCallOutcome] FULL BODY:",
-      JSON.stringify(req.body, null, 2)
-    );
-
     const {
       call_session_id,
       lead_id,
@@ -311,29 +306,41 @@ app.post("/tools/logCallOutcome", async (req, res) => {
       convoso_update_fields,
     } = req.body || {};
 
-    console.log("[logCallOutcome] parsed fields:", {
-      call_session_id,
-      lead_id,
-      qualification_status,
-      disposition,
-      should_transfer_now,
-      agent_name,
-      has_convoso_update_fields: !!convoso_update_fields,
-      timestamp: new Date().toISOString(),
-    });
-
     let convosoResult = null;
 
+    // Must have a lead_id to update Convoso
     if (lead_id) {
-      // Build fields to push into Convoso
       const updateFields = {
         status: qualification_status || undefined,
         disposition: disposition || undefined,
-        notes: notes || undefined,
-        ...(convoso_update_fields || {}),
+        ...(convoso_update_fields || {}), // additional/update fields
       };
 
-      // Strip empty/undefined keys
+      // ---- APPEND NOTES LOGIC ----
+      if (notes && notes.trim()) {
+        try {
+          // Fetch existing lead to get current notes
+          const existingLead = await fetchConvosoLeadById(lead_id);
+
+          const existingNotes =
+            existingLead && typeof existingLead.notes === "string"
+              ? existingLead.notes.trim()
+              : "";
+
+          // If old notes exist → append new notes
+          if (existingNotes) {
+            updateFields.notes = `${existingNotes}\n\n---\n${notes.trim()}`;
+          } else {
+            // If no old notes → just use new notes
+            updateFields.notes = notes.trim();
+          }
+        } catch (err) {
+          console.error("[logCallOutcome] Failed to fetch existing notes:", err);
+          updateFields.notes = notes.trim(); // fail-safe fallback
+        }
+      }
+
+      // Remove any empty fields
       Object.keys(updateFields).forEach((k) => {
         if (
           updateFields[k] === undefined ||
@@ -344,30 +351,25 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         }
       });
 
+      // Send updates to Convoso
       if (Object.keys(updateFields).length > 0) {
         try {
           convosoResult = await updateConvosoLead(lead_id, updateFields);
         } catch (err) {
           console.error("[logCallOutcome] Convoso update failed:", err);
         }
-      } else {
-        console.log(
-          "[logCallOutcome] no non-empty updateFields; skipping Convoso update"
-        );
       }
     } else {
-      console.warn(
-        "[logCallOutcome] missing lead_id – Convoso will NOT be updated"
-      );
+      console.warn("[logCallOutcome] Missing lead_id – cannot update Convoso");
     }
 
-    res.json({
+    return res.json({
       success: true,
       convoso_result: convosoResult,
       should_transfer_now: !!should_transfer_now,
     });
   } catch (err) {
-    console.error("[logCallOutcome] error", err);
+    console.error("[logCallOutcome] error:", err);
     res.status(500).json({ error: "logCallOutcome failed" });
   }
 });
