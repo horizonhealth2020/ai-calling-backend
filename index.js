@@ -17,17 +17,17 @@ async function fetchConvosoLeadById(leadId) {
   const searchParams = new URLSearchParams({
     auth_token: CONVOSO_AUTH_TOKEN,
     lead_id: String(leadId),
-    // keep these minimal; Convoso will ignore extras we don't send
     offset: "0",
     limit: "1",
   });
 
   const url = `https://api.convoso.com/v1/leads/search?${searchParams.toString()}`;
   const response = await fetch(url);
+
   if (!response.ok) {
     const text = await response.text();
     console.error("[fetchConvosoLeadById] Convoso error:", response.status, text);
-    throw new Error("Convoso lead fetch failed");
+    throw new Error("Convoso lead fetch by id failed");
   }
 
   const data = await response.json();
@@ -37,10 +37,38 @@ async function fetchConvosoLeadById(leadId) {
   return convosoLead;
 }
 
+// ----- HELPER: FETCH CONVOSO LEAD BY PHONE -----
+async function fetchConvosoLeadByPhone(phone) {
+  if (!CONVOSO_AUTH_TOKEN) {
+    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+  }
+  if (!phone) {
+    throw new Error("phone is required for fetchConvosoLeadByPhone");
+  }
 
-const express = require("express");
-const cors = require("cors");
-const { startOutboundCall } = require("./voiceGateway");
+  const searchParams = new URLSearchParams({
+    auth_token: CONVOSO_AUTH_TOKEN,
+    phone_number: String(phone),
+    offset: "0",
+    limit: "1",
+  });
+
+  const url = `https://api.convoso.com/v1/leads/search?${searchParams.toString()}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[fetchConvosoLeadByPhone] Convoso error:", response.status, text);
+    throw new Error("Convoso lead fetch by phone failed");
+  }
+
+  const data = await response.json();
+  const convosoLead =
+    data && Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null;
+
+  return convosoLead;
+}
+
 
 // ----- BASIC SETUP -----
 const app = express();
@@ -291,8 +319,6 @@ app.post("/tools/getLead", async (req, res) => {
     res.status(500).json({ error: "getLead failed" });
   }
 });
-async function fetchConvosoLeadById(leadId) { ... }
-async function fetchConvosoLeadByPhone(phone) { ... }
 
 // ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
