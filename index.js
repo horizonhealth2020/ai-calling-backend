@@ -4,6 +4,37 @@
 //  - Convoso webhooks
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (Vapi)
+// ----- HELPER: FETCH CONVOSO LEAD BY ID -----
+async function fetchConvosoLeadById(leadId) {
+  if (!CONVOSO_AUTH_TOKEN) {
+    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+  }
+  if (!leadId) {
+    throw new Error("leadId is required for fetchConvosoLeadById");
+  }
+
+  const searchParams = new URLSearchParams({
+    auth_token: CONVOSO_AUTH_TOKEN,
+    lead_id: String(leadId),
+    // keep these minimal; Convoso will ignore extras we don't send
+    offset: "0",
+    limit: "1",
+  });
+
+  const url = `https://api.convoso.com/v1/leads/search?${searchParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[fetchConvosoLeadById] Convoso error:", response.status, text);
+    throw new Error("Convoso lead fetch failed");
+  }
+
+  const data = await response.json();
+  const convosoLead =
+    data && Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null;
+
+  return convosoLead;
+}
 
 
 const express = require("express");
