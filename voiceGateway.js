@@ -104,7 +104,6 @@ async function startOutboundCall({
     name: callName || `${agentName || "Agent"} Outbound Call`,
   };
 
-  console.log("[voiceGateway] Vapi create call payload:", payload);
 
   const response = await fetch("https://api.vapi.ai/call", {
     method: "POST",
