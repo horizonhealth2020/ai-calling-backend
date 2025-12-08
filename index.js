@@ -1,27 +1,26 @@
 // index.js
-//
+
 // Main Express backend:
 //  - Convoso webhooks
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (Vapi)
- 
+
 const express = require("express");
 const cors = require("cors");
-// No node-fetch require needed if using Node 18+ (Railway default)
 const { startOutboundCall } = require("./voiceGateway");
-
 
 // ----- BASIC SETUP -----
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// Parse JSON (for your own test calls, etc.)
+// Convoso sends application/x-www-form-urlencoded, so we need this:
+app.use(express.urlencoded({ extended: true }));
+
+// For JSON payloads (your own tests, etc.)
 app.use(express.json());
 
-// Parse Convoso-style form posts (application/x-www-form-urlencoded)
-app.use(express.urlencoded({ extended: true }));
 
 
 // ----- CONVOSO CONFIG -----
@@ -73,12 +72,13 @@ app.get("/health", (req, res) => {
 // ----- WEBHOOK: CONVOSO → MORGAN OUTBOUND -----
 app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
-    console.log("[Convoso webhook] raw payload:", JSON.stringify(req.body, null, 2));
+    console.log("[Convoso webhook] headers:", req.headers);
+    console.log("[Convoso webhook] raw body:", req.body);
 
     let body = req.body || {};
 
     // If Convoso sends { url: "...", params: "{...}" }, parse params as JSON
-    if (body && typeof body.params === "string") {
+    if (typeof body.params === "string") {
       try {
         const parsedParams = JSON.parse(body.params);
         console.log("[Convoso webhook] parsed params:", parsedParams);
@@ -88,8 +88,9 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       }
     }
 
-    // At this point body should look like:
+    // Now body should look like:
     // { first_name, last_name, phone_number, list_id, state, lead_id? }
+
     const customerNumberRaw =
       body.phone_number ||
       body.phone ||
@@ -105,10 +106,11 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       });
     }
 
-    // Normalize to E.164: assume US if no +
+    // Normalize number: strip non-digits, then prepend +1 if no +
     let customerNumber = String(customerNumberRaw).trim();
+    customerNumber = customerNumber.replace(/\D/g, ""); // 305-555-1234 -> 3055551234
     if (!customerNumber.startsWith("+")) {
-      customerNumber = "+1" + customerNumber.replace(/\D/g, "");
+      customerNumber = "+1" + customerNumber;
     }
 
     const metadata = {
@@ -437,5 +439,6 @@ app.post("/debug/test-call", async (req, res) => {
 
 // ----- START SERVER -----
 app.listen(PORT, () => {
-  console.log(`AI calling backend listening on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
+
