@@ -4,6 +4,7 @@
 //  - Convoso webhooks
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (Vapi)
+
 // ----- HELPER: FETCH CONVOSO LEAD BY ID -----
 async function fetchConvosoLeadById(leadId) {
   if (!CONVOSO_AUTH_TOKEN) {
@@ -292,12 +293,12 @@ app.post("/tools/getLead", async (req, res) => {
 });
 
 // ----- TOOL: logCallOutcome -----
-// ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
-    const {
+    let {
       call_session_id,
       lead_id,
+      phone,
       qualification_status,
       disposition,
       notes,
@@ -308,12 +309,28 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 
     let convosoResult = null;
 
-    // Must have a lead_id to update Convoso
+    // If no lead_id, try to resolve it from phone
+    if (!lead_id && phone) {
+      try {
+        const lead = await fetchConvosoLeadByPhone(phone);
+        if (lead && lead.id) {
+          lead_id = String(lead.id);
+        } else {
+          console.warn(
+            "[logCallOutcome] No Convoso lead found for phone; cannot update Convoso"
+          );
+        }
+      } catch (err) {
+        console.error("[logCallOutcome] Failed to resolve lead_id from phone:", err);
+      }
+    }
+
+    // Must have a lead_id at this point to update Convoso
     if (lead_id) {
       const updateFields = {
         status: qualification_status || undefined,
         disposition: disposition || undefined,
-        ...(convoso_update_fields || {}), // additional/update fields
+        ...(convoso_update_fields || {}),
       };
 
       // ---- APPEND NOTES LOGIC ----
@@ -336,7 +353,7 @@ app.post("/tools/logCallOutcome", async (req, res) => {
           }
         } catch (err) {
           console.error("[logCallOutcome] Failed to fetch existing notes:", err);
-          updateFields.notes = notes.trim(); // fail-safe fallback
+          updateFields.notes = notes.trim(); // fallback
         }
       }
 
@@ -360,7 +377,9 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         }
       }
     } else {
-      console.warn("[logCallOutcome] Missing lead_id – cannot update Convoso");
+      console.warn(
+        "[logCallOutcome] Missing lead_id and could not resolve from phone – cannot update Convoso"
+      );
     }
 
     return res.json({
