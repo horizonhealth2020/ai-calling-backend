@@ -264,6 +264,12 @@ app.post("/tools/getLead", async (req, res) => {
 // ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
+    // 🔍 Dump exactly what Vapi sent
+    console.log(
+      "[logCallOutcome] FULL BODY:",
+      JSON.stringify(req.body, null, 2)
+    );
+
     const {
       call_session_id,
       lead_id,
@@ -275,20 +281,21 @@ app.post("/tools/logCallOutcome", async (req, res) => {
       convoso_update_fields,
     } = req.body || {};
 
-    console.log("[logCallOutcome] request:", {
+    console.log("[logCallOutcome] parsed fields:", {
       call_session_id,
       lead_id,
       qualification_status,
       disposition,
       should_transfer_now,
       agent_name,
-      convoso_update_fields,
+      has_convoso_update_fields: !!convoso_update_fields,
       timestamp: new Date().toISOString(),
     });
 
     let convosoResult = null;
 
     if (lead_id) {
+      // Build fields to push into Convoso
       const updateFields = {
         status: qualification_status || undefined,
         disposition: disposition || undefined,
@@ -296,6 +303,7 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         ...(convoso_update_fields || {}),
       };
 
+      // Strip empty/undefined keys
       Object.keys(updateFields).forEach((k) => {
         if (
           updateFields[k] === undefined ||
@@ -312,7 +320,15 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         } catch (err) {
           console.error("[logCallOutcome] Convoso update failed:", err);
         }
+      } else {
+        console.log(
+          "[logCallOutcome] no non-empty updateFields; skipping Convoso update"
+        );
       }
+    } else {
+      console.warn(
+        "[logCallOutcome] missing lead_id – Convoso will NOT be updated"
+      );
     }
 
     res.json({
