@@ -5,6 +5,62 @@
 //  - Tools for Morgan & Riley
 //  - Uses voiceGateway for outbound calls (Vapi)
 
+const express = require("express");
+const cors = require("cors");
+const fetch = require("node-fetch");
+const { startOutboundCall } = require("./voiceGateway");
+
+// ----- BASIC SETUP -----
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+
+// Convoso sends application/x-www-form-urlencoded, so we need this:
+app.use(express.urlencoded({ extended: true }));
+
+// For JSON payloads (your own tests, tools, etc.)
+app.use(express.json());
+
+// ----- CONVOSO CONFIG -----
+const CONVOSO_SALES_NUMBER     = process.env.CONVOSO_SALES_NUMBER     || "+18887990191";
+const CONVOSO_BILLING_NUMBER   = process.env.CONVOSO_BILLING_NUMBER   || "+15550000002";
+const CONVOSO_GENERAL_NUMBER   = process.env.CONVOSO_GENERAL_NUMBER   || "+15550000003";
+const CONVOSO_RETENTION_NUMBER = process.env.CONVOSO_RETENTION_NUMBER || "+15550000004";
+const CONVOSO_AUTH_TOKEN       = process.env.CONVOSO_AUTH_TOKEN;
+
+// ----- HELPER: UPDATE CONVOSO LEAD -----
+async function updateConvosoLead(leadId, fields = {}) {
+  if (!CONVOSO_AUTH_TOKEN) {
+    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+  }
+  if (!leadId) {
+    throw new Error("leadId is required for updateConvosoLead");
+  }
+
+  const params = new URLSearchParams({
+    auth_token: CONVOSO_AUTH_TOKEN,
+    lead_id: String(leadId),
+  });
+
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    params.append(key, String(value));
+  });
+
+  const url = `https://api.convoso.com/v1/leads/update?${params.toString()}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[updateConvosoLead] Convoso error:", response.status, text);
+    throw new Error("Convoso lead update failed");
+  }
+
+  const data = await response.json();
+  return data;
+}
+
 // ----- HELPER: FETCH CONVOSO LEAD BY ID -----
 async function fetchConvosoLeadById(leadId) {
   if (!CONVOSO_AUTH_TOKEN) {
@@ -69,62 +125,6 @@ async function fetchConvosoLeadByPhone(phone) {
   return convosoLead;
 }
 
-
-// ----- BASIC SETUP -----
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(cors());
-
-// Convoso sends application/x-www-form-urlencoded, so we need this:
-app.use(express.urlencoded({ extended: true }));
-
-// For JSON payloads (your own tests, etc.)
-app.use(express.json());
-
-
-
-// ----- CONVOSO CONFIG -----
-const CONVOSO_SALES_NUMBER     = process.env.CONVOSO_SALES_NUMBER     || "+18887990191";
-const CONVOSO_BILLING_NUMBER   = process.env.CONVOSO_BILLING_NUMBER   || "+15550000002";
-const CONVOSO_GENERAL_NUMBER   = process.env.CONVOSO_GENERAL_NUMBER   || "+15550000003";
-const CONVOSO_RETENTION_NUMBER = process.env.CONVOSO_RETENTION_NUMBER || "+15550000004";
-const CONVOSO_AUTH_TOKEN       = process.env.CONVOSO_AUTH_TOKEN;
-
-// ----- HELPER: UPDATE CONVOSO LEAD -----
-async function updateConvosoLead(leadId, fields = {}) {
-  if (!CONVOSO_AUTH_TOKEN) {
-    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
-  }
-  if (!leadId) {
-    throw new Error("leadId is required for updateConvosoLead");
-  }
-
-  const params = new URLSearchParams({
-    auth_token: CONVOSO_AUTH_TOKEN,
-    lead_id: String(leadId),
-  });
-
-  Object.entries(fields).forEach(([key, value]) => {
-    if (value === undefined || value === null) return;
-    params.append(key, String(value));
-  });
-
-  const url = `https://api.convoso.com/v1/leads/update?${params.toString()}`;
-  console.log("[updateConvosoLead] URL:", url);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[updateConvosoLead] Convoso error:", response.status, text);
-    throw new Error("Convoso lead update failed");
-  }
-
-  const data = await response.json();
-  console.log("[updateConvosoLead] response:", JSON.stringify(data).slice(0, 500));
-  return data;
-}
-
 // ----- HEALTHCHECK -----
 app.get("/health", (req, res) => {
   res.json({ ok: true, env: "ai-calling-backend", version: "v3-voice-gateway" });
@@ -133,19 +133,11 @@ app.get("/health", (req, res) => {
 // ----- WEBHOOK: CONVOSO → MORGAN OUTBOUND -----
 app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
-  
     let body = req.body || {};
 
-    // ------------------------------
-    // CASE A: Proper JSON (content-type: application/json)
-    // body will already be: { first_name, last_name, phone_number, ... }
-    // Nothing to do here.
-    // ------------------------------
+    // CASE A: proper JSON – nothing to do
 
-    // ------------------------------
     // CASE B: x-www-form-urlencoded with a single JSON key
-    // Looks like: { '{"first_name":"john","phone_number":"305..."}': '' }
-    // ------------------------------
     if (
       (!body.phone && !body.phone_number && !body.phoneNumber) &&
       Object.keys(body).length === 1
@@ -154,7 +146,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       if (onlyKey.trim().startsWith("{")) {
         try {
           const parsed = JSON.parse(onlyKey);
-    
           body = parsed;
         } catch (e) {
           console.error("[Convoso webhook] failed to parse lone JSON key:", e);
@@ -162,25 +153,18 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       }
     }
 
-    // ------------------------------
-    // (Optional) CASE C: url/params style
-    // If Convoso ever sends { url: "...", params: "{...}" }
-    // ------------------------------
+    // CASE C: url/params style (url + params JSON)
     if (
       (!body.phone && !body.phone_number && !body.phoneNumber) &&
       typeof body.params === "string"
     ) {
       try {
         const parsedParams = JSON.parse(body.params.trim());
-        console.log("[Convoso webhook] parsed body.params JSON:", parsedParams);
         body = parsedParams;
       } catch (e) {
         console.error("[Convoso webhook] failed to parse body.params JSON:", e);
       }
     }
-
-    // At this point, body SHOULD look like:
-    // { first_name, last_name, phone_number, list_id, state, lead_id? }
 
     const customerNumberRaw =
       body.phone_number ||
@@ -199,7 +183,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 
     // Normalize to E.164 (US default)
     let customerNumber = String(customerNumberRaw).trim();
-    customerNumber = customerNumber.replace(/\D/g, ""); // 305-502-7658 -> 3055027658
+    customerNumber = customerNumber.replace(/\D/g, "");
     if (!customerNumber.startsWith("+")) {
       customerNumber = "+1" + customerNumber;
     }
@@ -209,6 +193,10 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       convosoListId: body.list_id || null,
       convosoRaw: body,
       source: "convoso",
+      first_name: body.first_name || "",
+      last_name: body.last_name || "",
+      phone_number: body.phone_number || customerNumberRaw,
+      state: body.state || "",
     };
 
     const voiceResult = await startOutboundCall({
@@ -228,7 +216,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
   }
 });
-
 
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
@@ -285,16 +272,14 @@ app.post("/tools/getLead", async (req, res) => {
     });
 
     const url = `https://api.convoso.com/v1/leads/search?${searchParams.toString()}`;
-    console.log("[getLead] Convoso URL:", url);
-
     const response = await fetch(url);
+
     if (!response.ok) {
       console.error("[getLead] Convoso error status:", response.status);
       return res.status(502).json({ error: "Convoso search failed" });
     }
 
     const data = await response.json();
-    console.log("[getLead] Convoso response (truncated):", JSON.stringify(data).slice(0, 500));
 
     const convosoLead =
       data && Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null;
@@ -309,6 +294,7 @@ app.post("/tools/getLead", async (req, res) => {
       last_name: convosoLead.last_name,
       phone: convosoLead.phone_number,
       state: convosoLead.state,
+      notes: convosoLead.notes || "",
       tags: [],
       raw: convosoLead,
     };
@@ -361,10 +347,9 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         ...(convoso_update_fields || {}),
       };
 
-      // ---- APPEND NOTES LOGIC ----
+      // Append notes to existing notes
       if (notes && notes.trim()) {
         try {
-          // Fetch existing lead to get current notes
           const existingLead = await fetchConvosoLeadById(lead_id);
 
           const existingNotes =
@@ -372,16 +357,14 @@ app.post("/tools/logCallOutcome", async (req, res) => {
               ? existingLead.notes.trim()
               : "";
 
-          // If old notes exist → append new notes
           if (existingNotes) {
             updateFields.notes = `${existingNotes}\n\n---\n${notes.trim()}`;
           } else {
-            // If no old notes → just use new notes
             updateFields.notes = notes.trim();
           }
         } catch (err) {
           console.error("[logCallOutcome] Failed to fetch existing notes:", err);
-          updateFields.notes = notes.trim(); // fallback
+          updateFields.notes = notes.trim();
         }
       }
 
@@ -396,7 +379,6 @@ app.post("/tools/logCallOutcome", async (req, res) => {
         }
       });
 
-      // Send updates to Convoso
       if (Object.keys(updateFields).length > 0) {
         try {
           convosoResult = await updateConvosoLead(lead_id, updateFields);
@@ -417,7 +399,7 @@ app.post("/tools/logCallOutcome", async (req, res) => {
     });
   } catch (err) {
     console.error("[logCallOutcome] error:", err);
-    res.status(500).json({ error: "logCallOutcome failed" }); 
+    res.status(500).json({ error: "logCallOutcome failed" });
   }
 });
 
@@ -425,7 +407,6 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 app.post("/tools/getRoutingTarget", async (req, res) => {
   try {
     const { intent, qualification_status, agent_name } = req.body || {};
-    console.log("[getRoutingTarget] request:", req.body);
 
     const agent = (agent_name || "").toLowerCase();
 
@@ -451,7 +432,6 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
 
     // Hard rule: Riley can NEVER go to sales
     if (isRiley && routing_target === "sales_queue") {
-      console.log("[getRoutingTarget] Riley attempted sales transfer; overriding to general_queue");
       routing_target = "general_queue";
       phone_number = CONVOSO_GENERAL_NUMBER;
     }
@@ -482,16 +462,6 @@ app.post("/tools/scheduleCallback", async (req, res) => {
       });
     }
 
-    console.log("[scheduleCallback] request:", {
-      lead_id,
-      phone,
-      scheduled_time_iso,
-      timezone,
-      notes,
-      agent_name,
-      convoso_update_fields,
-    });
-
     const updateFields = {
       callback_time: scheduled_time_iso,
       callback_timezone: timezone || "",
@@ -519,8 +489,8 @@ app.post("/tools/scheduleCallback", async (req, res) => {
     res.status(500).json({ error: "scheduleCallback failed" });
   }
 });
+
 // ----- DEBUG: DIRECT TEST CALL TO MORGAN -----
-// Call this to test Morgan outbound without Convoso.
 app.post("/debug/test-call", async (req, res) => {
   try {
     const { phone } = req.body || {};
@@ -528,17 +498,14 @@ app.post("/debug/test-call", async (req, res) => {
     if (!phone) {
       return res.status(400).json({
         success: false,
-        error: "Missing 'phone' in body. Example: { \"phone\": \"+13055551234\" }"
+        error: "Missing 'phone' in body. Example: { \"phone\": \"+13055551234\" }",
       });
     }
 
-    // Normalize like we do in the webhook
     let customerNumber = String(phone).trim();
     if (!customerNumber.startsWith("+")) {
       customerNumber = "+1" + customerNumber.replace(/\D/g, "");
     }
-
-    console.log("[DEBUG /debug/test-call] starting Morgan call to:", customerNumber);
 
     const result = await startOutboundCall({
       agentName: "Morgan",
@@ -546,8 +513,6 @@ app.post("/debug/test-call", async (req, res) => {
       metadata: { source: "debug-test-call" },
       callName: "Morgan Debug Test",
     });
-
-    console.log("[DEBUG /debug/test-call] Vapi result:", result);
 
     return res.json({
       success: true,
@@ -569,4 +534,3 @@ app.post("/debug/test-call", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
-
