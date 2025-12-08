@@ -77,18 +77,50 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 
     let body = req.body || {};
 
-    // If Convoso sends { url: "...", params: "{...}" }, parse params as JSON
-    if (typeof body.params === "string") {
-      try {
-        const parsedParams = JSON.parse(body.params);
-        console.log("[Convoso webhook] parsed params:", parsedParams);
-        body = parsedParams;
-      } catch (e) {
-        console.error("[Convoso webhook] Failed to parse body.params JSON:", e);
+    // ------------------------------
+    // CASE A: Proper JSON (content-type: application/json)
+    // body will already be: { first_name, last_name, phone_number, ... }
+    // Nothing to do here.
+    // ------------------------------
+
+    // ------------------------------
+    // CASE B: x-www-form-urlencoded with a single JSON key
+    // Looks like: { '{"first_name":"john","phone_number":"305..."}': '' }
+    // ------------------------------
+    if (
+      (!body.phone && !body.phone_number && !body.phoneNumber) &&
+      Object.keys(body).length === 1
+    ) {
+      const onlyKey = Object.keys(body)[0];
+      if (onlyKey.trim().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(onlyKey);
+          console.log("[Convoso webhook] parsed lone JSON key:", parsed);
+          body = parsed;
+        } catch (e) {
+          console.error("[Convoso webhook] failed to parse lone JSON key:", e);
+        }
       }
     }
 
-    // Now body should look like:
+    // ------------------------------
+    // (Optional) CASE C: url/params style
+    // If Convoso ever sends { url: "...", params: "{...}" }
+    // ------------------------------
+    if (
+      (!body.phone && !body.phone_number && !body.phoneNumber) &&
+      typeof body.params === "string"
+    ) {
+      try {
+        const parsedParams = JSON.parse(body.params.trim());
+        console.log("[Convoso webhook] parsed body.params JSON:", parsedParams);
+        body = parsedParams;
+      } catch (e) {
+        console.error("[Convoso webhook] failed to parse body.params JSON:", e);
+      }
+    }
+
+    // At this point, body SHOULD look like:
     // { first_name, last_name, phone_number, list_id, state, lead_id? }
 
     const customerNumberRaw =
@@ -106,9 +138,9 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       });
     }
 
-    // Normalize number: strip non-digits, then prepend +1 if no +
+    // Normalize to E.164 (US default)
     let customerNumber = String(customerNumberRaw).trim();
-    customerNumber = customerNumber.replace(/\D/g, ""); // 305-555-1234 -> 3055551234
+    customerNumber = customerNumber.replace(/\D/g, ""); // 305-502-7658 -> 3055027658
     if (!customerNumber.startsWith("+")) {
       customerNumber = "+1" + customerNumber;
     }
@@ -137,6 +169,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
   }
 });
+
 
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
