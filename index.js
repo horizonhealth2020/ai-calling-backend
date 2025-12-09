@@ -140,12 +140,39 @@ app.post("/debug/test-call", async (req, res) => {
 
     // Normalize similar to webhook
     let customerNumber = String(phone).trim();
+    customerNumber = customerNumber.replace(/\D/g, "");
     if (!customerNumber.startsWith("+")) {
-      customerNumber = "+1" + customerNumber.replace(/\D/g, "");
+      customerNumber = "+1" + customerNumber;
     }
 
     console.log("[DEBUG /debug/test-call] starting Morgan call to:", customerNumber);
 
     const result = await startOutboundCall({
       agentName: "Morgan",
-      toNumber: c
+      toNumber: customerNumber,
+      metadata: { source: "debug-test-call" },
+      callName: "Morgan Debug Test",
+    });
+
+    console.log("[DEBUG /debug/test-call] Vapi result:", result);
+
+    return res.json({
+      success: true,
+      message: "Outbound call requested",
+      provider: result.provider,
+      call_id: result.callId,
+      raw: result.raw,
+    });
+  } catch (err) {
+    console.error("[DEBUG /debug/test-call] error:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Unknown error",
+    });
+  }
+});
+
+// ----- START SERVER -----
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
