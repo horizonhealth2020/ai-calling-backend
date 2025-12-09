@@ -157,7 +157,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 function extractToolArguments(body, toolName) {
   const b = body || {};
 
-  // If already flat, just return it
+  // 0) If it's already flat, just return it
   if (
     b.intent ||
     b.qualification_status ||
@@ -169,6 +169,38 @@ function extractToolArguments(body, toolName) {
     return b;
   }
 
+  // 1) New Vapi tool-server shape: { toolCall: { name, arguments }, ... }
+  if (b.toolCall || b.tool_call) {
+    const tc = b.toolCall || b.tool_call;
+    let toolArgs = tc.arguments || tc.args || tc.parameters || tc.input || tc.params;
+    if (typeof toolArgs === "string") {
+      try {
+        toolArgs = JSON.parse(toolArgs);
+      } catch (e) {
+        console.error("[extractToolArguments] Failed to parse toolCall.arguments JSON:", e);
+      }
+    }
+    if (toolArgs && typeof toolArgs === "object") {
+      return toolArgs;
+    }
+  }
+
+  // 2) Top-level arguments
+  if (b.arguments || b.args || b.parameters || b.input || b.params) {
+    let toolArgs = b.arguments || b.args || b.parameters || b.input || b.params;
+    if (typeof toolArgs === "string") {
+      try {
+        toolArgs = JSON.parse(toolArgs);
+      } catch (e) {
+        console.error("[extractToolArguments] Failed to parse top-level arguments JSON:", e);
+      }
+    }
+    if (toolArgs && typeof toolArgs === "object") {
+      return toolArgs;
+    }
+  }
+
+  // 3) Message-based shapes: message.toolCalls / toolCallList / toolWithToolCallList
   const msg = b.message;
   if (!msg) return b;
 
@@ -180,33 +212,13 @@ function extractToolArguments(body, toolName) {
 
   if (!candidates) return b;
 
-  let tc =
-    candidates.find(
-      (c) =>
-        c.name === toolName ||
-        c.toolName === toolName ||
-        c.functionName === toolName
-    ) || candidates[0];
+  // Helper to unwrap a single toolCall-like object
+  function getArgsFromCandidate(c) {
+    if (!c) return null;
 
-  if (!tc) return b;
-
-  let toolArgs =
-    tc.arguments || tc.args || tc.parameters || tc.input || tc.params;
-
-  if (typeof toolArgs === "string") {
-    try {
-      toolArgs = JSON.parse(toolArgs);
-    } catch (e) {
-      console.error("[extractToolArguments] Failed to parse arguments JSON:", e);
-    }
-  }
-
-  if (toolArgs && typeof toolArgs === "object") {
-    return toolArgs;
-  }
-
-  return b;
-}
+    // Some shapes: { name, arguments: {...} }
+    if (c.arguments || c.args || c.parameters || c.input || c.params) {
+      return c.arguments || c.args
 
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
