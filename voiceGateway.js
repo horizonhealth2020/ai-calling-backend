@@ -1,5 +1,7 @@
 // voiceGateway.js
 
+const fetch = require("node-fetch");
+
 // --- Vapi env vars ---
 const VAPI_API_KEY             = process.env.VAPI_API_KEY;
 const VAPI_MORGAN_ASSISTANT_ID = process.env.VAPI_MORGAN_ASSISTANT_ID;

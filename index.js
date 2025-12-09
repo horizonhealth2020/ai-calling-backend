@@ -7,6 +7,7 @@
 
 const express = require("express");
 const cors = require("cors");
+const fetch = require("node-fetch");
 const { startOutboundCall } = require("./voiceGateway");
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 
