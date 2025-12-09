@@ -250,8 +250,9 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       body.toolCall ||
       {};
 
-    // Raw args: may be object OR JSON string
+    // Raw args: may be object OR JSON string; Vapi can nest them under `function.arguments`
     let args =
+      (firstCall.function && firstCall.function.arguments) ||
       firstCall.args ||
       firstCall.arguments ||
       body.args ||
