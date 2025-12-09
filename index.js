@@ -227,7 +227,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
   try {
     console.log("[sendLeadNote] hit");
 
-    const message = req.body && req.body.message ? req.body.message : {};
+    const message = (req.body && req.body.message) || {};
     const toolCalls = Array.isArray(message.toolCallList)
       ? message.toolCallList
       : [];
@@ -239,9 +239,19 @@ app.post("/tools/sendLeadNote", async (req, res) => {
 
     const toolCall = toolCalls[0];
     const toolCallId = toolCall.id;
-    const args = toolCall.arguments || {};
-    const note = args.note;
 
+    // 🔑 arguments may be a JSON string – parse it
+    let args = toolCall.arguments || {};
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args);
+      } catch (e) {
+        console.error("[sendLeadNote] Failed to parse arguments JSON:", args);
+        args = {};
+      }
+    }
+
+    const note = args.note;
     if (!note) {
       console.error("[sendLeadNote] Missing note");
       return res.status(200).json({
@@ -254,17 +264,21 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       });
     }
 
+    console.log("[sendLeadNote] Note:", note);
+
     const call = message.call || {};
     const metadata = call.metadata || {};
     const leadId = metadata.convosoLeadId;
 
     if (!leadId) {
       console.error("[sendLeadNote] Missing convosoLeadId in metadata");
+      // For now, just acknowledge success so Morgan can keep going
       return res.status(200).json({
         results: [
           {
             toolCallId,
-            error: "No convosoLeadId — cannot post note.",
+            result:
+              "Note received but no convosoLeadId was available, so it was not posted to Convoso.",
           },
         ],
       });
