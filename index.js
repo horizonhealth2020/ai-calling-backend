@@ -159,6 +159,61 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
   }
 });
+// ----- HELPER: EXTRACT TOOL ARGS FROM VAPI TOOL SERVER BODY -----
+function extractToolArguments(body, toolName) {
+  const b = body || {};
+  // If already flat, just return it
+  if (
+    b.intent ||
+    b.qualification_status ||
+    b.agent_name ||
+    b.call_session_id ||
+    b.lead_id
+  ) {
+    return b;
+  }
+
+  const msg = b.message;
+  if (!msg) return b;
+
+  // Vapi can use toolCalls / toolCallList / toolWithToolCallList
+  const candidates =
+    (Array.isArray(msg.toolCalls) && msg.toolCalls) ||
+    (Array.isArray(msg.toolCallList) && msg.toolCallList) ||
+    (Array.isArray(msg.toolWithToolCallList) && msg.toolWithToolCallList) ||
+    null;
+
+  if (!candidates) return b;
+
+  // Find the toolCall that matches this tool
+  let tc =
+    candidates.find(
+      (c) =>
+        c.name === toolName ||
+        c.toolName === toolName ||
+        c.functionName === toolName
+    ) || candidates[0];
+
+  if (!tc) return b;
+
+  let toolArgs =
+    tc.arguments || tc.args || tc.parameters || tc.input || tc.params;
+
+  // Sometimes arguments come as a JSON string
+  if (typeof toolArgs === "string") {
+    try {
+      toolArgs = JSON.parse(toolArgs);
+    } catch (e) {
+      console.error("[extractToolArguments] Failed to parse arguments JSON:", e);
+    }
+  }
+
+  if (toolArgs && typeof toolArgs === "object") {
+    return toolArgs;
+  }
+
+  return b;
+}
 
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
@@ -253,18 +308,7 @@ app.post("/tools/getLead", async (req, res) => {
 // ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
-    // Support both shapes:
-    // 1) Flat: { call_session_id, lead_id, ... }
-    // 2) Tool server: { message: { toolCalls: [ { arguments: {...} } ] } }
-    let args = req.body || {};
-
-    if (!(args.call_session_id || args.lead_id || args.qualification_status)) {
-      const msg = req.body && req.body.message;
-      const tc = msg && Array.isArray(msg.toolCalls) ? msg.toolCalls[0] : null;
-      if (tc && tc.arguments && typeof tc.arguments === "object") {
-        args = tc.arguments;
-      }
-    }
+    const args = extractToolArguments(req.body, "logCallOutcome");
 
     const {
       call_session_id,
@@ -288,34 +332,52 @@ app.post("/tools/logCallOutcome", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    // ⬇ keep your existing Convoso update + logging logic here
-    // e.g.:
-    // await updateConvosoLead({ lead_id, convoso_update_fields, disposition });
-    // etc.
+    let convosoResult = null;
 
-    return res.json({ ok: true });
+    // Actually update Convoso now
+    if (lead_id) {
+      const updateFields = {
+        status: qualification_status || undefined,
+        disposition: disposition || undefined,
+        notes: notes || undefined,            // 🔥 overwrites existing Convoso notes
+        ...(convoso_update_fields || {}),
+      };
+
+      // Clean out empty fields
+      Object.keys(updateFields).forEach((k) => {
+        if (
+          updateFields[k] === undefined ||
+          updateFields[k] === null ||
+          updateFields[k] === ""
+        ) {
+          delete updateFields[k];
+        }
+      });
+
+      if (Object.keys(updateFields).length > 0) {
+        try {
+          convosoResult = await updateConvosoLead(lead_id, updateFields);
+        } catch (err) {
+          console.error("[logCallOutcome] Convoso update failed:", err);
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      convoso_result: convosoResult,
+      should_transfer_now: !!should_transfer_now,
+    });
   } catch (err) {
     console.error("[logCallOutcome] error:", err);
     return res.status(500).json({ error: "logCallOutcome failed" });
   }
 });
 
-
 // ----- TOOL: getRoutingTarget -----
 app.post("/tools/getRoutingTarget", async (req, res) => {
   try {
-    // Support both shapes:
-    // 1) Flat: { intent, qualification_status, agent_name }
-    // 2) Tool server: { message: { toolCalls: [ { arguments: {...} } ] } }
-    let args = req.body || {};
-
-    if (!(args.intent || args.qualification_status || args.agent_name)) {
-      const msg = req.body && req.body.message;
-      const tc = msg && Array.isArray(msg.toolCalls) ? msg.toolCalls[0] : null;
-      if (tc && tc.arguments && typeof tc.arguments === "object") {
-        args = tc.arguments;
-      }
-    }
+    const args = extractToolArguments(req.body, "getRoutingTarget");
 
     const { intent, qualification_status, agent_name } = args || {};
 
@@ -352,6 +414,7 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
       phone_number = CONVOSO_GENERAL_NUMBER;
     }
 
+    // Hard rule: Riley can NEVER go to sales
     if (isRiley && routing_target === "sales_queue") {
       console.log(
         "[getRoutingTarget] Riley attempted sales transfer; overriding to general_queue"
@@ -366,6 +429,7 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
     return res.status(500).json({ error: "getRoutingTarget failed" });
   }
 });
+
 
    // ----- TOOL: scheduleCallback -----
 app.post("/tools/scheduleCallback", async (req, res) => {
