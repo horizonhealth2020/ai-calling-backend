@@ -159,9 +159,11 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
   }
 });
+
 // ----- HELPER: EXTRACT TOOL ARGS FROM VAPI TOOL SERVER BODY -----
 function extractToolArguments(body, toolName) {
   const b = body || {};
+
   // If already flat, just return it
   if (
     b.intent ||
@@ -279,10 +281,15 @@ app.post("/tools/getLead", async (req, res) => {
     }
 
     const data = await response.json();
-    console.log("[getLead] Convoso response (truncated):", JSON.stringify(data).slice(0, 500));
+    console.log(
+      "[getLead] Convoso response (truncated):",
+      JSON.stringify(data).slice(0, 500)
+    );
 
     const convosoLead =
-      data && Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null;
+      data && Array.isArray(data.data) && data.data.length > 0
+        ? data.data[0]
+        : null;
 
     if (!convosoLead) {
       return res.json({ lead: null });
@@ -308,6 +315,11 @@ app.post("/tools/getLead", async (req, res) => {
 // ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
+    console.log(
+      "[logCallOutcome] RAW BODY:",
+      JSON.stringify(req.body, null, 2).slice(0, 2000)
+    );
+
     const args = extractToolArguments(req.body, "logCallOutcome");
 
     const {
@@ -339,7 +351,7 @@ app.post("/tools/logCallOutcome", async (req, res) => {
       const updateFields = {
         status: qualification_status || undefined,
         disposition: disposition || undefined,
-        notes: notes || undefined,            // 🔥 overwrites existing Convoso notes
+        notes: notes || undefined, // overwrites existing Convoso notes
         ...(convoso_update_fields || {}),
       };
 
@@ -377,6 +389,11 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 // ----- TOOL: getRoutingTarget -----
 app.post("/tools/getRoutingTarget", async (req, res) => {
   try {
+    console.log(
+      "[getRoutingTarget] RAW BODY:",
+      JSON.stringify(req.body, null, 2).slice(0, 2000)
+    );
+
     const args = extractToolArguments(req.body, "getRoutingTarget");
 
     const { intent, qualification_status, agent_name } = args || {};
@@ -430,8 +447,7 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
   }
 });
 
-
-   // ----- TOOL: scheduleCallback -----
+// ----- TOOL: scheduleCallback -----
 app.post("/tools/scheduleCallback", async (req, res) => {
   try {
     const {
@@ -496,7 +512,8 @@ app.post("/debug/test-call", async (req, res) => {
     if (!phone) {
       return res.status(400).json({
         success: false,
-        error: "Missing 'phone' in body. Example: { \"phone\": \"+13055551234\" }"
+        error:
+          "Missing 'phone' in body. Example: { \"phone\": \"+13055551234\" }",
       });
     }
 
@@ -506,7 +523,10 @@ app.post("/debug/test-call", async (req, res) => {
       customerNumber = "+1" + customerNumber.replace(/\D/g, "");
     }
 
-    console.log("[DEBUG /debug/test-call] starting Morgan call to:", customerNumber);
+    console.log(
+      "[DEBUG /debug/test-call] starting Morgan call to:",
+      customerNumber
+    );
 
     const result = await startOutboundCall({
       agentName: "Morgan",
