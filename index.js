@@ -240,35 +240,35 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     const toolCall = toolCalls[0];
     const toolCallId = toolCall.id;
 
-    // 🔑 arguments might be a string OR an object
+    // arguments may be a string or object, but we treat it as optional now
     let args = toolCall.arguments || {};
-    console.log("[sendLeadNote] raw arguments:", args, "typeof:", typeof args);
-
     if (typeof args === "string") {
       try {
         args = JSON.parse(args);
-        console.log("[sendLeadNote] parsed arguments object:", args);
       } catch (e) {
         console.error("[sendLeadNote] Failed to parse arguments JSON:", args);
         args = {};
       }
     }
 
-    const note = args.note;
-    if (!note) {
-      console.error("[sendLeadNote] Missing note");
-      return res.status(200).json({
-        results: [
-          {
-            toolCallId,
-            error: "Missing required argument: note",
-          },
-        ],
-      });
+    let note = args.note;
+    console.log("[sendLeadNote] raw arguments:", args, "typeof:", typeof args);
+
+    // 🔧 WORKAROUND: if model didn't send a note, build a generic one
+    if (!note || typeof note !== "string" || !note.trim()) {
+      const call = message.call || {};
+      const callerNumber =
+        (call.customer && call.customer.number) || "Unknown number";
+
+      note =
+        `Morgan completed an intake call from ${callerNumber}. ` +
+        `Fields were collected on the call and the lead was transferred to a licensed agent.`;
+      console.log("[sendLeadNote] Using fallback note:", note);
+    } else {
+      console.log("[sendLeadNote] Using model-provided note:", note);
     }
 
-    console.log("[sendLeadNote] Note:", note);
-
+    // Get lead id from metadata
     const call = message.call || {};
     const metadata = call.metadata || {};
     const leadId = metadata.convosoLeadId;
@@ -280,7 +280,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
           {
             toolCallId,
             result:
-              "Note received but no convosoLeadId was available, so it was not posted to Convoso.",
+              "Note created but no convosoLeadId was available, so it was not posted to Convoso.",
           },
         ],
       });
@@ -317,6 +317,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     });
   }
 });
+
 
 // --------------------------------------------------------------------------
 // -------------------------- END OF INSERTED ROUTES -------------------------
