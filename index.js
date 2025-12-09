@@ -227,48 +227,55 @@ app.post("/tools/sendLeadNote", async (req, res) => {
   try {
     console.log("[sendLeadNote] hit");
 
-    const message = (req.body && req.body.message) || {};
-    const toolCalls = Array.isArray(message.toolCallList)
+    const body = req.body || {};
+    const message = body.message || {};
+
+    // Vapi sends tool calls here: message.toolCallList[0].parameters
+    const toolCallList = Array.isArray(message.toolCallList)
       ? message.toolCallList
       : [];
 
-    if (!toolCalls.length) {
+    if (!toolCallList.length) {
       console.error("[sendLeadNote] No toolCallList found");
       return res.status(200).json({ results: [] });
     }
 
-    const toolCall = toolCalls[0];
+    const toolCall = toolCallList[0];
     const toolCallId = toolCall.id;
+    let params = toolCall.parameters || {};
 
-    // arguments may be a string or object, but we treat it as optional now
-    let args = toolCall.arguments || {};
-    if (typeof args === "string") {
+    console.log("[sendLeadNote] raw parameters:", params, "typeof:", typeof params);
+
+    // In some setups params may be a JSON string, so parse if needed
+    if (typeof params === "string") {
       try {
-        args = JSON.parse(args);
+        params = JSON.parse(params);
+        console.log("[sendLeadNote] parsed parameters object:", params);
       } catch (e) {
-        console.error("[sendLeadNote] Failed to parse arguments JSON:", args);
-        args = {};
+        console.error("[sendLeadNote] Failed to parse parameters JSON:", params);
+        params = {};
       }
     }
 
-    let note = args.note;
-    console.log("[sendLeadNote] raw arguments:", args, "typeof:", typeof args);
+    const note = params.note;
 
-    // 🔧 WORKAROUND: if model didn't send a note, build a generic one
-    if (!note || typeof note !== "string" || !note.trim()) {
-      const call = message.call || {};
-      const callerNumber =
-        (call.customer && call.customer.number) || "Unknown number";
-
-      note =
-        `Morgan completed an intake call from ${callerNumber}. ` +
-        `Fields were collected on the call and the lead was transferred to a licensed agent.`;
-      console.log("[sendLeadNote] Using fallback note:", note);
-    } else {
-      console.log("[sendLeadNote] Using model-provided note:", note);
+    if (!note) {
+      console.error("[sendLeadNote] Missing note in parameters");
+      // Still respond 200 so Vapi doesn't choke
+      return res.status(200).json({
+        results: [
+          {
+            name: "sendLeadNote",
+            toolCallId,
+            error: "Missing required argument: note",
+          },
+        ],
+      });
     }
 
-    // Get lead id from metadata
+    console.log("[sendLeadNote] Note:", note);
+
+    // Get lead id from call metadata (set when starting call)
     const call = message.call || {};
     const metadata = call.metadata || {};
     const leadId = metadata.convosoLeadId;
@@ -278,9 +285,10 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       return res.status(200).json({
         results: [
           {
+            name: "sendLeadNote",
             toolCallId,
             result:
-              "Note created but no convosoLeadId was available, so it was not posted to Convoso.",
+              "Note received but no convosoLeadId was available, so it was not posted to Convoso.",
           },
         ],
       });
@@ -293,6 +301,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     return res.status(200).json({
       results: [
         {
+          name: "sendLeadNote",
           toolCallId,
           result: "Lead note successfully added to Convoso.",
         },
@@ -304,6 +313,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     return res.status(200).json({
       results: [
         {
+          name: "sendLeadNote",
           toolCallId:
             (req.body &&
               req.body.message &&
