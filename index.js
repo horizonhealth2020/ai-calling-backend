@@ -484,6 +484,9 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
       routing_target = "general_queue";
       phone_number = CONVOSO_GENERAL_NUMBER;
     }
+console.log("[getRoutingTarget] response:", { routing_target, phone_number });
+
+return res.json({ routing_target, phone_number });
 
     return res.json({ routing_target, phone_number });
   } catch (err) {
