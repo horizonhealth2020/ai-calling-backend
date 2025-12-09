@@ -22,6 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // ----- CONVOSO CONFIG -----
+console.log("[BOOT] CONVOSO_AUTH_TOKEN length:", (CONVOSO_AUTH_TOKEN || "").length);
+
 const CONVOSO_SALES_NUMBER     = process.env.CONVOSO_SALES_NUMBER     || "+18887990191";
 const CONVOSO_BILLING_NUMBER   = process.env.CONVOSO_BILLING_NUMBER   || "+15550000002";
 const CONVOSO_GENERAL_NUMBER   = process.env.CONVOSO_GENERAL_NUMBER   || "+15550000003";
