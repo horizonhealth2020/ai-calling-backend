@@ -205,7 +205,7 @@ app.post("/debug/test-call", async (req, res) => {
 
 // ----- TOOL: sendLeadNote -----
 // Called by Vapi whenever Morgan wants to log a note for this lead.
-// We ignore the tool arguments and just build a note from metadata.
+// This version uses the NOTE that Morgan sends in the tool arguments.
 app.post("/tools/sendLeadNote", async (req, res) => {
   try {
     const body = req.body || {};
@@ -214,60 +214,75 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     const metadata = call.metadata || {};
     const convosoRaw = metadata.convosoRaw || {};
 
-    // Lead id from when we started the call
-    const leadId = metadata.convosoLeadId;
+    // 1) Figure out the lead id
+    const leadId =
+      metadata.convosoLeadId ||
+      convosoRaw.lead_id ||
+      body.lead_id ||
+      null;
+
     if (!leadId) {
-      console.error("[sendLeadNote] No convosoLeadId in metadata");
+      console.error("[sendLeadNote] No convosoLeadId / lead_id available");
       return res.status(200).json({
         results: [
           {
             name: "sendLeadNote",
             toolCallId: "unknown",
             result:
-              "No convosoLeadId available, so note was not posted to Convoso.",
+              "No lead_id available, so note was not posted to Convoso.",
           },
         ],
       });
     }
 
-    // Try to get some basic info for the note
-    const callerNumber =
-      (call.customer && call.customer.number) ||
-      convosoRaw.phone_number ||
-      "Unknown number";
+    // 2) Get tool call + args (handle both toolCalls and toolCallList shapes)
+    const toolCalls =
+      message.toolCalls ||
+      message.toolCallList ||
+      [];
 
-    const firstName = convosoRaw.first_name || "Unknown";
-    const lastName = convosoRaw.last_name || "";
-    const state = convosoRaw.state || "";
+    const firstCall = Array.isArray(toolCalls) && toolCalls.length > 0
+      ? toolCalls[0]
+      : {};
 
-    const displayName =
-      lastName && lastName !== "test"
-        ? `${firstName} ${lastName}`
-        : firstName;
+    const args =
+      firstCall.args ||
+      firstCall.arguments ||
+      {};
 
-    // Build a simple, useful note
-    const note =
-      `AI intake call handled by Morgan for ${displayName} (${state}), ` +
-      `phone ${callerNumber}, Convoso lead_id ${leadId}. ` +
-      `Intake questions were completed (first name, age, state, estimated income, ` +
-      `individual/family plan, current insurance) and caller was transferred to a licensed agent.`;
+    // 3) Get the note text that Morgan generated
+    const noteFromMorgan =
+      body.note ||
+      body.notes ||
+      args.note ||
+      args.notes ||
+      null;
 
-    console.log("[sendLeadNote] Adding note for lead:", leadId, "note:", note);
+    if (!noteFromMorgan) {
+      console.error("[sendLeadNote] No note content from Morgan");
+      return res.status(200).json({
+        results: [
+          {
+            name: "sendLeadNote",
+            toolCallId: firstCall.id || "unknown",
+            result:
+              "Tool was called but no note/notes argument was provided. Nothing written to Convoso.",
+          },
+        ],
+      });
+    }
 
-    await addLeadNote(leadId, note);
+    console.log("[sendLeadNote] Adding note for lead:", leadId);
+    console.log("[sendLeadNote] Note content:", noteFromMorgan);
 
-    const toolCallId =
-      (message.toolCallList &&
-        Array.isArray(message.toolCallList) &&
-        message.toolCallList[0] &&
-        message.toolCallList[0].id) ||
-      "unknown";
+    // 4) Write Morgan's note directly into Convoso Notes
+    await addLeadNote(leadId, noteFromMorgan);
 
     return res.status(200).json({
       results: [
         {
           name: "sendLeadNote",
-          toolCallId,
+          toolCallId: firstCall.id || "unknown",
           result: "Lead note successfully added to Convoso.",
         },
       ],
@@ -286,6 +301,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     });
   }
 });
+
 
 // --------------------------------------------------------------------------
 // -------------------------- END OF INSERTED ROUTES -------------------------
