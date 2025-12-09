@@ -220,9 +220,17 @@ function extractToolArguments(body, toolName) {
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
   try {
-    const { phone, lead_id } = req.body || {};
+    console.log(
+      "[getLead] RAW BODY:",
+      JSON.stringify(req.body, null, 2).slice(0, 2000)
+    );
+
+    // Use the same helper to unwrap Vapi tool-server payloads
+    const args = extractToolArguments(req.body, "getLead");
+    const { phone, lead_id } = args || {};
 
     if (!phone && !lead_id) {
+      console.error("[getLead] Missing phone/lead_id in args:", args);
       return res.status(400).json({ error: "phone or lead_id is required" });
     }
 
