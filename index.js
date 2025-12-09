@@ -22,13 +22,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // ----- CONVOSO CONFIG -----
-console.log("[BOOT] CONVOSO_AUTH_TOKEN length:", (CONVOSO_AUTH_TOKEN || "").length);
-
 const CONVOSO_SALES_NUMBER     = process.env.CONVOSO_SALES_NUMBER     || "+18887990191";
 const CONVOSO_BILLING_NUMBER   = process.env.CONVOSO_BILLING_NUMBER   || "+15550000002";
 const CONVOSO_GENERAL_NUMBER   = process.env.CONVOSO_GENERAL_NUMBER   || "+15550000003";
 const CONVOSO_RETENTION_NUMBER = process.env.CONVOSO_RETENTION_NUMBER || "+15550000004";
 const CONVOSO_AUTH_TOKEN       = process.env.CONVOSO_AUTH_TOKEN;
+
+// TEMP DEBUG: check we actually have a token value
+console.log(
+  "[BOOT] CONVOSO_AUTH_TOKEN length:",
+  (CONVOSO_AUTH_TOKEN || "").length
+);
+
 
 // ----- HELPER: UPDATE CONVOSO LEAD -----
 async function updateConvosoLead(leadId, fields = {}) {
