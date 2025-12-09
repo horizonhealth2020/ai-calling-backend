@@ -8,17 +8,78 @@
 const express = require("express");
 const cors = require("cors");
 const { startOutboundCall } = require("./voiceGateway");
+const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
+
+// convoso.js — helper functions for Convoso API
+
+const CONVOSO_API_KEY = process.env.CONVOSO_AUTH_TOKEN; 
+const CONVOSO_BASE_URL = "https://api.convoso.com/v1";
+
+// Add or update ANY lead field(s)
+async function updateConvosoLead(leadId, fields = {}) {
+  const url = `${CONVOSO_BASE_URL}/leads/update-lead`;
+
+  const payload = {
+    lead_id: leadId,
+    ...fields
+  };
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${CONVOSO_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await resp.text();
+  if (!resp.ok) {
+    console.error("Convoso update error:", resp.status, text);
+    throw new Error(`Convoso update failed: ${resp.status}`);
+  }
+
+  console.log("Convoso updateLead response:", text);
+  return text;
+}
+
+// Add a NOTE to a lead
+async function addLeadNote(leadId, note) {
+  const url = `${CONVOSO_BASE_URL}/leads/add-lead-note`;
+
+  const payload = {
+    lead_id: leadId,
+    note
+  };
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${CONVOSO_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await resp.text();
+  if (!resp.ok) {
+    console.error("Convoso add-note error:", resp.status, text);
+    throw new Error(`Convoso add-note failed: ${resp.status}`);
+  }
+
+  console.log("Convoso addNote response:", text);
+  return text;
+}
+
+// export not used in this file, but leaving for consistency
+module.exports = { updateConvosoLead, addLeadNote };
 
 // ----- BASIC SETUP -----
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-
-// Convoso sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
-
-// For JSON payloads (your own tests, Postman, etc.)
 app.use(express.json());
 
 // ----- HEALTHCHECK -----
@@ -34,8 +95,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 
     let body = req.body || {};
 
-    // CASE B: x-www-form-urlencoded with a single JSON key
-    // Example: { '{"first_name":"john","phone_number":"305..."}': '' }
     if (
       (!body.phone && !body.phone_number && !body.phoneNumber) &&
       Object.keys(body).length === 1
@@ -52,7 +111,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       }
     }
 
-    // CASE C: sometimes Convoso sends nested JSON in body.params
     if (body.params && typeof body.params === "string") {
       try {
         const parsedParams = JSON.parse(body.params);
@@ -63,7 +121,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       }
     }
 
-    // Get the customer phone number from whatever field Convoso used
     const rawPhone =
       body.phone ||
       body.phone_number ||
@@ -78,9 +135,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
         .json({ error: "Missing phone/phone_number in Convoso payload" });
     }
 
-    // Normalize to +1E164
-    let customerNumber = String(rawPhone).trim();
-    customerNumber = customerNumber.replace(/\D/g, "");
+    let customerNumber = String(rawPhone).trim().replace(/\D/g, "");
     if (!customerNumber) {
       return res
         .status(400)
@@ -100,7 +155,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     console.log(
       "[Convoso webhook] starting Morgan call to:",
       customerNumber,
-      "with metadata:",
+      "metadata:",
       metadata
     );
 
@@ -118,14 +173,11 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     });
   } catch (err) {
     console.error("[Convoso webhook] error:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to trigger Morgan outbound call" });
+    res.status(500).json({ error: "Failed to trigger Morgan outbound call" });
   }
 });
 
-// ----- DEBUG: MANUAL TEST CALL TO MORGAN -----
-// POST /debug/test-call  { "phone": "+13055551234" }
+// ----- DEBUG: MANUAL TEST CALL -----
 app.post("/debug/test-call", async (req, res) => {
   try {
     const { phone } = req.body || {};
@@ -133,19 +185,14 @@ app.post("/debug/test-call", async (req, res) => {
     if (!phone) {
       return res.status(400).json({
         success: false,
-        error:
-          "Missing 'phone' in body. Example: { \"phone\": \"+13055551234\" }",
+        error: "Missing 'phone'. Example: { \"phone\": \"+13055551234\" }"
       });
     }
 
-    // Normalize similar to webhook
-    let customerNumber = String(phone).trim();
-    customerNumber = customerNumber.replace(/\D/g, "");
+    let customerNumber = String(phone).trim().replace(/\D/g, "");
     if (!customerNumber.startsWith("+")) {
       customerNumber = "+1" + customerNumber;
     }
-
-    console.log("[DEBUG /debug/test-call] starting Morgan call to:", customerNumber);
 
     const result = await startOutboundCall({
       agentName: "Morgan",
@@ -153,8 +200,6 @@ app.post("/debug/test-call", async (req, res) => {
       metadata: { source: "debug-test-call" },
       callName: "Morgan Debug Test",
     });
-
-    console.log("[DEBUG /debug/test-call] Vapi result:", result);
 
     return res.json({
       success: true,
@@ -167,10 +212,93 @@ app.post("/debug/test-call", async (req, res) => {
     console.error("[DEBUG /debug/test-call] error:", err);
     return res.status(500).json({
       success: false,
-      error: err.message || "Unknown error",
+      error: err.message || "Unknown error"
     });
   }
 });
+
+
+// --------------------------------------------------------------------------
+// -------------------------- INSERTED ROUTES HERE ---------------------------
+// --------------------------------------------------------------------------
+
+// ----- TOOL: sendLeadNote -----
+app.post("/tools/sendLeadNote", async (req, res) => {
+  try {
+    console.log("[sendLeadNote] Incoming:", JSON.stringify(req.body, null, 2));
+
+    const message = req.body?.message || {};
+    const toolCalls = message.toolCallList || [];
+
+    if (!toolCalls.length) {
+      console.error("[sendLeadNote] No toolCallList found");
+      return res.status(200).json({ results: [] });
+    }
+
+    const toolCall = toolCalls[0];
+    const toolCallId = toolCall.id;
+    const args = toolCall.arguments || {};
+    const note = args.note;
+
+    if (!note) {
+      console.error("[sendLeadNote] Missing note");
+      return res.status(200).json({
+        results: [
+          {
+            toolCallId,
+            error: "Missing required argument: note"
+          }
+        ]
+      });
+    }
+
+    const call = message.call || {};
+    const metadata = call.metadata || {};
+    const leadId = metadata.convosoLeadId;
+
+    if (!leadId) {
+      console.error("[sendLeadNote] Missing convosoLeadId in metadata");
+      return res.status(200).json({
+        results: [
+          {
+            toolCallId,
+            error: "No convosoLeadLeadId — cannot post note."
+          }
+        ]
+      });
+    }
+
+    console.log("[sendLeadNote] Posting note to Convoso for lead:", leadId);
+
+    await addLeadNote(leadId, note);
+
+    return res.status(200).json({
+      results: [
+        {
+          toolCallId,
+          result: "Lead note successfully added to Convoso."
+        }
+      ]
+    });
+
+  } catch (err) {
+    console.error("[sendLeadNote] Unexpected error:", err);
+
+    return res.status(200).json({
+      results: [
+        {
+          toolCallId:
+            req.body?.message?.toolCallList?.[0]?.id || "unknown",
+          error: "Unexpected error in sendLeadNote route"
+        }
+      ]
+    });
+  }
+});
+
+// --------------------------------------------------------------------------
+// -------------------------- END OF INSERTED ROUTES -------------------------
+// --------------------------------------------------------------------------
 
 // ----- START SERVER -----
 app.listen(PORT, () => {
