@@ -223,80 +223,64 @@ app.post("/debug/test-call", async (req, res) => {
 // --------------------------------------------------------------------------
 
 // ----- TOOL: sendLeadNote -----
+// Called by Vapi whenever Morgan wants to log a note for this lead.
+// We ignore the tool arguments and just build a note from metadata.
 app.post("/tools/sendLeadNote", async (req, res) => {
   try {
-    console.log("[sendLeadNote] hit");
-
     const body = req.body || {};
     const message = body.message || {};
-
-    // Vapi sends tool calls here: message.toolCallList[0].parameters
-    const toolCallList = Array.isArray(message.toolCallList)
-      ? message.toolCallList
-      : [];
-
-    if (!toolCallList.length) {
-      console.error("[sendLeadNote] No toolCallList found");
-      return res.status(200).json({ results: [] });
-    }
-
-    const toolCall = toolCallList[0];
-    const toolCallId = toolCall.id;
-    let params = toolCall.parameters || {};
-
-    console.log("[sendLeadNote] raw parameters:", params, "typeof:", typeof params);
-
-    // In some setups params may be a JSON string, so parse if needed
-    if (typeof params === "string") {
-      try {
-        params = JSON.parse(params);
-        console.log("[sendLeadNote] parsed parameters object:", params);
-      } catch (e) {
-        console.error("[sendLeadNote] Failed to parse parameters JSON:", params);
-        params = {};
-      }
-    }
-
-    const note = params.note;
-
-    if (!note) {
-      console.error("[sendLeadNote] Missing note in parameters");
-      // Still respond 200 so Vapi doesn't choke
-      return res.status(200).json({
-        results: [
-          {
-            name: "sendLeadNote",
-            toolCallId,
-            error: "Missing required argument: note",
-          },
-        ],
-      });
-    }
-
-    console.log("[sendLeadNote] Note:", note);
-
-    // Get lead id from call metadata (set when starting call)
     const call = message.call || {};
     const metadata = call.metadata || {};
-    const leadId = metadata.convosoLeadId;
+    const convosoRaw = metadata.convosoRaw || {};
 
+    // Lead id from when we started the call
+    const leadId = metadata.convosoLeadId;
     if (!leadId) {
-      console.error("[sendLeadNote] Missing convosoLeadId in metadata");
+      console.error("[sendLeadNote] No convosoLeadId in metadata");
       return res.status(200).json({
         results: [
           {
             name: "sendLeadNote",
-            toolCallId,
+            toolCallId: "unknown",
             result:
-              "Note received but no convosoLeadId was available, so it was not posted to Convoso.",
+              "No convosoLeadId available, so note was not posted to Convoso.",
           },
         ],
       });
     }
 
-    console.log("[sendLeadNote] Adding note for lead:", leadId);
+    // Try to get some basic info for the note
+    const callerNumber =
+      (call.customer && call.customer.number) ||
+      convosoRaw.phone_number ||
+      "Unknown number";
+
+    const firstName = convosoRaw.first_name || "Unknown";
+    const lastName = convosoRaw.last_name || "";
+    const state = convosoRaw.state || "";
+
+    const displayName =
+      lastName && lastName !== "test"
+        ? `${firstName} ${lastName}`
+        : firstName;
+
+    // Build a simple, useful note
+    const note =
+      `AI intake call handled by Morgan for ${displayName} (${state}), ` +
+      `phone ${callerNumber}, Convoso lead_id ${leadId}. ` +
+      `Intake questions were completed (first name, age, state, estimated income, ` +
+      `individual/family plan, current insurance) and caller was transferred to a licensed agent.`;
+
+    console.log("[sendLeadNote] Adding note for lead:", leadId, "note:", note);
 
     await addLeadNote(leadId, note);
+
+    const toolCallId =
+      (message.toolCallList &&
+        Array.isArray(message.toolCallList) &&
+        message.toolCallList[0] &&
+        message.toolCallList[0].id) ||
+      "unknown";
 
     return res.status(200).json({
       results: [
@@ -314,20 +298,13 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       results: [
         {
           name: "sendLeadNote",
-          toolCallId:
-            (req.body &&
-              req.body.message &&
-              req.body.message.toolCallList &&
-              req.body.message.toolCallList[0] &&
-              req.body.message.toolCallList[0].id) ||
-            "unknown",
+          toolCallId: "unknown",
           error: "Unexpected error in sendLeadNote route",
         },
       ],
     });
   }
 });
-
 
 // --------------------------------------------------------------------------
 // -------------------------- END OF INSERTED ROUTES -------------------------
