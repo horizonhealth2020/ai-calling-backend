@@ -253,12 +253,15 @@ app.post("/tools/getLead", async (req, res) => {
 // ----- TOOL: logCallOutcome -----
 app.post("/tools/logCallOutcome", async (req, res) => {
   try {
+    // Support both shapes:
+    // 1) Flat: { call_session_id, lead_id, ... }
+    // 2) Tool server: { message: { toolCalls: [ { arguments: {...} } ] } }
     let args = req.body || {};
 
     if (!(args.call_session_id || args.lead_id || args.qualification_status)) {
-      const msg = req.body?.message;
-      const tc = msg?.toolCalls?.[0];
-      if (tc?.arguments && typeof tc.arguments === "object") {
+      const msg = req.body && req.body.message;
+      const tc = msg && Array.isArray(msg.toolCalls) ? msg.toolCalls[0] : null;
+      if (tc && tc.arguments && typeof tc.arguments === "object") {
         args = tc.arguments;
       }
     }
@@ -285,7 +288,11 @@ app.post("/tools/logCallOutcome", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    // ...rest of your existing logic (Convoso update, etc.)...
+    // ⬇ keep your existing Convoso update + logging logic here
+    // e.g.:
+    // await updateConvosoLead({ lead_id, convoso_update_fields, disposition });
+    // etc.
+
     return res.json({ ok: true });
   } catch (err) {
     console.error("[logCallOutcome] error:", err);
@@ -293,18 +300,19 @@ app.post("/tools/logCallOutcome", async (req, res) => {
   }
 });
 
+
 // ----- TOOL: getRoutingTarget -----
 app.post("/tools/getRoutingTarget", async (req, res) => {
   try {
-    // Support both:
-    // 1) flat: { intent, qualification_status, agent_name }
-    // 2) wrapped: { message: { toolCalls: [ { arguments: {...} } ] } }
+    // Support both shapes:
+    // 1) Flat: { intent, qualification_status, agent_name }
+    // 2) Tool server: { message: { toolCalls: [ { arguments: {...} } ] } }
     let args = req.body || {};
 
     if (!(args.intent || args.qualification_status || args.agent_name)) {
-      const msg = req.body?.message;
-      const tc = msg?.toolCalls?.[0];
-      if (tc?.arguments && typeof tc.arguments === "object") {
+      const msg = req.body && req.body.message;
+      const tc = msg && Array.isArray(msg.toolCalls) ? msg.toolCalls[0] : null;
+      if (tc && tc.arguments && typeof tc.arguments === "object") {
         args = tc.arguments;
       }
     }
@@ -358,7 +366,6 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
     return res.status(500).json({ error: "getRoutingTarget failed" });
   }
 });
-
 
     // Hard rule: Riley can NEVER go to sales
     if (isRiley && routing_target === "sales_queue") {
