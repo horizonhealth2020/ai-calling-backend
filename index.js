@@ -240,11 +240,14 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     const toolCall = toolCalls[0];
     const toolCallId = toolCall.id;
 
-    // 🔑 arguments may be a JSON string – parse it
+    // 🔑 arguments might be a string OR an object
     let args = toolCall.arguments || {};
+    console.log("[sendLeadNote] raw arguments:", args, "typeof:", typeof args);
+
     if (typeof args === "string") {
       try {
         args = JSON.parse(args);
+        console.log("[sendLeadNote] parsed arguments object:", args);
       } catch (e) {
         console.error("[sendLeadNote] Failed to parse arguments JSON:", args);
         args = {};
@@ -272,7 +275,6 @@ app.post("/tools/sendLeadNote", async (req, res) => {
 
     if (!leadId) {
       console.error("[sendLeadNote] Missing convosoLeadId in metadata");
-      // For now, just acknowledge success so Morgan can keep going
       return res.status(200).json({
         results: [
           {
