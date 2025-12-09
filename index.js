@@ -367,21 +367,7 @@ app.post("/tools/getRoutingTarget", async (req, res) => {
   }
 });
 
-    // Hard rule: Riley can NEVER go to sales
-    if (isRiley && routing_target === "sales_queue") {
-      console.log("[getRoutingTarget] Riley attempted sales transfer; overriding to general_queue");
-      routing_target = "general_queue";
-      phone_number = CONVOSO_GENERAL_NUMBER;
-    }
-
-    res.json({ routing_target, phone_number });
-  } catch (err) {
-    console.error("[getRoutingTarget] error:", err);
-    res.status(500).json({ error: "getRoutingTarget failed" });
-  }
-});
-
-// ----- TOOL: scheduleCallback -----
+   // ----- TOOL: scheduleCallback -----
 app.post("/tools/scheduleCallback", async (req, res) => {
   try {
     const {
