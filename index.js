@@ -169,75 +169,47 @@ function extractToolArguments(body, toolName) {
     return b;
   }
 
-  // 1) New Vapi/OpenAI style: { message: { toolCalls: [ { type: 'function', function: { name, arguments } } ] } }
   const msg = b.message;
-  if (msg) {
-    const lists = [msg.toolCalls, msg.toolCallList, msg.toolWithToolCallList].filter(
-      Array.isArray
-    );
+  if (!msg || !Array.isArray(msg.toolCalls)) {
+    return b;
+  }
 
-    for (const list of lists) {
-      for (const tc of list) {
-        // function wrapper shape
-        const fn = tc.function || (tc.toolCall && tc.toolCall.function) || null;
-        const name =
-          (fn && fn.name) ||
-          tc.name ||
-          tc.toolName ||
-          tc.functionName ||
-          (tc.toolCall && (tc.toolCall.name || tc.toolCall.toolName));
+  // 1) Find the toolCall whose function.name matches toolName
+  let tc =
+    msg.toolCalls.find(
+      (c) =>
+        c &&
+        c.function &&
+        typeof c.function.name === "string" &&
+        c.function.name === toolName
+    ) || null;
 
-        if (toolName && name !== toolName) continue;
+  // If we didn't find a matching name, just return the original body
+  if (!tc || !tc.function) {
+    return b;
+  }
 
-        let args =
-          (fn && fn.arguments) ||
-          (fn && fn.args) ||
-          tc.arguments ||
-          tc.args ||
-          tc.parameters ||
-          tc.input ||
-          tc.params;
+  let args = tc.function.arguments;
 
-        if (typeof args === "string") {
-          try {
-            args = JSON.parse(args);
-          } catch (e) {
-            console.error(
-              "[extractToolArguments] Failed to parse function.arguments JSON:",
-              e
-            );
-          }
-        }
-
-        if (args && typeof args === "object") {
-          return args;
-        }
-      }
+  // Sometimes arguments is a JSON string
+  if (typeof args === "string") {
+    try {
+      args = JSON.parse(args);
+    } catch (e) {
+      console.error(
+        "[extractToolArguments] Failed to parse function.arguments JSON:",
+        e
+      );
     }
   }
 
-  // 2) Fallback: top-level arguments
-  if (b.arguments || b.args || b.parameters || b.input || b.params) {
-    let args = b.arguments || b.args || b.parameters || b.input || b.params;
-    if (typeof args === "string") {
-      try {
-        args = JSON.parse(args);
-      } catch (e) {
-        console.error(
-          "[extractToolArguments] Failed to parse top-level arguments JSON:",
-          e
-        );
-      }
-    }
-    if (args && typeof args === "object") {
-      return args;
-    }
+  if (args && typeof args === "object") {
+    return args;
   }
 
-  // 3) Last resort: return body as-is
+  // Fallback: return body unchanged
   return b;
 }
-
 
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
