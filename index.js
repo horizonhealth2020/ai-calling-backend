@@ -10,65 +10,46 @@ const cors = require("cors");
 const { startOutboundCall } = require("./voiceGateway");
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 
-// convoso.js — helper functions for Convoso API
+// ---- Convoso helpers (use original working pattern) ----
 
-const CONVOSO_API_KEY = process.env.CONVOSO_AUTH_TOKEN; 
-const CONVOSO_BASE_URL = "https://api.convoso.com/v1";
-
-// Add or update ANY lead field(s)
+// Generic lead update: uses GET with auth_token in query string
 async function updateConvosoLead(leadId, fields = {}) {
-  const url = `${CONVOSO_BASE_URL}/leads/update-lead`;
-
-  const payload = {
-    lead_id: leadId,
-    ...fields
-  };
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${CONVOSO_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const text = await resp.text();
-  if (!resp.ok) {
-    console.error("Convoso update error:", resp.status, text);
-    throw new Error(`Convoso update failed: ${resp.status}`);
+  if (!CONVOSO_AUTH_TOKEN) {
+    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+  }
+  if (!leadId) {
+    throw new Error("leadId is required for updateConvosoLead");
   }
 
-  console.log("Convoso updateLead response:", text);
-  return text;
+  const params = new URLSearchParams({
+    auth_token: CONVOSO_AUTH_TOKEN,
+    lead_id: String(leadId),
+  });
+
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    params.append(key, String(value));
+  });
+
+  const url = `https://api.convoso.com/v1/leads/update?${params.toString()}`;
+  console.log("[updateConvosoLead] URL:", url);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[updateConvosoLead] Convoso error:", response.status, text);
+    throw new Error("Convoso lead update failed");
+  }
+
+  const data = await response.json();
+  console.log("[updateConvosoLead] response:", JSON.stringify(data).slice(0, 500));
+  return data;
 }
 
-// Add a NOTE to a lead
+// "Add note" just means: update the lead's notes field
 async function addLeadNote(leadId, note) {
-  const url = `${CONVOSO_BASE_URL}/leads/add-lead-note`;
-
-  const payload = {
-    lead_id: leadId,
-    note
-  };
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${CONVOSO_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const text = await resp.text();
-  if (!resp.ok) {
-    console.error("Convoso add-note error:", resp.status, text);
-    throw new Error(`Convoso add-note failed: ${resp.status}`);
-  }
-
-  console.log("Convoso addNote response:", text);
-  return text;
+  // ⚠️ This overwrites the Notes field in Convoso for that lead.
+  return updateConvosoLead(leadId, { notes: note });
 }
 
 // export not used in this file, but leaving for consistency
