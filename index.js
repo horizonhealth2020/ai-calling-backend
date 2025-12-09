@@ -218,7 +218,50 @@ function extractToolArguments(body, toolName) {
 
     // Some shapes: { name, arguments: {...} }
     if (c.arguments || c.args || c.parameters || c.input || c.params) {
-      return c.arguments || c.args
+      return c.arguments || c.args || c.parameters || c.input || c.params;
+    }
+
+    // Others: { toolCall: { arguments: {...} } }
+    if (c.toolCall || c.tool_call) {
+      const inner = c.toolCall || c.tool_call;
+      if (inner.arguments || inner.args || inner.parameters || inner.input || inner.params) {
+        return (
+          inner.arguments || inner.args || inner.parameters || inner.input || inner.params
+        );
+      }
+    }
+
+    return null;
+  }
+
+  // Find candidate that matches this toolName if possible
+  let tc =
+    candidates.find(
+      (c) =>
+        c.name === toolName ||
+        c.toolName === toolName ||
+        c.functionName === toolName ||
+        (c.toolCall && (c.toolCall.name === toolName || c.toolCall.toolName === toolName))
+    ) || candidates[0];
+
+  if (!tc) return b;
+
+  let toolArgs = getArgsFromCandidate(tc);
+
+  if (typeof toolArgs === "string") {
+    try {
+      toolArgs = JSON.parse(toolArgs);
+    } catch (e) {
+      console.error("[extractToolArguments] Failed to parse candidate arguments JSON:", e);
+    }
+  }
+
+  if (toolArgs && typeof toolArgs === "object") {
+    return toolArgs;
+  }
+
+  return b;
+}
 
 // ----- TOOL: getLead -----
 app.post("/tools/getLead", async (req, res) => {
