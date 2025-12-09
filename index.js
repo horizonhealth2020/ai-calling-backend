@@ -157,7 +157,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 function extractToolArguments(body, toolName) {
   const b = body || {};
 
-  // 0) If already flat, just return it
+  // 0) If it's already flat, just return it
   if (
     b.intent ||
     b.qualification_status ||
@@ -169,45 +169,84 @@ function extractToolArguments(body, toolName) {
     return b;
   }
 
-  const msg = b.message;
-  if (!msg || !Array.isArray(msg.toolCalls)) {
-    return b;
+  // 1) Top-level toolCall shape (what your logs show for getRoutingTarget)
+  if (b.toolCall) {
+    const tc = b.toolCall;
+    const fn = tc.function || {};
+    const name = fn.name;
+
+    if (!toolName || name === toolName) {
+      let args = fn.arguments;
+
+      if (typeof args === "string") {
+        try {
+          args = JSON.parse(args);
+        } catch (e) {
+          console.error(
+            "[extractToolArguments] Failed to parse toolCall.function.arguments JSON:",
+            e
+          );
+        }
+      }
+
+      if (args && typeof args === "object") {
+        return args;
+      }
+    }
   }
 
-  // 1) Find the toolCall whose function.name matches toolName
-  let tc =
-    msg.toolCalls.find(
+  // 2) Message/toolCalls shape (what your logs show for getLead)
+  const msg = b.message;
+  if (msg && Array.isArray(msg.toolCalls)) {
+    const matches = msg.toolCalls.filter(
       (c) =>
         c &&
         c.function &&
         typeof c.function.name === "string" &&
-        c.function.name === toolName
-    ) || null;
+        (!toolName || c.function.name === toolName)
+    );
 
-  // If we didn't find a matching name, just return the original body
-  if (!tc || !tc.function) {
-    return b;
-  }
+    // Prefer exact name match, otherwise fallback to first
+    const tc = matches[0] || msg.toolCalls[0];
+    if (tc && tc.function) {
+      let args = tc.function.arguments;
 
-  let args = tc.function.arguments;
+      if (typeof args === "string") {
+        try {
+          args = JSON.parse(args);
+        } catch (e) {
+          console.error(
+            "[extractToolArguments] Failed to parse message.toolCalls.function.arguments JSON:",
+            e
+          );
+        }
+      }
 
-  // Sometimes arguments is a JSON string
-  if (typeof args === "string") {
-    try {
-      args = JSON.parse(args);
-    } catch (e) {
-      console.error(
-        "[extractToolArguments] Failed to parse function.arguments JSON:",
-        e
-      );
+      if (args && typeof args === "object") {
+        return args;
+      }
     }
   }
 
-  if (args && typeof args === "object") {
-    return args;
+  // 3) Fallback: top-level arguments
+  if (b.arguments) {
+    let args = b.arguments;
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args);
+      } catch (e) {
+        console.error(
+          "[extractToolArguments] Failed to parse top-level arguments JSON:",
+          e
+        );
+      }
+    }
+    if (args && typeof args === "object") {
+      return args;
+    }
   }
 
-  // Fallback: return body unchanged
+  // 4) Last resort: return body unchanged
   return b;
 }
 
