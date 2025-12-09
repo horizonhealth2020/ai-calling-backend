@@ -75,10 +75,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 
     let body = req.body || {};
 
-    // CASE A: Proper JSON
-
     // CASE B: x-www-form-urlencoded with a single JSON key
-    // Looks like: { '{"first_name":"john","phone_number":"305..."}': '' }
     if (
       (!body.phone && !body.phone_number && !body.phoneNumber) &&
       Object.keys(body).length === 1
@@ -96,7 +93,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     }
 
     // CASE C: url/params style
-    // If Convoso ever sends { url: "...", params: "{...}" }
     if (
       (!body.phone && !body.phone_number && !body.phoneNumber) &&
       typeof body.params === "string"
@@ -109,9 +105,6 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
         console.error("[Convoso webhook] failed to parse body.params JSON:", e);
       }
     }
-
-    // At this point, body SHOULD look like:
-    // { first_name, last_name, phone_number, list_id, state, lead_id? }
 
     const customerNumberRaw =
       body.phone_number ||
@@ -130,7 +123,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 
     // Normalize to E.164 (US default)
     let customerNumber = String(customerNumberRaw).trim();
-    customerNumber = customerNumber.replace(/\D/g, ""); // 305-502-7658 -> 3055027658
+    customerNumber = customerNumber.replace(/\D/g, "");
     if (!customerNumber.startsWith("+")) {
       customerNumber = "+1" + customerNumber;
     }
@@ -170,7 +163,8 @@ function extractToolArguments(body, toolName) {
     b.qualification_status ||
     b.agent_name ||
     b.call_session_id ||
-    b.lead_id
+    b.lead_id ||
+    b.phone
   ) {
     return b;
   }
@@ -178,7 +172,6 @@ function extractToolArguments(body, toolName) {
   const msg = b.message;
   if (!msg) return b;
 
-  // Vapi can use toolCalls / toolCallList / toolWithToolCallList
   const candidates =
     (Array.isArray(msg.toolCalls) && msg.toolCalls) ||
     (Array.isArray(msg.toolCallList) && msg.toolCallList) ||
@@ -187,7 +180,6 @@ function extractToolArguments(body, toolName) {
 
   if (!candidates) return b;
 
-  // Find the toolCall that matches this tool
   let tc =
     candidates.find(
       (c) =>
@@ -201,7 +193,6 @@ function extractToolArguments(body, toolName) {
   let toolArgs =
     tc.arguments || tc.args || tc.parameters || tc.input || tc.params;
 
-  // Sometimes arguments come as a JSON string
   if (typeof toolArgs === "string") {
     try {
       toolArgs = JSON.parse(toolArgs);
@@ -225,7 +216,6 @@ app.post("/tools/getLead", async (req, res) => {
       JSON.stringify(req.body, null, 2).slice(0, 2000)
     );
 
-    // Use the same helper to unwrap Vapi tool-server payloads
     const args = extractToolArguments(req.body, "getLead");
     const { phone, lead_id } = args || {};
 
@@ -354,16 +344,14 @@ app.post("/tools/logCallOutcome", async (req, res) => {
 
     let convosoResult = null;
 
-    // Actually update Convoso now
     if (lead_id) {
       const updateFields = {
         status: qualification_status || undefined,
         disposition: disposition || undefined,
-        notes: notes || undefined, // overwrites existing Convoso notes
+        notes: notes || undefined,
         ...(convoso_update_fields || {}),
       };
 
-      // Clean out empty fields
       Object.keys(updateFields).forEach((k) => {
         if (
           updateFields[k] === undefined ||
@@ -525,7 +513,6 @@ app.post("/debug/test-call", async (req, res) => {
       });
     }
 
-    // Normalize like we do in the webhook
     let customerNumber = String(phone).trim();
     if (!customerNumber.startsWith("+")) {
       customerNumber = "+1" + customerNumber.replace(/\D/g, "");
