@@ -225,10 +225,12 @@ app.post("/debug/test-call", async (req, res) => {
 // ----- TOOL: sendLeadNote -----
 app.post("/tools/sendLeadNote", async (req, res) => {
   try {
-    console.log("[sendLeadNote] Incoming:", JSON.stringify(req.body, null, 2));
+    console.log("[sendLeadNote] hit");
 
-    const message = req.body?.message || {};
-    const toolCalls = message.toolCallList || [];
+    const message = req.body && req.body.message ? req.body.message : {};
+    const toolCalls = Array.isArray(message.toolCallList)
+      ? message.toolCallList
+      : [];
 
     if (!toolCalls.length) {
       console.error("[sendLeadNote] No toolCallList found");
@@ -246,9 +248,9 @@ app.post("/tools/sendLeadNote", async (req, res) => {
         results: [
           {
             toolCallId,
-            error: "Missing required argument: note"
-          }
-        ]
+            error: "Missing required argument: note",
+          },
+        ],
       });
     }
 
@@ -262,13 +264,13 @@ app.post("/tools/sendLeadNote", async (req, res) => {
         results: [
           {
             toolCallId,
-            error: "No convosoLeadLeadId — cannot post note."
-          }
-        ]
+            error: "No convosoLeadId — cannot post note.",
+          },
+        ],
       });
     }
 
-    console.log("[sendLeadNote] Posting note to Convoso for lead:", leadId);
+    console.log("[sendLeadNote] Adding note for lead:", leadId);
 
     await addLeadNote(leadId, note);
 
@@ -276,11 +278,10 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       results: [
         {
           toolCallId,
-          result: "Lead note successfully added to Convoso."
-        }
-      ]
+          result: "Lead note successfully added to Convoso.",
+        },
+      ],
     });
-
   } catch (err) {
     console.error("[sendLeadNote] Unexpected error:", err);
 
@@ -288,10 +289,15 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       results: [
         {
           toolCallId:
-            req.body?.message?.toolCallList?.[0]?.id || "unknown",
-          error: "Unexpected error in sendLeadNote route"
-        }
-      ]
+            (req.body &&
+              req.body.message &&
+              req.body.message.toolCallList &&
+              req.body.message.toolCallList[0] &&
+              req.body.message.toolCallList[0].id) ||
+            "unknown",
+          error: "Unexpected error in sendLeadNote route",
+        },
+      ],
     });
   }
 });
