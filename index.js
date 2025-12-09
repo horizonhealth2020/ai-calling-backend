@@ -205,84 +205,112 @@ app.post("/debug/test-call", async (req, res) => {
 
 // ----- TOOL: sendLeadNote -----
 // Called by Vapi whenever Morgan wants to log a note for this lead.
-// This version uses the NOTE that Morgan sends in the tool arguments.
 app.post("/tools/sendLeadNote", async (req, res) => {
   try {
     const body = req.body || {};
-    const message = body.message || {};
-    const call = message.call || {};
-    const metadata = call.metadata || {};
+    console.log("[sendLeadNote] incoming body:", JSON.stringify(body).slice(0, 1000));
+
+    // 1) Try to find the Vapi "message" object if present
+    const message = body.message || body || {};
+    const call = message.call || body.call || {};
+    const metadata = call.metadata || body.metadata || {};
     const convosoRaw = metadata.convosoRaw || {};
 
-    // 1) Figure out the lead id
+    // 2) Resolve lead id from multiple places
     const leadId =
       metadata.convosoLeadId ||
       convosoRaw.lead_id ||
       body.lead_id ||
+      body.id ||
       null;
 
     if (!leadId) {
-      console.error("[sendLeadNote] No convosoLeadId / lead_id available");
+      console.error("[sendLeadNote] No lead_id available (convosoLeadId/lead_id/id all missing)");
       return res.status(200).json({
         results: [
           {
             name: "sendLeadNote",
             toolCallId: "unknown",
-            result:
-              "No lead_id available, so note was not posted to Convoso.",
+            result: "No lead_id available, so note was not posted to Convoso.",
           },
         ],
       });
     }
 
-    // 2) Get tool call + args (handle both toolCalls and toolCallList shapes)
+    // 3) Get tool call + args (Vapi can send toolCalls or a single toolCall)
     const toolCalls =
       message.toolCalls ||
       message.toolCallList ||
+      body.toolCalls ||
+      body.toolCallList ||
       [];
 
-    const firstCall = Array.isArray(toolCalls) && toolCalls.length > 0
-      ? toolCalls[0]
-      : {};
-
-    const args =
-      firstCall.args ||
-      firstCall.arguments ||
+    const firstCall =
+      (Array.isArray(toolCalls) && toolCalls[0]) ||
+      body.toolCall ||
       {};
 
-    // 3) Get the note text that Morgan generated
-    const noteFromMorgan =
+    // Raw args: may be object OR JSON string
+    let args =
+      firstCall.args ||
+      firstCall.arguments ||
+      body.args ||
+      body.arguments ||
+      {};
+
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args);
+      } catch (e) {
+        console.error("[sendLeadNote] Failed to parse args JSON string:", e);
+        args = {};
+      }
+    }
+
+    // 4) Try to get Morgan's note text
+    let noteFromMorgan =
       body.note ||
       body.notes ||
       args.note ||
       args.notes ||
       null;
 
+    // 5) Fallback note if Morgan didn't send any
     if (!noteFromMorgan) {
-      console.error("[sendLeadNote] No note content from Morgan");
-      return res.status(200).json({
-        results: [
-          {
-            name: "sendLeadNote",
-            toolCallId: firstCall.id || "unknown",
-            result:
-              "Tool was called but no note/notes argument was provided. Nothing written to Convoso.",
-          },
-        ],
-      });
+      const callerNumber =
+        (call.customer && call.customer.number) ||
+        convosoRaw.phone_number ||
+        "Unknown number";
+
+      const firstName = convosoRaw.first_name || "Unknown";
+      const lastName = convosoRaw.last_name || "";
+      const state = convosoRaw.state || "";
+
+      const displayName =
+        lastName && lastName !== "test"
+          ? `${firstName} ${lastName}`
+          : firstName;
+
+      noteFromMorgan =
+        `AI intake call handled by Morgan for ${displayName} (${state}), ` +
+        `phone ${callerNumber}, Convoso lead_id ${leadId}. ` +
+        `Call completed but no detailed summary was provided by the AI.`;
+
+      console.warn("[sendLeadNote] No note from Morgan; using fallback note.");
     }
 
     console.log("[sendLeadNote] Adding note for lead:", leadId);
     console.log("[sendLeadNote] Note content:", noteFromMorgan);
 
-    // 4) Write Morgan's note directly into Convoso Notes
     await addLeadNote(leadId, noteFromMorgan);
+
+    const toolCallId = firstCall.id || body.toolCallId || "unknown";
 
     return res.status(200).json({
       results: [
         {
           name: "sendLeadNote",
-          toolCallId: firstCall.id || "unknown",
+          toolCallId,
           result: "Lead note successfully added to Convoso.",
         },
       ],
