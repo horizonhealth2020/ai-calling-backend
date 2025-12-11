@@ -72,11 +72,15 @@ const MORGAN_LIST_IDS = [28001, 15857, 27223, 10587, 12794, 12793];
 function normalizeConvosoLead(convosoLead) {
   if (!convosoLead) return null;
   return {
-    id: convosoLead.id,
+    id: convosoLead.lead_id || convosoLead.id,
+    list_id: convosoLead.list_id,
     first_name: convosoLead.first_name,
     last_name: convosoLead.last_name,
     phone: convosoLead.phone_number,
+    phone_number: convosoLead.phone_number,
     state: convosoLead.state,
+    call_count: convosoLead.called_count,
+    member_id: convosoLead.member_id,
     raw: convosoLead,
   };
 }
@@ -92,9 +96,9 @@ async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
     page: 1,
     list_id: MORGAN_LIST_IDS,
     filters: [
-      { field: "call_count", comparison: ">=", value: 1 },
-      { field: "call_count", comparison: "<=", value: 5 },
-      { field: "Member_ID", comparison: "=", value: "" },
+      { field: "called_count", comparison: ">=", value: 1 },
+      { field: "called_count", comparison: "<=", value: 5 },
+      { field: "member_id", comparison: "=", value: "" },
     ],
   };
 
@@ -142,11 +146,11 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     page: 1,
     list_id: MORGAN_LIST_IDS,
     filters: [
-      { field: "call_count", comparison: ">=", value: 1 },
+      { field: "called_count", comparison: ">=", value: 1 },
       { field: "status", comparison: "!=", value: "SALE" },
       { field: "call_date", comparison: ">=", value: Math.floor(startOfYesterday.getTime() / 1000) },
       { field: "call_date", comparison: "<=", value: Math.floor(endOfYesterday.getTime() / 1000) },
-      { field: "Member_ID", comparison: "=", value: "" },
+      { field: "member_id", comparison: "=", value: "" },
     ],
   };
 
