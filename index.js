@@ -167,8 +167,6 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     page: 1,
     list_id: MORGAN_LISTIDS || MORGAN_LIST_IDS, // use whatever constant is already defined in this file for Morgan's list IDs
     filters: [
-      { field: "status", comparison: "!=", value: "SALE" },
-
       // Only calls from the target day (yesterday, or Friday if today is Monday)
       { field: "created_at", comparison: ">=", value: Math.floor(startOfTargetDay.getTime() / 1000) },
       { field: "created_at", comparison: "<=", value: Math.floor(endOfTargetDay.getTime() / 1000) },
