@@ -535,6 +535,30 @@ app.post("/tools/sendLeadNote", async (req, res) => {
 // --------------------------------------------------------------------------
 
 // ----- START SERVER -----
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
+
+function gracefulShutdown(signal) {
+  console.log(`[${signal}] received. Shutting down server...`);
+
+  // Stop accepting new connections and wait for existing ones to finish
+  server.close((err) => {
+    if (err) {
+      console.error("Error while closing the server during shutdown:", err);
+      process.exit(1);
+    }
+
+    console.log("HTTP server closed. Exiting process.");
+    process.exit(0);
+  });
+
+  // Fallback in case server.close hangs
+  setTimeout(() => {
+    console.warn("Force exiting after graceful shutdown timeout.");
+    process.exit(0);
+  }, 10000).unref();
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
