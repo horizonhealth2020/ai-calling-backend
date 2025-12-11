@@ -11,6 +11,20 @@ const fetch = require("node-fetch");
 const { startOutboundCall } = require("./voiceGateway");
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 
+// ----- MORGAN OUTBOUND QUEUE -----
+const MORGAN_MAX_CONCURRENT = 3;
+const MORGAN_DIAL_INTERVAL_MS = 3000;
+const morganQueue = [];
+let morganActiveCalls = 0;
+
+function enqueueMorganLead(lead) {
+  if (!lead || !lead.phone) return;
+  morganQueue.push(lead);
+  console.log(
+    `[MorganQueue] Enqueued lead ${lead.id} (${lead.phone}). Queue length: ${morganQueue.length}`
+  );
+}
+
 // ---- Convoso helpers (use original working pattern) ----
 
 // Generic lead update: uses GET with auth_token in query string
@@ -53,6 +67,109 @@ async function addLeadNote(leadId, note) {
   return updateConvosoLead(leadId, { notes: note });
 }
 
+const MORGAN_LIST_IDS = [28001, 15857, 27223, 10587, 12794, 12793];
+
+function normalizeConvosoLead(convosoLead) {
+  if (!convosoLead) return null;
+  return {
+    id: convosoLead.id,
+    first_name: convosoLead.first_name,
+    last_name: convosoLead.last_name,
+    phone: convosoLead.phone_number,
+    state: convosoLead.state,
+    raw: convosoLead,
+  };
+}
+
+async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
+  if (!CONVOSO_AUTH_TOKEN) {
+    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+  }
+
+  const payload = {
+    auth_token: CONVOSO_AUTH_TOKEN,
+    limit: Number(limit) || 50,
+    page: 1,
+    list_id: MORGAN_LIST_IDS,
+    filters: [
+      { field: "call_count", comparison: ">=", value: 1 },
+      { field: "call_count", comparison: "<=", value: 5 },
+      { field: "Member_ID", comparison: "=", value: "" },
+    ],
+  };
+
+  const response = await fetch("https://api.convoso.com/v1/leads/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[findLeadsForMorganByCallCount] Convoso error:", response.status, text);
+    throw new Error("Convoso search failed for Morgan call count");
+  }
+
+  const data = await response.json();
+  const rawLeads = data.data || data.leads || data.results || [];
+  return rawLeads
+    .map(normalizeConvosoLead)
+    .filter(Boolean)
+    .filter((lead) => lead.phone);
+}
+
+function getTimezoneDate(timeZone) {
+  return new Date(new Date().toLocaleString("en-US", { timeZone }));
+}
+
+async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {}) {
+  if (!CONVOSO_AUTH_TOKEN) {
+    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+  }
+
+  const todayInZone = getTimezoneDate(timezone);
+  todayInZone.setHours(0, 0, 0, 0);
+
+  const startOfYesterday = new Date(todayInZone);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+  const endOfYesterday = new Date(startOfYesterday);
+  endOfYesterday.setHours(23, 59, 59, 999);
+
+  const payload = {
+    auth_token: CONVOSO_AUTH_TOKEN,
+    limit: 200,
+    page: 1,
+    list_id: MORGAN_LIST_IDS,
+    filters: [
+      { field: "call_count", comparison: ">=", value: 1 },
+      { field: "status", comparison: "!=", value: "SALE" },
+      { field: "call_date", comparison: ">=", value: Math.floor(startOfYesterday.getTime() / 1000) },
+      { field: "call_date", comparison: "<=", value: Math.floor(endOfYesterday.getTime() / 1000) },
+      { field: "Member_ID", comparison: "=", value: "" },
+    ],
+  };
+
+  const response = await fetch("https://api.convoso.com/v1/leads/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[findYesterdayNonSaleLeads] Convoso error:", response.status, text);
+    throw new Error("Convoso search failed for yesterday non-sale leads");
+  }
+
+  const data = await response.json();
+  const rawLeads = data.data || data.leads || data.results || [];
+  return rawLeads
+    .map(normalizeConvosoLead)
+    .filter(Boolean)
+    .filter((lead) => lead.phone);
+}
+
 // export not used in this file, but leaving for consistency
 module.exports = { updateConvosoLead, addLeadNote };
 
@@ -67,6 +184,51 @@ app.use(express.json());
 // ----- HEALTHCHECK -----
 app.get("/", (req, res) => {
   res.json({ ok: true, message: "ai-calling-backend is running" });
+});
+
+// ----- MORGAN JOBS -----
+app.post("/jobs/morgan/pull-leads", async (req, res) => {
+  try {
+    const limit = Number(req.body?.limit) || 50;
+
+    const leads = await findLeadsForMorganByCallCount({ limit });
+    for (const lead of leads) {
+      enqueueMorganLead(lead);
+      await updateConvosoLead(lead.id, { status: "MORGAN_QUEUED" });
+    }
+
+    return res.json({
+      success: true,
+      fetched: leads.length,
+      queue_length: morganQueue.length,
+    });
+  } catch (err) {
+    console.error("[/jobs/morgan/pull-leads] error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to pull leads" });
+  }
+});
+
+app.post("/jobs/morgan/pull-yesterday", async (req, res) => {
+  try {
+    const timezone = req.body?.timezone || "America/New_York";
+
+    const leads = await findYesterdayNonSaleLeads({ timezone });
+    for (const lead of leads) {
+      enqueueMorganLead(lead);
+      await updateConvosoLead(lead.id, { status: "MORGAN_REQUEUE" });
+    }
+
+    return res.json({
+      success: true,
+      fetched: leads.length,
+      queue_length: morganQueue.length,
+    });
+  } catch (err) {
+    console.error("[/jobs/morgan/pull-yesterday] error:", err);
+    res
+      .status(500)
+      .json({ success: false, error: err.message || "Failed to pull yesterday leads" });
+  }
 });
 
 // ----- WEBHOOK: CONVOSO → MORGAN OUTBOUND -----
@@ -198,6 +360,41 @@ app.post("/debug/test-call", async (req, res) => {
     });
   }
 });
+
+// ----- MORGAN QUEUE PROCESSOR -----
+async function processMorganQueueTick() {
+  try {
+    if (morganActiveCalls >= MORGAN_MAX_CONCURRENT) return;
+
+    const lead = morganQueue.shift();
+    if (!lead) return;
+    if (!lead.phone) return;
+
+    morganActiveCalls++;
+
+    startOutboundCall({
+      agentName: "Morgan",
+      toNumber: lead.phone,
+      metadata: {
+        convosoLeadId: lead.id || null,
+        convosoListId: lead.raw?.list_id || null,
+        source: "morgan-queue",
+        convosoRaw: lead.raw || null
+      },
+      callName: "Morgan Outbound (Queue)"
+    })
+      .then(result => console.log("[MorganQueue] Call started:", result))
+      .catch(err => console.error("[MorganQueue] Error:", err))
+      .finally(() => {
+        morganActiveCalls--;
+        if (morganActiveCalls < 0) morganActiveCalls = 0;
+      });
+  } catch (err) {
+    console.error("[processMorganQueueTick] error:", err);
+  }
+}
+
+setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
 
 
 // --------------------------------------------------------------------------
