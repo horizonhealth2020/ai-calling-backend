@@ -1,0 +1,16 @@
+name: "Morgan – Pull leads now"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  trigger-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HTTP Request
+        run: |
+          curl --fail \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            https://ai-calling-backend-production-cd41.up.railway.app/jobs/morgan/pull-leads
