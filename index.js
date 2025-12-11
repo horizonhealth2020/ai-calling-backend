@@ -136,7 +136,12 @@ async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
       continue;
     }
 
-    const rawLeads = data.data || data.leads || data.results || [];
+    const rawLeads =
+      (data &&
+        data.data &&
+        Array.isArray(data.data.entries)
+          ? data.data.entries
+          : []) || [];
     allLeads = allLeads.concat(rawLeads);
 
     if (allLeads.length >= max) {
@@ -196,7 +201,12 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   }
 
   const data = await response.json();
-  const rawLeads = data.data || data.leads || data.results || [];
+  const rawLeads =
+    (data &&
+      data.data &&
+      Array.isArray(data.data.entries)
+        ? data.data.entries
+        : []) || [];
   return rawLeads
     .map(normalizeConvosoLead)
     .filter(Boolean)
