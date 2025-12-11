@@ -85,72 +85,53 @@ function normalizeConvosoLead(convosoLead) {
   };
 }
 
-async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
+async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/New_York" } = {}) {
   if (!CONVOSO_AUTH_TOKEN) {
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
   }
 
-  const max = Number(limit) || 50;
-  let allLeads = [];
+  // Compute "today" in the lead's timezone
+  const todayInZone = getTimezoneDate(timezone);
+  todayInZone.setHours(0, 0, 0, 0);
 
-  for (const listId of MORGAN_LIST_IDS) {
-    const payload = {
-      auth_token: CONVOSO_AUTH_TOKEN,
-      limit: max,
-      page: 1,
-      list_id: listId,
-      filters: [
-        { field: "called_count", comparison: ">=", value: 1 },
-        { field: "called_count", comparison: "<=", value: 5 },
-        { field: "member_id", comparison: "=", value: "" },
-      ],
-    };
+  const startOfToday = new Date(todayInZone);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setHours(23, 59, 59, 999);
 
-    console.log(
-      "[findLeadsForMorganByCallCount] Request payload:",
-      JSON.stringify(payload, null, 2)
-    );
+  const payload = {
+    auth_token: CONVOSO_AUTH_TOKEN,
+    limit: Number(limit) || 50,
+    page: 1,
+    list_id: MORGAN_LIST_IDS,
+    filters: [
+      // Call count range for Morgan
+      { field: "call_count", comparison: ">=", value: 1 },
+      { field: "call_count", comparison: "<=", value: 5 },
 
-    const response = await fetch("https://api.convoso.com/v1/leads/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      // Only calls from today
+      { field: "call_date", comparison: ">=", value: Math.floor(startOfToday.getTime() / 1000) },
+      { field: "call_date", comparison: "<=", value: Math.floor(endOfToday.getTime() / 1000) },
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[findLeadsForMorganByCallCount] Convoso error:", response.status, text);
-      throw new Error("Convoso search failed for Morgan call count");
-    }
+      // Only leads with empty Member_ID (adjust if my existing logic is different)
+      { field: "Member_ID", comparison: "=", value: "" },
+    ],
+  };
 
-    const data = await response.json();
-    console.log(
-      "[findLeadsForMorganByCallCount] Raw Convoso response (status " +
-        response.status +
-        "):",
-      JSON.stringify(data, null, 2)
-    );
+  const response = await fetch("https://api.convoso.com/v1/leads/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-    if (data.success === false) {
-      console.error("[findLeadsForMorganByCallCount] Convoso returned error:", data);
-      continue;
-    }
-
-    const rawLeads =
-      (data &&
-        data.data &&
-        Array.isArray(data.data.entries)
-          ? data.data.entries
-          : []) || [];
-    allLeads = allLeads.concat(rawLeads);
-
-    if (allLeads.length >= max) {
-      break;
-    }
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[findLeadsForMorganByCallCount] Convoso error:", response.status, text);
+    throw new Error("Convoso search failed for Morgan call count");
   }
 
-  return allLeads
-    .slice(0, max)
+  const data = await response.json();
+  const rawLeads = data.data || data.leads || data.results || [];
+  return rawLeads
     .map(normalizeConvosoLead)
     .filter(Boolean)
     .filter((lead) => lead.phone);
@@ -168,23 +149,33 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   const todayInZone = getTimezoneDate(timezone);
   todayInZone.setHours(0, 0, 0, 0);
 
-  const startOfYesterday = new Date(todayInZone);
-  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  // 0 = Sun, 1 = Mon, 2 = Tue, ... 6 = Sat
+  const dayOfWeek = todayInZone.getDay();
 
-  const endOfYesterday = new Date(startOfYesterday);
-  endOfYesterday.setHours(23, 59, 59, 999);
+  // Tue–Fri → 1 day back; Mon → 3 days back (Friday)
+  const daysBack = dayOfWeek === 1 ? 3 : 1;
+
+  const startOfTargetDay = new Date(todayInZone);
+  startOfTargetDay.setDate(startOfTargetDay.getDate() - daysBack);
+
+  const endOfTargetDay = new Date(startOfTargetDay);
+  endOfTargetDay.setHours(23, 59, 59, 999);
 
   const payload = {
     auth_token: CONVOSO_AUTH_TOKEN,
     limit: 200,
     page: 1,
-    list_id: MORGAN_LIST_IDS,
+    list_id: MORGAN_LISTIDS || MORGAN_LIST_IDS, // use whatever constant is already defined in this file for Morgan's list IDs
     filters: [
-      { field: "called_count", comparison: ">=", value: 1 },
+      { field: "call_count", comparison: ">=", value: 1 },
       { field: "status", comparison: "!=", value: "SALE" },
-      { field: "call_date", comparison: ">=", value: Math.floor(startOfYesterday.getTime() / 1000) },
-      { field: "call_date", comparison: "<=", value: Math.floor(endOfYesterday.getTime() / 1000) },
-      { field: "member_id", comparison: "=", value: "" },
+
+      // Only calls from the target day (yesterday, or Friday if today is Monday)
+      { field: "call_date", comparison: ">=", value: Math.floor(startOfTargetDay.getTime() / 1000) },
+      { field: "call_date", comparison: "<=", value: Math.floor(endOfTargetDay.getTime() / 1000) },
+
+      // Same Member_ID rule as my other Morgan filters
+      { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
 
@@ -201,12 +192,7 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   }
 
   const data = await response.json();
-  const rawLeads =
-    (data &&
-      data.data &&
-      Array.isArray(data.data.entries)
-        ? data.data.entries
-        : []) || [];
+  const rawLeads = data.data || data.leads || data.results || [];
   return rawLeads
     .map(normalizeConvosoLead)
     .filter(Boolean)
