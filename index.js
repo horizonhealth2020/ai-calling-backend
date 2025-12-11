@@ -109,8 +109,16 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
       { field: "call_count", comparison: "<=", value: 5 },
 
       // Only calls from today
-      { field: "call_date", comparison: ">=", value: Math.floor(startOfToday.getTime() / 1000) },
-      { field: "call_date", comparison: "<=", value: Math.floor(endOfToday.getTime() / 1000) },
+      {
+        field: "created_at",
+        comparison: ">=",
+        value: formatConvosoDateTime(startOfToday),
+      },
+      {
+        field: "created_at",
+        comparison: "<=",
+        value: formatConvosoDateTime(endOfToday),
+      },
 
       // Only leads with empty Member_ID (adjust if my existing logic is different)
       { field: "Member_ID", comparison: "=", value: "" },
@@ -141,6 +149,17 @@ function getTimezoneDate(timeZone) {
   return new Date(new Date().toLocaleString("en-US", { timeZone }));
 }
 
+function formatConvosoDateTime(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {}) {
   if (!CONVOSO_AUTH_TOKEN) {
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
@@ -165,11 +184,19 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     auth_token: CONVOSO_AUTH_TOKEN,
     limit: 200,
     page: 1,
-    list_id: MORGAN_LISTIDS || MORGAN_LIST_IDS, // use whatever constant is already defined in this file for Morgan's list IDs
+    list_id: MORGAN_LIST_IDS,
     filters: [
       // Only calls from the target day (yesterday, or Friday if today is Monday)
-      { field: "created_at", comparison: ">=", value: Math.floor(startOfTargetDay.getTime() / 1000) },
-      { field: "created_at", comparison: "<=", value: Math.floor(endOfTargetDay.getTime() / 1000) },
+      {
+        field: "created_at",
+        comparison: ">=",
+        value: formatConvosoDateTime(startOfTargetDay),
+      },
+      {
+        field: "created_at",
+        comparison: "<=",
+        value: formatConvosoDateTime(endOfTargetDay),
+      },
 
       // Same Member_ID rule as my other Morgan filters
       { field: "Member_ID", comparison: "=", value: "" },
