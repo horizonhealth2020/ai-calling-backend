@@ -165,7 +165,7 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     auth_token: CONVOSO_AUTH_TOKEN,
     limit: 200,
     page: 1,
-    list_id: MORGAN_LISTIDS || MORGAN_LIST_IDS, // use whatever constant is already defined in this file for Morgan's list IDs
+    list_id: MORGAN_LIST_IDS || MORGAN_LIST_IDS, // use whatever constant is already defined in this file for Morgan's list IDs
     filters: [
       // Only calls from the target day (yesterday, or Friday if today is Monday)
       { field: "created_at", comparison: ">=", value: Math.floor(startOfTargetDay.getTime() / 1000) },
