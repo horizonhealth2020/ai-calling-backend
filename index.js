@@ -186,6 +186,10 @@ app.get("/", (req, res) => {
   res.json({ ok: true, message: "ai-calling-backend is running" });
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true, env: "ai-calling-backend", version: "v3-voice-gateway" });
+});
+
 // ----- MORGAN JOBS -----
 app.post("/jobs/morgan/pull-leads", async (req, res) => {
   try {
