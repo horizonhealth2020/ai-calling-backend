@@ -102,6 +102,11 @@ async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
     ],
   };
 
+  console.log(
+    "[findLeadsForMorganByCallCount] Request payload:",
+    JSON.stringify(payload, null, 2)
+  );
+
   const response = await fetch("https://api.convoso.com/v1/leads/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -115,6 +120,12 @@ async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
   }
 
   const data = await response.json();
+  console.log(
+    "[findLeadsForMorganByCallCount] Raw Convoso response (status " +
+      response.status +
+      "):",
+    JSON.stringify(data, null, 2)
+  );
   const rawLeads = data.data || data.leads || data.results || [];
   return rawLeads
     .map(normalizeConvosoLead)
