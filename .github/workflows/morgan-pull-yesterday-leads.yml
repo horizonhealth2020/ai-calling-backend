@@ -1,4 +1,4 @@
-name: "Morgan – Pull yesterday’s leads"
+name: "Morgan – Pull Yesterday’s Leads"
 
 on:
   schedule:
