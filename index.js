@@ -90,33 +90,67 @@ async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
   }
 
-  const payload = {
-    auth_token: CONVOSO_AUTH_TOKEN,
-    limit: Number(limit) || 50,
-    page: 1,
-    list_id: MORGAN_LIST_IDS,
-    filters: [
-      { field: "called_count", comparison: ">=", value: 1 },
-      { field: "called_count", comparison: "<=", value: 5 },
-      { field: "member_id", comparison: "=", value: "" },
-    ],
-  };
+  const max = Number(limit) || 50;
+  let allLeads = [];
 
-  const response = await fetch("https://api.convoso.com/v1/leads/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  for (const listId of MORGAN_LIST_IDS) {
+    const payload = {
+      auth_token: CONVOSO_AUTH_TOKEN,
+      limit: max,
+      page: 1,
+      list_id: listId,
+      filters: [
+        { field: "called_count", comparison: ">=", value: 1 },
+        { field: "called_count", comparison: "<=", value: 5 },
+        { field: "member_id", comparison: "=", value: "" },
+      ],
+    };
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[findLeadsForMorganByCallCount] Convoso error:", response.status, text);
-    throw new Error("Convoso search failed for Morgan call count");
+    console.log(
+      "[findLeadsForMorganByCallCount] Request payload:",
+      JSON.stringify(payload, null, 2)
+    );
+
+    const response = await fetch("https://api.convoso.com/v1/leads/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[findLeadsForMorganByCallCount] Convoso error:", response.status, text);
+      throw new Error("Convoso search failed for Morgan call count");
+    }
+
+    const data = await response.json();
+    console.log(
+      "[findLeadsForMorganByCallCount] Raw Convoso response (status " +
+        response.status +
+        "):",
+      JSON.stringify(data, null, 2)
+    );
+
+    if (data.success === false) {
+      console.error("[findLeadsForMorganByCallCount] Convoso returned error:", data);
+      continue;
+    }
+
+    const rawLeads =
+      (data &&
+        data.data &&
+        Array.isArray(data.data.entries)
+          ? data.data.entries
+          : []) || [];
+    allLeads = allLeads.concat(rawLeads);
+
+    if (allLeads.length >= max) {
+      break;
+    }
   }
 
-  const data = await response.json();
-  const rawLeads = data.data || data.leads || data.results || [];
-  return rawLeads
+  return allLeads
+    .slice(0, max)
     .map(normalizeConvosoLead)
     .filter(Boolean)
     .filter((lead) => lead.phone);
@@ -167,7 +201,12 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   }
 
   const data = await response.json();
-  const rawLeads = data.data || data.leads || data.results || [];
+  const rawLeads =
+    (data &&
+      data.data &&
+      Array.isArray(data.data.entries)
+        ? data.data.entries
+        : []) || [];
   return rawLeads
     .map(normalizeConvosoLead)
     .filter(Boolean)

@@ -1,0 +1,21 @@
+name: "Morgan – Pull yesterday’s leads"
+
+on:
+  schedule:
+    # 9:15 AM America/New_York during Eastern Standard Time (UTC-5)
+    - cron: "15 14 * * 1-5"
+    # 9:15 AM America/New_York during Eastern Daylight Time (UTC-4)
+    - cron: "15 13 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  trigger-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HTTP Request
+        run: |
+          curl --fail \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            https://ai-calling-backend-production-cd41.up.railway.app/jobs/morgan/pull-yesterday
