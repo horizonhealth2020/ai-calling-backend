@@ -95,11 +95,11 @@ async function findLeadsForMorganByCallCount({ limit = 50 } = {}) {
     limit: Number(limit) || 50,
     page: 1,
     list_id: MORGAN_LIST_IDS,
-    filters: [
-      { field: "called_count", comparison: ">=", value: 1 },
-      { field: "called_count", comparison: "<=", value: 5 },
-      { field: "member_id", comparison: "=", value: "" },
-    ],
+    // filters: [
+    //   { field: "called_count", comparison: ">=", value: 1 },
+    //   { field: "called_count", comparison: "<=", value: 5 },
+    //   { field: "member_id", comparison: "=", value: "" },
+    // ],
   };
 
   const response = await fetch("https://api.convoso.com/v1/leads/search", {
