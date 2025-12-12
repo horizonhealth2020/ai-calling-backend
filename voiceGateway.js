@@ -72,6 +72,7 @@ async function startOutboundCall({
   toNumber,
   metadata = {},
   callName,
+  phoneNumberId,
 }) {
   if (!VAPI_API_KEY) {
     throw new Error("Missing VAPI_API_KEY env var");
@@ -94,11 +95,11 @@ async function startOutboundCall({
     );
   }
 
-  const phoneNumberId = getNextVapiPhoneNumberId();
+  const resolvedPhoneNumberId = phoneNumberId || getNextVapiPhoneNumberId();
 
   const payload = {
     assistantId: resolvedAssistantId,
-    phoneNumberId,
+    phoneNumberId: resolvedPhoneNumberId,
     customer: {
       number: customerNumber,
     },
