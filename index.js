@@ -90,13 +90,8 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
   }
 
-  // Compute "today" in the lead's timezone
-  const todayInZone = getTimezoneDate(timezone);
-  todayInZone.setHours(0, 0, 0, 0);
-
-  const startOfToday = new Date(todayInZone);
-  const endOfToday = new Date(startOfToday);
-  endOfToday.setHours(23, 59, 59, 999);
+  const tz = timezone || "America/New_York";
+  const { start, end } = getDayWindowStrings(tz, 0); // TODAY
 
   const payload = {
     auth_token: CONVOSO_AUTH_TOKEN,
@@ -104,32 +99,16 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
     page: 1,
     list_id: MORGAN_LIST_IDS,
     filters: [
-      // Call count range for Morgan
+      { field: "created_at", comparison: ">=", value: start },
+      { field: "created_at", comparison: "<=", value: end },
+      // keep these EXACTLY as they were:
       { field: "call_count", comparison: ">=", value: 1 },
       { field: "call_count", comparison: "<=", value: 5 },
-
-      // Only calls from today
-      {
-        field: "created_at",
-        comparison: ">=",
-        value: formatConvosoDateTimeInTZ(startOfToday, timezone || "America/New_York"),
-      },
-      {
-        field: "created_at",
-        comparison: "<=",
-        value: formatConvosoDateTimeInTZ(endOfToday, timezone || "America/New_York"),
-      },
-
-      // Only leads with empty Member_ID (adjust if my existing logic is different)
       { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
 
-  console.log("[Morgan/pull-leads] dateWindow(created_at today):", {
-    start: formatConvosoDateTimeInTZ(startOfToday, timezone || "America/New_York"),
-    end: formatConvosoDateTimeInTZ(endOfToday, timezone || "America/New_York"),
-    timezone,
-  });
+  console.log("[Morgan/pull-leads] created_at window:", { start, end, tz });
   console.log("[Morgan/pull-leads] filters preview:", payload.filters);
 
   const response = await fetch("https://api.convoso.com/v1/leads/search", {
@@ -154,6 +133,42 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
 
 function getTimezoneDate(timeZone) {
   return new Date(new Date().toLocaleString("en-US", { timeZone }));
+}
+
+function getDayWindowStrings(timeZone = "America/New_York", daysBack = 0) {
+  // Get today's Y/M/D in the target TZ
+  const now = new Date();
+  const ymdParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const y = +ymdParts.find((p) => p.type === "year").value;
+  const m = +ymdParts.find((p) => p.type === "month").value;
+  const d = +ymdParts.find((p) => p.type === "day").value;
+
+  // Anchor to "today-at-noon UTC", then move daysBack in UTC to avoid DST edge cases
+  const noonUTC = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  noonUTC.setUTCDate(noonUTC.getUTCDate() - daysBack);
+
+  // Get the target Y/M/D in the target TZ
+  const tgt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(noonUTC);
+  const Y = tgt.find((p) => p.type === "year").value;
+  const M = tgt.find((p) => p.type === "month").value;
+  const D = tgt.find((p) => p.type === "day").value;
+
+  // Return Convoso-ready strings
+  return {
+    start: `${Y}-${M}-${D} 00:00:00`,
+    end: `${Y}-${M}-${D} 23:59:59`,
+    ymd: `${Y}-${M}-${D}`,
+  };
 }
 
 function formatConvosoDateTime(date) {
@@ -187,20 +202,12 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
   }
 
-  const todayInZone = getTimezoneDate(timezone);
-  todayInZone.setHours(0, 0, 0, 0);
-
-  // 0 = Sun, 1 = Mon, 2 = Tue, ... 6 = Sat
-  const dayOfWeek = todayInZone.getDay();
-
-  // Tue–Fri → 1 day back; Mon → 3 days back (Friday)
-  const daysBack = dayOfWeek === 1 ? 3 : 1;
-
-  const startOfTargetDay = new Date(todayInZone);
-  startOfTargetDay.setDate(startOfTargetDay.getDate() - daysBack);
-
-  const endOfTargetDay = new Date(startOfTargetDay);
-  endOfTargetDay.setHours(23, 59, 59, 999);
+  const tz = timezone || "America/New_York";
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(
+    new Date()
+  );
+  const daysBack = weekday === "Mon" ? 3 : 1; // Mon → Friday, else → yesterday
+  const { start, end } = getDayWindowStrings(tz, daysBack);
 
   const payload = {
     auth_token: CONVOSO_AUTH_TOKEN,
@@ -208,27 +215,18 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     page: 1,
     list_id: MORGAN_LIST_IDS,
     filters: [
-      // Only calls from the target day (yesterday, or Friday if today is Monday)
-      {
-        field: "created_at",
-        comparison: ">=",
-        value: formatConvosoDateTimeInTZ(startOfTargetDay, timezone || "America/New_York"),
-      },
-      {
-        field: "created_at",
-        comparison: "<=",
-        value: formatConvosoDateTimeInTZ(endOfTargetDay, timezone || "America/New_York"),
-      },
-
-      // Same Member_ID rule as my other Morgan filters
+      { field: "created_at", comparison: ">=", value: start },
+      { field: "created_at", comparison: "<=", value: end },
       { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
 
-  console.log("[Morgan/pull-yesterday] dateWindow(created_at prior working day):", {
-    start: formatConvosoDateTimeInTZ(startOfTargetDay, timezone || "America/New_York"),
-    end: formatConvosoDateTimeInTZ(endOfTargetDay, timezone || "America/New_York"),
-    timezone,
+  console.log("[Morgan/pull-yesterday] created_at window (prior working day):", {
+    start,
+    end,
+    tz,
+    weekday,
+    daysBack,
   });
   console.log("[Morgan/pull-yesterday] filters preview:", payload.filters);
 
