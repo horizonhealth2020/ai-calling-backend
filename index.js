@@ -16,6 +16,7 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY;
 const MORGAN_MAX_CONCURRENT = 3;
 const MORGAN_DIAL_INTERVAL_MS = 3000;
 const morganQueue = [];
+const morganQueuedIds = new Set();
 
 // Morgan slot management: 1 slot per phoneNumberId (Twilio number)
 const MORGAN_PHONE_NUMBER_IDS = process.env.VAPI_PHONE_NUMBER_IDS
@@ -66,27 +67,75 @@ function freeMorganSlotByCallId(callId) {
   return true;
 }
 
-async function enqueueMorganLead(lead) {
-  if (!lead || !lead.phone) return;
-  morganQueue.push(lead);
-  console.log(
-    `[MorganQueue] Enqueued lead ${lead.id} (${lead.phone}). Queue length: ${morganQueue.length}`
-  );
+function enqueueMorganLead(lead) {
+  if (!lead || !lead.id) return;
 
-  try {
-    await updateConvosoLead(lead.id, { status: "MQ" });
-  } catch (err) {
-    console.error("[MorganQueue] Failed to set Convoso status MQ for lead", lead.id, err);
+  // In-memory dedupe
+  if (morganQueuedIds.has(lead.id)) {
+    console.log("[MorganQueue] Skipping duplicate lead", lead.id);
+    return;
   }
+
+  morganQueue.push(lead);
+  morganQueuedIds.add(lead.id);
+
+  // Persist in Convoso: mark as queued for Morgan
+  updateConvosoLead({
+    lead_id: lead.id,
+    status: "MQ"
+  }).catch((err) => {
+    console.error("[MorganQueue] Failed to set MQ status for", lead.id, err);
+  });
+
+  console.log(
+    "[MorganQueue] Enqueued lead",
+    lead.id,
+    "Queue length:",
+    morganQueue.length
+  );
+}
+
+function getNextMorganLead() {
+  const lead = morganQueue.shift();
+  if (!lead) return null;
+
+  if (lead.id) {
+    morganQueuedIds.delete(lead.id);
+
+    // Mark as moved from queue into active calling state
+    updateConvosoLead({
+      lead_id: lead.id,
+      status: "MC",
+    }).catch((err) => {
+      console.error("[MorganQueue] Failed to set MC status for", lead.id, err);
+    });
+  }
+
+  console.log("[MorganQueue] Dequeued lead", lead.id, "for dialing");
+  return lead;
 }
 
 // ---- Convoso helpers (use original working pattern) ----
 
 // Generic lead update: uses GET with auth_token in query string
-async function updateConvosoLead(leadId, fields = {}) {
+async function updateConvosoLead(leadIdOrPayload, fields = {}) {
   if (!CONVOSO_AUTH_TOKEN) {
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
   }
+
+  let leadId = leadIdOrPayload;
+  let payloadFields = fields;
+
+  if (leadIdOrPayload && typeof leadIdOrPayload === "object" && !Array.isArray(leadIdOrPayload)) {
+    leadId =
+      leadIdOrPayload.lead_id ||
+      leadIdOrPayload.leadId ||
+      leadIdOrPayload.id ||
+      leadIdOrPayload.leadID ||
+      null;
+    payloadFields = leadIdOrPayload;
+  }
+
   if (!leadId) {
     throw new Error("leadId is required for updateConvosoLead");
   }
@@ -96,7 +145,8 @@ async function updateConvosoLead(leadId, fields = {}) {
     lead_id: String(leadId),
   });
 
-  Object.entries(fields).forEach(([key, value]) => {
+  Object.entries(payloadFields).forEach(([key, value]) => {
+    if (key === "lead_id" || key === "leadId" || key === "leadID" || key === "id") return;
     if (value === undefined || value === null) return;
     params.append(key, String(value));
   });
@@ -180,23 +230,29 @@ async function hydrateMorganQueueFromConvoso() {
 
   console.log("[MorganQueue] Hydrating from Convoso...");
 
+  // Clear any stale state
+  morganQueue.length = 0;
+  morganQueuedIds.clear();
+
   try {
-    const mqLeads = await convosoSearchAllPages({
+    const raw = await convosoSearchAllPages({
       auth_token: CONVOSO_AUTH_TOKEN,
       status: "MQ",
       list_id: MORGAN_LIST_IDS,
       limit: 200,
     });
 
-    const normalized = mqLeads
-      .filter((lead) => lead.status === "MQ" || lead.status_name === "MQ")
+    const leads = raw
       .map(normalizeConvosoLead)
       .filter(Boolean)
-      .filter((lead) => lead.phone);
+      .filter((l) => l.phone);
 
-    for (const lead of normalized) {
+    leads.forEach((lead) => {
+      if (!lead || !lead.id) return;
+      if (morganQueuedIds.has(lead.id)) return;
       morganQueue.push(lead);
-    }
+      morganQueuedIds.add(lead.id);
+    });
 
     console.log(`[MorganQueue] Hydrated queue length: ${morganQueue.length}`);
   } catch (err) {
@@ -320,7 +376,13 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
   console.log("[Morgan/pull-leads] raw rows:", raw.length);
 
   // Apply business rules in Node (reliable handling of empty/null Member_ID)
-  let rows = raw.filter((r) => r.status !== "MC" && r.status_name !== "MC");
+  let rows = raw.filter(
+    (r) =>
+      r.status !== "MC" &&
+      r.status_name !== "MC" &&
+      r.status !== "MQ" &&
+      r.status_name !== "MQ"
+  );
 
   // Apply business rules in Node (reliable handling of empty/null Member_ID)
   rows = rows.filter(hasEmptyMemberId);
@@ -357,7 +419,13 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   console.log("[Morgan/pull-yesterday] raw rows:", raw.length);
 
   const leads = raw
-    .filter((r) => r.status !== "MC" && r.status_name !== "MC")
+    .filter(
+      (r) =>
+        r.status !== "MC" &&
+        r.status_name !== "MC" &&
+        r.status !== "MQ" &&
+        r.status_name !== "MQ"
+    )
     .filter(hasEmptyMemberId) // Member_ID empty/null only
     .map(normalizeConvosoLead)
     .filter(Boolean)
@@ -615,7 +683,7 @@ async function processMorganQueueTick() {
       return;
     }
 
-    const lead = morganQueue.shift();
+    const lead = getNextMorganLead();
     if (!lead || !lead.phone) return;
 
     console.log("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id, "phone", lead.phone);
@@ -633,19 +701,21 @@ async function processMorganQueueTick() {
       phoneNumberId: freeSlotId, // bind this call to a specific Twilio number
     });
 
-    try {
-      await updateConvosoLead(lead.id, { status: "MC" });
-      console.log("[Morgan] Marked lead", lead.id, "as MC before dialing");
-    } catch (err) {
-      console.error("[MorganQueue] Failed to set Convoso status MC for lead", lead.id, err);
-    }
-
     if (result && result.callId) {
       markMorganSlotBusy(freeSlotId, result.callId);
       console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
     } else {
       console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
       morganQueue.unshift(lead);
+      if (lead.id) {
+        morganQueuedIds.add(lead.id);
+        updateConvosoLead({
+          lead_id: lead.id,
+          status: "MQ",
+        }).catch((err) => {
+          console.error("[MorganQueue] Failed to set MQ status while re-queueing", lead.id, err);
+        });
+      }
     }
   } catch (err) {
     console.error("[processMorganQueueTick] error:", err);
