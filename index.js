@@ -54,6 +54,19 @@ function markMorganSlotBusy(phoneNumberId, callId) {
   }
 }
 
+function freeMorganSlot(phoneNumberId) {
+  const slot = morganSlots.get(phoneNumberId);
+  if (!slot) return false;
+  if (slot.callId) {
+    morganCallToSlot.delete(slot.callId);
+  }
+  slot.busy = false;
+  slot.callId = null;
+  slot.startedAt = null;
+  console.log("[MorganSlots] Freed slot", phoneNumberId);
+  return true;
+}
+
 function freeMorganSlotByCallId(callId) {
   const phoneNumberId = morganCallToSlot.get(callId);
   if (!phoneNumberId) return false;
@@ -676,46 +689,67 @@ app.post("/webhooks/vapi", async (req, res) => {
 
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
+  let lead = null;
+  let freeSlotId = null;
   try {
-    const freeSlotId = getFreeMorganSlotId();
+    freeSlotId = getFreeMorganSlotId();
     if (!freeSlotId) {
       // All 3 numbers are busy; do nothing this tick
       return;
     }
 
-    const lead = getNextMorganLead();
+    lead = getNextMorganLead();
     if (!lead || !lead.phone) return;
 
     console.log("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id, "phone", lead.phone);
 
-    const result = await startOutboundCall({
-      agentName: "Morgan",
-      toNumber: lead.phone,
-      metadata: {
-        convosoLeadId: lead.id || null,
-        convosoListId: lead.raw?.list_id || null,
-        source: "morgan-queue",
-        convosoRaw: lead.raw || null,
-      },
-      callName: "Morgan Outbound (Queue)",
-      phoneNumberId: freeSlotId, // bind this call to a specific Twilio number
-    });
+    try {
+      const result = await startOutboundCall({
+        agentName: "Morgan",
+        toNumber: lead.phone,
+        metadata: {
+          convosoLeadId: lead.id || null,
+          convosoListId: lead.raw?.list_id || null,
+          source: "morgan-queue",
+          convosoRaw: lead.raw || null,
+        },
+        callName: "Morgan Outbound (Queue)",
+        phoneNumberId: freeSlotId, // bind this call to a specific Twilio number
+      });
 
-    if (result && result.callId) {
-      markMorganSlotBusy(freeSlotId, result.callId);
-      console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
-    } else {
-      console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
-      morganQueue.unshift(lead);
-      if (lead.id) {
-        morganQueuedIds.add(lead.id);
-        updateConvosoLead({
-          lead_id: lead.id,
-          status: "MQ",
-        }).catch((err) => {
-          console.error("[MorganQueue] Failed to set MQ status while re-queueing", lead.id, err);
-        });
+      if (result && result.callId) {
+        markMorganSlotBusy(freeSlotId, result.callId);
+        console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
+      } else {
+        console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
+        morganQueue.unshift(lead);
+        if (lead.id) {
+          morganQueuedIds.add(lead.id);
+          updateConvosoLead({
+            lead_id: lead.id,
+            status: "MQ",
+          }).catch((err) => {
+            console.error("[MorganQueue] Failed to set MQ status while re-queueing", lead.id, err);
+          });
+        }
       }
+    } catch (err) {
+      console.error("[processMorganQueueTick] error starting call:", err);
+
+      await updateConvosoLead({
+        lead_id: lead.id,
+        status: "MQ"
+      }).catch((e) => {
+        console.error("[processMorganQueueTick] failed to revert status to MQ for lead", lead.id, e);
+      });
+
+      enqueueMorganLead(lead);
+
+      if (freeSlotId) {
+        freeMorganSlot(freeSlotId);
+      }
+
+      return;
     }
   } catch (err) {
     console.error("[processMorganQueueTick] error:", err);
