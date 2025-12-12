@@ -10,12 +10,61 @@ const cors = require("cors");
 const fetch = require("node-fetch");
 const { startOutboundCall } = require("./voiceGateway");
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
+const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
 // ----- MORGAN OUTBOUND QUEUE -----
 const MORGAN_MAX_CONCURRENT = 3;
 const MORGAN_DIAL_INTERVAL_MS = 3000;
 const morganQueue = [];
-let morganActiveCalls = 0;
+
+// Morgan slot management: 1 slot per phoneNumberId (Twilio number)
+const MORGAN_PHONE_NUMBER_IDS = process.env.VAPI_PHONE_NUMBER_IDS
+  ? process.env.VAPI_PHONE_NUMBER_IDS.split(",").map(s => s.trim()).filter(Boolean)
+  : [];
+
+if (MORGAN_PHONE_NUMBER_IDS.length !== 3) {
+  console.warn("[MorganSlots] Expected exactly 3 VAPI_PHONE_NUMBER_IDS for Morgan slots, got:", MORGAN_PHONE_NUMBER_IDS.length);
+}
+
+// Map: phoneNumberId -> { busy, callId, startedAt }
+const morganSlots = new Map();
+// Map: callId -> phoneNumberId
+const morganCallToSlot = new Map();
+
+for (const id of MORGAN_PHONE_NUMBER_IDS) {
+  morganSlots.set(id, { busy: false, callId: null, startedAt: null });
+}
+
+function getFreeMorganSlotId() {
+  for (const [id, slot] of morganSlots.entries()) {
+    if (!slot.busy) return id;
+  }
+  return null;
+}
+
+function markMorganSlotBusy(phoneNumberId, callId) {
+  const slot = morganSlots.get(phoneNumberId);
+  if (!slot) return;
+  slot.busy = true;
+  slot.callId = callId || null;
+  slot.startedAt = Date.now();
+  if (callId) {
+    morganCallToSlot.set(callId, phoneNumberId);
+  }
+}
+
+function freeMorganSlotByCallId(callId) {
+  const phoneNumberId = morganCallToSlot.get(callId);
+  if (!phoneNumberId) return false;
+  const slot = morganSlots.get(phoneNumberId);
+  if (!slot) return false;
+  slot.busy = false;
+  slot.callId = null;
+  slot.startedAt = null;
+  morganCallToSlot.delete(callId);
+  console.log("[MorganSlots] Freed slot", phoneNumberId, "for callId", callId);
+  return true;
+}
 
 function enqueueMorganLead(lead) {
   if (!lead || !lead.phone) return;
@@ -469,40 +518,104 @@ app.post("/debug/test-call", async (req, res) => {
   }
 });
 
+app.post("/webhooks/vapi", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const msg = body.message || body;
+    const type = msg.type;
+    const call = msg.call || body.call || {};
+    const callId = call.id || msg.callId || body.callId;
+
+    if (!callId) {
+      return res.status(200).json({ ok: true });
+    }
+
+    if (type === "end-of-call-report") {
+      const freed = freeMorganSlotByCallId(callId);
+      console.log("[VapiWebhook] end-of-call-report for callId", callId, "freed slot:", freed);
+    }
+
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("[/webhooks/vapi] error:", err);
+    return res.status(200).json({ ok: true });
+  }
+});
+
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
   try {
-    if (morganActiveCalls >= MORGAN_MAX_CONCURRENT) return;
+    const freeSlotId = getFreeMorganSlotId();
+    if (!freeSlotId) {
+      // All 3 numbers are busy; do nothing this tick
+      return;
+    }
 
     const lead = morganQueue.shift();
-    if (!lead) return;
-    if (!lead.phone) return;
+    if (!lead || !lead.phone) return;
 
-    morganActiveCalls++;
+    console.log("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id, "phone", lead.phone);
 
-    startOutboundCall({
+    const result = await startOutboundCall({
       agentName: "Morgan",
       toNumber: lead.phone,
       metadata: {
         convosoLeadId: lead.id || null,
         convosoListId: lead.raw?.list_id || null,
         source: "morgan-queue",
-        convosoRaw: lead.raw || null
+        convosoRaw: lead.raw || null,
       },
-      callName: "Morgan Outbound (Queue)"
-    })
-      .then(result => console.log("[MorganQueue] Call started:", result))
-      .catch(err => console.error("[MorganQueue] Error:", err))
-      .finally(() => {
-        morganActiveCalls--;
-        if (morganActiveCalls < 0) morganActiveCalls = 0;
-      });
+      callName: "Morgan Outbound (Queue)",
+      phoneNumberId: freeSlotId, // bind this call to a specific Twilio number
+    });
+
+    if (result && result.callId) {
+      markMorganSlotBusy(freeSlotId, result.callId);
+      console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
+    } else {
+      console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
+      morganQueue.unshift(lead);
+    }
   } catch (err) {
     console.error("[processMorganQueueTick] error:", err);
   }
 }
 
 setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
+
+async function getVapiCall(callId) {
+  if (!VAPI_API_KEY) return null;
+  const resp = await fetch(`https://api.vapi.ai/call/${callId}`, {
+    headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
+  });
+  if (!resp.ok) {
+    console.error("[getVapiCall] Error fetching call", callId, resp.status);
+    return null;
+  }
+  return resp.json();
+}
+
+setInterval(async () => {
+  try {
+    for (const [callId, phoneNumberId] of morganCallToSlot.entries()) {
+      const slot = morganSlots.get(phoneNumberId);
+      if (!slot || !slot.busy) continue;
+
+      const data = await getVapiCall(callId);
+      if (!data) continue;
+
+      const status = data.status;
+      const endedReason = data.endedReason;
+
+      if (status === "ended" || endedReason) {
+        const freed = freeMorganSlotByCallId(callId);
+        console.log("[VapiPoll] Call", callId, "status:", status, "endedReason:", endedReason, "freed slot:", freed);
+      }
+    }
+  } catch (err) {
+    console.error("[VapiPoll] sweep error:", err);
+  }
+}, 30000);
 
 
 // --------------------------------------------------------------------------
