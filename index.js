@@ -120,6 +120,12 @@ const MORGAN_LIST_IDS = [28001, 15857, 27223, 10587, 12794, 12793];
 
 function normalizeConvosoLead(convosoLead) {
   if (!convosoLead) return null;
+  const rawCalled = convosoLead.called_count;
+  const callCount =
+    rawCalled == null || rawCalled === ""
+      ? null
+      : Number(rawCalled);
+
   return {
     id: convosoLead.lead_id || convosoLead.id,
     list_id: convosoLead.list_id,
@@ -128,7 +134,7 @@ function normalizeConvosoLead(convosoLead) {
     phone: convosoLead.phone_number,
     phone_number: convosoLead.phone_number,
     state: convosoLead.state,
-    call_count: convosoLead.called_count,
+    call_count: callCount,
     member_id: convosoLead.member_id,
     Member_ID: convosoLead.Member_ID ?? convosoLead.member_id,
     raw: convosoLead,
