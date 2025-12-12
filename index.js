@@ -66,12 +66,18 @@ function freeMorganSlotByCallId(callId) {
   return true;
 }
 
-function enqueueMorganLead(lead) {
+async function enqueueMorganLead(lead) {
   if (!lead || !lead.phone) return;
   morganQueue.push(lead);
   console.log(
     `[MorganQueue] Enqueued lead ${lead.id} (${lead.phone}). Queue length: ${morganQueue.length}`
   );
+
+  try {
+    await updateConvosoLead(lead.id, { status: "MQ" });
+  } catch (err) {
+    console.error("[MorganQueue] Failed to set Convoso status MQ for lead", lead.id, err);
+  }
 }
 
 // ---- Convoso helpers (use original working pattern) ----
@@ -164,6 +170,37 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
     page += 1;
   }
   return results;
+}
+
+async function hydrateMorganQueueFromConvoso() {
+  if (!CONVOSO_AUTH_TOKEN) {
+    console.warn("[MorganQueue] Skipping hydration: missing CONVOSO_AUTH_TOKEN");
+    return;
+  }
+
+  console.log("[MorganQueue] Hydrating from Convoso...");
+
+  try {
+    const mqLeads = await convosoSearchAllPages({
+      auth_token: CONVOSO_AUTH_TOKEN,
+      status: "MQ",
+      list_id: MORGAN_LIST_IDS,
+      limit: 200,
+    });
+
+    const normalized = mqLeads
+      .map(normalizeConvosoLead)
+      .filter(Boolean)
+      .filter((lead) => lead.phone);
+
+    for (const lead of normalized) {
+      morganQueue.push(lead);
+    }
+
+    console.log(`[MorganQueue] Hydrated queue length: ${morganQueue.length}`);
+  } catch (err) {
+    console.error("[MorganQueue] Failed to hydrate from Convoso:", err);
+  }
 }
 
 // TZ formatting to "YYYY-MM-DD HH:mm:ss"
@@ -356,8 +393,7 @@ app.post("/jobs/morgan/pull-leads", async (req, res) => {
 
     const leads = await findLeadsForMorganByCallCount({ limit });
     for (const lead of leads) {
-      enqueueMorganLead(lead);
-      await updateConvosoLead(lead.id, { status: "MORGAN_QUEUED" });
+      await enqueueMorganLead(lead);
     }
 
     return res.json({
@@ -377,8 +413,7 @@ app.post("/jobs/morgan/pull-yesterday", async (req, res) => {
 
     const leads = await findYesterdayNonSaleLeads({ timezone });
     for (const lead of leads) {
-      enqueueMorganLead(lead);
-      await updateConvosoLead(lead.id, { status: "MORGAN_REQUEUE" });
+      await enqueueMorganLead(lead);
     }
 
     return res.json({
@@ -539,6 +574,24 @@ app.post("/webhooks/vapi", async (req, res) => {
     if (type === "end-of-call-report") {
       const freed = freeMorganSlotByCallId(callId);
       console.log("[VapiWebhook] end-of-call-report for callId", callId, "freed slot:", freed);
+
+      const metadata = call.metadata || msg.metadata || body.metadata || {};
+      const leadId =
+        metadata.convosoLeadId ||
+        metadata.lead_id ||
+        metadata.leadId ||
+        call.lead_id ||
+        call.leadId ||
+        null;
+
+      if (leadId) {
+        try {
+          await updateConvosoLead(leadId, { status: "A" });
+          console.log(`[MorganQueue] Marked lead ${leadId} as finished (status A).`);
+        } catch (err) {
+          console.error("[VapiWebhook] Failed to update Convoso status to A for lead", leadId, err);
+        }
+      }
     }
 
     return res.status(200).json({ ok: true });
@@ -780,8 +833,9 @@ app.post("/tools/sendLeadNote", async (req, res) => {
 // --------------------------------------------------------------------------
 
 // ----- START SERVER -----
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`Server listening on port ${PORT}`);
+  await hydrateMorganQueueFromConvoso();
 });
 
 function gracefulShutdown(signal) {
