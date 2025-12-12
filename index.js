@@ -81,8 +81,34 @@ function normalizeConvosoLead(convosoLead) {
     state: convosoLead.state,
     call_count: convosoLead.called_count,
     member_id: convosoLead.member_id,
+    Member_ID: convosoLead.Member_ID ?? convosoLead.member_id,
     raw: convosoLead,
   };
+}
+
+async function convosoSearchAllPages(basePayload, maxPages = 50) {
+  const results = [];
+  let page = 1;
+  while (page <= maxPages) {
+    const payload = { ...basePayload, page };
+    const res = await fetch("https://api.convoso.com/v1/leads/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("[convosoSearchAllPages] HTTP", res.status, text);
+      throw new Error("Convoso search failed");
+    }
+    const data = await res.json();
+    const pageLeads = data.data || data.leads || data.results || [];
+    results.push(...pageLeads);
+    const lim = Number(basePayload.limit) || 200;
+    if (!Array.isArray(pageLeads) || pageLeads.length < lim) break;
+    page += 1;
+  }
+  return results;
 }
 
 async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/New_York" } = {}) {
@@ -95,7 +121,7 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
 
   const payload = {
     auth_token: CONVOSO_AUTH_TOKEN,
-    limit: Number(limit) || 50,
+    limit: 200,
     page: 1,
     list_id: MORGAN_LIST_IDS,
     filters: [
@@ -104,31 +130,20 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
       // keep these EXACTLY as they were:
       { field: "call_count", comparison: ">=", value: 1 },
       { field: "call_count", comparison: "<=", value: 5 },
-      { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
 
   console.log("[Morgan/pull-leads] created_at window:", { start, end, tz });
   console.log("[Morgan/pull-leads] filters preview:", payload.filters);
 
-  const response = await fetch("https://api.convoso.com/v1/leads/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[findLeadsForMorganByCallCount] Convoso error:", response.status, text);
-    throw new Error("Convoso search failed for Morgan call count");
-  }
-
-  const data = await response.json();
-  const rawLeads = data.data || data.leads || data.results || [];
-  return rawLeads
+  const allRaw = await convosoSearchAllPages(payload);
+  console.log("[Morgan/pull-leads] convoso total fetched (pre-filter):", allRaw.length);
+  const filtered = allRaw
     .map(normalizeConvosoLead)
     .filter(Boolean)
-    .filter((lead) => lead.phone);
+    .filter((ld) => ld.Member_ID === "" || ld.Member_ID == null);
+  console.log("[Morgan/pull-leads] after Member_ID filter:", filtered.length);
+  return filtered.filter((ld) => ld.phone);
 }
 
 function getTimezoneDate(timeZone) {
@@ -217,7 +232,6 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
     filters: [
       { field: "created_at", comparison: ">=", value: start },
       { field: "created_at", comparison: "<=", value: end },
-      { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
 
@@ -230,24 +244,14 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   });
   console.log("[Morgan/pull-yesterday] filters preview:", payload.filters);
 
-  const response = await fetch("https://api.convoso.com/v1/leads/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[findYesterdayNonSaleLeads] Convoso error:", response.status, text);
-    throw new Error("Convoso search failed for yesterday non-sale leads");
-  }
-
-  const data = await response.json();
-  const rawLeads = data.data || data.leads || data.results || [];
-  return rawLeads
+  const allRaw = await convosoSearchAllPages(payload);
+  console.log("[Morgan/pull-yesterday] convoso total fetched (pre-filter):", allRaw.length);
+  const filtered = allRaw
     .map(normalizeConvosoLead)
     .filter(Boolean)
-    .filter((lead) => lead.phone);
+    .filter((ld) => ld.Member_ID === "" || ld.Member_ID == null);
+  console.log("[Morgan/pull-yesterday] after Member_ID filter:", filtered.length);
+  return filtered.filter((ld) => ld.phone);
 }
 
 // export not used in this file, but leaving for consistency
