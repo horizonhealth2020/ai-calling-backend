@@ -583,6 +583,24 @@ async function processMorganQueueTick() {
 
 setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
 
+// ----- AUTO PULL MORGAN LEADS EVERY 30 SECONDS -----
+async function autoPullMorganLeads() {
+  try {
+    const response = await fetch(`http://localhost:${PORT}/jobs/morgan/pull-leads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    });
+
+    const data = await response.json();
+    console.log("[AutoPullMorganLeads] Pulled:", data.fetched, "Queue:", data.queue_length);
+  } catch (err) {
+    console.error("[AutoPullMorganLeads] ERROR:", err);
+  }
+}
+
+setInterval(autoPullMorganLeads, 30 * 1000);
+
 async function getVapiCall(callId) {
   if (!VAPI_API_KEY) return null;
   const resp = await fetch(`https://api.vapi.ai/call/${callId}`, {
