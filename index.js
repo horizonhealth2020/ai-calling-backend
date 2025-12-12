@@ -277,13 +277,13 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
 
   // Apply business rules in Node (reliable handling of empty/null Member_ID)
   let rows = raw.filter(hasEmptyMemberId);
-  // If you still want a call_count band, uncomment next line IF field exists in rows:
-  // rows = rows.filter(r => typeof r.call_count === "number" && r.call_count >= 1 && r.call_count <= 5);
 
-  const leads = rows
+  rows = rows
     .map(normalizeConvosoLead)
     .filter(Boolean)
-    .filter((l) => l.phone);
+    .filter((r) => typeof r.call_count === "number" && (r.call_count === 2 || r.call_count === 5));
+
+  const leads = rows.filter((l) => l.phone);
 
   const final = leads.slice(0, Number(limit) || 50); // keep route's limit behavior
   console.log("[Morgan/pull-leads] final:", { filtered: leads.length, returned: final.length });
