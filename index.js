@@ -189,6 +189,7 @@ async function hydrateMorganQueueFromConvoso() {
     });
 
     const normalized = mqLeads
+      .filter((lead) => lead.status === "MQ" || lead.status_name === "MQ")
       .map(normalizeConvosoLead)
       .filter(Boolean)
       .filter((lead) => lead.phone);
@@ -319,7 +320,10 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
   console.log("[Morgan/pull-leads] raw rows:", raw.length);
 
   // Apply business rules in Node (reliable handling of empty/null Member_ID)
-  let rows = raw.filter(hasEmptyMemberId);
+  let rows = raw.filter((r) => r.status !== "MC" && r.status_name !== "MC");
+
+  // Apply business rules in Node (reliable handling of empty/null Member_ID)
+  rows = rows.filter(hasEmptyMemberId);
 
   rows = rows
     .map(normalizeConvosoLead)
@@ -353,6 +357,7 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   console.log("[Morgan/pull-yesterday] raw rows:", raw.length);
 
   const leads = raw
+    .filter((r) => r.status !== "MC" && r.status_name !== "MC")
     .filter(hasEmptyMemberId) // Member_ID empty/null only
     .map(normalizeConvosoLead)
     .filter(Boolean)
@@ -627,6 +632,13 @@ async function processMorganQueueTick() {
       callName: "Morgan Outbound (Queue)",
       phoneNumberId: freeSlotId, // bind this call to a specific Twilio number
     });
+
+    try {
+      await updateConvosoLead(lead.id, { status: "MC" });
+      console.log("[Morgan] Marked lead", lead.id, "as MC before dialing");
+    } catch (err) {
+      console.error("[MorganQueue] Failed to set Convoso status MC for lead", lead.id, err);
+    }
 
     if (result && result.callId) {
       markMorganSlotBusy(freeSlotId, result.callId);
