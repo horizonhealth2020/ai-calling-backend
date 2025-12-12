@@ -111,92 +111,7 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
   return results;
 }
 
-async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/New_York" } = {}) {
-  if (!CONVOSO_AUTH_TOKEN) {
-    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
-  }
-
-  const tz = timezone || "America/New_York";
-  const { start, end } = getDayWindowStrings(tz, 0); // TODAY
-
-  const payload = {
-    auth_token: CONVOSO_AUTH_TOKEN,
-    limit: 200,
-    page: 1,
-    list_id: MORGAN_LIST_IDS,
-    filters: [
-      { field: "created_at", comparison: ">=", value: start },
-      { field: "created_at", comparison: "<=", value: end },
-      // keep these EXACTLY as they were:
-      { field: "call_count", comparison: ">=", value: 1 },
-      { field: "call_count", comparison: "<=", value: 5 },
-    ],
-  };
-
-  console.log("[Morgan/pull-leads] created_at window:", { start, end, tz });
-  console.log("[Morgan/pull-leads] filters preview:", payload.filters);
-
-  const allRaw = await convosoSearchAllPages(payload);
-  console.log("[Morgan/pull-leads] convoso total fetched (pre-filter):", allRaw.length);
-  const filtered = allRaw
-    .map(normalizeConvosoLead)
-    .filter(Boolean)
-    .filter((ld) => ld.Member_ID === "" || ld.Member_ID == null);
-  console.log("[Morgan/pull-leads] after Member_ID filter:", filtered.length);
-  return filtered.filter((ld) => ld.phone);
-}
-
-function getTimezoneDate(timeZone) {
-  return new Date(new Date().toLocaleString("en-US", { timeZone }));
-}
-
-function getDayWindowStrings(timeZone = "America/New_York", daysBack = 0) {
-  // Get today's Y/M/D in the target TZ
-  const now = new Date();
-  const ymdParts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const y = +ymdParts.find((p) => p.type === "year").value;
-  const m = +ymdParts.find((p) => p.type === "month").value;
-  const d = +ymdParts.find((p) => p.type === "day").value;
-
-  // Anchor to "today-at-noon UTC", then move daysBack in UTC to avoid DST edge cases
-  const noonUTC = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  noonUTC.setUTCDate(noonUTC.getUTCDate() - daysBack);
-
-  // Get the target Y/M/D in the target TZ
-  const tgt = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(noonUTC);
-  const Y = tgt.find((p) => p.type === "year").value;
-  const M = tgt.find((p) => p.type === "month").value;
-  const D = tgt.find((p) => p.type === "day").value;
-
-  // Return Convoso-ready strings
-  return {
-    start: `${Y}-${M}-${D} 00:00:00`,
-    end: `${Y}-${M}-${D} 23:59:59`,
-    ymd: `${Y}-${M}-${D}`,
-  };
-}
-
-function formatConvosoDateTime(date) {
-  const pad = (n) => String(n).padStart(2, "0");
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
-
+// TZ formatting to "YYYY-MM-DD HH:mm:ss"
 function formatConvosoDateTimeInTZ(date, timeZone = "America/New_York") {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -212,46 +127,151 @@ function formatConvosoDateTimeInTZ(date, timeZone = "America/New_York") {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
-async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {}) {
-  if (!CONVOSO_AUTH_TOKEN) {
-    throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
-  }
+// Midnight→23:59:59 window for a day N days back in a TZ (DST safe)
+function getDayWindowStrings(timeZone = "America/New_York", daysBack = 0) {
+  const now = new Date();
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const y = +ymd.find((p) => p.type === "year").value;
+  const m = +ymd.find((p) => p.type === "month").value;
+  const d = +ymd.find((p) => p.type === "day").value;
+  // anchor at noon UTC to avoid TZ edge cases, then move daysBack
+  const noonUTC = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  noonUTC.setUTCDate(noonUTC.getUTCDate() - daysBack);
+  const tgt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(noonUTC);
+  const Y = tgt.find((p) => p.type === "year").value;
+  const M = tgt.find((p) => p.type === "month").value;
+  const D = tgt.find((p) => p.type === "day").value;
+  return { start: `${Y}-${M}-${D} 00:00:00`, end: `${Y}-${M}-${D} 23:59:59` };
+}
 
-  const tz = timezone || "America/New_York";
-  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(
-    new Date()
-  );
-  const daysBack = weekday === "Mon" ? 3 : 1; // Mon → Friday, else → yesterday
-  const { start, end } = getDayWindowStrings(tz, daysBack);
-
-  const payload = {
-    auth_token: CONVOSO_AUTH_TOKEN,
-    limit: 200,
-    page: 1,
-    list_id: MORGAN_LIST_IDS,
-    filters: [
-      { field: "created_at", comparison: ">=", value: start },
-      { field: "created_at", comparison: "<=", value: end },
-    ],
-  };
-
-  console.log("[Morgan/pull-yesterday] created_at window (prior working day):", {
-    start,
-    end,
-    tz,
-    weekday,
-    daysBack,
+// One-page form-encoded POST for a single list
+async function convosoSearchPage({ authToken, listId, startStr, endStr, offset = 0, limit = 2000 }) {
+  const body = new URLSearchParams({
+    auth_token: authToken,
+    list_id: String(listId),
+    created_at_start_date: startStr,
+    created_at_end_date: endStr,
+    offset: String(offset),
+    limit: String(limit), // API max 2000
   });
-  console.log("[Morgan/pull-yesterday] filters preview:", payload.filters);
 
-  const allRaw = await convosoSearchAllPages(payload);
-  console.log("[Morgan/pull-yesterday] convoso total fetched (pre-filter):", allRaw.length);
-  const filtered = allRaw
+  const res = await fetch("https://api.convoso.com/v1/leads/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("[convosoSearchPage] HTTP", res.status, text);
+    throw new Error("Convoso search failed");
+  }
+  const data = await res.json();
+  const entries = data?.data?.entries || data?.entries || data?.data || [];
+  const total = Number(data?.data?.total ?? entries.length ?? 0);
+  return { entries, total };
+}
+
+// Fetch ALL rows for a window across ALL lists, paging by offset
+async function convosoSearchAllListsByCreated({ authToken, listIds, startStr, endStr }) {
+  const out = [];
+  for (const listId of listIds) {
+    let offset = 0;
+    const limit = 2000;
+    while (true) {
+      const { entries, total } = await convosoSearchPage({
+        authToken,
+        listId,
+        startStr,
+        endStr,
+        offset,
+        limit,
+      });
+      out.push(...entries);
+      if (!entries.length || offset + entries.length >= total) break;
+      offset += entries.length;
+    }
+  }
+  return out;
+}
+
+// Helper for Member_ID emptiness (handles common shapes)
+function hasEmptyMemberId(obj) {
+  const v = obj?.member_id ?? obj?.Member_ID ?? obj?.memberId ?? obj?.memberID;
+  return v === "" || v == null;
+}
+
+// Pull Call Nows — created_at = TODAY (keep Node-side Member_ID rule)
+async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/New_York" } = {}) {
+  if (!CONVOSO_AUTH_TOKEN) throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+
+  const { start, end } = getDayWindowStrings(timezone, 0);
+  console.log("[Morgan/pull-leads] created_at window:", { start, end, tz: timezone });
+
+  // Fetch everything in the window across lists; API uses form-encoded fields
+  const raw = await convosoSearchAllListsByCreated({
+    authToken: CONVOSO_AUTH_TOKEN,
+    listIds: MORGAN_LIST_IDS,
+    startStr: start,
+    endStr: end,
+  });
+  console.log("[Morgan/pull-leads] raw rows:", raw.length);
+
+  // Apply business rules in Node (reliable handling of empty/null Member_ID)
+  let rows = raw.filter(hasEmptyMemberId);
+  // If you still want a call_count band, uncomment next line IF field exists in rows:
+  // rows = rows.filter(r => typeof r.call_count === "number" && r.call_count >= 1 && r.call_count <= 5);
+
+  const leads = rows
     .map(normalizeConvosoLead)
     .filter(Boolean)
-    .filter((ld) => ld.Member_ID === "" || ld.Member_ID == null);
-  console.log("[Morgan/pull-yesterday] after Member_ID filter:", filtered.length);
-  return filtered.filter((ld) => ld.phone);
+    .filter((l) => l.phone);
+
+  const final = leads.slice(0, Number(limit) || 50); // keep route's limit behavior
+  console.log("[Morgan/pull-leads] final:", { filtered: leads.length, returned: final.length });
+  return final;
+}
+
+// Pull Yesterday — created_at = PRIOR WORKING DAY (Mon→Fri, else→yesterday)
+async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {}) {
+  if (!CONVOSO_AUTH_TOKEN) throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
+
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: timezone, weekday: "short" }).format(
+    new Date()
+  );
+  const daysBack = weekday === "Mon" ? 3 : 1;
+  const { start, end } = getDayWindowStrings(timezone, daysBack);
+  console.log("[Morgan/pull-yesterday] created_at window:", { start, end, tz: timezone, weekday, daysBack });
+
+  const raw = await convosoSearchAllListsByCreated({
+    authToken: CONVOSO_AUTH_TOKEN,
+    listIds: MORGAN_LIST_IDS,
+    startStr: start,
+    endStr: end,
+  });
+  console.log("[Morgan/pull-yesterday] raw rows:", raw.length);
+
+  const leads = raw
+    .filter(hasEmptyMemberId) // Member_ID empty/null only
+    .map(normalizeConvosoLead)
+    .filter(Boolean)
+    .filter((l) => l.phone);
+
+  console.log("[Morgan/pull-yesterday] final:", { filtered: leads.length });
+  return leads;
+}
+
+function getTimezoneDate(timeZone) {
+  return new Date(new Date().toLocaleString("en-US", { timeZone }));
 }
 
 // export not used in this file, but leaving for consistency
