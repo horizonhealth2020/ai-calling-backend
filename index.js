@@ -112,18 +112,25 @@ async function findLeadsForMorganByCallCount({ limit = 50, timezone = "America/N
       {
         field: "created_at",
         comparison: ">=",
-        value: formatConvosoDateTime(startOfToday),
+        value: formatConvosoDateTimeInTZ(startOfToday, timezone || "America/New_York"),
       },
       {
         field: "created_at",
         comparison: "<=",
-        value: formatConvosoDateTime(endOfToday),
+        value: formatConvosoDateTimeInTZ(endOfToday, timezone || "America/New_York"),
       },
 
       // Only leads with empty Member_ID (adjust if my existing logic is different)
       { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
+
+  console.log("[Morgan/pull-leads] dateWindow(created_at today):", {
+    start: formatConvosoDateTimeInTZ(startOfToday, timezone || "America/New_York"),
+    end: formatConvosoDateTimeInTZ(endOfToday, timezone || "America/New_York"),
+    timezone,
+  });
+  console.log("[Morgan/pull-leads] filters preview:", payload.filters);
 
   const response = await fetch("https://api.convoso.com/v1/leads/search", {
     method: "POST",
@@ -160,6 +167,21 @@ function formatConvosoDateTime(date) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+function formatConvosoDateTimeInTZ(date, timeZone = "America/New_York") {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
 async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {}) {
   if (!CONVOSO_AUTH_TOKEN) {
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
@@ -190,18 +212,25 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
       {
         field: "created_at",
         comparison: ">=",
-        value: formatConvosoDateTime(startOfTargetDay),
+        value: formatConvosoDateTimeInTZ(startOfTargetDay, timezone || "America/New_York"),
       },
       {
         field: "created_at",
         comparison: "<=",
-        value: formatConvosoDateTime(endOfTargetDay),
+        value: formatConvosoDateTimeInTZ(endOfTargetDay, timezone || "America/New_York"),
       },
 
       // Same Member_ID rule as my other Morgan filters
       { field: "Member_ID", comparison: "=", value: "" },
     ],
   };
+
+  console.log("[Morgan/pull-yesterday] dateWindow(created_at prior working day):", {
+    start: formatConvosoDateTimeInTZ(startOfTargetDay, timezone || "America/New_York"),
+    end: formatConvosoDateTimeInTZ(endOfTargetDay, timezone || "America/New_York"),
+    timezone,
+  });
+  console.log("[Morgan/pull-yesterday] filters preview:", payload.filters);
 
   const response = await fetch("https://api.convoso.com/v1/leads/search", {
     method: "POST",
