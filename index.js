@@ -212,26 +212,97 @@ function normalizeConvosoLead(convosoLead) {
 
 async function convosoSearchAllPages(basePayload, maxPages = 50) {
   const results = [];
-  let page = 1;
-  while (page <= maxPages) {
-    const payload = { ...basePayload, page };
+  const lim = Number(basePayload.limit) || 200;
+  let page = 0;
+
+  while (page < maxPages) {
+    const offset = page * lim;
+
+    // Build form-encoded body matching Convoso's working example
+    const body = new URLSearchParams({
+      auth_token: basePayload.auth_token || "",
+      lead_id: basePayload.lead_id || "",
+      list_id: Array.isArray(basePayload.list_id)
+        ? basePayload.list_id.join(",")
+        : (basePayload.list_id != null ? String(basePayload.list_id) : ""),
+      user_id: basePayload.user_id || "",
+      status: basePayload.status || "",
+      offset: String(offset),
+      limit: String(lim),
+      created_by: basePayload.created_by || "",
+      email: basePayload.email || "",
+      last_modified_by: basePayload.last_modified_by || "",
+      owner_id: basePayload.owner_id || "",
+      first_name: basePayload.first_name || "",
+      last_name: basePayload.last_name || "",
+      phone_number: basePayload.phone_number || "",
+      alt_phone_1: basePayload.alt_phone_1 || "",
+      alt_phone_2: basePayload.alt_phone_2 || "",
+      address1: basePayload.address1 || "",
+      address2: basePayload.address2 || "",
+      city: basePayload.city || "",
+      state: basePayload.state || "",
+      province: basePayload.province || "",
+      postal_code: basePayload.postal_code || "",
+      country: basePayload.country || "",
+      gender: basePayload.gender || "",
+      plan_sold: basePayload.plan_sold || "",
+      member_id: basePayload.member_id || "",
+      created_at_start_date: basePayload.created_at_start_date || "",
+      created_at_end_date: basePayload.created_at_end_date || "",
+      updated_at_start_date: basePayload.updated_at_start_date || "",
+      updated_at_end_date: basePayload.updated_at_end_date || "",
+      deleted_at_start: basePayload.deleted_at_start || "",
+      deleted_at_end: basePayload.deleted_at_end || "",
+      archived_at_start: basePayload.archived_at_start || "",
+      archived_at_end: basePayload.archived_at_end || "",
+      last_call_start_date: basePayload.last_call_start_date || "",
+      last_call_end_date: basePayload.last_call_end_date || "",
+    });
+
     const res = await fetch("https://api.convoso.com/v1/leads/search", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
     });
+
     if (!res.ok) {
       const text = await res.text();
       console.error("[convosoSearchAllPages] HTTP", res.status, text);
       throw new Error("Convoso search failed");
     }
+
     const data = await res.json();
-    const pageLeads = data.data || data.leads || data.results || [];
-    results.push(...pageLeads);
-    const lim = Number(basePayload.limit) || 200;
-    if (!Array.isArray(pageLeads) || pageLeads.length < lim) break;
+    // Convoso response shape: { success, data: { offset, limit, total, entries: [...] } }
+    const entries =
+      (data && data.data && Array.isArray(data.data.entries) && data.data.entries) ||
+      data.entries ||
+      (Array.isArray(data.data) ? data.data : []) ||
+      [];
+
+    const total = Number(data?.data?.total ?? entries.length ?? 0);
+
+    console.log(
+      "[convosoSearchAllPages] page",
+      page,
+      "offset",
+      offset,
+      "entries:",
+      entries.length,
+      "total:",
+      total
+    );
+
+    results.push(...entries);
+
+    if (!entries.length || offset + entries.length >= total) {
+      break;
+    }
+
     page += 1;
   }
+
+  console.log("[convosoSearchAllPages] total accumulated:", results.length);
   return results;
 }
 
