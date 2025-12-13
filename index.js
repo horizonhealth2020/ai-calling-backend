@@ -293,6 +293,48 @@ async function hydrateMorganQueueFromConvoso() {
   }
 }
 
+async function debugFetchMQLeads() {
+  if (!CONVOSO_AUTH_TOKEN) {
+    console.warn("[MorganQueue] debugFetchMQLeads: missing CONVOSO_AUTH_TOKEN");
+    return [];
+  }
+
+  console.log("[MorganQueue] DEBUG: Fetching MQ leads from Convoso...");
+
+  try {
+    const raw = await convosoSearchAllPages({
+      auth_token: CONVOSO_AUTH_TOKEN,
+      status: "MQ",
+      list_id: MORGAN_LIST_IDS,
+      limit: 200,
+    });
+
+    console.log("[MorganQueue] DEBUG: Raw MQ rows from Convoso:", raw.length);
+
+    const leads = raw
+      .map(normalizeConvosoLead)
+      .filter(Boolean)
+      .filter((l) => l.phone);
+
+    console.log("[MorganQueue] DEBUG: MQ leads with phone after normalize:", leads.length);
+
+    // Log a small sample of lead_ids + list_id + phone for verification
+    const sample = leads.slice(0, 10).map((l) => ({
+      id: l.id,
+      list_id: l.list_id,
+      phone: l.phone,
+      status: l.raw?.status || l.raw?.status_name || null,
+    }));
+
+    console.log("[MorganQueue] DEBUG: MQ sample:", sample);
+
+    return leads;
+  } catch (err) {
+    console.error("[MorganQueue] DEBUG: Failed to fetch MQ leads from Convoso:", err);
+    return [];
+  }
+}
+
 async function mergeMorganQueueFromMQ() {
   if (!CONVOSO_AUTH_TOKEN) {
     console.warn("[MorganQueue] Skipping MQ merge: missing CONVOSO_AUTH_TOKEN");
@@ -701,6 +743,32 @@ app.post("/debug/test-call", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: err.message || "Unknown error"
+    });
+  }
+});
+
+app.post("/debug/hydrate-mq", async (req, res) => {
+  try {
+    const leads = await debugFetchMQLeads();
+
+    // Return a lightweight debug payload
+    const sample = leads.slice(0, 20).map((l) => ({
+      id: l.id,
+      list_id: l.list_id,
+      phone: l.phone,
+      status: l.raw?.status || l.raw?.status_name || null,
+    }));
+
+    return res.json({
+      success: true,
+      total_mq_leads_with_phone: leads.length,
+      sample,
+    });
+  } catch (err) {
+    console.error("[/debug/hydrate-mq] error:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to debug fetch MQ leads",
     });
   }
 });
