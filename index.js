@@ -759,7 +759,7 @@ async function processMorganQueueTick() {
 setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
 
 // ----- AUTO PULL MORGAN LEADS EVERY 60 SECONDS -----
-async function MorganLeads() {
+async function autoPullMorganLeads() {
   try {
     const response = await fetch(`http://localhost:${PORT}/jobs/morgan/pull-leads`, {
       method: "POST",
