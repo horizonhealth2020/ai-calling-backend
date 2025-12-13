@@ -314,53 +314,54 @@ async function hydrateMorganQueueFromConvoso() {
 
   console.log("[MorganQueue] Hydrating from Convoso MQ status (no date filter)...");
 
-  // Clear any stale state
+  // Reset in-memory state
   morganQueue.length = 0;
   morganQueuedIds.clear();
 
   try {
-    // NOTE: no created_at or status filter here; we pull everything for these lists
+    // Working MQ search call
     const raw = await convosoSearchAllPages({
       auth_token: CONVOSO_AUTH_TOKEN,
+      status: "MQ",
       list_id: MORGAN_LIST_IDS,
       limit: 200,
     });
 
-    console.log("[MorganQueue] Raw rows from Convoso (all statuses):", raw.length);
+    console.log("[MorganQueue] Raw MQ rows from Convoso:", raw.length);
 
-    let skippedNoPhone = 0;
-    let skippedNotMQ = 0;
-
-    const leads = raw
-      // Only MQ dispositions (status or status_name)
-      .filter((r) => {
-        const isMQ = r.status === "MQ" || r.status_name === "MQ";
-        if (!isMQ) skippedNotMQ++;
-        return isMQ;
-      })
-      // Normalize Convoso lead
+    const normalized = raw
       .map(normalizeConvosoLead)
-      .filter(Boolean)
-      // Must have phone to be dialable
-      .filter((l) => {
-        const ok = !!l.phone;
-        if (!ok) skippedNoPhone++;
-        return ok;
-      });
+      .filter(Boolean);
 
-    leads.forEach((lead) => {
-      if (!lead || !lead.id) return;
-      if (morganQueuedIds.has(lead.id)) return;
+    let added = 0;
+    let missingPhone = 0;
+
+    for (const lead of normalized) {
+      if (!lead.id) continue;
+
+      if (!lead.phone) {
+        missingPhone++;
+        continue;
+      }
+
+      if (morganQueuedIds.has(lead.id)) continue;
+
       morganQueue.push(lead);
       morganQueuedIds.add(lead.id);
-    });
+      added++;
+    }
 
     console.log(
-      `[MorganQueue] Hydrated queue length from MQ: ${morganQueue.length}. ` +
-      `Skipped not MQ: ${skippedNotMQ}, missing phone: ${skippedNoPhone}.`
+      "[MorganQueue] Hydrated queue length from MQ:",
+      added,
+      "Raw MQ rows:",
+      raw.length,
+      "Skipped missing phone:",
+      missingPhone
     );
+
   } catch (err) {
-    console.error("[MorganQueue] Failed to hydrate from Convoso MQ:", err);
+    console.error("[MorganQueue] Failed to hydrate from Convoso:", err);
   }
 }
 
