@@ -14,7 +14,7 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
 // ----- MORGAN OUTBOUND QUEUE -----
 const MORGAN_MAX_CONCURRENT = 3;
-const MORGAN_DIAL_INTERVAL_MS = 60000;
+const MORGAN_DIAL_INTERVAL_MS = 30000; // 30 seconds
 const morganQueue = [];
 const morganQueuedIds = new Set();
 
@@ -773,67 +773,73 @@ app.post("/webhooks/vapi", async (req, res) => {
 
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
-  let lead = null;
-  let freeSlotId = null;
   try {
-    freeSlotId = getFreeMorganSlotId();
-    if (!freeSlotId) {
-      // All 3 numbers are busy; do nothing this tick
-      return;
-    }
+    // Loop until we either run out of free slots or run out of leads
+    while (true) {
+      const freeSlotId = getFreeMorganSlotId();
+      if (!freeSlotId) {
+        // No more free slots this tick
+        break;
+      }
 
-    lead = getNextMorganLead();
-    if (!lead || !lead.phone) return;
+      const lead = getNextMorganLead();
+      if (!lead || !lead.phone) {
+        // No more leads to dial
+        break;
+      }
 
-    console.log("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id, "phone", lead.phone);
+      console.log("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id, "phone", lead.phone);
 
-    try {
-      const result = await startOutboundCall({
-        agentName: "Morgan",
-        toNumber: lead.phone,
-        metadata: {
-          convosoLeadId: lead.id || null,
-          convosoListId: lead.raw?.list_id || null,
-          source: "morgan-queue",
-          convosoRaw: lead.raw || null,
-        },
-        callName: "Morgan Outbound (Queue)",
-        phoneNumberId: freeSlotId, // bind this call to a specific Twilio number
-      });
+      try {
+        const result = await startOutboundCall({
+          agentName: "Morgan",
+          toNumber: lead.phone,
+          metadata: {
+            convosoLeadId: lead.id || null,
+            convosoListId: lead.raw?.list_id || null,
+            source: "morgan-queue",
+            convosoRaw: lead.raw || null,
+          },
+          callName: "Morgan Outbound (Queue)",
+          phoneNumberId: freeSlotId,
+        });
 
-      if (result && result.callId) {
-        markMorganSlotBusy(freeSlotId, result.callId);
-        console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
-      } else {
-        console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
-        morganQueue.unshift(lead);
-        if (lead.id) {
-          morganQueuedIds.add(lead.id);
-          updateConvosoLead({
-            lead_id: lead.id,
-            status: "MQ",
-          }).catch((err) => {
-            console.error("[MorganQueue] Failed to set MQ status while re-queueing", lead.id, err);
-          });
+        if (result && result.callId) {
+          markMorganSlotBusy(freeSlotId, result.callId);
+          console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
+        } else {
+          console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
+          morganQueue.unshift(lead);
+          if (lead.id) {
+            morganQueuedIds.add(lead.id);
+            updateConvosoLead({
+              lead_id: lead.id,
+              status: "MQ",
+            }).catch((err) => {
+              console.error("[MorganQueue] Failed to set MQ status while re-queueing", lead.id, err);
+            });
+          }
+          // Free the slot since call didn't actually start
+          freeMorganSlot(freeSlotId);
         }
-      }
-    } catch (err) {
-      console.error("[processMorganQueueTick] error starting call:", err);
+      } catch (err) {
+        console.error("[processMorganQueueTick] error starting call:", err);
 
-      await updateConvosoLead({
-        lead_id: lead.id,
-        status: "MQ"
-      }).catch((e) => {
-        console.error("[processMorganQueueTick] failed to revert status to MQ for lead", lead.id, e);
-      });
+        // Try to revert status to MQ so the lead is not stuck in MC
+        await updateConvosoLead({
+          lead_id: lead.id,
+          status: "MQ",
+        }).catch((e) => {
+          console.error("[processMorganQueueTick] failed to revert status to MQ for lead", lead.id, e);
+        });
 
-      enqueueMorganLead(lead);
+        // Re-enqueue the lead so it can be retried later
+        enqueueMorganLead(lead);
 
-      if (freeSlotId) {
+        // Free the slot on error
         freeMorganSlot(freeSlotId);
+        // Continue the while loop so other free slots can still be used this tick
       }
-
-      return;
     }
   } catch (err) {
     console.error("[processMorganQueueTick] error:", err);
