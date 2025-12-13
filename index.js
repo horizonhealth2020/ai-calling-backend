@@ -241,7 +241,7 @@ async function hydrateMorganQueueFromConvoso() {
     return;
   }
 
-  console.log("[MorganQueue] Hydrating from Convoso...");
+  console.log("[MorganQueue] Hydrating from Convoso MQ status (no date filter)...");
 
   // Clear any stale state
   morganQueue.length = 0;
@@ -255,19 +255,43 @@ async function hydrateMorganQueueFromConvoso() {
       limit: 200,
     });
 
-    const leads = raw
+    console.log("[MorganQueue] Raw MQ rows from Convoso:", raw.length);
+
+    let missingPhone = 0;
+    let memberIdSet = 0;
+    let wrongCallCount = 0;
+
+    raw
       .map(normalizeConvosoLead)
       .filter(Boolean)
-      .filter((l) => l.phone);
+      .forEach((lead) => {
+        if (!hasEmptyMemberId(lead)) {
+          memberIdSet += 1;
+          return;
+        }
 
-    leads.forEach((lead) => {
-      if (!lead || !lead.id) return;
-      if (morganQueuedIds.has(lead.id)) return;
-      morganQueue.push(lead);
-      morganQueuedIds.add(lead.id);
-    });
+        if (!lead.phone) {
+          missingPhone += 1;
+          return;
+        }
 
-    console.log(`[MorganQueue] Hydrated queue length: ${morganQueue.length}`);
+        if (
+          typeof lead.call_count !== "number" ||
+          (lead.call_count !== 2 && lead.call_count !== 5)
+        ) {
+          wrongCallCount += 1;
+          return;
+        }
+
+        if (!lead.id || morganQueuedIds.has(lead.id)) return;
+
+        morganQueue.push(lead);
+        morganQueuedIds.add(lead.id);
+      });
+
+    console.log(
+      `[MorganQueue] Hydrated queue length from MQ: ${morganQueue.length}. Skipped missing phone: ${missingPhone}, Member_ID set: ${memberIdSet}, wrong call_count: ${wrongCallCount}.`
+    );
   } catch (err) {
     console.error("[MorganQueue] Failed to hydrate from Convoso:", err);
   }
