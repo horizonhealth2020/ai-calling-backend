@@ -335,6 +335,43 @@ async function debugFetchMQLeads() {
   }
 }
 
+async function debugFetchMQRaw() {
+  if (!CONVOSO_AUTH_TOKEN) {
+    console.warn("[MorganQueue] debugFetchMQRaw: missing CONVOSO_AUTH_TOKEN");
+    return [];
+  }
+
+  console.log("[MorganQueue] DEBUG RAW: Fetching MQ leads from Convoso...");
+
+  try {
+    const raw = await convosoSearchAllPages({
+      auth_token: CONVOSO_AUTH_TOKEN,
+      status: "MQ",
+      list_id: MORGAN_LIST_IDS,
+      limit: 200,
+    });
+
+    console.log("[MorganQueue] DEBUG RAW: Raw MQ rows from Convoso:", raw.length);
+
+    // Map to a light-weight view so I can inspect fields
+    const mapped = (raw || []).map((r) => ({
+      lead_id: r.lead_id || r.id,
+      list_id: r.list_id,
+      status: r.status || r.status_name || null,
+      phone_number: r.phone_number || r.phone || null,
+      member_id: r.member_id || r.Member_ID || null,
+    }));
+
+    const sample = mapped.slice(0, 20);
+    console.log("[MorganQueue] DEBUG RAW: MQ sample:", sample);
+
+    return mapped;
+  } catch (err) {
+    console.error("[MorganQueue] DEBUG RAW: Failed to fetch MQ leads from Convoso:", err);
+    return [];
+  }
+}
+
 async function mergeMorganQueueFromMQ() {
   if (!CONVOSO_AUTH_TOKEN) {
     console.warn("[MorganQueue] Skipping MQ merge: missing CONVOSO_AUTH_TOKEN");
@@ -769,6 +806,24 @@ app.post("/debug/hydrate-mq", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: err.message || "Failed to debug fetch MQ leads",
+    });
+  }
+});
+
+app.post("/debug/hydrate-mq-raw", async (req, res) => {
+  try {
+    const mq = await debugFetchMQRaw();
+
+    return res.json({
+      success: true,
+      total_mq_rows: mq.length,
+      sample: mq.slice(0, 50), // capped sample
+    });
+  } catch (err) {
+    console.error("[/debug/hydrate-mq-raw] error:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to debug fetch raw MQ leads",
     });
   }
 });
