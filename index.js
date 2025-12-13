@@ -14,7 +14,7 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
 // ----- MORGAN OUTBOUND QUEUE -----
 const MORGAN_MAX_CONCURRENT = 3;
-const MORGAN_DIAL_INTERVAL_MS = 3000;
+const MORGAN_DIAL_INTERVAL_MS = 60000;
 const morganQueue = [];
 const morganQueuedIds = new Set();
 
