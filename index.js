@@ -293,6 +293,46 @@ async function hydrateMorganQueueFromConvoso() {
   }
 }
 
+async function mergeMorganQueueFromMQ() {
+  if (!CONVOSO_AUTH_TOKEN) {
+    console.warn("[MorganQueue] Skipping MQ merge: missing CONVOSO_AUTH_TOKEN");
+    return;
+  }
+
+  console.log("[MorganQueue] Merging MQ leads from Convoso...");
+
+  try {
+    const raw = await convosoSearchAllPages({
+      auth_token: CONVOSO_AUTH_TOKEN,
+      status: "MQ",
+      list_id: MORGAN_LIST_IDS,
+      limit: 200,
+    });
+
+    let added = 0;
+
+    const leads = raw
+      .map(normalizeConvosoLead)
+      .filter(Boolean)
+      .filter((lead) => lead.phone);
+
+    for (const lead of leads) {
+      if (!lead || !lead.id) continue;
+      if (morganQueuedIds.has(lead.id)) continue;
+
+      morganQueue.push(lead);
+      morganQueuedIds.add(lead.id);
+      added += 1;
+    }
+
+    console.log(
+      `[MorganQueue] MQ merge complete. Added ${added} leads. Queue length: ${morganQueue.length}`
+    );
+  } catch (err) {
+    console.error("[MorganQueue] Failed to merge MQ leads from Convoso:", err);
+  }
+}
+
 // TZ formatting to "YYYY-MM-DD HH:mm:ss"
 function formatConvosoDateTimeInTZ(date, timeZone = "America/New_York") {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -853,6 +893,8 @@ setInterval(async () => {
     console.error("[VapiPoll] sweep error:", err);
   }
 }, 30000);
+
+setInterval(mergeMorganQueueFromMQ, 30 * 60 * 1000); // every 30 minutes
 
 
 // --------------------------------------------------------------------------
