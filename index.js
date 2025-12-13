@@ -690,13 +690,37 @@ app.post("/webhooks/vapi", async (req, res) => {
         call.leadId ||
         null;
 
+      // Try to grab the call summary from the webhook payload
+      const summary =
+        (body && body.summary) ||
+        (msg && msg.summary) ||
+        (call && call.summary) ||
+        null;
+
       if (leadId) {
-        try {
-          await updateConvosoLead(leadId, { status: "A" });
-          console.log(`[MorganQueue] Marked lead ${leadId} as finished (status A).`);
-        } catch (err) {
-          console.error("[VapiWebhook] Failed to update Convoso status to A for lead", leadId, err);
+        const idStr = String(leadId);
+        console.log(
+          `[MorganQueue] end-of-call-report for Convoso lead ${idStr}; leaving status as MC.`
+        );
+
+        // ✅ Post call summary as a lead note if available
+        if (summary && typeof addLeadNote === "function") {
+          try {
+            await addLeadNote(idStr, `Morgan call summary: ${summary}`);
+            console.log(
+              `[MorganQueue] Posted call summary note to lead ${idStr}.`
+            );
+          } catch (err) {
+            console.error(
+              "[VapiWebhook] Failed to add call summary note for lead",
+              idStr,
+              err
+            );
+          }
         }
+
+        // IMPORTANT: Do NOT change the Convoso status here.
+        // We want the lead to remain in MC to prevent re-pulling.
       }
     }
 
