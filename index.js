@@ -185,6 +185,24 @@ async function addLeadNote(leadId, note) {
   return updateConvosoLead(leadId, { notes: note });
 }
 
+function normalizeConvosoNote(text, maxLen = 255) {
+  if (!text) return "";
+
+  // Collapse all whitespace (including newlines) into single spaces
+  const singleLine = String(text).replace(/\s+/g, " ").trim();
+
+  if (singleLine.length <= maxLen) return singleLine;
+
+  // Optional: add ellipsis but stay within maxLen
+  const ellipsis = "...";
+  if (maxLen > ellipsis.length) {
+    return singleLine.slice(0, maxLen - ellipsis.length) + ellipsis;
+  }
+
+  // Fallback if maxLen is very small
+  return singleLine.slice(0, maxLen);
+}
+
 const MORGAN_LIST_IDS = [28001, 15857, 27223, 10587, 12794, 12793];
 
 function normalizeConvosoLead(convosoLead) {
@@ -1199,10 +1217,13 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       console.warn("[sendLeadNote] No note from Morgan; using fallback note.");
     }
 
-    console.log("[sendLeadNote] Adding note for lead:", leadId);
-    console.log("[sendLeadNote] Note content:", noteFromMorgan);
+    // NEW: normalize + enforce 255-char limit for Convoso notes
+    const noteToSend = normalizeConvosoNote(noteFromMorgan);
 
-    await addLeadNote(leadId, noteFromMorgan);
+    console.log("[sendLeadNote] Adding note for lead:", leadId);
+    console.log("[sendLeadNote] Note content:", noteToSend);
+
+    await addLeadNote(leadId, noteToSend);
 
     const toolCallId = firstCall.id || body.toolCallId || "unknown";
 
