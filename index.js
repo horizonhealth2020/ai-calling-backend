@@ -263,12 +263,6 @@ async function processConvosoQueue() {
   convosoQueueRunning = false;
 }
 
-// "Add note" just means: update the lead's notes field
-async function addLeadNote(leadId, note) {
-  // ⚠️ This overwrites the Notes field in Convoso for that lead.
-  return updateConvosoLead(leadId, { notes: note });
-}
-
 function normalizeConvosoNote(text, maxLen = 255) {
   if (!text) return "";
 
@@ -277,14 +271,21 @@ function normalizeConvosoNote(text, maxLen = 255) {
 
   if (singleLine.length <= maxLen) return singleLine;
 
-  // Optional: add ellipsis but stay within maxLen
   const ellipsis = "...";
   if (maxLen > ellipsis.length) {
     return singleLine.slice(0, maxLen - ellipsis.length) + ellipsis;
   }
 
-  // Fallback if maxLen is very small
   return singleLine.slice(0, maxLen);
+}
+
+// "Add note" just means: update the lead's notes field
+async function addLeadNote(leadId, note) {
+  // Normalize + cap at 255 chars for Convoso Notes field
+  const safeNote = normalizeConvosoNote(note, 255);
+
+  // This overwrites the Notes field in Convoso for that lead.
+  return updateConvosoLead(leadId, { notes: safeNote });
 }
 
 const MORGAN_LIST_IDS = [28001, 15857, 27223, 10587, 12794, 12793];
@@ -1095,9 +1096,10 @@ app.post("/webhooks/vapi", async (req, res) => {
         // ✅ Post call summary as a lead note if available
         if (summary && typeof addLeadNote === "function") {
           try {
-            await addLeadNote(idStr, `Morgan call summary: ${summary}`);
+            const compactSummary = `Morgan summary: ${summary}`;
+            await addLeadNote(idStr, compactSummary);
             console.log(
-              `[MorganQueue] Posted call summary note to lead ${idStr}.`
+              `[MorganQueue] Posted compact call summary note to lead ${idStr}.`
             );
           } catch (err) {
             console.error(
@@ -1401,13 +1403,10 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       console.warn("[sendLeadNote] No note from Morgan; using fallback note.");
     }
 
-    // NEW: normalize + enforce 255-char limit for Convoso notes
-    const noteToSend = normalizeConvosoNote(noteFromMorgan);
-
     console.log("[sendLeadNote] Adding note for lead:", leadId);
-    console.log("[sendLeadNote] Note content:", noteToSend);
+    console.log("[sendLeadNote] Note content:", noteFromMorgan);
 
-    await addLeadNote(leadId, noteToSend);
+    await addLeadNote(leadId, noteFromMorgan);
 
     const toolCallId = firstCall.id || body.toolCallId || "unknown";
 
