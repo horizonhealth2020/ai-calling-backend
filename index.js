@@ -1072,11 +1072,19 @@ app.post("/webhooks/vapi", async (req, res) => {
         null;
 
       // Try to grab the call summary from the webhook payload
-      const summary =
-        (body && body.summary) ||
+      const rawSummary =
+        (body && (body.summary || body.call_summary)) ||
         (msg && msg.summary) ||
         (call && call.summary) ||
         null;
+      const summary = (rawSummary || "").trim();
+
+      if (!summary || summary === "NO_SUMMARY") {
+        console.log(
+          "[logCallOutcome] No live contact or NO_SUMMARY flag; skipping Convoso note."
+        );
+        return res.json({ success: true, skipped: true });
+      }
 
       if (leadId) {
         const idStr = String(leadId);
