@@ -1,6 +1,7 @@
 // voiceGateway.js
 
 const fetch = require("node-fetch");
+const { isMorganEnabled } = require("./morganToggle");
 
 // --- Vapi env vars ---
 const VAPI_API_KEY             = process.env.VAPI_API_KEY;
@@ -67,6 +68,7 @@ function normalizeToE164(raw) {
  * PUBLIC: startOutboundCall
  */
 async function startOutboundCall({
+  agentType,
   agentName,
   assistantId,
   toNumber,
@@ -74,6 +76,13 @@ async function startOutboundCall({
   callName,
   phoneNumberId,
 }) {
+  const resolvedAgentType = (agentType || agentName || "morgan").toLowerCase();
+
+  if (resolvedAgentType === "morgan" && !isMorganEnabled()) {
+    console.log("[Morgan] Disabled: startOutboundCall skipped");
+    return;
+  }
+
   if (!VAPI_API_KEY) {
     throw new Error("Missing VAPI_API_KEY env var");
   }

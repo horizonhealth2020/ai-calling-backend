@@ -10,6 +10,7 @@ const cors = require("cors");
 const fetch = require("node-fetch");
 const axios = require("axios");
 const { startOutboundCall } = require("./voiceGateway");
+const { isMorganEnabled } = require("./morganToggle");
 
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
@@ -115,12 +116,16 @@ async function enqueueMorganLead(lead) {
   morganQueuedIds.add(lead.id);
 
   // Persist in Convoso: mark as queued for Morgan
-  await enqueueConvosoUpdate(lead.id, {
-    lead_id: lead.id,
-    status: "MQ"
-  }).catch((err) => {
-    logger.error("[MorganQueue] Failed to set MQ status for", lead.id, err);
-  });
+  if (isMorganEnabled()) {
+    await enqueueConvosoUpdate(lead.id, {
+      lead_id: lead.id,
+      status: "MQ"
+    }).catch((err) => {
+      logger.error("[MorganQueue] Failed to set MQ status for", lead.id, err);
+    });
+  } else {
+    logger?.info?.(`[Morgan] Disabled: skipping disposition for lead ${lead.id}`);
+  }
 
   logger.debug("[MorganQueue] Enqueued lead", lead.id, "Queue length:", morganQueue.length);
 }
@@ -133,12 +138,16 @@ async function getNextMorganLead() {
     morganQueuedIds.delete(lead.id);
 
     // Mark as moved from queue into active calling state
-    await enqueueConvosoUpdate(lead.id, {
-      lead_id: lead.id,
-      status: "MC",
-    }).catch((err) => {
-      logger.error("[MorganQueue] Failed to set MC status for", lead.id, err);
-    });
+    if (isMorganEnabled()) {
+      await enqueueConvosoUpdate(lead.id, {
+        lead_id: lead.id,
+        status: "MC",
+      }).catch((err) => {
+        logger.error("[MorganQueue] Failed to set MC status for", lead.id, err);
+      });
+    } else {
+      logger?.info?.(`[Morgan] Disabled: skipping disposition for lead ${lead.id}`);
+    }
   }
 
   logger.debug("[MorganQueue] Dequeued lead", lead.id, "for dialing");
@@ -399,6 +408,11 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
 }
 
 async function hydrateMorganQueueFromConvoso() {
+  if (!isMorganEnabled()) {
+    logger?.info?.('[Morgan] Disabled: hydrateMorganQueueFromConvoso skipped');
+    return;
+  }
+
   if (!CONVOSO_AUTH_TOKEN) {
     logger.warn("[MorganQueue] Skipping hydration: missing CONVOSO_AUTH_TOKEN");
     return;
@@ -537,6 +551,11 @@ async function debugFetchMQRaw() {
 }
 
 async function mergeMorganQueueFromMQ() {
+  if (!isMorganEnabled()) {
+    logger?.info?.('[Morgan] Disabled: mergeMorganQueueFromMQ skipped');
+    return;
+  }
+
   if (!CONVOSO_AUTH_TOKEN) {
     logger.warn("[MorganQueue] Skipping MQ merge: missing CONVOSO_AUTH_TOKEN");
     return;
@@ -778,6 +797,10 @@ app.get("/health", (req, res) => {
 // ----- MORGAN JOBS -----
 app.post("/jobs/morgan/pull-leads", async (req, res) => {
   try {
+    if (!isMorganEnabled()) {
+      return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
+    }
+
     const limit = Number(req.body?.limit) || 50;
 
     const leads = await findLeadsForMorganByCallCount({ limit });
@@ -798,6 +821,10 @@ app.post("/jobs/morgan/pull-leads", async (req, res) => {
 
 app.post("/jobs/morgan/pull-yesterday", async (req, res) => {
   try {
+    if (!isMorganEnabled()) {
+      return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
+    }
+
     const timezone = req.body?.timezone || "America/New_York";
 
     const leads = await findYesterdayNonSaleLeads({ timezone });
@@ -821,6 +848,10 @@ app.post("/jobs/morgan/pull-yesterday", async (req, res) => {
 // ----- WEBHOOK: CONVOSO → MORGAN OUTBOUND -----
 app.post("/webhooks/convoso/new-lead", async (req, res) => {
   try {
+    if (!isMorganEnabled()) {
+      return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
+    }
+
     console.log("[Convoso webhook] headers:", req.headers);
     console.log("[Convoso webhook] raw body:", req.body);
 
@@ -891,6 +922,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
     );
 
     const voiceResult = await startOutboundCall({
+      agentType: "morgan",
       agentName: "Morgan",
       toNumber: customerNumber,
       metadata,
@@ -911,6 +943,10 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
 // ----- DEBUG: MANUAL TEST CALL -----
 app.post("/debug/test-call", async (req, res) => {
   try {
+    if (!isMorganEnabled()) {
+      return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
+    }
+
     const { phone } = req.body || {};
 
     if (!phone) {
@@ -926,6 +962,7 @@ app.post("/debug/test-call", async (req, res) => {
     }
 
     const result = await startOutboundCall({
+      agentType: "morgan",
       agentName: "Morgan",
       toNumber: customerNumber,
       metadata: { source: "debug-test-call" },
@@ -1060,6 +1097,11 @@ app.post("/webhooks/vapi", async (req, res) => {
 
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
+  if (!isMorganEnabled()) {
+    logger?.info?.('[MorganQueue] Disabled: tick skipped');
+    return;
+  }
+
   try {
     let dequeuedThisTick = 0;
 
@@ -1082,6 +1124,7 @@ async function processMorganQueueTick() {
 
       try {
         const result = await startOutboundCall({
+          agentType: "morgan",
           agentName: "Morgan",
           toNumber: lead.phone,
           metadata: {
@@ -1107,16 +1150,20 @@ async function processMorganQueueTick() {
           morganQueue.unshift(lead);
           if (lead.id) {
             morganQueuedIds.add(lead.id);
-            await enqueueConvosoUpdate(lead.id, {
-              lead_id: lead.id,
-              status: "MQ",
-            }).catch((err) => {
-              logger.error(
-                "[MorganQueue] Failed to set MQ status while re-queueing",
-                lead.id,
-                err
-              );
-            });
+            if (isMorganEnabled()) {
+              await enqueueConvosoUpdate(lead.id, {
+                lead_id: lead.id,
+                status: "MQ",
+              }).catch((err) => {
+                logger.error(
+                  "[MorganQueue] Failed to set MQ status while re-queueing",
+                  lead.id,
+                  err
+                );
+              });
+            } else {
+              logger?.info?.(`[Morgan] Disabled: skipping disposition for lead ${lead.id}`);
+            }
           }
           // Free the slot since call didn't actually start
           freeMorganSlot(freeSlotId);
@@ -1125,16 +1172,20 @@ async function processMorganQueueTick() {
         logger.error("[processMorganQueueTick] error starting call:", err);
 
         // Try to revert status to MQ so the lead is not stuck in MC
-        await enqueueConvosoUpdate(lead.id, {
-          lead_id: lead.id,
-          status: "MQ",
-        }).catch((e) => {
-          logger.error(
-            "[processMorganQueueTick] failed to revert status to MQ for lead",
-            lead.id,
-            e
-          );
-        });
+        if (isMorganEnabled()) {
+          await enqueueConvosoUpdate(lead.id, {
+            lead_id: lead.id,
+            status: "MQ",
+          }).catch((e) => {
+            logger.error(
+              "[processMorganQueueTick] failed to revert status to MQ for lead",
+              lead.id,
+              e
+            );
+          });
+        } else {
+          logger?.info?.(`[Morgan] Disabled: skipping disposition for lead ${lead.id}`);
+        }
 
         // Re-enqueue the lead so it can be retried later
         await enqueueMorganLead(lead);
@@ -1158,6 +1209,11 @@ setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
 
 // ----- AUTO PULL MORGAN LEADS EVERY 60 SECONDS -----
 async function autoPullMorganLeads() {
+  if (!isMorganEnabled()) {
+    logger?.info?.('[Morgan] Disabled: autoPullMorganLeads skipped');
+    return;
+  }
+
   try {
     const response = await fetch(`http://localhost:${PORT}/jobs/morgan/pull-leads`, {
       method: "POST",
