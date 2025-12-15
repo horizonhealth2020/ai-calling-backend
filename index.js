@@ -11,6 +11,7 @@ const fetch = require("node-fetch");
 const axios = require("axios");
 const { startOutboundCall } = require("./voiceGateway");
 const { isMorganEnabled } = require("./morganToggle");
+const { isBusinessHours } = require("./timeUtils");
 
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
@@ -408,6 +409,10 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
 }
 
 async function hydrateMorganQueueFromConvoso() {
+  if (!isBusinessHours()) {
+    console.log("[MorganQueue] Outside business hours; skipping hydration.");
+    return;
+  }
   if (!isMorganEnabled()) {
     logger?.info?.('[Morgan] Disabled: hydrateMorganQueueFromConvoso skipped');
     return;
@@ -551,6 +556,10 @@ async function debugFetchMQRaw() {
 }
 
 async function mergeMorganQueueFromMQ() {
+  if (!isBusinessHours()) {
+    console.log("[MorganQueue] Outside business hours; skipping hydration.");
+    return;
+  }
   if (!isMorganEnabled()) {
     logger?.info?.('[Morgan] Disabled: mergeMorganQueueFromMQ skipped');
     return;
@@ -797,6 +806,10 @@ app.get("/health", (req, res) => {
 // ----- MORGAN JOBS -----
 app.post("/jobs/morgan/pull-leads", async (req, res) => {
   try {
+    if (!isBusinessHours()) {
+      console.log("[MorganJobs] Outside business hours; skipping manual pull.");
+      return res.json({ success: false, reason: "outside_business_hours" });
+    }
     if (!isMorganEnabled()) {
       return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
     }
@@ -821,6 +834,10 @@ app.post("/jobs/morgan/pull-leads", async (req, res) => {
 
 app.post("/jobs/morgan/pull-yesterday", async (req, res) => {
   try {
+    if (!isBusinessHours()) {
+      console.log("[MorganJobs] Outside business hours; skipping manual pull.");
+      return res.json({ success: false, reason: "outside_business_hours" });
+    }
     if (!isMorganEnabled()) {
       return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
     }
@@ -1097,6 +1114,10 @@ app.post("/webhooks/vapi", async (req, res) => {
 
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
+  if (!isBusinessHours()) {
+    console.log("[MorganQueue] Outside business hours; skipping tick.");
+    return;
+  }
   if (!isMorganEnabled()) {
     logger?.info?.('[MorganQueue] Disabled: tick skipped');
     return;
@@ -1209,6 +1230,10 @@ setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
 
 // ----- AUTO PULL MORGAN LEADS EVERY 60 SECONDS -----
 async function autoPullMorganLeads() {
+  if (!isBusinessHours()) {
+    console.log("[AutoPullMorganLeads] Outside business hours; skipping auto-pull.");
+    return;
+  }
   if (!isMorganEnabled()) {
     logger?.info?.('[Morgan] Disabled: autoPullMorganLeads skipped');
     return;
