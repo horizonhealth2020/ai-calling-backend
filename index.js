@@ -8,7 +8,26 @@
 const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
+const axios = require("axios");
 const { startOutboundCall } = require("./voiceGateway");
+
+const LOG_LEVEL = process.env.LOG_LEVEL || "info";
+const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
+
+const logger = {
+  error: (...args) => {
+    if (LOG_LEVELS[LOG_LEVEL] >= LOG_LEVELS.error) console.error(...args);
+  },
+  warn: (...args) => {
+    if (LOG_LEVELS[LOG_LEVEL] >= LOG_LEVELS.warn) console.warn(...args);
+  },
+  info: (...args) => {
+    if (LOG_LEVELS[LOG_LEVEL] >= LOG_LEVELS.info) console.log(...args);
+  },
+  debug: (...args) => {
+    if (LOG_LEVELS[LOG_LEVEL] >= LOG_LEVELS.debug) console.log(...args);
+  },
+};
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
@@ -24,7 +43,10 @@ const MORGAN_PHONE_NUMBER_IDS = process.env.VAPI_PHONE_NUMBER_IDS
   : [];
 
 if (MORGAN_PHONE_NUMBER_IDS.length !== 3) {
-  console.warn("[MorganSlots] Expected exactly 3 VAPI_PHONE_NUMBER_IDS for Morgan slots, got:", MORGAN_PHONE_NUMBER_IDS.length);
+  logger.warn(
+    "[MorganSlots] Expected exactly 3 VAPI_PHONE_NUMBER_IDS for Morgan slots, got:",
+    MORGAN_PHONE_NUMBER_IDS.length
+  );
 }
 
 // Map: phoneNumberId -> { busy, callId, startedAt }
@@ -63,7 +85,7 @@ function freeMorganSlot(phoneNumberId) {
   slot.busy = false;
   slot.callId = null;
   slot.startedAt = null;
-  console.log("[MorganSlots] Freed slot", phoneNumberId);
+  logger.debug("[MorganSlots] Freed slot", phoneNumberId);
   return true;
 }
 
@@ -76,16 +98,16 @@ function freeMorganSlotByCallId(callId) {
   slot.callId = null;
   slot.startedAt = null;
   morganCallToSlot.delete(callId);
-  console.log("[MorganSlots] Freed slot", phoneNumberId, "for callId", callId);
+  logger.debug("[MorganSlots] Freed slot", phoneNumberId, "for callId", callId);
   return true;
 }
 
-function enqueueMorganLead(lead) {
+async function enqueueMorganLead(lead) {
   if (!lead || !lead.id) return;
 
   // In-memory dedupe
   if (morganQueuedIds.has(lead.id)) {
-    console.log("[MorganQueue] Skipping duplicate lead", lead.id);
+    logger.debug("[MorganQueue] Skipping duplicate lead", lead.id);
     return;
   }
 
@@ -93,22 +115,17 @@ function enqueueMorganLead(lead) {
   morganQueuedIds.add(lead.id);
 
   // Persist in Convoso: mark as queued for Morgan
-  updateConvosoLead({
+  await enqueueConvosoUpdate(lead.id, {
     lead_id: lead.id,
     status: "MQ"
   }).catch((err) => {
-    console.error("[MorganQueue] Failed to set MQ status for", lead.id, err);
+    logger.error("[MorganQueue] Failed to set MQ status for", lead.id, err);
   });
 
-  console.log(
-    "[MorganQueue] Enqueued lead",
-    lead.id,
-    "Queue length:",
-    morganQueue.length
-  );
+  logger.debug("[MorganQueue] Enqueued lead", lead.id, "Queue length:", morganQueue.length);
 }
 
-function getNextMorganLead() {
+async function getNextMorganLead() {
   const lead = morganQueue.shift();
   if (!lead) return null;
 
@@ -116,22 +133,31 @@ function getNextMorganLead() {
     morganQueuedIds.delete(lead.id);
 
     // Mark as moved from queue into active calling state
-    updateConvosoLead({
+    await enqueueConvosoUpdate(lead.id, {
       lead_id: lead.id,
       status: "MC",
     }).catch((err) => {
-      console.error("[MorganQueue] Failed to set MC status for", lead.id, err);
+      logger.error("[MorganQueue] Failed to set MC status for", lead.id, err);
     });
   }
 
-  console.log("[MorganQueue] Dequeued lead", lead.id, "for dialing");
+  logger.debug("[MorganQueue] Dequeued lead", lead.id, "for dialing");
   return lead;
 }
 
 // ---- Convoso helpers (use original working pattern) ----
 
+const convosoRequestQueue = [];
+let convosoQueueRunning = false;
+const CONVOSO_REQUESTS_PER_SECOND = 3;
+const CONVOSO_INTERVAL_MS = Math.floor(1000 / CONVOSO_REQUESTS_PER_SECOND);
+const MAX_RETRIES_429 = 5;
+const BASE_DELAY_MS_429 = 500;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Generic lead update: uses GET with auth_token in query string
-async function updateConvosoLead(leadIdOrPayload, fields = {}) {
+async function updateConvosoLead(leadIdOrPayload, fields = {}, attempt = 1) {
   if (!CONVOSO_AUTH_TOKEN) {
     throw new Error("Missing CONVOSO_AUTH_TOKEN env var");
   }
@@ -165,18 +191,66 @@ async function updateConvosoLead(leadIdOrPayload, fields = {}) {
   });
 
   const url = `https://api.convoso.com/v1/leads/update?${params.toString()}`;
-  console.log("[updateConvosoLead] URL:", url);
+  const maskedParams = new URLSearchParams(params);
+  maskedParams.set("auth_token", "***");
+  const maskedUrl = `https://api.convoso.com/v1/leads/update?${maskedParams.toString()}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[updateConvosoLead] Convoso error:", response.status, text);
+  try {
+    const response = await axios.get(url);
+    const status = payloadFields?.status ? ` to status ${payloadFields.status}` : "";
+    logger.debug(`[updateConvosoLead] Updated lead ${leadId}${status}`);
+    return response.data;
+  } catch (err) {
+    const statusCode = err?.response?.status;
+
+    if (statusCode === 429) {
+      if (attempt >= MAX_RETRIES_429) {
+        logger.error(`[updateConvosoLead] 429 for lead ${leadId} after ${attempt} attempts`);
+        throw new Error("Convoso lead update failed");
+      }
+
+      const delay = BASE_DELAY_MS_429 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 100);
+      logger.warn(
+        `[updateConvosoLead] 429 for lead ${leadId}, attempt ${attempt}, retrying in ${delay}ms`
+      );
+      await sleep(delay);
+      return updateConvosoLead(leadId, payloadFields, attempt + 1);
+    }
+
+    logger.error(
+      `[updateConvosoLead] Convoso error for lead ${leadId} (status ${statusCode || "unknown"}):`,
+      err?.message || "Unknown error",
+      maskedUrl
+    );
     throw new Error("Convoso lead update failed");
   }
+}
 
-  const data = await response.json();
-  console.log("[updateConvosoLead] response:", JSON.stringify(data).slice(0, 500));
-  return data;
+function enqueueConvosoUpdate(leadId, payload) {
+  return new Promise((resolve, reject) => {
+    convosoRequestQueue.push({ leadId, payload, resolve, reject });
+    if (!convosoQueueRunning) {
+      void processConvosoQueue();
+    }
+  });
+}
+
+async function processConvosoQueue() {
+  convosoQueueRunning = true;
+
+  while (convosoRequestQueue.length > 0) {
+    const { leadId, payload, resolve, reject } = convosoRequestQueue.shift();
+    try {
+      const res = await updateConvosoLead(leadId, payload);
+      resolve(res);
+    } catch (err) {
+      reject(err);
+    }
+
+    await sleep(CONVOSO_INTERVAL_MS);
+  }
+
+  convosoQueueRunning = false;
 }
 
 // "Add note" just means: update the lead's notes field
@@ -286,7 +360,7 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
 
     if (!res.ok) {
       const text = await res.text();
-      console.error("[convosoSearchAllPages] HTTP", res.status, text);
+      logger.error("[convosoSearchAllPages] HTTP", res.status, text);
       throw new Error("Convoso search failed");
     }
 
@@ -300,7 +374,7 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
 
     const total = Number(data?.data?.total ?? entries.length ?? 0);
 
-    console.log(
+    logger.debug(
       "[convosoSearchAllPages] page",
       page,
       "offset",
@@ -320,17 +394,17 @@ async function convosoSearchAllPages(basePayload, maxPages = 50) {
     page += 1;
   }
 
-  console.log("[convosoSearchAllPages] total accumulated:", results.length);
+  logger.debug("[convosoSearchAllPages] total accumulated:", results.length);
   return results;
 }
 
 async function hydrateMorganQueueFromConvoso() {
   if (!CONVOSO_AUTH_TOKEN) {
-    console.warn("[MorganQueue] Skipping hydration: missing CONVOSO_AUTH_TOKEN");
+    logger.warn("[MorganQueue] Skipping hydration: missing CONVOSO_AUTH_TOKEN");
     return;
   }
 
-  console.log("[MorganQueue] Hydrating from Convoso MQ status (no date filter)...");
+  logger.info("[MorganQueue] Hydrating from Convoso MQ status (no date filter)...");
 
   // Reset in-memory state
   morganQueue.length = 0;
@@ -345,7 +419,7 @@ async function hydrateMorganQueueFromConvoso() {
       limit: 200,
     });
 
-    console.log("[MorganQueue] Raw MQ rows from Convoso:", raw.length);
+    logger.debug("[MorganQueue] Raw MQ rows from Convoso:", raw.length);
 
     const normalized = raw
       .map(normalizeConvosoLead)
@@ -369,7 +443,7 @@ async function hydrateMorganQueueFromConvoso() {
       added++;
     }
 
-    console.log(
+    logger.info(
       "[MorganQueue] Hydrated queue length from MQ:",
       added,
       "Raw MQ rows:",
@@ -379,17 +453,17 @@ async function hydrateMorganQueueFromConvoso() {
     );
 
   } catch (err) {
-    console.error("[MorganQueue] Failed to hydrate from Convoso:", err);
+    logger.error("[MorganQueue] Failed to hydrate from Convoso:", err);
   }
 }
 
 async function debugFetchMQLeads() {
   if (!CONVOSO_AUTH_TOKEN) {
-    console.warn("[MorganQueue] debugFetchMQLeads: missing CONVOSO_AUTH_TOKEN");
+    logger.warn("[MorganQueue] debugFetchMQLeads: missing CONVOSO_AUTH_TOKEN");
     return [];
   }
 
-  console.log("[MorganQueue] DEBUG: Fetching MQ leads from Convoso...");
+  logger.debug("[MorganQueue] DEBUG: Fetching MQ leads from Convoso...");
 
   try {
     const raw = await convosoSearchAllPages({
@@ -399,14 +473,14 @@ async function debugFetchMQLeads() {
       limit: 200,
     });
 
-    console.log("[MorganQueue] DEBUG: Raw MQ rows from Convoso:", raw.length);
+    logger.debug("[MorganQueue] DEBUG: Raw MQ rows from Convoso:", raw.length);
 
     const leads = raw
       .map(normalizeConvosoLead)
       .filter(Boolean)
       .filter((l) => l.phone);
 
-    console.log("[MorganQueue] DEBUG: MQ leads with phone after normalize:", leads.length);
+    logger.debug("[MorganQueue] DEBUG: MQ leads with phone after normalize:", leads.length);
 
     // Log a small sample of lead_ids + list_id + phone for verification
     const sample = leads.slice(0, 10).map((l) => ({
@@ -416,22 +490,22 @@ async function debugFetchMQLeads() {
       status: l.raw?.status || l.raw?.status_name || null,
     }));
 
-    console.log("[MorganQueue] DEBUG: MQ sample:", sample);
+    logger.debug("[MorganQueue] DEBUG: MQ sample:", sample);
 
     return leads;
   } catch (err) {
-    console.error("[MorganQueue] DEBUG: Failed to fetch MQ leads from Convoso:", err);
+    logger.error("[MorganQueue] DEBUG: Failed to fetch MQ leads from Convoso:", err);
     return [];
   }
 }
 
 async function debugFetchMQRaw() {
   if (!CONVOSO_AUTH_TOKEN) {
-    console.warn("[MorganQueue] debugFetchMQRaw: missing CONVOSO_AUTH_TOKEN");
+    logger.warn("[MorganQueue] debugFetchMQRaw: missing CONVOSO_AUTH_TOKEN");
     return [];
   }
 
-  console.log("[MorganQueue] DEBUG RAW: Fetching MQ leads from Convoso...");
+  logger.debug("[MorganQueue] DEBUG RAW: Fetching MQ leads from Convoso...");
 
   try {
     const raw = await convosoSearchAllPages({
@@ -441,7 +515,7 @@ async function debugFetchMQRaw() {
       limit: 200,
     });
 
-    console.log("[MorganQueue] DEBUG RAW: Raw MQ rows from Convoso:", raw.length);
+    logger.debug("[MorganQueue] DEBUG RAW: Raw MQ rows from Convoso:", raw.length);
 
     // Map to a light-weight view so I can inspect fields
     const mapped = (raw || []).map((r) => ({
@@ -453,22 +527,22 @@ async function debugFetchMQRaw() {
     }));
 
     const sample = mapped.slice(0, 20);
-    console.log("[MorganQueue] DEBUG RAW: MQ sample:", sample);
+    logger.debug("[MorganQueue] DEBUG RAW: MQ sample:", sample);
 
     return mapped;
   } catch (err) {
-    console.error("[MorganQueue] DEBUG RAW: Failed to fetch MQ leads from Convoso:", err);
+    logger.error("[MorganQueue] DEBUG RAW: Failed to fetch MQ leads from Convoso:", err);
     return [];
   }
 }
 
 async function mergeMorganQueueFromMQ() {
   if (!CONVOSO_AUTH_TOKEN) {
-    console.warn("[MorganQueue] Skipping MQ merge: missing CONVOSO_AUTH_TOKEN");
+    logger.warn("[MorganQueue] Skipping MQ merge: missing CONVOSO_AUTH_TOKEN");
     return;
   }
 
-  console.log("[MorganQueue] Merging MQ leads from Convoso...");
+  logger.info("[MorganQueue] Merging MQ leads from Convoso...");
 
   try {
     const raw = await convosoSearchAllPages({
@@ -494,11 +568,11 @@ async function mergeMorganQueueFromMQ() {
       added += 1;
     }
 
-    console.log(
+    logger.info(
       `[MorganQueue] MQ merge complete. Added ${added} leads. Queue length: ${morganQueue.length}`
     );
   } catch (err) {
-    console.error("[MorganQueue] Failed to merge MQ leads from Convoso:", err);
+    logger.error("[MorganQueue] Failed to merge MQ leads from Convoso:", err);
   }
 }
 
@@ -563,7 +637,7 @@ async function convosoSearchPage({ authToken, listId, startStr, endStr, offset =
   });
   if (!res.ok) {
     const text = await res.text();
-    console.error("[convosoSearchPage] HTTP", res.status, text);
+    logger.error("[convosoSearchPage] HTTP", res.status, text);
     throw new Error("Convoso search failed");
   }
   const data = await res.json();
@@ -987,6 +1061,8 @@ app.post("/webhooks/vapi", async (req, res) => {
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
   try {
+    let dequeuedThisTick = 0;
+
     // Loop until we either run out of free slots or run out of leads
     while (true) {
       const freeSlotId = getFreeMorganSlotId();
@@ -995,13 +1071,14 @@ async function processMorganQueueTick() {
         break;
       }
 
-      const lead = getNextMorganLead();
+      const lead = await getNextMorganLead();
       if (!lead || !lead.phone) {
         // No more leads to dial
         break;
       }
 
-      console.log("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id, "phone", lead.phone);
+      dequeuedThisTick += 1;
+      logger.debug("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id);
 
       try {
         const result = await startOutboundCall({
@@ -1019,43 +1096,61 @@ async function processMorganQueueTick() {
 
         if (result && result.callId) {
           markMorganSlotBusy(freeSlotId, result.callId);
-          console.log("[MorganQueue] Call started with callId", result.callId, "on slot", freeSlotId);
+          logger.debug(
+            "[MorganQueue] Call started with callId",
+            result.callId,
+            "on slot",
+            freeSlotId
+          );
         } else {
-          console.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
+          logger.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
           morganQueue.unshift(lead);
           if (lead.id) {
             morganQueuedIds.add(lead.id);
-            updateConvosoLead({
+            await enqueueConvosoUpdate(lead.id, {
               lead_id: lead.id,
               status: "MQ",
             }).catch((err) => {
-              console.error("[MorganQueue] Failed to set MQ status while re-queueing", lead.id, err);
+              logger.error(
+                "[MorganQueue] Failed to set MQ status while re-queueing",
+                lead.id,
+                err
+              );
             });
           }
           // Free the slot since call didn't actually start
           freeMorganSlot(freeSlotId);
         }
       } catch (err) {
-        console.error("[processMorganQueueTick] error starting call:", err);
+        logger.error("[processMorganQueueTick] error starting call:", err);
 
         // Try to revert status to MQ so the lead is not stuck in MC
-        await updateConvosoLead({
+        await enqueueConvosoUpdate(lead.id, {
           lead_id: lead.id,
           status: "MQ",
         }).catch((e) => {
-          console.error("[processMorganQueueTick] failed to revert status to MQ for lead", lead.id, e);
+          logger.error(
+            "[processMorganQueueTick] failed to revert status to MQ for lead",
+            lead.id,
+            e
+          );
         });
 
         // Re-enqueue the lead so it can be retried later
-        enqueueMorganLead(lead);
+        await enqueueMorganLead(lead);
 
         // Free the slot on error
         freeMorganSlot(freeSlotId);
         // Continue the while loop so other free slots can still be used this tick
       }
     }
+
+    const activeCalls = Array.from(morganSlots.values()).filter((s) => s.busy).length;
+    logger.info(
+      `[MorganQueue] Tick: dequeued ${dequeuedThisTick} leads, queue length ${morganQueue.length}, active calls ${activeCalls}`
+    );
   } catch (err) {
-    console.error("[processMorganQueueTick] error:", err);
+    logger.error("[processMorganQueueTick] error:", err);
   }
 }
 
