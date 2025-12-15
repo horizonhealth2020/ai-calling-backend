@@ -2,10 +2,8 @@ name: "Morgan – Pull Yesterday’s Leads"
 
 on:
   schedule:
-    # 9:15 AM America/New_York during Eastern Standard Time (UTC-5)
+    # 9:15 AM America/New_York (14:15 UTC) Monday–Friday
     - cron: "15 14 * * 1-5"
-    # 9:15 AM America/New_York during Eastern Daylight Time (UTC-4)
-    - cron: "15 13 * * 1-5"
   workflow_dispatch:
 
 jobs:
