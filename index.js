@@ -9,6 +9,7 @@ const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 const axios = require("axios");
+const cron = require("node-cron");
 const { startOutboundCall } = require("./voiceGateway");
 const { isMorganEnabled } = require("./morganToggle");
 const { isBusinessHours } = require("./timeUtils");
@@ -791,6 +792,29 @@ async function findYesterdayNonSaleLeads({ timezone = "America/New_York" } = {})
   return leads;
 }
 
+async function runMorganPullYesterdayJob({ timezone = "America/New_York" } = {}) {
+  console.log("[Morgan/pull-yesterday] starting job at", new Date().toISOString());
+
+  if (!isBusinessHours()) {
+    console.log("[MorganJobs] Outside business hours; skipping manual pull.");
+    return { success: false, reason: "outside_business_hours" };
+  }
+  if (!isMorganEnabled()) {
+    return { success: true, skipped: true, reason: 'MORGAN_ENABLED=false' };
+  }
+
+  const leads = await findYesterdayNonSaleLeads({ timezone });
+  for (const lead of leads) {
+    await enqueueMorganLead(lead);
+  }
+
+  return {
+    success: true,
+    fetched: leads.length,
+    queue_length: morganQueue.length,
+  };
+}
+
 function getTimezoneDate(timeZone) {
   return new Date(new Date().toLocaleString("en-US", { timeZone }));
 }
@@ -846,26 +870,10 @@ app.post("/jobs/morgan/pull-leads", async (req, res) => {
 
 app.post("/jobs/morgan/pull-yesterday", async (req, res) => {
   try {
-    if (!isBusinessHours()) {
-      console.log("[MorganJobs] Outside business hours; skipping manual pull.");
-      return res.json({ success: false, reason: "outside_business_hours" });
-    }
-    if (!isMorganEnabled()) {
-      return res.json({ success: true, skipped: true, reason: 'MORGAN_ENABLED=false' });
-    }
-
     const timezone = req.body?.timezone || "America/New_York";
+    const result = await runMorganPullYesterdayJob({ timezone });
 
-    const leads = await findYesterdayNonSaleLeads({ timezone });
-    for (const lead of leads) {
-      await enqueueMorganLead(lead);
-    }
-
-    return res.json({
-      success: true,
-      fetched: leads.length,
-      queue_length: morganQueue.length,
-    });
+    return res.json(result);
   } catch (err) {
     console.error("[/jobs/morgan/pull-yesterday] error:", err);
     res
@@ -1315,6 +1323,22 @@ setInterval(async () => {
 }, 30000);
 
 setInterval(mergeMorganQueueFromMQ, 30 * 60 * 1000); // every 30 minutes
+
+// Runs every day at 9:15 AM America/New_York
+cron.schedule(
+  "15 9 * * *",
+  async () => {
+    try {
+      console.log("[Morgan/pull-yesterday] cron trigger (9:15 AM ET)");
+      await runMorganPullYesterdayJob({ timezone: "America/New_York" });
+    } catch (err) {
+      console.error("[Morgan/pull-yesterday] ERROR in cron job:", err);
+    }
+  },
+  {
+    timezone: "America/New_York",
+  }
+);
 
 
 // --------------------------------------------------------------------------
