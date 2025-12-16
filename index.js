@@ -35,17 +35,6 @@ const logger = {
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
-function isNoContactSummary(summaryText) {
-  if (!summaryText) return false;
-  const s = summaryText.toLowerCase();
-  return (
-    s.includes("call did not connect to a customer") ||
-    s.includes("no customer information") ||
-    s.includes("no contact with the customer") ||
-    s.includes("the customer did not answer")
-  );
-}
-
 // ----- MORGAN OUTBOUND QUEUE -----
 const MORGAN_MAX_CONCURRENT = 3;
 const morganQueue = [];
@@ -1123,30 +1112,14 @@ app.post("/webhooks/vapi", async (req, res) => {
           `[MorganQueue] end-of-call-report for Convoso lead ${idStr}; leaving status as MC.`
         );
 
-        // ✅ Post call summary as a lead note if available
-        if (summary && typeof addLeadNote === "function") {
-          const summaryText = `Morgan summary: ${summary}`;
-
-          if (isNoContactSummary(summaryText)) {
-            console.log(
-              "[MorganQueue] end-of-call-report: no contact; skipping Convoso note for lead",
-              idStr
-            );
-          } else {
-            try {
-              await addLeadNote(idStr, summaryText);
-              console.log(
-                `[MorganQueue] Posted compact call summary note to lead ${idStr}.`
-              );
-            } catch (err) {
-              console.error(
-                "[VapiWebhook] Failed to add call summary note for lead",
-                idStr,
-                err
-              );
-            }
+        console.log(
+          "[MorganQueue] end-of-call summary ignored (notes only posted via sendLeadNote tool).",
+          {
+            convosoLeadId: leadId,
+            callId,
+            summary,
           }
-        }
+        );
 
         // IMPORTANT: Do NOT change the Convoso status here.
         // We want the lead to remain in MC to prevent re-pulling.
@@ -1378,14 +1351,14 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     const convosoRaw = metadata.convosoRaw || {};
 
     // 2) Resolve lead id from multiple places
-    const leadId =
+    const convosoLeadId =
       metadata.convosoLeadId ||
       convosoRaw.lead_id ||
       body.lead_id ||
       body.id ||
       null;
 
-    if (!leadId) {
+    if (!convosoLeadId) {
       console.error("[sendLeadNote] No lead_id available (convosoLeadId/lead_id/id all missing)");
       return res.status(200).json({
         results: [
@@ -1412,7 +1385,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       {};
 
     // Raw args: may be object OR JSON string; Vapi can nest them under `function.arguments`
-    let args =
+    let toolArgs =
       (firstCall.function && firstCall.function.arguments) ||
       firstCall.args ||
       firstCall.arguments ||
@@ -1420,21 +1393,22 @@ app.post("/tools/sendLeadNote", async (req, res) => {
       body.arguments ||
       {};
 
-    if (typeof args === "string") {
+    if (typeof toolArgs === "string") {
       try {
-        args = JSON.parse(args);
+        toolArgs = JSON.parse(toolArgs);
       } catch (e) {
         console.error("[sendLeadNote] Failed to parse args JSON string:", e);
-        args = {};
+        toolArgs = {};
       }
     }
 
     // 4) Try to get Morgan's note text
     let noteFromMorgan =
+      toolArgs.note ||
+      toolArgs.summary ||
+      toolArgs.text ||
       body.note ||
       body.notes ||
-      args.note ||
-      args.notes ||
       null;
 
     // 5) Fallback note if Morgan didn't send any
@@ -1455,16 +1429,16 @@ app.post("/tools/sendLeadNote", async (req, res) => {
 
       noteFromMorgan =
         `AI intake call handled by Morgan for ${displayName} (${state}), ` +
-        `phone ${callerNumber}, Convoso lead_id ${leadId}. ` +
+        `phone ${callerNumber}, Convoso lead_id ${convosoLeadId}. ` +
         `Call completed but no detailed summary was provided by the AI.`;
 
       console.warn("[sendLeadNote] No note from Morgan; using fallback note.");
     }
 
-    console.log("[sendLeadNote] Adding note for lead:", leadId);
+    console.log("[sendLeadNote] Adding note for lead:", convosoLeadId);
     console.log("[sendLeadNote] Note content:", noteFromMorgan);
 
-    await addLeadNote(leadId, noteFromMorgan);
+    await addLeadNote(convosoLeadId, noteFromMorgan);
 
     const toolCallId = firstCall.id || body.toolCallId || "unknown";
 
