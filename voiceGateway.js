@@ -2,6 +2,7 @@
 
 const fetch = require("node-fetch");
 const { isMorganEnabled } = require("./morganToggle");
+const { setLastVapi429At } = require("./rateLimitState");
 
 // --- Vapi env vars ---
 const VAPI_API_KEY             = process.env.VAPI_API_KEY;
@@ -117,29 +118,41 @@ async function startOutboundCall({
   };
 
 
-  const response = await fetch("https://api.vapi.ai/call", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${VAPI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch("https://api.vapi.ai/call", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VAPI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[voiceGateway] Vapi create call error:", response.status, text);
-    throw new Error("Vapi create call failed");
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[voiceGateway] Vapi create call error:", response.status, text);
+      const error = new Error("Vapi create call failed");
+      error.statusCode = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    console.log("[voiceGateway] Vapi create call response:", JSON.stringify(data).slice(0, 500));
+
+    return {
+      provider: "vapi",
+      callId: data.id || null,
+      raw: data,
+    };
+  } catch (err) {
+    if (err && (err.statusCode === 429 || String(err.message || "").includes("429"))) {
+      console.error("[voiceGateway] Vapi create call error: 429 Rate limit exceeded");
+      setLastVapi429At(Date.now());
+    } else {
+      console.error("[voiceGateway] Vapi create call error:", err);
+    }
+    throw err;
   }
-
-  const data = await response.json();
-  console.log("[voiceGateway] Vapi create call response:", JSON.stringify(data).slice(0, 500));
-
-  return {
-    provider: "vapi",
-    callId: data.id || null,
-    raw: data,
-  };
 }
 
 module.exports = {
