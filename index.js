@@ -1350,16 +1350,41 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     const metadata = call.metadata || body.metadata || {};
     const convosoRaw = metadata.convosoRaw || {};
 
+    const callId = call.id || message.callId || body.callId || null;
+
     // 2) Resolve lead id from multiple places
-    const convosoLeadId =
+    let convosoLeadId =
       metadata.convosoLeadId ||
       convosoRaw.lead_id ||
       body.lead_id ||
       body.id ||
       null;
 
+    if (!convosoLeadId && callId) {
+      try {
+        const callData = await getVapiCall(callId);
+        const meta = callData?.metadata || {};
+        convosoLeadId =
+          meta.convosoLeadId ||
+          meta.lead_id ||
+          meta.leadId ||
+          null;
+
+        if (!convosoLeadId) {
+          console.error(
+            "[sendLeadNote] getVapiCall succeeded but no convosoLeadId in metadata for call",
+            callId
+          );
+        }
+      } catch (e) {
+        console.error("[sendLeadNote] Error calling getVapiCall for callId", callId, e);
+      }
+    }
+
     if (!convosoLeadId) {
-      console.error("[sendLeadNote] No lead_id available (convosoLeadId/lead_id/id all missing)");
+      console.error(
+        "[sendLeadNote] No lead_id available (convosoLeadId/lead_id/id all missing, even after getVapiCall)"
+      );
       return res.status(200).json({
         results: [
           {
@@ -1439,6 +1464,7 @@ app.post("/tools/sendLeadNote", async (req, res) => {
     console.log("[sendLeadNote] Note content:", noteFromMorgan);
 
     await addLeadNote(convosoLeadId, noteFromMorgan);
+    console.log("[sendLeadNote] Added note for lead", convosoLeadId, "callId", callId);
 
     const toolCallId = firstCall.id || body.toolCallId || "unknown";
 
