@@ -35,6 +35,17 @@ const logger = {
 const CONVOSO_AUTH_TOKEN = process.env.CONVOSO_AUTH_TOKEN;
 const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
+function isNoContactSummary(summaryText) {
+  if (!summaryText) return false;
+  const s = summaryText.toLowerCase();
+  return (
+    s.includes("call did not connect to a customer") ||
+    s.includes("no customer information") ||
+    s.includes("no contact with the customer") ||
+    s.includes("the customer did not answer")
+  );
+}
+
 // ----- MORGAN OUTBOUND QUEUE -----
 const MORGAN_MAX_CONCURRENT = 3;
 const morganQueue = [];
@@ -1114,18 +1125,26 @@ app.post("/webhooks/vapi", async (req, res) => {
 
         // ✅ Post call summary as a lead note if available
         if (summary && typeof addLeadNote === "function") {
-          try {
-            const compactSummary = `Morgan summary: ${summary}`;
-            await addLeadNote(idStr, compactSummary);
+          const summaryText = `Morgan summary: ${summary}`;
+
+          if (isNoContactSummary(summaryText)) {
             console.log(
-              `[MorganQueue] Posted compact call summary note to lead ${idStr}.`
+              "[MorganQueue] end-of-call-report: no contact; skipping Convoso note for lead",
+              idStr
             );
-          } catch (err) {
-            console.error(
-              "[VapiWebhook] Failed to add call summary note for lead",
-              idStr,
-              err
-            );
+          } else {
+            try {
+              await addLeadNote(idStr, summaryText);
+              console.log(
+                `[MorganQueue] Posted compact call summary note to lead ${idStr}.`
+              );
+            } catch (err) {
+              console.error(
+                "[VapiWebhook] Failed to add call summary note for lead",
+                idStr,
+                err
+              );
+            }
           }
         }
 
