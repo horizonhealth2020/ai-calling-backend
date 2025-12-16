@@ -12,6 +12,7 @@ const axios = require("axios");
 const { startOutboundCall } = require("./voiceGateway");
 const { isMorganEnabled } = require("./morganToggle");
 const { isBusinessHours } = require("./timeUtils");
+const { getLastVapi429At } = require("./rateLimitState");
 
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
@@ -35,9 +36,11 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY;
 
 // ----- MORGAN OUTBOUND QUEUE -----
 const MORGAN_MAX_CONCURRENT = 3;
-const MORGAN_DIAL_INTERVAL_MS = 10000; // 10 seconds
 const morganQueue = [];
 const morganQueuedIds = new Set();
+
+let isLaunchingCall = false;
+const VAPI_429_BACKOFF_MS = 10000; // 10 seconds
 
 // Morgan slot management: 1 slot per phoneNumberId (Twilio number)
 const MORGAN_PHONE_NUMBER_IDS = process.env.VAPI_PHONE_NUMBER_IDS
@@ -65,6 +68,14 @@ function getFreeMorganSlotId() {
     if (!slot.busy) return id;
   }
   return null;
+}
+
+function getFreeMorganSlots() {
+  const free = [];
+  for (const [id, slot] of morganSlots.entries()) {
+    if (!slot.busy) free.push(id);
+  }
+  return free;
 }
 
 function markMorganSlotBusy(phoneNumberId, callId) {
@@ -1124,33 +1135,34 @@ app.post("/webhooks/vapi", async (req, res) => {
 
 // ----- MORGAN QUEUE PROCESSOR -----
 async function processMorganQueueTick() {
-  if (!isBusinessHours()) {
-    console.log("[MorganQueue] Outside business hours; skipping tick.");
-    return;
-  }
-  if (!isMorganEnabled()) {
-    logger?.info?.('[MorganQueue] Disabled: tick skipped');
-    return;
-  }
-
   try {
-    let dequeuedThisTick = 0;
+    if (!isBusinessHours()) {
+      console.log("[MorganQueue] Outside business hours; skipping tick.");
+      return;
+    }
+    if (!isMorganEnabled()) {
+      logger?.info?.('[MorganQueue] Disabled: tick skipped');
+      return;
+    }
 
-    // Loop until we either run out of free slots or run out of leads
-    while (true) {
-      const freeSlotId = getFreeMorganSlotId();
-      if (!freeSlotId) {
-        // No more free slots this tick
-        break;
-      }
+    const now = Date.now();
+    const lastVapi429At = getLastVapi429At();
+    if (now - lastVapi429At < VAPI_429_BACKOFF_MS) {
+      return; // still in backoff window from a 429
+    }
 
-      const lead = await getNextMorganLead();
-      if (!lead || !lead.phone) {
-        // No more leads to dial
-        break;
-      }
+    if (isLaunchingCall) return;
 
-      dequeuedThisTick += 1;
+    const freeSlots = getFreeMorganSlots();
+    if (!freeSlots || freeSlots.length === 0) return;
+
+    const lead = await getNextMorganLead();
+    if (!lead || !lead.phone) return;
+
+    isLaunchingCall = true;
+
+    try {
+      const freeSlotId = freeSlots[0];
       logger.debug("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id);
 
       try {
@@ -1223,20 +1235,23 @@ async function processMorganQueueTick() {
 
         // Free the slot on error
         freeMorganSlot(freeSlotId);
-        // Continue the while loop so other free slots can still be used this tick
       }
+    } finally {
+      isLaunchingCall = false;
     }
 
     const activeCalls = Array.from(morganSlots.values()).filter((s) => s.busy).length;
     logger.info(
-      `[MorganQueue] Tick: dequeued ${dequeuedThisTick} leads, queue length ${morganQueue.length}, active calls ${activeCalls}`
+      `[MorganQueue] Tick: queue length ${morganQueue.length}, active calls ${activeCalls}`
     );
+    return;
   } catch (err) {
     logger.error("[processMorganQueueTick] error:", err);
+    isLaunchingCall = false;
   }
 }
 
-setInterval(processMorganQueueTick, MORGAN_DIAL_INTERVAL_MS);
+setInterval(processMorganQueueTick, 2000); // 2 seconds between ticks
 
 // ----- AUTO PULL MORGAN LEADS EVERY 60 SECONDS -----
 async function autoPullMorganLeads() {
