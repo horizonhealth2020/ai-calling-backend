@@ -119,6 +119,12 @@ function freeMorganSlotByCallId(callId) {
 async function enqueueMorganLead(lead) {
   if (!lead || !lead.id) return;
 
+  const memberId = getMemberIdValue(lead);
+  if (memberId) {
+    logger.info(`[MorganQueue] Skipping lead ${lead.id} due to Member ID: ${memberId}`);
+    return;
+  }
+
   // In-memory dedupe
   if (morganQueuedIds.has(lead.id)) {
     logger.debug("[MorganQueue] Skipping duplicate lead", lead.id);
@@ -302,6 +308,16 @@ async function addLeadNote(leadId, note) {
 
 const MORGAN_LIST_IDS = [28001, 15857, 27223, 10587, 12794, 12793];
 
+function getMemberIdValue(obj) {
+  const v =
+    obj?.member_id ?? obj?.Member_ID ?? obj?.memberId ?? obj?.memberID ?? obj?.field_2;
+
+  if (v == null) return null;
+
+  const str = String(v).trim();
+  return str === "" ? null : str;
+}
+
 function normalizeConvosoLead(convosoLead) {
   if (!convosoLead) return null;
   const rawCalled = convosoLead.called_count;
@@ -309,6 +325,8 @@ function normalizeConvosoLead(convosoLead) {
     rawCalled == null || rawCalled === ""
       ? null
       : Number(rawCalled);
+
+  const memberId = getMemberIdValue(convosoLead);
 
   return {
     id: convosoLead.lead_id || convosoLead.id,
@@ -319,8 +337,9 @@ function normalizeConvosoLead(convosoLead) {
     phone_number: convosoLead.phone_number,
     state: convosoLead.state,
     call_count: callCount,
-    member_id: convosoLead.member_id,
-    Member_ID: convosoLead.Member_ID ?? convosoLead.member_id,
+    member_id: memberId,
+    Member_ID: convosoLead.Member_ID ?? memberId,
+    field_2: convosoLead.field_2,
     raw: convosoLead,
   };
 }
@@ -453,14 +472,14 @@ async function hydrateMorganQueueFromConvoso() {
 
     logger.debug("[MorganQueue] Raw MQ rows from Convoso:", raw.length);
 
-    const normalized = raw
-      .map(normalizeConvosoLead)
-      .filter(Boolean);
+    const normalized = raw.map(normalizeConvosoLead).filter(Boolean);
+    const memberFiltered = normalized.filter(hasEmptyMemberId);
+    const filteredMemberCount = normalized.length - memberFiltered.length;
 
     let added = 0;
     let missingPhone = 0;
 
-    for (const lead of normalized) {
+    for (const lead of memberFiltered) {
       if (!lead.id) continue;
 
       if (!lead.phone) {
@@ -480,6 +499,8 @@ async function hydrateMorganQueueFromConvoso() {
       added,
       "Raw MQ rows:",
       raw.length,
+      "Skipped member id:",
+      filteredMemberCount,
       "Skipped missing phone:",
       missingPhone
     );
@@ -555,7 +576,8 @@ async function debugFetchMQRaw() {
       list_id: r.list_id,
       status: r.status || r.status_name || null,
       phone_number: r.phone_number || r.phone || null,
-      member_id: r.member_id || r.Member_ID || null,
+      member_id: getMemberIdValue(r),
+      field_2: r.field_2 ?? null,
     }));
 
     const sample = mapped.slice(0, 20);
@@ -595,10 +617,11 @@ async function mergeMorganQueueFromMQ() {
 
     let added = 0;
 
-    const leads = raw
-      .map(normalizeConvosoLead)
-      .filter(Boolean)
-      .filter((lead) => lead.phone);
+    const normalized = raw.map(normalizeConvosoLead).filter(Boolean);
+    const memberFiltered = normalized.filter(hasEmptyMemberId);
+    const filteredMemberCount = normalized.length - memberFiltered.length;
+
+    const leads = memberFiltered.filter((lead) => lead.phone);
 
     for (const lead of leads) {
       if (!lead || !lead.id) continue;
@@ -610,7 +633,7 @@ async function mergeMorganQueueFromMQ() {
     }
 
     logger.info(
-      `[MorganQueue] MQ merge complete. Added ${added} leads. Queue length: ${morganQueue.length}`
+      `[MorganQueue] MQ merge complete. Added ${added} leads. Queue length: ${morganQueue.length}. Skipped member id: ${filteredMemberCount}`
     );
   } catch (err) {
     logger.error("[MorganQueue] Failed to merge MQ leads from Convoso:", err);
@@ -712,8 +735,8 @@ async function convosoSearchAllListsByCreated({ authToken, listIds, startStr, en
 
 // Helper for Member_ID emptiness (handles common shapes)
 function hasEmptyMemberId(obj) {
-  const v = obj?.member_id ?? obj?.Member_ID ?? obj?.memberId ?? obj?.memberID;
-  return v === "" || v == null;
+  const v = getMemberIdValue(obj);
+  return v == null;
 }
 
 // Pull Call Nows — created_at = TODAY (keep Node-side Member_ID rule)
@@ -920,6 +943,15 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       }
     }
 
+    const memberId = getMemberIdValue(body);
+    if (memberId) {
+      body.member_id = memberId;
+      logger.info(
+        `[Convoso webhook] Skipping lead ${body.lead_id || body.id || "(unknown)"} due to Member ID: ${memberId}`
+      );
+      return res.json({ success: true, skipped: true, reason: "member_id_present" });
+    }
+
     const rawPhone =
       body.phone ||
       body.phone_number ||
@@ -948,6 +980,7 @@ app.post("/webhooks/convoso/new-lead", async (req, res) => {
       source: "convoso",
       convosoLeadId: body.lead_id || body.id || null,
       convosoListId: body.list_id || null,
+      convosoMemberId: memberId,
       convosoRaw: body,
     };
 
