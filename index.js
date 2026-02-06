@@ -39,9 +39,12 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY;
 const MORGAN_MAX_CONCURRENT = 3;
 const morganQueue = [];
 const morganQueuedIds = new Set();
+const MAX_QUEUED_IDS = 10000; // Prevent unbounded memory growth
 
-let isLaunchingCall = false;
 const VAPI_429_BACKOFF_MS = 10000; // 10 seconds
+
+// Track when each ID was added for cleanup
+const morganQueuedIdsTimestamps = new Map();
 
 // Morgan slot management: 1 slot per phoneNumberId (Twilio number)
 const MORGAN_PHONE_NUMBER_IDS = process.env.VAPI_PHONE_NUMBER_IDS
@@ -131,8 +134,14 @@ async function enqueueMorganLead(lead) {
     return;
   }
 
+  // Memory leak prevention: enforce max size with LRU eviction
+  if (morganQueuedIds.size >= MAX_QUEUED_IDS) {
+    cleanupOldQueuedIds();
+  }
+
   morganQueue.push(lead);
   morganQueuedIds.add(lead.id);
+  morganQueuedIdsTimestamps.set(lead.id, Date.now());
 
   // Persist in Convoso: mark as queued for Morgan
   if (isMorganEnabled()) {
@@ -155,6 +164,7 @@ async function getNextMorganLead() {
 
   if (lead.id) {
     morganQueuedIds.delete(lead.id);
+    morganQueuedIdsTimestamps.delete(lead.id);
 
     // Mark as moved from queue into active calling state
     if (isMorganEnabled()) {
@@ -171,6 +181,30 @@ async function getNextMorganLead() {
 
   logger.debug("[MorganQueue] Dequeued lead", lead.id, "for dialing");
   return lead;
+}
+
+// Clean up oldest 10% of queued IDs to prevent unbounded growth
+function cleanupOldQueuedIds() {
+  const entriesToRemove = Math.floor(MAX_QUEUED_IDS * 0.1);
+
+  // Sort by timestamp (oldest first)
+  const sorted = Array.from(morganQueuedIdsTimestamps.entries())
+    .sort((a, b) => a[1] - b[1]);
+
+  let removed = 0;
+  for (const [leadId] of sorted) {
+    if (removed >= entriesToRemove) break;
+
+    // Only remove if not in active queue
+    const inQueue = morganQueue.some(lead => lead.id === leadId);
+    if (!inQueue) {
+      morganQueuedIds.delete(leadId);
+      morganQueuedIdsTimestamps.delete(leadId);
+      removed++;
+    }
+  }
+
+  logger.info(`[MorganQueue] Cleaned up ${removed} old queued IDs to prevent memory leak`);
 }
 
 // ---- Convoso helpers (use original working pattern) ----
@@ -460,6 +494,7 @@ async function hydrateMorganQueueFromConvoso() {
   // Reset in-memory state
   morganQueue.length = 0;
   morganQueuedIds.clear();
+  morganQueuedIdsTimestamps.clear();
 
   try {
     // Working MQ search call
@@ -491,6 +526,7 @@ async function hydrateMorganQueueFromConvoso() {
 
       morganQueue.push(lead);
       morganQueuedIds.add(lead.id);
+      morganQueuedIdsTimestamps.set(lead.id, Date.now());
       added++;
     }
 
@@ -629,6 +665,7 @@ async function mergeMorganQueueFromMQ() {
 
       morganQueue.push(lead);
       morganQueuedIds.add(lead.id);
+      morganQueuedIdsTimestamps.set(lead.id, Date.now());
       added += 1;
     }
 
@@ -1167,120 +1204,134 @@ app.post("/webhooks/vapi", async (req, res) => {
 });
 
 // ----- MORGAN QUEUE PROCESSOR -----
+// Helper to launch a single call for a slot
+async function launchCallForSlot(freeSlotId, lead) {
+  logger.debug("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id);
+
+  try {
+    const result = await startOutboundCall({
+      agentType: "morgan",
+      agentName: "Morgan",
+      toNumber: lead.phone,
+      metadata: {
+        convosoLeadId: lead.id || null,
+        convosoListId: lead.raw?.list_id || null,
+        source: "morgan-queue",
+        convosoRaw: lead.raw || null,
+      },
+      callName: "Morgan Outbound (Queue)",
+      phoneNumberId: freeSlotId,
+    });
+
+    if (result && result.callId) {
+      markMorganSlotBusy(freeSlotId, result.callId);
+      logger.debug(
+        "[MorganQueue] Call started with callId",
+        result.callId,
+        "on slot",
+        freeSlotId
+      );
+      return { success: true, slotId: freeSlotId, callId: result.callId };
+    } else {
+      logger.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
+      morganQueue.unshift(lead);
+      if (lead.id) {
+        morganQueuedIds.add(lead.id);
+        morganQueuedIdsTimestamps.set(lead.id, Date.now());
+        if (isMorganEnabled()) {
+          await enqueueConvosoUpdate(lead.id, {
+            lead_id: lead.id,
+            status: "MQ",
+          }).catch((err) => {
+            logger.error(
+              "[MorganQueue] Failed to set MQ status while re-queueing",
+              lead.id,
+              err
+            );
+          });
+        }
+      }
+      // Slot was never marked busy, so no need to free it
+      return { success: false, slotId: freeSlotId };
+    }
+  } catch (err) {
+    logger.error("[launchCallForSlot] error starting call:", err);
+
+    // Try to revert status to MQ so the lead is not stuck in MC
+    if (isMorganEnabled()) {
+      await enqueueConvosoUpdate(lead.id, {
+        lead_id: lead.id,
+        status: "MQ",
+      }).catch((e) => {
+        logger.error(
+          "[launchCallForSlot] failed to revert status to MQ for lead",
+          lead.id,
+          e
+        );
+      });
+    }
+
+    // Re-enqueue the lead so it can be retried later
+    await enqueueMorganLead(lead);
+
+    return { success: false, slotId: freeSlotId, error: err };
+  }
+}
+
 async function processMorganQueueTick() {
   try {
     if (!isBusinessHours()) {
-      console.log("[MorganQueue] Outside business hours; skipping tick.");
+      logger.debug("[MorganQueue] Outside business hours; skipping tick.");
       return;
     }
     if (!isMorganEnabled()) {
-      logger?.info?.('[MorganQueue] Disabled: tick skipped');
+      logger.debug('[MorganQueue] Disabled: tick skipped');
       return;
     }
 
     const now = Date.now();
     const lastVapi429At = getLastVapi429At();
     if (now - lastVapi429At < VAPI_429_BACKOFF_MS) {
+      logger.debug("[MorganQueue] In 429 backoff period; skipping tick.");
       return; // still in backoff window from a 429
     }
 
-    if (isLaunchingCall) return;
-
     const freeSlots = getFreeMorganSlots();
-    if (!freeSlots || freeSlots.length === 0) return;
-
-    const lead = await getNextMorganLead();
-    if (!lead || !lead.phone) return;
-
-    isLaunchingCall = true;
-
-    try {
-      const freeSlotId = freeSlots[0];
-      logger.debug("[MorganQueue] Using slot", freeSlotId, "for lead", lead.id);
-
-      try {
-        const result = await startOutboundCall({
-          agentType: "morgan",
-          agentName: "Morgan",
-          toNumber: lead.phone,
-          metadata: {
-            convosoLeadId: lead.id || null,
-            convosoListId: lead.raw?.list_id || null,
-            source: "morgan-queue",
-            convosoRaw: lead.raw || null,
-          },
-          callName: "Morgan Outbound (Queue)",
-          phoneNumberId: freeSlotId,
-        });
-
-        if (result && result.callId) {
-          markMorganSlotBusy(freeSlotId, result.callId);
-          logger.debug(
-            "[MorganQueue] Call started with callId",
-            result.callId,
-            "on slot",
-            freeSlotId
-          );
-        } else {
-          logger.warn("[MorganQueue] startOutboundCall returned no callId; re-queueing lead");
-          morganQueue.unshift(lead);
-          if (lead.id) {
-            morganQueuedIds.add(lead.id);
-            if (isMorganEnabled()) {
-              await enqueueConvosoUpdate(lead.id, {
-                lead_id: lead.id,
-                status: "MQ",
-              }).catch((err) => {
-                logger.error(
-                  "[MorganQueue] Failed to set MQ status while re-queueing",
-                  lead.id,
-                  err
-                );
-              });
-            } else {
-              logger?.info?.(`[Morgan] Disabled: skipping disposition for lead ${lead.id}`);
-            }
-          }
-          // Free the slot since call didn't actually start
-          freeMorganSlot(freeSlotId);
-        }
-      } catch (err) {
-        logger.error("[processMorganQueueTick] error starting call:", err);
-
-        // Try to revert status to MQ so the lead is not stuck in MC
-        if (isMorganEnabled()) {
-          await enqueueConvosoUpdate(lead.id, {
-            lead_id: lead.id,
-            status: "MQ",
-          }).catch((e) => {
-            logger.error(
-              "[processMorganQueueTick] failed to revert status to MQ for lead",
-              lead.id,
-              e
-            );
-          });
-        } else {
-          logger?.info?.(`[Morgan] Disabled: skipping disposition for lead ${lead.id}`);
-        }
-
-        // Re-enqueue the lead so it can be retried later
-        await enqueueMorganLead(lead);
-
-        // Free the slot on error
-        freeMorganSlot(freeSlotId);
-      }
-    } finally {
-      isLaunchingCall = false;
+    if (!freeSlots || freeSlots.length === 0) {
+      logger.debug("[MorganQueue] No free slots available.");
+      return;
     }
 
-    const activeCalls = Array.from(morganSlots.values()).filter((s) => s.busy).length;
-    logger.info(
-      `[MorganQueue] Tick: queue length ${morganQueue.length}, active calls ${activeCalls}`
-    );
-    return;
+    // FIX: Process ALL free slots, not just one
+    const callPromises = [];
+    for (const freeSlotId of freeSlots) {
+      // Check if we have leads to process
+      if (morganQueue.length === 0) break;
+
+      const lead = await getNextMorganLead();
+      if (!lead || !lead.phone) {
+        logger.warn("[MorganQueue] Got lead without phone from queue");
+        continue;
+      }
+
+      // Launch call for this slot (async, non-blocking)
+      callPromises.push(launchCallForSlot(freeSlotId, lead));
+    }
+
+    // Wait for all calls to be launched (or fail)
+    if (callPromises.length > 0) {
+      const results = await Promise.allSettled(callPromises);
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const failed = results.length - successful;
+
+      logger.info(
+        `[MorganQueue] Launched ${successful} calls, ${failed} failed. ` +
+        `Queue: ${morganQueue.length}, Active: ${Array.from(morganSlots.values()).filter(s => s.busy).length}`
+      );
+    }
+
   } catch (err) {
     logger.error("[processMorganQueueTick] error:", err);
-    isLaunchingCall = false;
   }
 }
 
