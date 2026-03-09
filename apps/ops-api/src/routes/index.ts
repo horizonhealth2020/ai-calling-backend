@@ -124,11 +124,17 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
 });
 
 router.get("/sales-board/summary", async (_req, res) => {
+  const agents = await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } });
+  const agentMap = new Map(agents.map((a) => [a.id, a.name]));
   const [daily, weekly] = await Promise.all([
-    prisma.sale.groupBy({ by: ["agentId"], _count: true, where: { saleDate: { gte: new Date(Date.now() - 86400000) } } }),
-    prisma.sale.groupBy({ by: ["agentId"], _count: true, where: { saleDate: { gte: new Date(Date.now() - 7 * 86400000) } } }),
+    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { saleDate: { gte: new Date(Date.now() - 86400000) } } }),
+    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { saleDate: { gte: new Date(Date.now() - 7 * 86400000) } } }),
   ]);
-  res.json({ daily, weekly });
+  const fmt = (rows: typeof daily) =>
+    rows
+      .map((r) => ({ agent: agentMap.get(r.agentId) ?? r.agentId, count: r._count.id, premium: Number(r._sum.premium ?? 0) }))
+      .sort((a, b) => b.count - a.count);
+  res.json({ daily: fmt(daily), weekly: fmt(weekly) });
 });
 
 export default router;
