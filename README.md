@@ -4,6 +4,8 @@ This repository now supports **two independent workloads in one Railway project*
 1. Existing Morgan voice service (unchanged, root `index.js`).
 2. New INS operations platform as isolated services under `/apps`.
 
+> ⚠️ **Railway safety rule:** Morgan is a standalone service. Do **not** point Morgan at a monorepo root that installs all `/apps` dependencies. Keep Morgan deployed from repo root (`.`) only.
+
 ## Monorepo layout
 
 ```text
@@ -67,8 +69,24 @@ This repository now supports **two independent workloads in one Railway project*
 
 ## Local development
 
+Morgan (root service):
 ```bash
-npm install
+npm ci
+npm start
+```
+
+Ops services (independent app folders):
+```bash
+cd apps/ops-api && npm install
+cd ../auth-portal && npm install
+cd ../manager-dashboard && npm install
+cd ../payroll-dashboard && npm install
+cd ../owner-dashboard && npm install
+cd ../sales-board && npm install
+```
+
+Optional helper scripts from root (after each app has dependencies installed):
+```bash
 npm run db:migrate
 npm run db:seed
 npm run ops:dev
@@ -79,31 +97,24 @@ npm run owner:dev
 npm run salesboard:dev
 ```
 
-Morgan remains on:
-```bash
-npm start
-```
-
 ## Railway deployment plan (same project, separate services)
 
-Recommended Railway service names and roots:
-- `morgan-voice` -> root `.` (existing)
-- `ops-api` -> root `apps/ops-api`
-- `auth-portal` -> root `apps/auth-portal`
-- `manager-dashboard` -> root `apps/manager-dashboard`
-- `payroll-dashboard` -> root `apps/payroll-dashboard`
-- `owner-dashboard` -> root `apps/owner-dashboard`
-- `sales-board` -> root `apps/sales-board`
-- `ops-postgres` -> Railway Postgres plugin
+Use **separate Railway services with explicit root directories**:
 
-Build/start commands:
-- Node API: `npm install && npm run build` / `npm run start`
-- Next apps: `npm install && npm run build` / `npm run start`
+| Service | Root directory | Build command | Start command |
+|---|---|---|---|
+| `morgan-voice` | `.` | `npm ci` | `npm start` |
+| `ops-api` | `apps/ops-api` | `npm install && npm run build` | `npm run start` |
+| `auth-portal` | `apps/auth-portal` | `npm install && npm run build` | `npm run start` |
+| `manager-dashboard` | `apps/manager-dashboard` | `npm install && npm run build` | `npm run start` |
+| `payroll-dashboard` | `apps/payroll-dashboard` | `npm install && npm run build` | `npm run start` |
+| `owner-dashboard` | `apps/owner-dashboard` | `npm install && npm run build` | `npm run start` |
+| `sales-board` | `apps/sales-board` | `npm install && npm run build` | `npm run start` |
 
-Watch paths (per service):
-- `apps/<service>/**`
-- `packages/**`
-- `prisma/**` for `ops-api`
+Recommended watch paths:
+- Morgan: `/index.js`, `/voiceGateway.js`, `/morganToggle.js`, `/timeUtils.js`, `/rateLimitState.js`, `/package.json`, `/package-lock.json`
+- `ops-api`: `apps/ops-api/**`, `packages/**`, `prisma/**`
+- all dashboards + auth portal: corresponding `apps/<service>/**` + `packages/**`
 
 ## Railway private networking notes
 
