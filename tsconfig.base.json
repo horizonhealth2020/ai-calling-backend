@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ops/db": ["packages/db/src"],
+      "@ops/auth": ["packages/auth/src"],
+      "@ops/types": ["packages/types/src"],
+      "@ops/utils": ["packages/utils/src"],
+      "@ops/ui": ["packages/ui/src"]
+    }
+  }
+}

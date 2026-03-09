@@ -1,227 +1,127 @@
-# AI Calling Backend
+# INS Internal Operations Platform (Railway Monorepo)
 
-Express.js webhook orchestration engine for automated AI-powered outbound calling using Convoso CRM and Vapi AI voice platform.
+This repository now supports **two independent workloads in one Railway project**:
+1. Existing Morgan voice service (unchanged, root `index.js`).
+2. New INS operations platform as isolated services under `/apps`.
 
-## Architecture
+## Monorepo layout
 
-This application manages a queued outbound calling system where leads from Convoso CRM are processed through Vapi AI voice agents (Morgan) for qualification calls.
+```text
+.
+├── apps/
+│   ├── ops-api
+│   ├── auth-portal
+│   ├── manager-dashboard
+│   ├── payroll-dashboard
+│   ├── owner-dashboard
+│   └── sales-board
+├── packages/
+│   ├── auth
+│   ├── db
+│   ├── types
+│   ├── ui
+│   └── utils
+├── prisma/
+│   ├── schema.prisma
+│   └── seed.ts
+├── docs/
+├── index.js (Morgan service)
+└── package.json
+```
 
-**Key Components:**
-- Express.js REST API with webhook endpoints
-- In-memory queue with Convoso persistence
-- Slot-based rate limiting (3 concurrent calls)
-- Business hours enforcement (9 AM - 5 PM ET, Mon-Fri, with lunch break)
+## Service responsibilities
 
-## Prerequisites
+- **ops-api**: auth, session endpoints, RBAC, business logic, payroll/clawbacks, exports API.
+- **auth-portal**: shared login UX + role redirect landing.
+- **manager-dashboard**: Sales Entry, Tracker, Call Audits, General Config.
+- **payroll-dashboard**: Payroll Weeks, Payout Config, Payroll Config, Clawbacks, Exports.
+- **owner-dashboard**: KPI and cross-domain operational view.
+- **sales-board**: read-only monitor view.
 
-- Node.js 12+ (no TypeScript, no build step)
-- Convoso CRM account with API access
-- Vapi AI account with assistant configured
-- 3 Vapi phone numbers (for concurrent calling)
+## Shared auth/session across subdomains
 
-## Installation
+- Cookie name: `ops_session`.
+- JWT issued by `ops-api` using `AUTH_JWT_SECRET`.
+- Cookie domain set via `AUTH_COOKIE_DOMAIN` (e.g. `.yourdomain.com`) so all subdomains can read/write session cookie.
+- All protected apps must call `/api/session/me` and enforce role-level access.
+- Logout clears cookie with same domain/path.
+
+## Environment variables
+
+### ops-api
+- `DATABASE_URL`
+- `PORT`
+- `AUTH_JWT_SECRET`
+- `AUTH_COOKIE_DOMAIN`
+- `AUTH_PORTAL_URL`
+
+### auth-portal
+- `NEXT_PUBLIC_OPS_API_URL`
+- `MANAGER_DASHBOARD_URL`
+- `PAYROLL_DASHBOARD_URL`
+- `OWNER_DASHBOARD_URL`
+
+### manager/payroll/owner/sales-board
+- `NEXT_PUBLIC_OPS_API_URL`
+- optional `AUTH_PORTAL_URL`
+
+## Local development
 
 ```bash
 npm install
+npm run db:migrate
+npm run db:seed
+npm run ops:dev
+npm run auth:dev
+npm run manager:dev
+npm run payroll:dev
+npm run owner:dev
+npm run salesboard:dev
 ```
 
-## Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Required environment variables:
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `CONVOSO_AUTH_TOKEN` | Convoso API authentication token | Yes |
-| `VAPI_API_KEY` | Vapi AI API key | Yes |
-| `VAPI_MORGAN_ASSISTANT_ID` | Vapi assistant ID for Morgan | Yes |
-| `VAPI_PHONE_NUMBER_IDS` | Comma-separated Vapi phone IDs (exactly 3) | Yes |
-| `PORT` | Server port (default: 3000) | No |
-| `LOG_LEVEL` | Logging level: error, warn, info, debug (default: info) | No |
-| `MORGAN_ENABLED` | Enable/disable Morgan calling (default: true) | No |
-
-## Running the Application
-
+Morgan remains on:
 ```bash
 npm start
 ```
 
-Server will start on port 3000 (or specified PORT).
+## Railway deployment plan (same project, separate services)
 
-## Testing
+Recommended Railway service names and roots:
+- `morgan-voice` -> root `.` (existing)
+- `ops-api` -> root `apps/ops-api`
+- `auth-portal` -> root `apps/auth-portal`
+- `manager-dashboard` -> root `apps/manager-dashboard`
+- `payroll-dashboard` -> root `apps/payroll-dashboard`
+- `owner-dashboard` -> root `apps/owner-dashboard`
+- `sales-board` -> root `apps/sales-board`
+- `ops-postgres` -> Railway Postgres plugin
 
-```bash
-# Run all tests
-npm test
+Build/start commands:
+- Node API: `npm install && npm run build` / `npm run start`
+- Next apps: `npm install && npm run build` / `npm run start`
 
-# Run tests in watch mode
-npm run test:watch
+Watch paths (per service):
+- `apps/<service>/**`
+- `packages/**`
+- `prisma/**` for `ops-api`
 
-# Run tests with coverage
-npm run test:coverage
-```
+## Railway private networking notes
 
-## API Endpoints
+- Use Railway internal URL for `ops-api` between internal services.
+- Frontend public domains call public URL or proxied domain.
+- Keep inter-service auth on private network where feasible for admin actions.
 
-### Health Check
+## Manual Railway + DNS follow-up
 
-- `GET /` - Basic health check
-- `GET /health` - Health check with version info
+1. Create/add domains:
+   - `auth.<domain>`
+   - `manager.<domain>`
+   - `payroll.<domain>`
+   - `owner.<domain>`
+   - `salesboard.<domain>`
+2. Set `AUTH_COOKIE_DOMAIN=. <domain>` (without space) for all auth/session-aware services.
+3. Provision Railway Postgres and share `DATABASE_URL` to `ops-api`.
+4. Run migrations + seed on `ops-api`.
+5. Configure role users and rotate seeded passwords immediately.
+6. Keep Morgan deploy settings untouched to avoid cross-impact.
 
-### Jobs
-
-- `POST /jobs/morgan/pull-leads` - Pull today's leads (call_count=2 or 5)
-  - Optional body: `{ "limit": 50 }`
-  - Response: `{ success: true, fetched: N, queue_length: N }`
-
-- `POST /jobs/morgan/pull-yesterday` - Pull previous business day's non-sale leads
-  - Optional body: `{ "timezone": "America/New_York" }`
-  - Response: `{ success: true, fetched: N, queue_length: N }`
-
-### Webhooks
-
-- `POST /webhooks/convoso/new-lead` - Convoso webhook for instant outbound calls
-  - Accepts Convoso lead payload
-  - Triggers immediate Morgan call if lead qualifies
-
-- `POST /webhooks/vapi` - Vapi AI webhook for call events
-  - Handles end-of-call reports
-  - Frees call slots
-  - Posts call summaries to Convoso
-
-### Tools
-
-- `POST /tools/sendLeadNote` - Called by Vapi to log notes to Convoso
-  - Called during/after AI calls
-  - Truncates notes to 255 characters
-
-### Debug
-
-- `POST /debug/test-call` - Manual test call
-  - Body: `{ "phone": "+13055551234" }`
-
-- `POST /debug/hydrate-mq` - Debug MQ lead fetching
-
-- `POST /debug/hydrate-mq-raw` - Debug raw MQ data
-
-## How It Works
-
-### 1. Lead Acquisition
-
-Leads enter the queue via:
-- **Auto-pull**: Every 60 seconds, pulls leads with call_count=2 or 5 (created today)
-- **Scheduled pull**: Daily at 9:15 AM ET, pulls previous business day's leads
-- **Webhook**: Instant trigger on new lead from Convoso
-- **Periodic merge**: Every 30 minutes, syncs leads with MQ status from Convoso
-
-### 2. Queue Processing
-
-- Queue processor runs every 2 seconds
-- Checks for available slots (max 3 concurrent calls)
-- Pulls next lead and launches Vapi call
-- Updates lead status: `MQ` (queued) → `MC` (calling)
-
-### 3. Call Lifecycle
-
-```
-Lead → Queue (MQ) → Call Started (MC) → Call Ends → Slot Freed
-                                      ↓
-                               Note Posted to Convoso
-```
-
-### 4. Business Hours
-
-Calls only occur during:
-- Monday - Friday
-- 9:00 AM - 1:00 PM ET (morning)
-- 2:30 PM - 5:00 PM ET (afternoon)
-- Lunch break: 1:00 PM - 2:30 PM ET (no calls)
-
-### 5. Lead Filtering
-
-Leads are **skipped** if:
-- `Member_ID` field is populated (already a member)
-- No phone number present
-- Status is already `MC` or `MQ`
-
-## Morgan List IDs
-
-The system targets these Convoso lists:
-```javascript
-[28001, 15857, 27223, 10587, 12794, 12793]
-```
-
-## Status Codes
-
-| Status | Description |
-|--------|-------------|
-| `MQ` | Morgan Queue - waiting to be called |
-| `MC` | Morgan Calling - actively being called or recently called |
-
-## Deployment
-
-Deployed on [Railway.app](https://railway.app):
-- Production URL: `https://ai-calling-backend-production-cd41.up.railway.app`
-- Automatic deployments from `main` branch
-
-## GitHub Actions
-
-Two automated workflows:
-
-1. **morgan-pull-leads-now.yml** - Manual trigger to pull leads immediately
-2. **morgan-pull-yesterday-leads.yml** - Weekday 9:15 AM ET automated pull
-
-## File Structure
-
-```
-.
-├── index.js               # Main application (1,562 lines)
-├── voiceGateway.js        # Vapi AI client integration
-├── morganToggle.js        # Morgan enable/disable control
-├── rateLimitState.js      # Rate limit tracking for 429 backoff
-├── timeUtils.js           # Business hours logic
-├── package.json           # Dependencies
-├── jest.config.js         # Test configuration
-├── .env.example           # Environment variable template
-├── __tests__/             # Test suite
-│   ├── helpers.test.js
-│   ├── morganToggle.test.js
-│   ├── rateLimitState.test.js
-│   ├── timeUtils.test.js
-│   └── voiceGateway.test.js
-├── .github/
-│   └── workflows/
-│       ├── morgan-pull-leads-now.yml
-│       └── morgan-pull-yesterday-leads.yml
-└── ISSUES.md              # Known issues and tech debt
-
-```
-
-## Known Issues
-
-See [ISSUES.md](ISSUES.md) for a comprehensive list of 22 documented issues including:
-- Race conditions in queue processor
-- Memory leaks in ID tracking
-- Missing input validation
-- Error handling improvements needed
-
-## Contributing
-
-This project uses a PR-based workflow. Please:
-1. Create a feature branch
-2. Make your changes
-3. Run tests: `npm test`
-4. Submit PR for review
-
-## License
-
-Internal use only - Horizon Health 2020
-
-## Support
-
-For issues or questions, contact the development team or open an issue on GitHub.
