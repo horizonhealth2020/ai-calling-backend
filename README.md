@@ -4,7 +4,7 @@ This repository now supports **two independent workloads in one Railway project*
 1. Existing Morgan voice service (unchanged, root `index.js`).
 2. New INS operations platform as isolated services under `/apps`.
 
-> ⚠️ **Railway safety rule:** Morgan is a standalone service. Do **not** point Morgan at a monorepo root that installs all `/apps` dependencies. Keep Morgan deployed from repo root (`.`) only.
+> ⚠️ **Railway safety rule:** Morgan is a standalone service and must stay deployable independently. Keep Morgan service settings and runtime env unchanged.
 
 ## Monorepo layout
 
@@ -75,17 +75,12 @@ npm ci
 npm start
 ```
 
-Ops services (independent app folders):
+Ops workspace services (install from monorepo root so workspace links resolve):
 ```bash
-cd apps/ops-api && npm install
-cd ../auth-portal && npm install
-cd ../manager-dashboard && npm install
-cd ../payroll-dashboard && npm install
-cd ../owner-dashboard && npm install
-cd ../sales-board && npm install
+npm install
 ```
 
-Optional helper scripts from root (after each app has dependencies installed):
+Optional helper scripts from root (after root install):
 ```bash
 npm run db:migrate
 npm run db:seed
@@ -99,17 +94,19 @@ npm run salesboard:dev
 
 ## Railway deployment plan (same project, separate services)
 
-Use **separate Railway services with explicit root directories**:
+Use **separate Railway services**. Because this is an npm workspaces monorepo, each service should install from repo root and run commands for its workspace:
 
 | Service | Root directory | Build command | Start command |
 |---|---|---|---|
-| `morgan-voice` | `.` | `npm ci` | `npm start` |
-| `ops-api` | `apps/ops-api` | `npm install && npm run build` | `npm run start` |
-| `auth-portal` | `apps/auth-portal` | `npm install && npm run build` | `npm run start` |
-| `manager-dashboard` | `apps/manager-dashboard` | `npm install && npm run build` | `npm run start` |
-| `payroll-dashboard` | `apps/payroll-dashboard` | `npm install && npm run build` | `npm run start` |
-| `owner-dashboard` | `apps/owner-dashboard` | `npm install && npm run build` | `npm run start` |
-| `sales-board` | `apps/sales-board` | `npm install && npm run build` | `npm run start` |
+| `ai-calling-backend` (Morgan) | `.` | `npm ci --workspaces=false` | `npm start` |
+| `ops-api` | `.` | `npm ci && npm run build -w @ops/ops-api` | `npm run start -w @ops/ops-api` |
+| `auth-portal` | `.` | `npm ci && npm run build -w @ops/auth-portal` | `npm run start -w @ops/auth-portal` |
+| `manager-dashboard` | `.` | `npm ci && npm run build -w @ops/manager-dashboard` | `npm run start -w @ops/manager-dashboard` |
+| `payroll-dashboard` | `.` | `npm ci && npm run build -w @ops/payroll-dashboard` | `npm run start -w @ops/payroll-dashboard` |
+| `owner-dashboard` | `.` | `npm ci && npm run build -w @ops/owner-dashboard` | `npm run start -w @ops/owner-dashboard` |
+| `sales-board` | `.` | `npm ci && npm run build -w @ops/sales-board` | `npm run start -w @ops/sales-board` |
+
+If you prefer Railway "Root Directory" per service, the root can be `apps/<service>` **only** when internal workspace packages are not required. For services that depend on `@ops/*`, keep Root Directory as `.` and use `-w <workspace-name>` commands as above.
 
 Recommended watch paths:
 - Morgan: `/index.js`, `/voiceGateway.js`, `/morganToggle.js`, `/timeUtils.js`, `/rateLimitState.js`, `/package.json`, `/package-lock.json`
@@ -135,4 +132,3 @@ Recommended watch paths:
 4. Run migrations + seed on `ops-api`.
 5. Configure role users and rotate seeded passwords immediately.
 6. Keep Morgan deploy settings untouched to avoid cross-impact.
-
