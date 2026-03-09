@@ -31,5 +31,9 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "engines": {
+    "node": "20.x"
+  },
+  "packageManager": "npm@10.8.2"
 }
