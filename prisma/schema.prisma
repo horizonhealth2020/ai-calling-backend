@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER_VIEW
+  MANAGER
+  PAYROLL
+  SERVICE
+  ADMIN
+}
+
+enum PayrollPeriodStatus {
+  OPEN
+  LOCKED
+  FINALIZED
+}
+
+enum PayrollEntryStatus {
+  PENDING
+  READY
+  PAID
+  ZEROED_OUT
+  CLAWBACK_APPLIED
+}
+
+enum SaleStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ClawbackStatus {
+  OPEN
+  MATCHED
+  DEDUCTED
+  ZEROED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  username     String?
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  enteredSales Sale[]      @relation("SaleEnteredBy")
+  reviews      CallAudit[] @relation("AuditReviewer")
+
+  @@map("users")
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?  @unique
+  active       Boolean  @default(true)
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sales          Sale[]
+  audits         CallAudit[]
+  payrollEntries PayrollEntry[]
+  clawbacks      Clawback[]
+
+  @@map("agents")
+}
+
+model LeadSource {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  costPerLead Decimal  @db.Decimal(10, 2) @map("cost_per_lead")
+  active      Boolean  @default(true)
+  effectiveDate DateTime @map("effective_date")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sales Sale[]
+
+  @@map("lead_sources")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sales       Sale[]
+  payoutRules PayoutRule[]
+
+  @@map("products")
+}
+
+model Sale {
+  id              String          @id @default(cuid())
+  saleDate        DateTime        @map("sale_date")
+  agentId         String          @map("agent_id")
+  memberName      String          @map("member_name")
+  memberId        String?         @map("member_id")
+  carrier         String
+  productId       String          @map("product_id")
+  premium         Decimal         @db.Decimal(12, 2)
+  effectiveDate   DateTime        @map("effective_date")
+  leadSourceId    String          @map("lead_source_id")
+  status          SaleStatus      @default(SUBMITTED)
+  notes           String?
+  enteredByUserId String          @map("entered_by_user_id")
+  payrollStatus   PayrollEntryStatus @default(PENDING) @map("payroll_status")
+  clawbackStatus  ClawbackStatus  @default(OPEN) @map("clawback_status")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  agent         Agent         @relation(fields: [agentId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+  leadSource    LeadSource    @relation(fields: [leadSourceId], references: [id])
+  enteredByUser User          @relation("SaleEnteredBy", fields: [enteredByUserId], references: [id])
+  payrollEntries PayrollEntry[]
+  clawbacks      Clawback[]
+
+  @@index([saleDate])
+  @@index([memberId])
+  @@map("sales")
+}
+
+model CallAudit {
+  id             String   @id @default(cuid())
+  agentId        String   @map("agent_id")
+  callDate       DateTime @map("call_date")
+  score          Int
+  status         String
+  coachingNotes  String?  @map("coaching_notes")
+  reviewerUserId String   @map("reviewer_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  agent    Agent @relation(fields: [agentId], references: [id])
+  reviewer User  @relation("AuditReviewer", fields: [reviewerUserId], references: [id])
+
+  @@map("call_audits")
+}
+
+model PayrollPeriod {
+  id           String              @id @default(cuid())
+  weekStart    DateTime            @map("week_start")
+  weekEnd      DateTime            @map("week_end")
+  quarterLabel String              @map("quarter_label")
+  year         Int
+  status       PayrollPeriodStatus @default(OPEN)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  entries    PayrollEntry[]
+  clawbacks  Clawback[]
+
+  @@map("payroll_periods")
+}
+
+model PayoutRule {
+  id           String   @id @default(cuid())
+  productId    String   @map("product_id")
+  payoutAmount Decimal  @db.Decimal(10, 2) @map("payout_amount")
+  active       Boolean  @default(true)
+  effectiveDate DateTime @map("effective_date")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, effectiveDate])
+  @@map("payout_rules")
+}
+
+model PayrollEntry {
+  id              String             @id @default(cuid())
+  payrollPeriodId String             @map("payroll_period_id")
+  saleId          String             @map("sale_id")
+  agentId         String             @map("agent_id")
+  payoutAmount    Decimal            @db.Decimal(12, 2) @map("payout_amount")
+  adjustmentAmount Decimal           @db.Decimal(12, 2) @default(0) @map("adjustment_amount")
+  netAmount       Decimal            @db.Decimal(12, 2) @map("net_amount")
+  status          PayrollEntryStatus @default(PENDING)
+  paidAt          DateTime?          @map("paid_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  sale          Sale          @relation(fields: [saleId], references: [id])
+  agent         Agent         @relation(fields: [agentId], references: [id])
+
+  @@unique([payrollPeriodId, saleId])
+  @@map("payroll_entries")
+}
+
+model Clawback {
+  id                    String          @id @default(cuid())
+  saleId                 String          @map("sale_id")
+  agentId                String          @map("agent_id")
+  matchedBy              String          @map("matched_by")
+  matchedValue           String          @map("matched_value")
+  amount                 Decimal         @db.Decimal(12, 2)
+  status                 ClawbackStatus  @default(MATCHED)
+  appliedPayrollPeriodId String?         @map("applied_payroll_period_id")
+  notes                  String?
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  sale                Sale           @relation(fields: [saleId], references: [id])
+  agent               Agent          @relation(fields: [agentId], references: [id])
+  appliedPayrollPeriod PayrollPeriod? @relation(fields: [appliedPayrollPeriodId], references: [id])
+
+  @@map("clawbacks")
+}
+
+model SalesBoardSetting {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("sales_board_settings")
+}
+
+model AppAuditLog {
+  id         String   @id @default(cuid())
+  actorUserId String? @map("actor_user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("app_audit_log")
+}
+
+model ServiceTicket {
+  id         String   @id @default(cuid())
+  title      String
+  status     String   @default("OPEN")
+  details    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("service_tickets")
+}

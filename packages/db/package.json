@@ -1,0 +1,9 @@
+{
+  "name": "@ops/db",
+  "version": "1.0.0",
+  "main": "src/client.ts",
+  "types": "src/client.ts",
+  "dependencies": {
+    "@prisma/client": "^5.20.0"
+  }
+}

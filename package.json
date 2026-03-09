@@ -1,12 +1,25 @@
 {
   "name": "ai-calling-backend",
   "version": "1.0.0",
+  "private": true,
   "main": "index.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "start": "node index.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "ops:dev": "npm run dev -w @ops/ops-api",
+    "auth:dev": "npm run dev -w @ops/auth-portal",
+    "manager:dev": "npm run dev -w @ops/manager-dashboard",
+    "payroll:dev": "npm run dev -w @ops/payroll-dashboard",
+    "owner:dev": "npm run dev -w @ops/owner-dashboard",
+    "salesboard:dev": "npm run dev -w @ops/sales-board",
+    "db:migrate": "npm run prisma:migrate -w @ops/ops-api",
+    "db:seed": "npm run prisma:seed -w @ops/ops-api"
   },
   "dependencies": {
     "axios": "^1.7.7",
