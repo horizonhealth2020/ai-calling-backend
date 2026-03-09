@@ -3,23 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "main": "index.js",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
     "start": "node index.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "ops:dev": "npm run dev -w @ops/ops-api",
-    "auth:dev": "npm run dev -w @ops/auth-portal",
-    "manager:dev": "npm run dev -w @ops/manager-dashboard",
-    "payroll:dev": "npm run dev -w @ops/payroll-dashboard",
-    "owner:dev": "npm run dev -w @ops/owner-dashboard",
-    "salesboard:dev": "npm run dev -w @ops/sales-board",
-    "db:migrate": "npm run prisma:migrate -w @ops/ops-api",
-    "db:seed": "npm run prisma:seed -w @ops/ops-api"
+    "ops:dev": "npm --prefix apps/ops-api run dev",
+    "auth:dev": "npm --prefix apps/auth-portal run dev",
+    "manager:dev": "npm --prefix apps/manager-dashboard run dev",
+    "payroll:dev": "npm --prefix apps/payroll-dashboard run dev",
+    "owner:dev": "npm --prefix apps/owner-dashboard run dev",
+    "salesboard:dev": "npm --prefix apps/sales-board run dev",
+    "db:migrate": "npm --prefix apps/ops-api run prisma:migrate",
+    "db:seed": "npm --prefix apps/ops-api run prisma:seed"
   },
   "dependencies": {
     "axios": "^1.7.7",
