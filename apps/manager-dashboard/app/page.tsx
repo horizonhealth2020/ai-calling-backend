@@ -306,42 +306,54 @@ export default function ManagerDashboard() {
 
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg("");
-    const res = await authFetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null }) });
-    if (res.ok) {
-      setMsg("Sale submitted successfully");
-      clearReceipt();
-      authFetch(`${API}/api/tracker/summary`).then(r => r.json()).then(setTracker);
-      authFetch(`${API}/api/sales?range=week`).then(r => r.json()).then(setSalesList);
-    } else {
-      const err = await res.json().catch(() => ({}));
-      setMsg(`Error: ${err.error ?? "Submission failed"}`);
+    try {
+      const res = await authFetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null }) });
+      if (res.ok) {
+        setMsg("Sale submitted successfully");
+        clearReceipt();
+        authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      setMsg(`Error: Unable to reach API server — ${e.message ?? "network error"}`);
     }
   }
 
   async function saveAgent(id: string, data: Partial<Agent>) {
-    const res = await authFetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-    if (res.ok) { setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a)); setCfgMsg("Agent updated"); }
-    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update agent"}`); }
+    try {
+      const res = await authFetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      if (res.ok) { setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a)); setCfgMsg("Agent updated"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update agent"}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   async function addAgent(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
-    const res = await authFetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newAgent.name, email: newAgent.email || undefined, extension: newAgent.extension || undefined }) });
-    if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgMsg("Agent added"); }
-    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add agent"}`); }
+    try {
+      const res = await authFetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newAgent.name, email: newAgent.email || undefined, extension: newAgent.extension || undefined }) });
+      if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgMsg("Agent added"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add agent"}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   async function saveLeadSource(id: string, data: Partial<LeadSource>) {
-    const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-    if (res.ok) { setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls)); setCfgMsg("Lead source updated"); }
-    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update lead source"}`); }
+    try {
+      const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      if (res.ok) { setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls)); setCfgMsg("Lead source updated"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update lead source"}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   async function addLeadSource(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
-    const res = await authFetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0 }) });
-    if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgMsg("Lead source added"); }
-    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add lead source"}`); }
+    try {
+      const res = await authFetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0 }) });
+      if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgMsg("Lead source added"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add lead source"}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   if (loading) return <PageShell title="Manager Dashboard"><p style={{ color: "#6b7280" }}>Loading…</p></PageShell>;

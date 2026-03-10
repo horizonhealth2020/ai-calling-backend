@@ -184,35 +184,44 @@ export default function OwnerDashboard() {
     if (tab === "users" && !usersLoaded && isSuperAdmin) {
       authFetch(`${API}/api/users`)
         .then(r => r.ok ? r.json() : [])
-        .then(u => { setUsers(u); setUsersLoaded(true); });
+        .then(u => { setUsers(u); setUsersLoaded(true); })
+        .catch(() => { setUsers([]); setUsersLoaded(true); });
     }
   }, [tab, isSuperAdmin, usersLoaded]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {
-    const res = await authFetch(`${API}/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-    if (res.ok) { const u = await res.json(); setUsers(prev => prev.map(x => x.id === id ? u : x)); return null; }
-    const err = await res.json().catch(() => ({}));
-    return err.error ?? "Failed to save";
+    try {
+      const res = await authFetch(`${API}/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      if (res.ok) { const u = await res.json(); setUsers(prev => prev.map(x => x.id === id ? u : x)); return null; }
+      const err = await res.json().catch(() => ({}));
+      return err.error ?? "Failed to save";
+    } catch (e: any) { return `Unable to reach API — ${e.message ?? "network error"}`; }
   }
 
   async function deleteUser(id: string): Promise<string | null> {
-    const res = await authFetch(`${API}/api/users/${id}`, { method: "DELETE" });
-    if (res.ok || res.status === 204) { setUsers(prev => prev.filter(x => x.id !== id)); return null; }
-    const err = await res.json().catch(() => ({}));
-    return err.error ?? "Failed to delete user";
+    try {
+      const res = await authFetch(`${API}/api/users/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) { setUsers(prev => prev.filter(x => x.id !== id)); return null; }
+      const err = await res.json().catch(() => ({}));
+      return err.error ?? "Failed to delete user";
+    } catch (e: any) { return `Unable to reach API — ${e.message ?? "network error"}`; }
   }
 
   async function createUser(e: FormEvent) {
     e.preventDefault(); setCreateMsg("");
-    const res = await authFetch(`${API}/api/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newUser) });
-    if (res.ok) {
-      const u = await res.json();
-      setUsers(prev => [u, ...prev]);
-      setNewUser({ name: "", email: "", password: "", roles: ["MANAGER"] });
-      setCreateMsg("User created successfully");
-    } else {
-      const err = await res.json().catch(() => ({}));
-      setCreateMsg(err.error ?? "Failed to create user");
+    try {
+      const res = await authFetch(`${API}/api/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newUser) });
+      if (res.ok) {
+        const u = await res.json();
+        setUsers(prev => [u, ...prev]);
+        setNewUser({ name: "", email: "", password: "", roles: ["MANAGER"] });
+        setCreateMsg("User created successfully");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCreateMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      setCreateMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`);
     }
   }
 

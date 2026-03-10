@@ -20,7 +20,9 @@ app.use("/api", routes);
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled error:", err);
   if (!res.headersSent) {
-    res.status(500).json({ error: "Internal server error" });
+    const status = typeof err.statusCode === "number" ? err.statusCode : typeof err.status === "number" ? err.status : 500;
+    const message = err.expose && err.message ? err.message : "Internal server error";
+    res.status(status).json({ error: message });
   }
 });
 

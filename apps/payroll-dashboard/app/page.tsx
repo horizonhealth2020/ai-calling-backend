@@ -141,10 +141,12 @@ export default function PayrollDashboard() {
 
   async function submitChargeback(e: FormEvent) {
     e.preventDefault(); setChargebackMsg("");
-    const body = Object.fromEntries(Object.entries(chargebackForm).filter(([, v]) => v));
-    const res = await authFetch(`${API}/api/clawbacks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { setChargebackMsg("Chargeback processed successfully"); setChargebackForm({ memberName: "", memberId: "", notes: "" }); }
-    else { const err = await res.json().catch(() => ({})); setChargebackMsg(`Error: ${err.error ?? "No matching sale found"}`); }
+    try {
+      const body = Object.fromEntries(Object.entries(chargebackForm).filter(([, v]) => v));
+      const res = await authFetch(`${API}/api/clawbacks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (res.ok) { setChargebackMsg("Chargeback processed successfully"); setChargebackForm({ memberName: "", memberId: "", notes: "" }); }
+      else { const err = await res.json().catch(() => ({})); setChargebackMsg(`Error: ${err.error ?? "No matching sale found"}`); }
+    } catch (e: any) { setChargebackMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   function filterPeriodsByRange(range: ExportRange): Period[] {
@@ -171,24 +173,29 @@ export default function PayrollDashboard() {
   }
 
   async function saveProduct(id: string, data: Partial<Product>) {
-    const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-    if (res.ok) { const updated = await res.json(); setProducts(prev => prev.map(p => p.id === id ? updated : p)); }
+    try {
+      const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      if (res.ok) { const updated = await res.json(); setProducts(prev => prev.map(p => p.id === id ? updated : p)); setCfgMsg("Product updated"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update product"}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   async function addProduct(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
-    const body: Record<string, unknown> = { name: newProduct.name, type: newProduct.type, notes: newProduct.notes || undefined };
-    if (newProduct.type === "CORE") {
-      if (newProduct.premiumThreshold) body.premiumThreshold = Number(newProduct.premiumThreshold);
-      if (newProduct.commissionBelow) body.commissionBelow = Number(newProduct.commissionBelow);
-      if (newProduct.commissionAbove) body.commissionAbove = Number(newProduct.commissionAbove);
-    } else {
-      if (newProduct.bundledCommission) body.bundledCommission = Number(newProduct.bundledCommission);
-      if (newProduct.standaloneCommission) body.standaloneCommission = Number(newProduct.standaloneCommission);
-    }
-    const res = await authFetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "" }); setCfgMsg("Product added"); }
-    else setCfgMsg("Error adding product");
+    try {
+      const body: Record<string, unknown> = { name: newProduct.name, type: newProduct.type, notes: newProduct.notes || undefined };
+      if (newProduct.type === "CORE") {
+        if (newProduct.premiumThreshold) body.premiumThreshold = Number(newProduct.premiumThreshold);
+        if (newProduct.commissionBelow) body.commissionBelow = Number(newProduct.commissionBelow);
+        if (newProduct.commissionAbove) body.commissionAbove = Number(newProduct.commissionAbove);
+      } else {
+        if (newProduct.bundledCommission) body.bundledCommission = Number(newProduct.bundledCommission);
+        if (newProduct.standaloneCommission) body.standaloneCommission = Number(newProduct.standaloneCommission);
+      }
+      const res = await authFetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "" }); setCfgMsg("Product added"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add product"}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`); }
   }
 
   async function approveCommission(saleId: string) {
