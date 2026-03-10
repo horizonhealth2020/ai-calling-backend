@@ -82,7 +82,7 @@ function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: 
   );
 }
 
-function UserRow({ user, onSave }: { user: User; onSave: (id: string, data: Partial<User> & { password?: string }) => Promise<string | null> }) {
+function UserRow({ user, onSave, onDelete }: { user: User; onSave: (id: string, data: Partial<User> & { password?: string }) => Promise<string | null>; onDelete: (id: string) => Promise<string | null> }) {
   const [edit, setEdit] = useState(false);
   const [d, setD] = useState({ name: user.name, email: user.email, roles: user.roles, active: user.active, password: "" });
   const [saving, setSaving] = useState(false);
@@ -96,8 +96,9 @@ function UserRow({ user, onSave }: { user: User; onSave: (id: string, data: Part
       <td style={{ padding: "10px 16px" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: user.active ? "#16a34a" : "#9ca3af" }}>{user.active ? "Active" : "Inactive"}</span>
       </td>
-      <td style={{ padding: "10px 16px" }}>
+      <td style={{ padding: "10px 16px", display: "flex", gap: 6 }}>
         <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer" }}>Edit</button>
+        <button onClick={async () => { if (confirm(`Delete user "${user.name}"? This cannot be undone.`)) { const e = await onDelete(user.id); if (e) alert(e); } }} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #fca5a5", borderRadius: 4, background: "#fef2f2", color: "#dc2626", cursor: "pointer", fontWeight: 600 }}>Delete</button>
       </td>
     </tr>
   );
@@ -154,6 +155,16 @@ export default function OwnerDashboard() {
   const fetchData = useCallback((r: Range) => {
     setLoading(true);
     captureTokenFromUrl();
+
+    // Also decode JWT locally as a fallback to detect SUPER_ADMIN
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("ops_session_token") : null;
+      if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload?.roles?.includes("SUPER_ADMIN")) setIsSuperAdmin(true);
+      }
+    } catch { /* ignore malformed token */ }
+
     Promise.all([
       authFetch(`${API}/api/owner/summary?range=${r}`).then(res => res.ok ? res.json() : null),
       authFetch(`${API}/api/tracker/summary?range=${r}`).then(res => res.ok ? res.json() : []),
@@ -181,6 +192,13 @@ export default function OwnerDashboard() {
     if (res.ok) { const u = await res.json(); setUsers(prev => prev.map(x => x.id === id ? u : x)); return null; }
     const err = await res.json().catch(() => ({}));
     return err.error ?? "Failed to save";
+  }
+
+  async function deleteUser(id: string): Promise<string | null> {
+    const res = await authFetch(`${API}/api/users/${id}`, { method: "DELETE" });
+    if (res.ok || res.status === 204) { setUsers(prev => prev.filter(x => x.id !== id)); return null; }
+    const err = await res.json().catch(() => ({}));
+    return err.error ?? "Failed to delete user";
   }
 
   async function createUser(e: FormEvent) {
@@ -277,7 +295,7 @@ export default function OwnerDashboard() {
               <th style={{ padding: "10px 16px" }}></th>
             </tr></thead>
             <tbody>
-              {users.map(u => <UserRow key={u.id} user={u} onSave={saveUser} />)}
+              {users.map(u => <UserRow key={u.id} user={u} onSave={saveUser} onDelete={deleteUser} />)}
               {users.length === 0 && <tr><td colSpan={5} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No users found</td></tr>}
             </tbody>
           </table>
