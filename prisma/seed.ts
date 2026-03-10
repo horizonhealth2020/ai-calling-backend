@@ -3,18 +3,18 @@ import bcrypt from "bcryptjs";
 
 async function main() {
   const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
-  const users = [
-    ["Juan A", "juan.a@horizon.com", "SUPER_ADMIN"],
-    ["Nick D", "nick.d@horizon.com", "MANAGER"],
-    ["Mike F", "mike.f@horizon.com", "OWNER_VIEW"],
-    ["Payroll User", "payroll@example.com", "PAYROLL"],
-  ] as const;
+  const users: [string, string, string[]][] = [
+    ["Juan A", "juan.a@horizon.com", ["SUPER_ADMIN"]],
+    ["Nick D", "nick.d@horizon.com", ["MANAGER"]],
+    ["Mike F", "mike.f@horizon.com", ["OWNER_VIEW"]],
+    ["Payroll User", "payroll@example.com", ["PAYROLL"]],
+  ];
 
   for (const [name, email, roles] of users) {
     await prisma.user.upsert({
       where: { email },
-      update: { name, roles: roles as any },
-      create: { name, email, roles: roles as any, passwordHash, active: true },
+      update: { name, roles },
+      create: { name, email, roles, passwordHash, active: true },
     });
   }
 
