@@ -10,11 +10,11 @@ async function main() {
     ["Payroll User", "payroll@example.com", "PAYROLL"],
   ] as const;
 
-  for (const [name, email, role] of users) {
+  for (const [name, email, roles] of users) {
     await prisma.user.upsert({
       where: { email },
-      update: { name, role },
-      create: { name, email, role, passwordHash, active: true },
+      update: { name, roles: roles as any },
+      create: { name, email, roles: roles as any, passwordHash, active: true },
     });
   }
 
@@ -33,7 +33,7 @@ async function main() {
   const product = await prisma.product.upsert({ where: { name: "Medicare Advantage" }, update: {}, create: { name: "Medicare Advantage" } });
   await prisma.payoutRule.create({ data: { productId: product.id, payoutAmount: 120, effectiveDate: new Date(), notes: "Default" } }).catch(() => null);
 
-  const manager = await prisma.user.findUniqueOrThrow({ where: { email: "nick.d@example.com" } });
+  const manager = await prisma.user.findUniqueOrThrow({ where: { email: "nick.d@horizon.com" } });
   const sale = await prisma.sale.create({
     data: {
       saleDate: new Date(),
