@@ -6,7 +6,7 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type Tab = "sales" | "tracker" | "audits" | "config";
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number };
-type Product = { id: string; name: string; active: boolean };
+type Product = { id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D" };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 
@@ -115,7 +115,7 @@ export default function ManagerDashboard() {
   const [msg, setMsg] = useState("");
 
   // Sales form
-  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", status: "SUBMITTED", notes: "" });
+  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", enrollmentFee: "", addonProductIds: [] as string[], status: "SUBMITTED", notes: "" });
   const [form, setForm] = useState(blankForm());
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
@@ -154,7 +154,7 @@ export default function ManagerDashboard() {
 
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg("");
-    const res = await fetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...form, premium: Number(form.premium) }) });
+    const res = await fetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null }) });
     if (res.ok) {
       setMsg("Sale submitted successfully");
       clearReceipt();
@@ -275,9 +275,30 @@ export default function ManagerDashboard() {
               </select>
             </div>
             <div>
+              <label style={LBL}>Enrollment Fee ($)</label>
+              <input style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} placeholder="e.g. 125, 99, 50" onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} />
+            </div>
+            <div>
               <label style={LBL}>Notes</label>
               <input style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
+            {products.filter(p => p.type === "ADDON" || p.type === "AD_D").length > 0 && (
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={LBL}>Add-on Products</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "8px 0" }}>
+                  {products.filter(p => (p.type === "ADDON" || p.type === "AD_D") && p.active).map(p => {
+                    const checked = form.addonProductIds.includes(p.id);
+                    return (
+                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "6px 12px", border: checked ? "2px solid #2563eb" : "1px solid #d1d5db", borderRadius: 6, background: checked ? "#eff6ff" : "white", cursor: "pointer" }}>
+                        <input type="checkbox" checked={checked} onChange={() => setForm(f => ({ ...f, addonProductIds: checked ? f.addonProductIds.filter(id => id !== p.id) : [...f.addonProductIds, p.id] }))} />
+                        <span style={{ fontWeight: checked ? 600 : 400 }}>{p.name}</span>
+                        <span style={{ fontSize: 11, color: p.type === "AD_D" ? "#d97706" : "#7c3aed" }}>({p.type === "AD_D" ? "AD&D" : "Add-on"})</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16, paddingTop: 4 }}>
               <button type="submit" style={BTN()}>Submit Sale</button>
               {msg && <span style={{ color: msg.startsWith("Sale") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{msg}</span>}
