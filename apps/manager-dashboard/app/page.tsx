@@ -4,7 +4,7 @@ import { PageShell } from "@ops/ui";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-type Tab = "sales" | "products" | "tracker" | "agent-sales" | "audits" | "config";
+type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config";
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number };
 type Product = {
   id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
@@ -244,11 +244,6 @@ export default function ManagerDashboard() {
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
 
-  // Product form
-  const blankProduct = () => ({ name: "", type: "CORE" as Product["type"], premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", notes: "" });
-  const [newProduct, setNewProduct] = useState(blankProduct());
-  const [prodMsg, setProdMsg] = useState("");
-
   // Config new-item forms
   const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
@@ -324,46 +319,28 @@ export default function ManagerDashboard() {
 
   async function saveAgent(id: string, data: Partial<Agent>) {
     const res = await fetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
-    if (res.ok) setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+    if (res.ok) { setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a)); setCfgMsg("Agent updated"); }
+    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update agent"}`); }
   }
 
   async function addAgent(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
-    const res = await fetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...newAgent, costPerLead: undefined }) });
+    const res = await fetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ name: newAgent.name, email: newAgent.email || undefined, extension: newAgent.extension || undefined }) });
     if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgMsg("Agent added"); }
-    else setCfgMsg("Error adding agent");
+    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add agent"}`); }
   }
 
   async function saveLeadSource(id: string, data: Partial<LeadSource>) {
     const res = await fetch(`${API}/api/lead-sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
-    if (res.ok) setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls));
+    if (res.ok) { setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls)); setCfgMsg("Lead source updated"); }
+    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update lead source"}`); }
   }
 
   async function addLeadSource(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
-    const res = await fetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...newLS, costPerLead: Number(newLS.costPerLead) || 0 }) });
+    const res = await fetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0 }) });
     if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgMsg("Lead source added"); }
-    else setCfgMsg("Error adding lead source");
-  }
-
-  async function saveProduct(id: string, data: Partial<Product>) {
-    const res = await fetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
-    if (res.ok) { const updated = await res.json(); setProducts(prev => prev.map(p => p.id === id ? updated : p)); }
-  }
-
-  async function addProduct(e: FormEvent) {
-    e.preventDefault(); setProdMsg("");
-    const body = {
-      name: newProduct.name, type: newProduct.type, notes: newProduct.notes || undefined,
-      premiumThreshold: newProduct.premiumThreshold ? Number(newProduct.premiumThreshold) : null,
-      commissionBelow: newProduct.commissionBelow ? Number(newProduct.commissionBelow) : null,
-      commissionAbove: newProduct.commissionAbove ? Number(newProduct.commissionAbove) : null,
-      bundledCommission: newProduct.bundledCommission ? Number(newProduct.bundledCommission) : null,
-      standaloneCommission: newProduct.standaloneCommission ? Number(newProduct.standaloneCommission) : null,
-    };
-    const res = await fetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct(blankProduct()); setProdMsg("Product added"); }
-    else { const err = await res.json().catch(() => ({})); setProdMsg(`Error: ${err.error ?? "Failed to add product"}`); }
+    else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add lead source"}`); }
   }
 
   if (loading) return <PageShell title="Manager Dashboard"><p style={{ color: "#6b7280" }}>Loading…</p></PageShell>;
@@ -371,9 +348,9 @@ export default function ManagerDashboard() {
   return (
     <PageShell title="Manager Dashboard">
       <nav style={{ display: "flex", borderBottom: "1px solid #e5e7eb", marginBottom: 24 }}>
-        {(["sales", "products", "tracker", "agent-sales", "audits", "config"] as Tab[]).map(t => (
+        {(["sales", "tracker", "agent-sales", "audits", "config"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>
-            {{ sales: "Sales Entry", products: "Products", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config" }[t]}
+            {{ sales: "Sales Entry", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config" }[t]}
           </button>
         ))}
       </nav>
@@ -487,51 +464,6 @@ export default function ManagerDashboard() {
             </div>
           </div>
         </form>
-      )}
-
-      {/* ── Products ── */}
-      {tab === "products" && (
-        <div style={{ maxWidth: 900 }}>
-          {/* Existing products */}
-          <div style={CARD}>
-            <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700 }}>Products & Commission Thresholds</h3>
-            <p style={{ margin: "0 0 16px", fontSize: 12, color: "#6b7280" }}>Manage core products, add-ons, and AD&D with their commission rates.</p>
-            {products.length === 0 && <p style={{ color: "#9ca3af", fontSize: 13 }}>No products yet — add one below.</p>}
-            {products.map(p => <ProductRow key={p.id} product={p} onSave={saveProduct} />)}
-          </div>
-
-          {/* Add new product */}
-          <div style={{ ...CARD, marginTop: 20 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Add Product</h3>
-            <form onSubmit={addProduct} style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
-                <div><label style={LBL}>Product Name</label><input style={INP} value={newProduct.name} required placeholder="e.g. BWA AmeriCare" onChange={e => setNewProduct(x => ({ ...x, name: e.target.value }))} /></div>
-                <div><label style={LBL}>Type</label>
-                  <select style={INP} value={newProduct.type} onChange={e => setNewProduct(x => ({ ...x, type: e.target.value as Product["type"] }))}>
-                    <option value="CORE">Core</option><option value="ADDON">Add-on</option><option value="AD_D">AD&D</option>
-                  </select>
-                </div>
-              </div>
-              {newProduct.type === "CORE" ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                  <div><label style={LBL}>Premium Threshold ($)</label><input style={INP} type="number" step="0.01" value={newProduct.premiumThreshold} placeholder="e.g. 300" onChange={e => setNewProduct(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
-                  <div><label style={LBL}>Commission Below (%)</label><input style={INP} type="number" step="0.01" value={newProduct.commissionBelow} placeholder="e.g. 25" onChange={e => setNewProduct(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
-                  <div><label style={LBL}>Commission Above (%)</label><input style={INP} type="number" step="0.01" value={newProduct.commissionAbove} placeholder="e.g. 30" onChange={e => setNewProduct(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div><label style={LBL}>Bundled Commission (%)</label><input style={INP} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
-                  <div><label style={LBL}>Standalone Commission (%)</label><input style={INP} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
-                </div>
-              )}
-              <div><label style={LBL}>Notes</label><input style={INP} value={newProduct.notes} placeholder="Optional" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} /></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button type="submit" style={BTN("#059669")}>Add Product</button>
-                {prodMsg && <span style={{ color: prodMsg.startsWith("Error") ? "#dc2626" : "#16a34a", fontWeight: 600, fontSize: 13 }}>{prodMsg}</span>}
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       {/* ── Agent Tracker ── */}

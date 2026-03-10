@@ -106,33 +106,57 @@ router.get("/agents", requireAuth, async (_req, res) => res.json(await prisma.ag
 
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
   const schema = z.object({ name: z.string().min(1), email: z.string().optional(), userId: z.string().optional(), extension: z.string().optional() });
-  const data = schema.parse(req.body);
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
   const count = await prisma.agent.count();
-  const agent = await prisma.agent.create({ data: { ...data, displayOrder: count } });
-  res.status(201).json(agent);
+  try {
+    const agent = await prisma.agent.create({ data: { ...parsed.data, displayOrder: count } });
+    res.status(201).json(agent);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
+    throw e;
+  }
 });
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
-  const data = schema.parse(req.body);
-  const agent = await prisma.agent.update({ where: { id: req.params.id }, data });
-  res.json(agent);
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  try {
+    const agent = await prisma.agent.update({ where: { id: req.params.id }, data: parsed.data });
+    res.json(agent);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
+    throw e;
+  }
 });
 
 router.get("/lead-sources", requireAuth, async (_req, res) => res.json(await prisma.leadSource.findMany()));
 
 router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
   const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().default(0) });
-  const data = schema.parse(req.body);
-  const ls = await prisma.leadSource.create({ data: { ...data, effectiveDate: new Date() } });
-  res.status(201).json(ls);
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  try {
+    const ls = await prisma.leadSource.create({ data: { ...parsed.data, effectiveDate: new Date() } });
+    res.status(201).json(ls);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
+    throw e;
+  }
 });
 
 router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().optional() });
-  const data = schema.parse(req.body);
-  const ls = await prisma.leadSource.update({ where: { id: req.params.id }, data });
-  res.json(ls);
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  try {
+    const ls = await prisma.leadSource.update({ where: { id: req.params.id }, data: parsed.data });
+    res.json(ls);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
+    throw e;
+  }
 });
 
 router.get("/products", requireAuth, async (_req, res) => res.json(await prisma.product.findMany()));
