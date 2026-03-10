@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, FormEvent } from "react";
 import { PageShell } from "@ops/ui";
+import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Tab = "periods" | "chargebacks" | "exports" | "products";
@@ -131,17 +132,17 @@ export default function PayrollDashboard() {
   const [cfgMsg, setCfgMsg] = useState("");
 
   useEffect(() => {
-    const o = { credentials: "include" as const };
+    captureTokenFromUrl();
     Promise.all([
-      fetch(`${API}/api/payroll/periods`, o).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/api/products`, o).then(r => r.ok ? r.json() : []),
+      authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []),
+      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []),
     ]).then(([p, prod]) => { setPeriods(p); setProducts(prod); setLoading(false); });
   }, []);
 
   async function submitChargeback(e: FormEvent) {
     e.preventDefault(); setChargebackMsg("");
     const body = Object.fromEntries(Object.entries(chargebackForm).filter(([, v]) => v));
-    const res = await fetch(`${API}/api/clawbacks`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
+    const res = await authFetch(`${API}/api/clawbacks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (res.ok) { setChargebackMsg("Chargeback processed successfully"); setChargebackForm({ memberName: "", memberId: "", notes: "" }); }
     else { const err = await res.json().catch(() => ({})); setChargebackMsg(`Error: ${err.error ?? "No matching sale found"}`); }
   }
@@ -170,7 +171,7 @@ export default function PayrollDashboard() {
   }
 
   async function saveProduct(id: string, data: Partial<Product>) {
-    const res = await fetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
+    const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
     if (res.ok) { const updated = await res.json(); setProducts(prev => prev.map(p => p.id === id ? updated : p)); }
   }
 
@@ -185,17 +186,16 @@ export default function PayrollDashboard() {
       if (newProduct.bundledCommission) body.bundledCommission = Number(newProduct.bundledCommission);
       if (newProduct.standaloneCommission) body.standaloneCommission = Number(newProduct.standaloneCommission);
     }
-    const res = await fetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
+    const res = await authFetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "" }); setCfgMsg("Product added"); }
     else setCfgMsg("Error adding product");
   }
 
   async function approveCommission(saleId: string) {
-    const res = await fetch(`${API}/api/sales/${saleId}/approve-commission`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include" });
+    const res = await authFetch(`${API}/api/sales/${saleId}/approve-commission`, { method: "PATCH", headers: { "Content-Type": "application/json" } });
     if (res.ok) {
       // Refresh periods to get updated commission
-      const o = { credentials: "include" as const };
-      const updated = await fetch(`${API}/api/payroll/periods`, o).then(r => r.ok ? r.json() : periods);
+      const updated = await authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : periods);
       setPeriods(updated);
     }
   }
