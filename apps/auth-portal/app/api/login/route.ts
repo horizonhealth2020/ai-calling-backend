@@ -1,13 +1,33 @@
 export async function POST(req: Request) {
   const { email, password } = await req.json();
+  const opsApiUrl = process.env.NEXT_PUBLIC_OPS_API_URL;
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_OPS_API_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  if (!opsApiUrl) {
+    console.error("[login] NEXT_PUBLIC_OPS_API_URL is not set");
+    return Response.json({ error: "Server misconfiguration: API URL not set" }, { status: 500 });
+  }
+
+  const loginUrl = `${opsApiUrl}/api/auth/login`;
+  console.log("[login] Calling ops-api:", loginUrl, "for email:", email);
+
+  let response: globalThis.Response;
+  try {
+    response = await fetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err: any) {
+    console.error("[login] Failed to reach ops-api at", loginUrl, ":", err.message);
+    return Response.json(
+      { error: `Cannot reach API server. Check that ops-api is running at ${opsApiUrl}` },
+      { status: 502 },
+    );
+  }
 
   if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    console.error("[login] ops-api returned", response.status, body);
     return Response.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
@@ -24,14 +44,12 @@ export async function POST(req: Request) {
     PAYROLL: process.env.PAYROLL_DASHBOARD_URL,
   };
 
-  // Which dashboards can this user access?
   const dashboardRoles = roles.filter(r => ROLE_DASHBOARDS[r]);
 
   let destination: string;
   if (dashboardRoles.length === 1) {
     destination = ROLE_DASHBOARDS[dashboardRoles[0]]!;
   } else {
-    // Multiple roles or none — show the picker
     const base = process.env.AUTH_PORTAL_URL || req.url;
     destination = new URL("/landing", base).toString();
   }
