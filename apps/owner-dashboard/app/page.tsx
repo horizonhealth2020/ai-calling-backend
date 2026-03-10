@@ -4,7 +4,7 @@ import { PageShell } from "@ops/ui";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Summary = { salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number };
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; leadsUsed: number; costPerSale: number };
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 function StatCard({ label, value, color = "#111827" }: { label: string; value: string | number; color?: string }) {
@@ -47,6 +47,7 @@ export default function OwnerDashboard() {
           <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Sales</th>
           <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Premium Total</th>
           <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Avg Premium</th>
+          <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Cost per Sale</th>
         </tr></thead>
         <tbody>
           {[...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal).map((row, i) => (
@@ -56,9 +57,10 @@ export default function OwnerDashboard() {
               <td style={{ padding: "10px 16px", textAlign: "right" }}>{row.salesCount}</td>
               <td style={{ padding: "10px 16px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{fmt.format(Number(row.premiumTotal))}</td>
               <td style={{ padding: "10px 16px", textAlign: "right", color: "#6b7280" }}>{row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "—"}</td>
+              <td style={{ padding: "10px 16px", textAlign: "right", color: "#d97706", fontWeight: 600 }}>{row.costPerSale > 0 ? fmt.format(row.costPerSale) : "—"}</td>
             </tr>
           ))}
-          {tracker.length === 0 && <tr><td colSpan={5} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No agent data yet</td></tr>}
+          {tracker.length === 0 && <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No agent data yet</td></tr>}
         </tbody>
       </table>
     </PageShell>

@@ -105,6 +105,8 @@ router.get("/tracker/summary", requireAuth, async (_req, res) => {
     agent: agent.name,
     salesCount: agent.sales.length,
     premiumTotal: agent.sales.reduce((sum, s) => sum + Number(s.premium), 0),
+    leadsUsed: 0, // TODO: populate from lead-usage query
+    costPerSale: 0, // TODO: calculated as totalLeadCost / salesCount once leadsUsed query is wired
   }));
   res.json(summary);
 });
