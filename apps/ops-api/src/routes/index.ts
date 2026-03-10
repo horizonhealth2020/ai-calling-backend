@@ -8,6 +8,32 @@ import { upsertPayrollEntryForSale } from "../services/payroll";
 
 const router = Router();
 
+/** Compute date‐range boundaries from a `range` query param. */
+function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
+  if (!range || !["today", "week", "month"].includes(range)) return undefined;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (range === "today") {
+    const lt = new Date(todayStart);
+    lt.setDate(lt.getDate() + 1);
+    return { gte: todayStart, lt };
+  }
+  if (range === "week") {
+    const day = now.getDay();
+    const sunday = new Date(todayStart);
+    sunday.setDate(todayStart.getDate() - day);
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 7);
+    return { gte: sunday, lt: saturday };
+  }
+  // month – rolling 30 days
+  const thirtyAgo = new Date(todayStart);
+  thirtyAgo.setDate(todayStart.getDate() - 30);
+  const lt = new Date(todayStart);
+  lt.setDate(lt.getDate() + 1);
+  return { gte: thirtyAgo, lt };
+}
+
 router.post("/auth/login", async (req, res) => {
   const schema = z.object({ email: z.string().email(), password: z.string().min(8) });
   const parsed = schema.safeParse(req.body);
@@ -111,9 +137,16 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
   res.status(201).json(sale);
 });
 
-router.get("/tracker/summary", requireAuth, async (_req, res) => {
+router.get("/tracker/summary", requireAuth, async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
   const data = await prisma.agent.findMany({
-    include: { sales: { include: { leadSource: true } } },
+    include: {
+      sales: {
+        where: salesWhere,
+        include: { leadSource: true },
+      },
+    },
   });
   const summary = data.map((agent) => {
     const salesCount = agent.sales.length;
