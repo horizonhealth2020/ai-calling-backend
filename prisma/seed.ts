@@ -4,10 +4,10 @@ import bcrypt from "bcryptjs";
 async function main() {
   const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
   const users = [
-    ["Juan A", "juan.a@horizon.com", ["SUPER_ADMIN"]],
-    ["Nick D", "nick.d@horizon.com", ["MANAGER"]],
-    ["Mike F", "mike.f@horizon.com", ["OWNER_VIEW"]],
-    ["Payroll User", "payroll@example.com", ["PAYROLL"]],
+    ["Juan A", "juan.a@horizon.com", "SUPER_ADMIN"],
+    ["Nick D", "nick.d@horizon.com", "MANAGER"],
+    ["Mike F", "mike.f@horizon.com", "OWNER_VIEW"],
+    ["Payroll User", "payroll@example.com", "PAYROLL"],
   ] as const;
 
   for (const [name, email, roles] of users) {
