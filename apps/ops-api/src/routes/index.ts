@@ -36,7 +36,38 @@ router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), async (_req, res) 
 });
 
 router.get("/agents", requireAuth, async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } })));
+
+router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1), email: z.string().email().optional(), userId: z.string().optional() });
+  const data = schema.parse(req.body);
+  const count = await prisma.agent.count();
+  const agent = await prisma.agent.create({ data: { ...data, displayOrder: count } });
+  res.status(201).json(agent);
+});
+
+router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().email().nullable().optional(), userId: z.string().nullable().optional() });
+  const data = schema.parse(req.body);
+  const agent = await prisma.agent.update({ where: { id: req.params.id }, data });
+  res.json(agent);
+});
+
 router.get("/lead-sources", requireAuth, async (_req, res) => res.json(await prisma.leadSource.findMany()));
+
+router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().default(0) });
+  const data = schema.parse(req.body);
+  const ls = await prisma.leadSource.create({ data: { ...data, effectiveDate: new Date() } });
+  res.status(201).json(ls);
+});
+
+router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().optional() });
+  const data = schema.parse(req.body);
+  const ls = await prisma.leadSource.update({ where: { id: req.params.id }, data });
+  res.json(ls);
+});
+
 router.get("/products", requireAuth, async (_req, res) => res.json(await prisma.product.findMany()));
 
 router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {

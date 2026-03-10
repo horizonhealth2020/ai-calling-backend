@@ -65,6 +65,7 @@ model Agent {
   id           String   @id @default(cuid())
   name         String
   email        String?  @unique
+  userId       String?  @map("user_id")
   active       Boolean  @default(true)
   displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -81,6 +82,7 @@ model Agent {
 model LeadSource {
   id          String   @id @default(cuid())
   name        String   @unique
+  listId      String?  @map("list_id")
   costPerLead Decimal  @db.Decimal(10, 2) @map("cost_per_lead")
   active      Boolean  @default(true)
   effectiveDate DateTime @map("effective_date")
