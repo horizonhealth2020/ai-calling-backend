@@ -8,6 +8,33 @@ import { upsertPayrollEntryForSale } from "../services/payroll";
 
 const router = Router();
 
+/** Compute date‐range boundaries from a `range` query param. */
+function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
+  if (!range || !["today", "week", "month"].includes(range)) return undefined;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (range === "today") {
+    const lt = new Date(todayStart);
+    lt.setDate(lt.getDate() + 1);
+    return { gte: todayStart, lt };
+  }
+  if (range === "week") {
+    // Sunday‑to‑Saturday week containing today
+    const day = now.getDay(); // 0=Sun … 6=Sat
+    const sunday = new Date(todayStart);
+    sunday.setDate(todayStart.getDate() - day);
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 7); // exclusive upper bound (next Sunday 00:00)
+    return { gte: sunday, lt: saturday };
+  }
+  // month – rolling 30 days
+  const thirtyAgo = new Date(todayStart);
+  thirtyAgo.setDate(todayStart.getDate() - 30);
+  const lt = new Date(todayStart);
+  lt.setDate(lt.getDate() + 1);
+  return { gte: thirtyAgo, lt };
+}
+
 router.post("/auth/login", async (req, res) => {
   const schema = z.object({ email: z.string().email(), password: z.string().min(8) });
   const parsed = schema.safeParse(req.body);
@@ -111,9 +138,10 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
   res.status(201).json(sale);
 });
 
-router.get("/tracker/summary", requireAuth, async (_req, res) => {
+router.get("/tracker/summary", requireAuth, async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
   const data = await prisma.agent.findMany({
-    include: { sales: true },
+    include: { sales: dr ? { where: { saleDate: { gte: dr.gte, lt: dr.lt } } } : true },
   });
   const summary = data.map((agent) => ({
     agent: agent.name,
@@ -160,11 +188,14 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   res.status(201).json(clawback);
 });
 
-router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), async (_req, res) => {
+router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const saleWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
+  const clawbackWhere = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
   const [salesCount, premiumAgg, clawbacks, openPayrollPeriods] = await Promise.all([
-    prisma.sale.count(),
-    prisma.sale.aggregate({ _sum: { premium: true } }),
-    prisma.clawback.count(),
+    prisma.sale.count({ where: saleWhere }),
+    prisma.sale.aggregate({ _sum: { premium: true }, where: saleWhere }),
+    prisma.clawback.count({ where: clawbackWhere }),
     prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
   ]);
   res.json({ salesCount, premiumTotal: premiumAgg._sum.premium ?? 0, clawbacks, openPayrollPeriods });
