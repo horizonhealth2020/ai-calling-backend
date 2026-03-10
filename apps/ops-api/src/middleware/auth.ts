@@ -11,7 +11,11 @@ declare global {
 }
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies?.[SESSION_COOKIE];
+  // Accept token from Authorization header (Bearer) or fall back to cookie
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : req.cookies?.[SESSION_COOKIE];
   const user = verifySessionToken(token);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   req.user = user;

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@ops/ui"],
+  transpilePackages: ["@ops/ui", "@ops/auth"],
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   env: {

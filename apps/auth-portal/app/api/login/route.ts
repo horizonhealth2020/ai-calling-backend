@@ -9,22 +9,36 @@ export async function POST(req: Request) {
   });
   if (!response.ok) return new Response("Invalid credentials", { status: 401 });
 
-  // Forward the Set-Cookie header from the ops-api so the browser receives the session cookie
   const setCookie = response.headers.get("set-cookie");
   const user = await response.json();
   const roles: string[] = user.roles ?? [];
+  const token: string = user.token ?? "";
 
-  // Determine redirect target based on roles
-  let destination = "/landing";
-  if (roles.includes("SUPER_ADMIN") || roles.includes("OWNER_VIEW")) {
-    destination = process.env.OWNER_DASHBOARD_URL || "https://owner.example.com";
-  } else if (roles.includes("MANAGER")) {
-    destination = process.env.MANAGER_DASHBOARD_URL || "https://manager.example.com";
-  } else if (roles.includes("PAYROLL")) {
-    destination = process.env.PAYROLL_DASHBOARD_URL || "https://payroll.example.com";
+  // Map roles to their dashboard URLs
+  const ROLE_DASHBOARDS: Record<string, string | undefined> = {
+    SUPER_ADMIN: process.env.OWNER_DASHBOARD_URL,
+    OWNER_VIEW: process.env.OWNER_DASHBOARD_URL,
+    MANAGER: process.env.MANAGER_DASHBOARD_URL,
+    PAYROLL: process.env.PAYROLL_DASHBOARD_URL,
+  };
+
+  // Which dashboards can this user access?
+  const dashboardRoles = roles.filter(r => ROLE_DASHBOARDS[r]);
+
+  let destination: string;
+  if (dashboardRoles.length === 1) {
+    // Single role — go straight to that dashboard
+    destination = ROLE_DASHBOARDS[dashboardRoles[0]]!;
+  } else {
+    // Multiple roles or none — show the picker
+    destination = "/landing";
   }
 
-  const headers = new Headers({ Location: destination });
+  const url = new URL(destination, req.url);
+  if (token) url.searchParams.set("session_token", token);
+  if (dashboardRoles.length > 1) url.searchParams.set("roles", dashboardRoles.join(","));
+
+  const headers = new Headers({ Location: url.toString() });
   if (setCookie) headers.set("Set-Cookie", setCookie);
   return new Response(null, { status: 303, headers });
 }

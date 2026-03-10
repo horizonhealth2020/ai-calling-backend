@@ -12,6 +12,7 @@
     "paths": {
       "@ops/db": ["packages/db/src"],
       "@ops/auth": ["packages/auth/src"],
+      "@ops/auth/client": ["packages/auth/src/client"],
       "@ops/types": ["packages/types/src"],
       "@ops/utils": ["packages/utils/src"],
       "@ops/ui": ["packages/ui/src"]

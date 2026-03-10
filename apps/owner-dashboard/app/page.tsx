@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { PageShell } from "@ops/ui";
+import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Tab = "overview" | "users";
@@ -152,10 +153,11 @@ export default function OwnerDashboard() {
 
   const fetchData = useCallback((r: Range) => {
     setLoading(true);
+    captureTokenFromUrl();
     Promise.all([
-      fetch(`${API}/api/owner/summary?range=${r}`, { credentials: "include" }).then(res => res.ok ? res.json() : null),
-      fetch(`${API}/api/tracker/summary?range=${r}`, { credentials: "include" }).then(res => res.ok ? res.json() : []),
-      fetch(`${API}/api/session/me`, { credentials: "include" }).then(res => res.ok ? res.json() : null),
+      authFetch(`${API}/api/owner/summary?range=${r}`).then(res => res.ok ? res.json() : null),
+      authFetch(`${API}/api/tracker/summary?range=${r}`).then(res => res.ok ? res.json() : []),
+      authFetch(`${API}/api/session/me`).then(res => res.ok ? res.json() : null),
     ]).then(([s, t, me]) => {
       setSummary(s);
       setTracker(t);
@@ -168,14 +170,14 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     if (tab === "users" && !usersLoaded && isSuperAdmin) {
-      fetch(`${API}/api/users`, { credentials: "include" })
+      authFetch(`${API}/api/users`)
         .then(r => r.ok ? r.json() : [])
         .then(u => { setUsers(u); setUsersLoaded(true); });
     }
   }, [tab, isSuperAdmin, usersLoaded]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {
-    const res = await fetch(`${API}/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
+    const res = await authFetch(`${API}/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
     if (res.ok) { const u = await res.json(); setUsers(prev => prev.map(x => x.id === id ? u : x)); return null; }
     const err = await res.json().catch(() => ({}));
     return err.error ?? "Failed to save";
@@ -183,7 +185,7 @@ export default function OwnerDashboard() {
 
   async function createUser(e: FormEvent) {
     e.preventDefault(); setCreateMsg("");
-    const res = await fetch(`${API}/api/users`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(newUser) });
+    const res = await authFetch(`${API}/api/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newUser) });
     if (res.ok) {
       const u = await res.json();
       setUsers(prev => [u, ...prev]);
