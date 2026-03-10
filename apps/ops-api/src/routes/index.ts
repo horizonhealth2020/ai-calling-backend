@@ -168,4 +168,90 @@ router.get("/sales-board/summary", async (_req, res) => {
   res.json({ daily: fmt(daily), weekly: fmt(weekly) });
 });
 
+router.get("/sales-board/detailed", async (_req, res) => {
+  const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
+  const agentNames = agents.map((a) => a.name);
+  const agentMap = new Map(agents.map((a) => [a.id, a.name]));
+
+  // Get Monday of the current week (ISO: Mon=1)
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun,1=Mon...6=Sat
+  const diffToMon = day === 0 ? 6 : day - 1;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMon);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 7);
+
+  // Today boundaries
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayStart.getDate() + 1);
+
+  // Fetch all sales for the current week
+  const sales = await prisma.sale.findMany({
+    where: { saleDate: { gte: monday, lt: sunday } },
+    select: { agentId: true, saleDate: true, premium: true },
+  });
+
+  // Build per-day, per-agent breakdown for weekly view
+  const dayLabels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const weeklyDays = dayLabels.map((label, idx) => {
+    const dayStart = new Date(monday);
+    dayStart.setDate(monday.getDate() + idx);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+
+    const daySales: Record<string, { count: number; premium: number }> = {};
+    let totalSales = 0;
+    let totalPremium = 0;
+
+    for (const s of sales) {
+      const sd = new Date(s.saleDate);
+      if (sd >= dayStart && sd < dayEnd) {
+        const name = agentMap.get(s.agentId) ?? s.agentId;
+        if (!daySales[name]) daySales[name] = { count: 0, premium: 0 };
+        daySales[name].count++;
+        daySales[name].premium += Number(s.premium ?? 0);
+        totalSales++;
+        totalPremium += Number(s.premium ?? 0);
+      }
+    }
+
+    return { label, agents: daySales, totalSales, totalPremium };
+  });
+
+  // Weekly totals per agent
+  const weeklyTotals: Record<string, { count: number; premium: number }> = {};
+  let grandTotalSales = 0;
+  let grandTotalPremium = 0;
+  for (const s of sales) {
+    const name = agentMap.get(s.agentId) ?? s.agentId;
+    if (!weeklyTotals[name]) weeklyTotals[name] = { count: 0, premium: 0 };
+    weeklyTotals[name].count++;
+    weeklyTotals[name].premium += Number(s.premium ?? 0);
+    grandTotalSales++;
+    grandTotalPremium += Number(s.premium ?? 0);
+  }
+
+  // Daily view: today stats per agent
+  const todayStats: Record<string, { count: number; premium: number }> = {};
+  for (const s of sales) {
+    const sd = new Date(s.saleDate);
+    if (sd >= todayStart && sd < todayEnd) {
+      const name = agentMap.get(s.agentId) ?? s.agentId;
+      if (!todayStats[name]) todayStats[name] = { count: 0, premium: 0 };
+      todayStats[name].count++;
+      todayStats[name].premium += Number(s.premium ?? 0);
+    }
+  }
+
+  res.json({
+    agents: agentNames,
+    weeklyDays,
+    weeklyTotals,
+    grandTotalSales,
+    grandTotalPremium,
+    todayStats,
+  });
+});
+
 export default router;
