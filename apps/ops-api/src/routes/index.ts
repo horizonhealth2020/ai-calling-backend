@@ -106,6 +106,11 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler
   return res.json(user);
 }));
 
+router.delete("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await prisma.user.delete({ where: { id: req.params.id } });
+  return res.status(204).end();
+}));
+
 router.get("/agents", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } }))));
 
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {

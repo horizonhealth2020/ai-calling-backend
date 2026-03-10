@@ -134,8 +134,8 @@ export default function PayrollDashboard() {
   useEffect(() => {
     captureTokenFromUrl();
     Promise.all([
-      authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []),
-      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []),
+      authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
     ]).then(([p, prod]) => { setPeriods(p); setProducts(prod); setLoading(false); });
   }, []);
 
