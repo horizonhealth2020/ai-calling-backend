@@ -58,27 +58,6 @@ router.post("/auth/logout", (_req, res) => {
   return res.status(204).end();
 });
 
-// ── Bootstrap seed endpoint (creates/resets default users) ──
-router.post("/auth/seed", asyncHandler(async (_req, res) => {
-  const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
-  const users: [string, string, string[]][] = [
-    ["Juan A", "juan.a@horizon.com", ["SUPER_ADMIN"]],
-    ["Nick D", "nick.d@horizon.com", ["MANAGER"]],
-    ["Mike F", "mike.f@horizon.com", ["OWNER_VIEW"]],
-    ["Payroll User", "payroll@example.com", ["PAYROLL"]],
-  ];
-  const results = [];
-  for (const [name, email, roles] of users) {
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: { name, roles, passwordHash, active: true },
-      create: { name, email, roles, passwordHash, active: true },
-    });
-    results.push({ id: user.id, email: user.email, roles: user.roles });
-  }
-  res.json({ message: "Seed complete", users: results });
-}));
-
 router.get("/session/me", requireAuth, asyncHandler(async (req, res) => {
   res.json(req.user);
 }));
