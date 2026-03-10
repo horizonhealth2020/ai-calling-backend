@@ -1,13 +1,15 @@
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const email = String(form.get("email"));
-  const password = String(form.get("password"));
+  const { email, password } = await req.json();
+
   const response = await fetch(`${process.env.NEXT_PUBLIC_OPS_API_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  if (!response.ok) return new Response("Invalid credentials", { status: 401 });
+
+  if (!response.ok) {
+    return Response.json({ error: "Invalid credentials" }, { status: 401 });
+  }
 
   const setCookie = response.headers.get("set-cookie");
   const user = await response.json();
@@ -27,18 +29,19 @@ export async function POST(req: Request) {
 
   let destination: string;
   if (dashboardRoles.length === 1) {
-    // Single role — go straight to that dashboard
     destination = ROLE_DASHBOARDS[dashboardRoles[0]]!;
   } else {
     // Multiple roles or none — show the picker
-    destination = "/landing";
+    const base = process.env.AUTH_PORTAL_URL || req.url;
+    destination = new URL("/landing", base).toString();
   }
 
-  const url = new URL(destination, req.url);
+  const url = new URL(destination);
   if (token) url.searchParams.set("session_token", token);
   if (dashboardRoles.length > 1) url.searchParams.set("roles", dashboardRoles.join(","));
 
-  const headers = new Headers({ Location: url.toString() });
+  const headers = new Headers({ "Content-Type": "application/json" });
   if (setCookie) headers.set("Set-Cookie", setCookie);
-  return new Response(null, { status: 303, headers });
+
+  return new Response(JSON.stringify({ redirect: url.toString() }), { status: 200, headers });
 }
