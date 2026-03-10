@@ -70,6 +70,20 @@ router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADM
 
 router.get("/products", requireAuth, async (_req, res) => res.json(await prisma.product.findMany()));
 
+router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1), notes: z.string().optional() });
+  const data = schema.parse(req.body);
+  const product = await prisma.product.create({ data });
+  res.status(201).json(product);
+});
+
+router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1).optional(), active: z.boolean().optional(), notes: z.string().nullable().optional() });
+  const data = schema.parse(req.body);
+  const product = await prisma.product.update({ where: { id: req.params.id }, data });
+  res.json(product);
+});
+
 router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
   const schema = z.object({
     saleDate: z.string(),

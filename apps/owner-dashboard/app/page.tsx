@@ -35,7 +35,7 @@ export default function OwnerDashboard() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 32 }}>
         <StatCard label="Total Sales" value={summary?.salesCount ?? "—"} />
         <StatCard label="Premium Total" value={fmt.format(Number(summary?.premiumTotal ?? 0))} color="#16a34a" />
-        <StatCard label="Clawbacks" value={summary?.clawbacks ?? "—"} color="#dc2626" />
+        <StatCard label="Chargebacks" value={summary?.clawbacks ?? "—"} color="#dc2626" />
         <StatCard label="Open Payroll Periods" value={summary?.openPayrollPeriods ?? "—"} color="#d97706" />
       </div>
 
