@@ -19,7 +19,15 @@ const ROLE_ACCESS: Record<string, string[]> = {
 };
 
 export function getAuthTokenFromRequest(request: NextRequest): string | null {
-  return request.cookies.get(AUTH_COOKIE_NAME)?.value ?? null;
+  // Check Authorization header first, then cookie, then query param
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+  const cookieToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (cookieToken) return cookieToken;
+  // Fall back to query param (used for cross-domain redirects from auth-portal)
+  return request.nextUrl.searchParams.get("session_token");
 }
 
 export async function verifyUser(token: string): Promise<VerifyResponse> {

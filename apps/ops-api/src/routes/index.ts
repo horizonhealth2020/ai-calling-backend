@@ -50,7 +50,7 @@ router.post("/auth/login", asyncHandler(async (req, res) => {
   }
   const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as any });
   res.setHeader("Set-Cookie", buildSessionCookie(token));
-  return res.json({ id: user.id, roles: user.roles, name: user.name });
+  return res.json({ id: user.id, roles: user.roles, name: user.name, token });
 }));
 
 router.post("/auth/logout", (_req, res) => {

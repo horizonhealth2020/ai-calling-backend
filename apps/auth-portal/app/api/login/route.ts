@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   const setCookie = response.headers.get("set-cookie");
   const user = await response.json();
   const roles: string[] = user.roles ?? [];
+  const token: string = user.token ?? "";
 
   // Determine redirect target based on roles
   let destination = "/landing";
@@ -24,7 +25,11 @@ export async function POST(req: Request) {
     destination = process.env.PAYROLL_DASHBOARD_URL || "https://payroll.example.com";
   }
 
-  const headers = new Headers({ Location: destination });
+  // Append token as query param so cross-domain dashboards can store it
+  const url = new URL(destination, req.url);
+  if (token) url.searchParams.set("session_token", token);
+
+  const headers = new Headers({ Location: url.toString() });
   if (setCookie) headers.set("Set-Cookie", setCookie);
   return new Response(null, { status: 303, headers });
 }
