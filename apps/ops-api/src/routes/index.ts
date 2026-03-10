@@ -222,7 +222,6 @@ router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL"
   await upsertPayrollEntryForSale(sale.id);
   res.json(sale);
 });
-});
 
 router.get("/tracker/summary", requireAuth, async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
