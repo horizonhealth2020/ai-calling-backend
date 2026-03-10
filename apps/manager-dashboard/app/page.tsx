@@ -4,11 +4,13 @@ import { PageShell } from "@ops/ui";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-type Tab = "sales" | "tracker" | "audits" | "config";
+type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config";
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number };
 type Product = { id: string; name: string; active: boolean };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
 const INP: React.CSSProperties = { padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box" };
 const LBL: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4, display: "block" };
@@ -50,16 +52,16 @@ function parseReceipt(text: string) {
 // ── Editable row components ─────────────────────────────────────────
 function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: Partial<Agent>) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
-  const [d, setD] = useState({ name: agent.name, email: agent.email ?? "", userId: agent.userId ?? "", extension: agent.extension ?? "" });
+  const [d, setD] = useState({ name: agent.name, email: agent.email ?? "", extension: agent.extension ?? "" });
   const [saving, setSaving] = useState(false);
   if (!edit) return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: 14 }}>{agent.name}</div>
         <div style={{ fontSize: 12, color: "#6b7280" }}>
-          {agent.userId ? `User ID: ${agent.userId}` : ""}
-          {agent.userId && agent.extension ? " · " : ""}
-          {agent.extension ? `Ext: ${agent.extension}` : ""}
+          {agent.email ? `CRM User ID: ${agent.email}` : ""}
+          {agent.email && agent.extension ? " · " : ""}
+          {agent.extension ? `Tracking: ${agent.extension}` : ""}
         </div>
       </div>
       <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer" }}>Edit</button>
@@ -68,8 +70,8 @@ function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: 
   return (
     <div style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6", display: "grid", gap: 8 }}>
       <input style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
-      <input style={INP} value={d.userId} placeholder="User ID" onChange={e => setD(x => ({ ...x, userId: e.target.value }))} />
-      <input style={INP} value={d.extension} placeholder="Extension" onChange={e => setD(x => ({ ...x, extension: e.target.value }))} />
+      <input style={INP} value={d.email} placeholder="CRM User ID" onChange={e => setD(x => ({ ...x, email: e.target.value }))} />
+      <input style={INP} value={d.extension} placeholder="Tracking Extension" onChange={e => setD(x => ({ ...x, extension: e.target.value }))} />
       <div style={{ display: "flex", gap: 8 }}>
         <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(agent.id, d); setEdit(false); setSaving(false); }}>Save</button>
         <button onClick={() => setEdit(false)} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Cancel</button>
@@ -111,6 +113,8 @@ export default function ManagerDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
+  const [salesList, setSalesList] = useState<Sale[]>([]);
+  const [salesDay, setSalesDay] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
@@ -121,7 +125,7 @@ export default function ManagerDashboard() {
   const [parsed, setParsed] = useState(false);
 
   // Config new-item forms
-  const [newAgent, setNewAgent] = useState({ name: "", email: "", userId: "", extension: "" });
+  const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
   const [cfgMsg, setCfgMsg] = useState("");
 
@@ -132,8 +136,9 @@ export default function ManagerDashboard() {
       fetch(`${API}/api/products`, o).then(r => r.ok ? r.json() : []),
       fetch(`${API}/api/lead-sources`, o).then(r => r.ok ? r.json() : []),
       fetch(`${API}/api/tracker/summary`, o).then(r => r.ok ? r.json() : []),
-    ]).then(([a, p, ls, tr]) => {
-      setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr);
+      fetch(`${API}/api/sales?range=week`, o).then(r => r.ok ? r.json() : []),
+    ]).then(([a, p, ls, tr, sl]) => {
+      setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr); setSalesList(sl);
       setForm(f => ({ ...f, agentId: a[0]?.id ?? "", productId: p[0]?.id ?? "", leadSourceId: ls[0]?.id ?? "" }));
       setLoading(false);
     });
@@ -159,6 +164,7 @@ export default function ManagerDashboard() {
       setMsg("Sale submitted successfully");
       clearReceipt();
       fetch(`${API}/api/tracker/summary`, { credentials: "include" }).then(r => r.json()).then(setTracker);
+      fetch(`${API}/api/sales?range=week`, { credentials: "include" }).then(r => r.json()).then(setSalesList);
     } else {
       const err = await res.json().catch(() => ({}));
       setMsg(`Error: ${err.error ?? "Submission failed"}`);
@@ -173,7 +179,7 @@ export default function ManagerDashboard() {
   async function addAgent(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     const res = await fetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...newAgent, costPerLead: undefined }) });
-    if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", userId: "", extension: "" }); setCfgMsg("Agent added"); }
+    if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgMsg("Agent added"); }
     else setCfgMsg("Error adding agent");
   }
 
@@ -194,9 +200,9 @@ export default function ManagerDashboard() {
   return (
     <PageShell title="Manager Dashboard">
       <nav style={{ display: "flex", borderBottom: "1px solid #e5e7eb", marginBottom: 24 }}>
-        {(["sales", "tracker", "audits", "config"] as Tab[]).map(t => (
+        {(["sales", "tracker", "agent-sales", "audits", "config"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>
-            {{ sales: "Sales Entry", tracker: "Agent Tracker", audits: "Call Audits", config: "Config" }[t]}
+            {{ sales: "Sales Entry", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config" }[t]}
           </button>
         ))}
       </nav>
@@ -311,6 +317,74 @@ export default function ManagerDashboard() {
         </table>
       )}
 
+      {/* ── Agent Sales ── */}
+      {tab === "agent-sales" && (() => {
+        const getDayOfWeek = (dateStr: string) => {
+          const d = new Date(dateStr + "T12:00:00");
+          const jsDay = d.getDay(); // 0=Sun
+          return jsDay === 0 ? 6 : jsDay - 1; // convert to 0=Mon..6=Sun
+        };
+        const filtered = salesDay === "all"
+          ? salesList
+          : salesList.filter(s => getDayOfWeek(s.saleDate.slice(0, 10)) === DAYS.indexOf(salesDay as typeof DAYS[number]));
+
+        // Group by agent
+        const byAgent = new Map<string, Sale[]>();
+        for (const s of filtered) {
+          const name = s.agent.name;
+          if (!byAgent.has(name)) byAgent.set(name, []);
+          byAgent.get(name)!.push(s);
+        }
+
+        return (
+          <div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              <button style={{ ...tabBtn(salesDay === "all"), borderBottom: salesDay === "all" ? "2px solid #2563eb" : "2px solid transparent" }} onClick={() => setSalesDay("all")}>All Week</button>
+              {DAYS.map(day => (
+                <button key={day} style={{ ...tabBtn(salesDay === day), borderBottom: salesDay === day ? "2px solid #2563eb" : "2px solid transparent" }} onClick={() => setSalesDay(day)}>{day}</button>
+              ))}
+            </div>
+
+            {byAgent.size === 0 && <div style={CARD}><p style={{ color: "#9ca3af", margin: 0 }}>No sales for this period</p></div>}
+
+            {[...byAgent.entries()].map(([agentName, sales]) => (
+              <div key={agentName} style={{ ...CARD, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{agentName}</h3>
+                  <span style={{ fontSize: 13, color: "#6b7280" }}>{sales.length} sale{sales.length !== 1 ? "s" : ""} · ${sales.reduce((s, x) => s + Number(x.premium), 0).toFixed(2)} premium</span>
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead><tr style={{ background: "#f9fafb" }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Date</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Member</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Carrier</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Product</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Lead Source</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600 }}>Premium</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600 }}>Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {sales.map(s => (
+                      <tr key={s.id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "8px 12px" }}>{new Date(s.saleDate).toLocaleDateString()}</td>
+                        <td style={{ padding: "8px 12px" }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
+                        <td style={{ padding: "8px 12px" }}>{s.carrier}</td>
+                        <td style={{ padding: "8px 12px" }}>{s.product.name}</td>
+                        <td style={{ padding: "8px 12px" }}>{s.leadSource.name}</td>
+                        <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>${Number(s.premium).toFixed(2)}</td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          <span style={{ padding: "2px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 600, background: s.status === "APPROVED" ? "#dcfce7" : s.status === "REJECTED" ? "#fee2e2" : s.status === "CANCELLED" ? "#f3f4f6" : "#fef9c3", color: s.status === "APPROVED" ? "#166534" : s.status === "REJECTED" ? "#991b1b" : s.status === "CANCELLED" ? "#6b7280" : "#854d0e" }}>{s.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* ── Call Audits ── */}
       {tab === "audits" && <div style={CARD}><p style={{ color: "#6b7280", margin: 0 }}>Call audit records will appear here once added via the API.</p></div>}
 
@@ -325,8 +399,8 @@ export default function ManagerDashboard() {
             <form onSubmit={addAgent} style={{ marginTop: 16, display: "grid", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Add Agent</div>
               <input style={INP} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
-              <input style={INP} value={newAgent.userId} placeholder="User ID" onChange={e => setNewAgent(x => ({ ...x, userId: e.target.value }))} />
-              <input style={INP} value={newAgent.extension} placeholder="Extension" onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
+              <input style={INP} value={newAgent.email} placeholder="CRM User ID" onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
+              <input style={INP} value={newAgent.extension} placeholder="Tracking Extension" onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
               <button type="submit" style={BTN("#059669")}>Add Agent</button>
             </form>
           </div>

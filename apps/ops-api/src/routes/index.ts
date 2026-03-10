@@ -138,6 +138,17 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
   res.status(201).json(sale);
 });
 
+router.get("/sales", requireAuth, async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
+  const sales = await prisma.sale.findMany({
+    where,
+    include: { agent: true, product: true, leadSource: true },
+    orderBy: { saleDate: "desc" },
+  });
+  res.json(sales);
+});
+
 router.get("/tracker/summary", requireAuth, async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
