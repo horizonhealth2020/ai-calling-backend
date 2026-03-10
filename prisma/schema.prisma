@@ -44,14 +44,20 @@ enum ClawbackStatus {
   ZEROED
 }
 
+enum ProductType {
+  CORE
+  ADDON
+  AD_D
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
   username     String?
-  passwordHash String   @map("password_hash")
-  role         UserRole
-  active       Boolean  @default(true)
+  passwordHash String     @map("password_hash")
+  roles        UserRole[] @default([])
+  active       Boolean    @default(true)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -97,15 +103,22 @@ model LeadSource {
 }
 
 model Product {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  active    Boolean  @default(true)
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                    String      @id @default(cuid())
+  name                  String      @unique
+  active                Boolean     @default(true)
+  type                  ProductType @default(CORE)
+  premiumThreshold      Decimal?    @db.Decimal(12, 2) @map("premium_threshold")
+  commissionBelow       Decimal?    @db.Decimal(5, 2) @map("commission_below")
+  commissionAbove       Decimal?    @db.Decimal(5, 2) @map("commission_above")
+  bundledCommission     Decimal?    @db.Decimal(5, 2) @map("bundled_commission")
+  standaloneCommission  Decimal?    @db.Decimal(5, 2) @map("standalone_commission")
+  notes                 String?
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
 
   sales       Sale[]
   payoutRules PayoutRule[]
+  saleAddons  SaleAddon[]
 
   @@map("products")
 }
@@ -129,12 +142,16 @@ model Sale {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
+  enrollmentFee     Decimal?        @db.Decimal(10, 2) @map("enrollment_fee")
+  commissionApproved Boolean        @default(false) @map("commission_approved")
+
   agent         Agent         @relation(fields: [agentId], references: [id])
   product       Product       @relation(fields: [productId], references: [id])
   leadSource    LeadSource    @relation(fields: [leadSourceId], references: [id])
   enteredByUser User          @relation("SaleEnteredBy", fields: [enteredByUserId], references: [id])
   payrollEntries PayrollEntry[]
   clawbacks      Clawback[]
+  addons         SaleAddon[]
 
   @@index([saleDate])
   @@index([memberId])
@@ -209,6 +226,19 @@ model PayrollEntry {
 
   @@unique([payrollPeriodId, saleId])
   @@map("payroll_entries")
+}
+
+model SaleAddon {
+  id        String   @id @default(cuid())
+  saleId    String   @map("sale_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sale    Sale    @relation(fields: [saleId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([saleId, productId])
+  @@map("sale_addons")
 }
 
 model Clawback {

@@ -5,7 +5,7 @@ import type { AppRole } from "@ops/types";
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: string; role: AppRole; email: string; name: string };
+      user?: { id: string; roles: AppRole[]; email: string; name: string };
     }
   }
 }
@@ -19,6 +19,10 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 };
 
 export const requireRole = (...roles: AppRole[]) => (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  const userRoles = req.user.roles ?? [];
+  // SUPER_ADMIN bypasses all role checks
+  if (userRoles.includes("SUPER_ADMIN")) return next();
+  if (!roles.some(r => userRoles.includes(r))) return res.status(403).json({ error: "Forbidden" });
   return next();
 };
