@@ -185,8 +185,9 @@ model PayrollPeriod {
   createdAt    DateTime            @default(now()) @map("created_at")
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
-  entries    PayrollEntry[]
-  clawbacks  Clawback[]
+  entries         PayrollEntry[]
+  serviceEntries  ServicePayrollEntry[]
+  clawbacks       Clawback[]
 
   @@map("payroll_periods")
 }
@@ -214,6 +215,8 @@ model PayrollEntry {
   agentId         String             @map("agent_id")
   payoutAmount    Decimal            @db.Decimal(12, 2) @map("payout_amount")
   adjustmentAmount Decimal           @db.Decimal(12, 2) @default(0) @map("adjustment_amount")
+  bonusAmount     Decimal            @db.Decimal(12, 2) @default(0) @map("bonus_amount")
+  frontedAmount   Decimal            @db.Decimal(12, 2) @default(0) @map("fronted_amount")
   netAmount       Decimal            @db.Decimal(12, 2) @map("net_amount")
   status          PayrollEntryStatus @default(PENDING)
   paidAt          DateTime?          @map("paid_at")
@@ -269,6 +272,39 @@ model SalesBoardSetting {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("sales_board_settings")
+}
+
+model ServiceAgent {
+  id        String   @id @default(cuid())
+  name      String
+  basePay   Decimal  @db.Decimal(12, 2) @map("base_pay")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payrollEntries ServicePayrollEntry[]
+
+  @@map("service_agents")
+}
+
+model ServicePayrollEntry {
+  id              String             @id @default(cuid())
+  serviceAgentId  String             @map("service_agent_id")
+  payrollPeriodId String             @map("payroll_period_id")
+  basePay         Decimal            @db.Decimal(12, 2) @map("base_pay")
+  bonusAmount     Decimal            @db.Decimal(12, 2) @default(0) @map("bonus_amount")
+  totalPay        Decimal            @db.Decimal(12, 2) @map("total_pay")
+  status          PayrollEntryStatus @default(PENDING)
+  notes           String?
+  paidAt          DateTime?          @map("paid_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  serviceAgent  ServiceAgent  @relation(fields: [serviceAgentId], references: [id])
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+
+  @@unique([payrollPeriodId, serviceAgentId])
+  @@map("service_payroll_entries")
 }
 
 model AppAuditLog {

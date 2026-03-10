@@ -259,6 +259,30 @@ router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
   res.json(sales);
 }));
 
+router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    memberName: z.string().min(1).optional(),
+    memberId: z.string().nullable().optional(),
+    carrier: z.string().min(1).optional(),
+    premium: z.number().optional(),
+    enrollmentFee: z.number().nullable().optional(),
+    status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).optional(),
+    notes: z.string().nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const sale = await prisma.sale.update({
+    where: { id: req.params.id },
+    data: parsed.data,
+    include: { agent: true, product: true, leadSource: true },
+  });
+  // Recalculate commission if premium or enrollment fee changed
+  if (parsed.data.premium !== undefined || parsed.data.enrollmentFee !== undefined) {
+    await upsertPayrollEntryForSale(sale.id);
+  }
+  res.json(sale);
+}));
+
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const sale = await prisma.sale.update({
     where: { id: req.params.id },
@@ -299,8 +323,13 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
     include: {
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { name: true, type: true } } } },
           agent: { select: { name: true } },
+        },
+      },
+      serviceEntries: {
+        include: {
+          serviceAgent: { select: { name: true, basePay: true } },
         },
       },
     },
@@ -337,6 +366,89 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
     });
   }
   res.status(201).json(clawback);
+}));
+
+// ── Payroll Entry adjustments (bonus / fronted) ─────────────────
+router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    bonusAmount: z.number().optional(),
+    frontedAmount: z.number().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const entry = await prisma.payrollEntry.findUnique({ where: { id: req.params.id } });
+  if (!entry) return res.status(404).json({ error: "Entry not found" });
+  const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
+  const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
+  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted;
+  const updated = await prisma.payrollEntry.update({
+    where: { id: req.params.id },
+    data: { bonusAmount: bonus, frontedAmount: fronted, netAmount: net },
+    include: { sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } }, agent: { select: { name: true } } },
+  });
+  res.json(updated);
+}));
+
+// ── Service Agents ──────────────────────────────────────────────
+router.get("/service-agents", requireAuth, asyncHandler(async (_req, res) => {
+  res.json(await prisma.serviceAgent.findMany({ orderBy: { name: "asc" } }));
+}));
+
+router.post("/service-agents", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ name: z.string().min(1), basePay: z.number() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const agent = await prisma.serviceAgent.create({ data: parsed.data });
+  res.status(201).json(agent);
+}));
+
+router.patch("/service-agents/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ name: z.string().min(1).optional(), basePay: z.number().optional(), active: z.boolean().optional() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const agent = await prisma.serviceAgent.update({ where: { id: req.params.id }, data: parsed.data });
+  res.json(agent);
+}));
+
+// ── Service Payroll Entries ─────────────────────────────────────
+router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  res.json(await prisma.servicePayrollEntry.findMany({
+    include: { serviceAgent: true, payrollPeriod: true },
+    orderBy: { createdAt: "desc" },
+  }));
+}));
+
+router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ serviceAgentId: z.string(), payrollPeriodId: z.string(), bonusAmount: z.number().default(0), notes: z.string().optional() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
+  if (!agent) return res.status(404).json({ error: "Service agent not found" });
+  const basePay = Number(agent.basePay);
+  const totalPay = basePay + parsed.data.bonusAmount;
+  const entry = await prisma.servicePayrollEntry.upsert({
+    where: { payrollPeriodId_serviceAgentId: { payrollPeriodId: parsed.data.payrollPeriodId, serviceAgentId: parsed.data.serviceAgentId } },
+    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount: parsed.data.bonusAmount, totalPay, notes: parsed.data.notes },
+    update: { bonusAmount: parsed.data.bonusAmount, totalPay, notes: parsed.data.notes },
+    include: { serviceAgent: true },
+  });
+  res.status(201).json(entry);
+}));
+
+router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ bonusAmount: z.number().optional(), notes: z.string().nullable().optional() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: req.params.id }, include: { serviceAgent: true } });
+  if (!entry) return res.status(404).json({ error: "Entry not found" });
+  const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
+  const totalPay = Number(entry.basePay) + bonus;
+  const updated = await prisma.servicePayrollEntry.update({
+    where: { id: req.params.id },
+    data: { bonusAmount: bonus, totalPay, notes: parsed.data.notes ?? entry.notes },
+    include: { serviceAgent: true },
+  });
+  res.json(updated);
 }));
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
