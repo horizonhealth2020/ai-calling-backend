@@ -203,6 +203,17 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
   res.status(201).json(sale);
 });
 
+router.get("/sales", requireAuth, async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
+  const sales = await prisma.sale.findMany({
+    where,
+    include: { agent: true, product: true, leadSource: true },
+    orderBy: { saleDate: "desc" },
+  });
+  res.json(sales);
+});
+
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
   const sale = await prisma.sale.update({
     where: { id: req.params.id },
@@ -210,6 +221,7 @@ router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL"
   });
   await upsertPayrollEntryForSale(sale.id);
   res.json(sale);
+});
 });
 
 router.get("/tracker/summary", requireAuth, async (req, res) => {
