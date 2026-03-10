@@ -43,56 +43,72 @@ const totalRowStyle: React.CSSProperties = {
   borderBottom: "2px solid #475569",
 };
 
+const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
 function WeeklyView({ data }: { data: DetailedData }) {
   const { agents, weeklyDays, weeklyTotals, grandTotalSales, grandTotalPremium } = data;
+
+  // Build a lookup: dayLabel -> DayRow for quick access
+  const dayMap: Record<string, DayRow> = {};
+  for (const d of weeklyDays) dayMap[d.label] = d;
 
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", background: "#0f172a" }}>
         <thead>
           <tr>
-            <th style={{ ...headerCellStyle, textAlign: "left", minWidth: 120 }}>Day</th>
-            {agents.map((a) => (
-              <th key={a} style={{ ...headerCellStyle, minWidth: 120 }}>{a}</th>
+            <th style={{ ...headerCellStyle, textAlign: "left", minWidth: 140 }}>Agent</th>
+            {WEEK_DAYS.map((day) => (
+              <th key={day} style={{ ...headerCellStyle, minWidth: 110 }}>{day}</th>
             ))}
             <th style={{ ...headerCellStyle, minWidth: 110, color: "#f59e0b" }}>Total Sales</th>
             <th style={{ ...headerCellStyle, minWidth: 130, color: "#f59e0b" }}>Total Premium</th>
           </tr>
         </thead>
         <tbody>
-          {weeklyDays.map((day) => (
-            <tr key={day.label} style={{ transition: "background 0.15s" }}>
-              <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>{day.label}</td>
-              {agents.map((a) => {
-                const stat = day.agents[a];
-                return (
-                  <td key={a} style={cellStyle}>
-                    {stat ? (
-                      <>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: "#34d399" }}>{stat.count}</div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{fmt$(stat.premium)}</div>
-                      </>
-                    ) : (
-                      <span style={{ color: "#334155" }}>—</span>
-                    )}
-                  </td>
-                );
-              })}
-              <td style={{ ...cellStyle, fontWeight: 800, fontSize: 18, color: "#34d399" }}>{day.totalSales}</td>
-              <td style={{ ...cellStyle, fontWeight: 700, color: "#f1f5f9" }}>{fmt$(day.totalPremium)}</td>
-            </tr>
-          ))}
+          {agents.map((agent) => {
+            let agentTotalSales = 0;
+            let agentTotalPremium = 0;
+            const totalStat = weeklyTotals[agent];
+            if (totalStat) {
+              agentTotalSales = totalStat.count;
+              agentTotalPremium = totalStat.premium;
+            }
+            return (
+              <tr key={agent} style={{ transition: "background 0.15s" }}>
+                <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>{agent}</td>
+                {WEEK_DAYS.map((day) => {
+                  const dayRow = dayMap[day];
+                  const stat = dayRow?.agents[agent];
+                  return (
+                    <td key={day} style={cellStyle}>
+                      {stat ? (
+                        <>
+                          <div style={{ fontSize: 20, fontWeight: 900, color: "#34d399" }}>{stat.count}</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{fmt$(stat.premium)}</div>
+                        </>
+                      ) : (
+                        <span style={{ color: "#334155" }}>—</span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td style={{ ...cellStyle, fontWeight: 800, fontSize: 18, color: "#34d399" }}>{agentTotalSales}</td>
+                <td style={{ ...cellStyle, fontWeight: 700, color: "#f1f5f9" }}>{fmt$(agentTotalPremium)}</td>
+              </tr>
+            );
+          })}
           {/* Totals row */}
           <tr>
             <td style={{ ...totalRowStyle, textAlign: "left", color: "#f59e0b" }}>TOTALS</td>
-            {agents.map((a) => {
-              const stat = weeklyTotals[a];
+            {WEEK_DAYS.map((day) => {
+              const dayRow = dayMap[day];
               return (
-                <td key={a} style={totalRowStyle}>
-                  {stat ? (
+                <td key={day} style={totalRowStyle}>
+                  {dayRow ? (
                     <>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: "#34d399" }}>{stat.count}</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{fmt$(stat.premium)}</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: "#34d399" }}>{dayRow.totalSales}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmt$(dayRow.totalPremium)}</div>
                     </>
                   ) : (
                     <span style={{ color: "#334155" }}>—</span>
@@ -117,71 +133,31 @@ function DailyView({ data }: { data: DetailedData }) {
       <table style={{ width: "100%", borderCollapse: "collapse", background: "#0f172a" }}>
         <thead>
           <tr>
-            <th style={{ ...headerCellStyle, textAlign: "left", minWidth: 140 }}>Metric</th>
-            {agents.map((a) => (
-              <th key={a} style={{ ...headerCellStyle, minWidth: 140 }}>{a}</th>
-            ))}
+            <th style={{ ...headerCellStyle, textAlign: "left", minWidth: 140 }}>Agent</th>
+            <th style={{ ...headerCellStyle, minWidth: 140 }}>Today</th>
+            <th style={{ ...headerCellStyle, minWidth: 140 }}>Week</th>
           </tr>
         </thead>
         <tbody>
-          {/* Today section */}
-          <tr>
-            <td colSpan={agents.length + 1} style={{ padding: "14px 16px", fontWeight: 900, fontSize: 16, color: "#f59e0b", background: "#1e293b", borderBottom: "2px solid #475569", letterSpacing: "0.03em" }}>
-              Today
-            </td>
-          </tr>
-          <tr>
-            <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>Total Sales</td>
-            {agents.map((a) => {
-              const stat = todayStats[a];
-              return (
-                <td key={a} style={cellStyle}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: "#34d399" }}>{stat?.count ?? 0}</div>
+          {agents.map((agent) => {
+            const todayStat = todayStats[agent];
+            const weekStat = weeklyTotals[agent];
+            return (
+              <tr key={agent} style={{ transition: "background 0.15s" }}>
+                <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>{agent}</td>
+                <td style={cellStyle}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "#34d399" }}>{todayStat?.count ?? 0}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                    {fmt$(todayStat && todayStat.count > 0 ? todayStat.premium / todayStat.count : 0)} avg
+                  </div>
                 </td>
-              );
-            })}
-          </tr>
-          <tr>
-            <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>Avg Premium</td>
-            {agents.map((a) => {
-              const stat = todayStats[a];
-              const avg = stat && stat.count > 0 ? stat.premium / stat.count : 0;
-              return (
-                <td key={a} style={cellStyle}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>{fmt$(avg)}</div>
+                <td style={cellStyle}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "#34d399" }}>{weekStat?.count ?? 0}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{fmt$(weekStat?.premium ?? 0)}</div>
                 </td>
-              );
-            })}
-          </tr>
-
-          {/* Week section */}
-          <tr>
-            <td colSpan={agents.length + 1} style={{ padding: "14px 16px", fontWeight: 900, fontSize: 16, color: "#f59e0b", background: "#1e293b", borderBottom: "2px solid #475569", borderTop: "2px solid #475569", letterSpacing: "0.03em" }}>
-              This Week
-            </td>
-          </tr>
-          <tr>
-            <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>Total Sales</td>
-            {agents.map((a) => {
-              const stat = weeklyTotals[a];
-              return (
-                <td key={a} style={cellStyle}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: "#34d399" }}>{stat?.count ?? 0}</div>
-                </td>
-              );
-            })}
-          </tr>
-          <tr>
-            <td style={{ ...cellStyle, textAlign: "left", fontWeight: 700, color: "#e2e8f0" }}>Total Premium</td>
-            {agents.map((a) => {
-              const stat = weeklyTotals[a];
-              return (
-                <td key={a} style={cellStyle}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>{fmt$(stat?.premium ?? 0)}</div>
-                </td>
-              );
-            })}
-          </tr>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
