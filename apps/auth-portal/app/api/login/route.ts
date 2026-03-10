@@ -36,27 +36,17 @@ export async function POST(req: Request) {
   const roles: string[] = user.roles ?? [];
   const token: string = user.token ?? "";
 
-  // Map roles to their dashboard URLs
-  const ROLE_DASHBOARDS: Record<string, string | undefined> = {
-    SUPER_ADMIN: process.env.OWNER_DASHBOARD_URL,
-    OWNER_VIEW: process.env.OWNER_DASHBOARD_URL,
-    MANAGER: process.env.MANAGER_DASHBOARD_URL,
-    PAYROLL: process.env.PAYROLL_DASHBOARD_URL,
-  };
+  // SUPER_ADMIN gets access to every dashboard
+  const effectiveRoles = roles.includes("SUPER_ADMIN")
+    ? ["SUPER_ADMIN", "MANAGER", "PAYROLL"]
+    : roles;
 
-  const dashboardRoles = roles.filter(r => ROLE_DASHBOARDS[r]);
-
-  let destination: string;
-  if (dashboardRoles.length === 1) {
-    destination = ROLE_DASHBOARDS[dashboardRoles[0]]!;
-  } else {
-    const base = process.env.AUTH_PORTAL_URL || req.url;
-    destination = new URL("/landing", base).toString();
-  }
+  const base = process.env.AUTH_PORTAL_URL || req.url;
+  const destination = new URL("/landing", base).toString();
 
   const url = new URL(destination);
   if (token) url.searchParams.set("session_token", token);
-  if (dashboardRoles.length > 1) url.searchParams.set("roles", dashboardRoles.join(","));
+  url.searchParams.set("roles", effectiveRoles.join(","));
 
   const headers = new Headers({ "Content-Type": "application/json" });
   if (setCookie) headers.set("Set-Cookie", setCookie);
