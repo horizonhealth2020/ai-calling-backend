@@ -11,24 +11,26 @@ export default function LoginPage() {
     setLoading(true);
 
     const form = new FormData(e.currentTarget);
+    const email = (form.get("email") as string).trim();
+    const password = form.get("password") as string;
 
-    const res = await fetch("/api/login", { method: "POST", body: form, redirect: "manual" });
-
-    if (res.status === 303) {
-      const location = res.headers.get("Location");
-      if (location) {
-        window.location.href = location;
-        return;
-      }
-    }
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
     if (!res.ok) {
-      setError("Invalid credentials. Please try again.");
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Invalid credentials. Please try again.");
       setLoading(false);
       return;
     }
 
-    setLoading(false);
+    const data = await res.json();
+    if (data.redirect) {
+      window.location.href = data.redirect;
+    }
   }
 
   return (
@@ -39,7 +41,7 @@ export default function LoginPage() {
           Enter your credentials to continue.
         </p>
 
-        <form action="/api/login" method="POST" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
             <label htmlFor="email" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>Email</label>
             <input
