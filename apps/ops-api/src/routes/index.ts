@@ -105,7 +105,7 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), async (req, 
 router.get("/agents", requireAuth, async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } })));
 
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
-  const schema = z.object({ name: z.string().min(1), email: z.string().email().optional(), userId: z.string().optional(), extension: z.string().optional() });
+  const schema = z.object({ name: z.string().min(1), email: z.string().optional(), userId: z.string().optional(), extension: z.string().optional() });
   const data = schema.parse(req.body);
   const count = await prisma.agent.count();
   const agent = await prisma.agent.create({ data: { ...data, displayOrder: count } });
@@ -113,7 +113,7 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
 });
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().email().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
   const data = schema.parse(req.body);
   const agent = await prisma.agent.update({ where: { id: req.params.id }, data });
   res.json(agent);
