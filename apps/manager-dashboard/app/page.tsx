@@ -5,10 +5,10 @@ import { PageShell } from "@ops/ui";
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type Tab = "sales" | "tracker" | "audits" | "config";
-type Agent = { id: string; name: string; email?: string; userId?: string; displayOrder: number };
+type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number };
 type Product = { id: string; name: string; active: boolean };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number };
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 
 const INP: React.CSSProperties = { padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box" };
 const LBL: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4, display: "block" };
@@ -50,13 +50,17 @@ function parseReceipt(text: string) {
 // ── Editable row components ─────────────────────────────────────────
 function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: Partial<Agent>) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
-  const [d, setD] = useState({ name: agent.name, email: agent.email ?? "", userId: agent.userId ?? "" });
+  const [d, setD] = useState({ name: agent.name, email: agent.email ?? "", userId: agent.userId ?? "", extension: agent.extension ?? "" });
   const [saving, setSaving] = useState(false);
   if (!edit) return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: 14 }}>{agent.name}</div>
-        {(agent.email || agent.userId) && <div style={{ fontSize: 12, color: "#6b7280" }}>{agent.email}{agent.email && agent.userId ? " · " : ""}{agent.userId ? `ID: ${agent.userId}` : ""}</div>}
+        <div style={{ fontSize: 12, color: "#6b7280" }}>
+          {agent.userId ? `User ID: ${agent.userId}` : ""}
+          {agent.userId && agent.extension ? " · " : ""}
+          {agent.extension ? `Ext: ${agent.extension}` : ""}
+        </div>
       </div>
       <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer" }}>Edit</button>
     </div>
@@ -64,8 +68,8 @@ function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: 
   return (
     <div style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6", display: "grid", gap: 8 }}>
       <input style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
-      <input style={INP} value={d.email} placeholder="Email" onChange={e => setD(x => ({ ...x, email: e.target.value }))} />
-      <input style={INP} value={d.userId} placeholder="CRM User ID" onChange={e => setD(x => ({ ...x, userId: e.target.value }))} />
+      <input style={INP} value={d.userId} placeholder="User ID" onChange={e => setD(x => ({ ...x, userId: e.target.value }))} />
+      <input style={INP} value={d.extension} placeholder="Extension" onChange={e => setD(x => ({ ...x, extension: e.target.value }))} />
       <div style={{ display: "flex", gap: 8 }}>
         <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(agent.id, d); setEdit(false); setSaving(false); }}>Save</button>
         <button onClick={() => setEdit(false)} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Cancel</button>
@@ -117,7 +121,7 @@ export default function ManagerDashboard() {
   const [parsed, setParsed] = useState(false);
 
   // Config new-item forms
-  const [newAgent, setNewAgent] = useState({ name: "", email: "", userId: "" });
+  const [newAgent, setNewAgent] = useState({ name: "", email: "", userId: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
   const [cfgMsg, setCfgMsg] = useState("");
 
@@ -169,7 +173,7 @@ export default function ManagerDashboard() {
   async function addAgent(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     const res = await fetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...newAgent, costPerLead: undefined }) });
-    if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", userId: "" }); setCfgMsg("Agent added"); }
+    if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", userId: "", extension: "" }); setCfgMsg("Agent added"); }
     else setCfgMsg("Error adding agent");
   }
 
@@ -290,6 +294,7 @@ export default function ManagerDashboard() {
             <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Agent</th>
             <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Total Sales</th>
             <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Premium Total</th>
+            <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Cost per Sale</th>
           </tr></thead>
           <tbody>
             {[...tracker].sort((a, b) => b.salesCount - a.salesCount).map((row, i) => (
@@ -298,9 +303,10 @@ export default function ManagerDashboard() {
                 <td style={{ padding: "10px 16px", fontWeight: 600 }}>{row.agent}</td>
                 <td style={{ padding: "10px 16px", textAlign: "right" }}>{row.salesCount}</td>
                 <td style={{ padding: "10px 16px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>${Number(row.premiumTotal).toFixed(2)}</td>
+                <td style={{ padding: "10px 16px", textAlign: "right", color: "#d97706", fontWeight: 600 }}>{row.costPerSale > 0 ? `$${Number(row.costPerSale).toFixed(2)}` : "—"}</td>
               </tr>
             ))}
-            {tracker.length === 0 && <tr><td colSpan={4} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No sales data yet</td></tr>}
+            {tracker.length === 0 && <tr><td colSpan={5} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No sales data yet</td></tr>}
           </tbody>
         </table>
       )}
@@ -319,8 +325,8 @@ export default function ManagerDashboard() {
             <form onSubmit={addAgent} style={{ marginTop: 16, display: "grid", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Add Agent</div>
               <input style={INP} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
-              <input style={INP} value={newAgent.email} placeholder="Email" onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
-              <input style={INP} value={newAgent.userId} placeholder="CRM User ID" onChange={e => setNewAgent(x => ({ ...x, userId: e.target.value }))} />
+              <input style={INP} value={newAgent.userId} placeholder="User ID" onChange={e => setNewAgent(x => ({ ...x, userId: e.target.value }))} />
+              <input style={INP} value={newAgent.extension} placeholder="Extension" onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
               <button type="submit" style={BTN("#059669")}>Add Agent</button>
             </form>
           </div>

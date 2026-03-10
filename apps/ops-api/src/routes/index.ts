@@ -38,7 +38,7 @@ router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), async (_req, res) 
 router.get("/agents", requireAuth, async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } })));
 
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
-  const schema = z.object({ name: z.string().min(1), email: z.string().email().optional(), userId: z.string().optional() });
+  const schema = z.object({ name: z.string().min(1), email: z.string().email().optional(), userId: z.string().optional(), extension: z.string().optional() });
   const data = schema.parse(req.body);
   const count = await prisma.agent.count();
   const agent = await prisma.agent.create({ data: { ...data, displayOrder: count } });
@@ -46,7 +46,7 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
 });
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().email().nullable().optional(), userId: z.string().nullable().optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().email().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
   const data = schema.parse(req.body);
   const agent = await prisma.agent.update({ where: { id: req.params.id }, data });
   res.json(agent);
@@ -113,15 +113,20 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
 
 router.get("/tracker/summary", requireAuth, async (_req, res) => {
   const data = await prisma.agent.findMany({
-    include: { sales: true },
+    include: { sales: { include: { leadSource: true } } },
   });
-  const summary = data.map((agent) => ({
-    agent: agent.name,
-    salesCount: agent.sales.length,
-    premiumTotal: agent.sales.reduce((sum, s) => sum + Number(s.premium), 0),
-    leadsUsed: 0, // TODO: populate from lead-usage query
-    costPerSale: 0, // TODO: calculated as totalLeadCost / salesCount once leadsUsed query is wired
-  }));
+  const summary = data.map((agent) => {
+    const salesCount = agent.sales.length;
+    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium), 0);
+    const totalLeadCost = agent.sales.reduce((sum, s) => sum + Number(s.leadSource.costPerLead), 0);
+    return {
+      agent: agent.name,
+      salesCount,
+      premiumTotal,
+      totalLeadCost,
+      costPerSale: salesCount > 0 ? totalLeadCost / salesCount : 0,
+    };
+  });
   res.json(summary);
 });
 
