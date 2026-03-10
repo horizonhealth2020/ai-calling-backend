@@ -4,9 +4,13 @@ import { PageShell } from "@ops/ui";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-type Tab = "sales" | "tracker" | "audits" | "config";
+type Tab = "sales" | "products" | "tracker" | "audits" | "config";
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number };
-type Product = { id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D" };
+type Product = {
+  id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
+  premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
+  bundledCommission?: number | null; standaloneCommission?: number | null; notes?: string | null;
+};
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 
@@ -136,6 +140,90 @@ function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, da
   );
 }
 
+const TYPE_LABELS: Record<string, string> = { CORE: "Core", ADDON: "Add-on", AD_D: "AD&D" };
+const TYPE_COLORS: Record<string, string> = { CORE: "#2563eb", ADDON: "#7c3aed", AD_D: "#d97706" };
+
+function ProductRow({ product, onSave }: { product: Product; onSave: (id: string, data: Partial<Product>) => Promise<void> }) {
+  const [edit, setEdit] = useState(false);
+  const [d, setD] = useState({
+    name: product.name, type: product.type, active: product.active,
+    premiumThreshold: product.premiumThreshold != null ? String(product.premiumThreshold) : "",
+    commissionBelow: product.commissionBelow != null ? String(product.commissionBelow) : "",
+    commissionAbove: product.commissionAbove != null ? String(product.commissionAbove) : "",
+    bundledCommission: product.bundledCommission != null ? String(product.bundledCommission) : "",
+    standaloneCommission: product.standaloneCommission != null ? String(product.standaloneCommission) : "",
+    notes: product.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const isCore = d.type === "CORE";
+
+  if (!edit) return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>{product.name}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: TYPE_COLORS[product.type], background: `${TYPE_COLORS[product.type]}15`, padding: "2px 8px", borderRadius: 10 }}>{TYPE_LABELS[product.type]}</span>
+          {!product.active && <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>Inactive</span>}
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+          {product.type === "CORE" && product.premiumThreshold != null && (
+            <span>Threshold: ${Number(product.premiumThreshold).toFixed(2)} · Below: {product.commissionBelow ?? "—"}% · Above: {product.commissionAbove ?? "—"}%</span>
+          )}
+          {product.type !== "CORE" && (
+            <span>Bundled: {product.bundledCommission ?? "—"}% · Standalone: {product.standaloneCommission ?? "—"}%</span>
+          )}
+          {product.notes && <span style={{ marginLeft: 8, fontStyle: "italic" }}>{product.notes}</span>}
+        </div>
+      </div>
+      <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer", flexShrink: 0 }}>Edit</button>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "12px 0", borderBottom: "1px solid #f3f4f6", display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "end" }}>
+        <div><label style={LBL}>Name</label><input style={INP} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} /></div>
+        <div><label style={LBL}>Type</label>
+          <select style={INP} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as Product["type"] }))}>
+            <option value="CORE">Core</option><option value="ADDON">Add-on</option><option value="AD_D">AD&D</option>
+          </select>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, paddingBottom: 4 }}>
+          <input type="checkbox" checked={d.active} onChange={e => setD(x => ({ ...x, active: e.target.checked }))} /> Active
+        </label>
+      </div>
+      {isCore ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          <div><label style={LBL}>Premium Threshold ($)</label><input style={INP} type="number" step="0.01" value={d.premiumThreshold} placeholder="e.g. 300" onChange={e => setD(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
+          <div><label style={LBL}>Commission Below (%)</label><input style={INP} type="number" step="0.01" value={d.commissionBelow} placeholder="e.g. 25" onChange={e => setD(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
+          <div><label style={LBL}>Commission Above (%)</label><input style={INP} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div><label style={LBL}>Bundled Commission (%)</label><input style={INP} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
+          <div><label style={LBL}>Standalone Commission (%)</label><input style={INP} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+        </div>
+      )}
+      <div><label style={LBL}>Notes</label><input style={INP} value={d.notes} placeholder="Optional notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={BTN()} disabled={saving} onClick={async () => {
+          setSaving(true);
+          await onSave(product.id, {
+            name: d.name, type: d.type, active: d.active, notes: d.notes || null,
+            premiumThreshold: d.premiumThreshold ? Number(d.premiumThreshold) : null,
+            commissionBelow: d.commissionBelow ? Number(d.commissionBelow) : null,
+            commissionAbove: d.commissionAbove ? Number(d.commissionAbove) : null,
+            bundledCommission: d.bundledCommission ? Number(d.bundledCommission) : null,
+            standaloneCommission: d.standaloneCommission ? Number(d.standaloneCommission) : null,
+          } as Partial<Product>);
+          setEdit(false); setSaving(false);
+        }}>Save</button>
+        <button onClick={() => setEdit(false)} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ───────────────────────────────────────────────────────
 export default function ManagerDashboard() {
   const [tab, setTab] = useState<Tab>("sales");
@@ -151,6 +239,11 @@ export default function ManagerDashboard() {
   const [form, setForm] = useState(blankForm());
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
+
+  // Product form
+  const blankProduct = () => ({ name: "", type: "CORE" as Product["type"], premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", notes: "" });
+  const [newProduct, setNewProduct] = useState(blankProduct());
+  const [prodMsg, setProdMsg] = useState("");
 
   // Config new-item forms
   const [newAgent, setNewAgent] = useState({ name: "", email: "", userId: "", extension: "" });
@@ -247,14 +340,34 @@ export default function ManagerDashboard() {
     else setCfgMsg("Error adding lead source");
   }
 
+  async function saveProduct(id: string, data: Partial<Product>) {
+    const res = await fetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
+    if (res.ok) { const updated = await res.json(); setProducts(prev => prev.map(p => p.id === id ? updated : p)); }
+  }
+
+  async function addProduct(e: FormEvent) {
+    e.preventDefault(); setProdMsg("");
+    const body = {
+      name: newProduct.name, type: newProduct.type, notes: newProduct.notes || undefined,
+      premiumThreshold: newProduct.premiumThreshold ? Number(newProduct.premiumThreshold) : null,
+      commissionBelow: newProduct.commissionBelow ? Number(newProduct.commissionBelow) : null,
+      commissionAbove: newProduct.commissionAbove ? Number(newProduct.commissionAbove) : null,
+      bundledCommission: newProduct.bundledCommission ? Number(newProduct.bundledCommission) : null,
+      standaloneCommission: newProduct.standaloneCommission ? Number(newProduct.standaloneCommission) : null,
+    };
+    const res = await fetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
+    if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct(blankProduct()); setProdMsg("Product added"); }
+    else { const err = await res.json().catch(() => ({})); setProdMsg(`Error: ${err.error ?? "Failed to add product"}`); }
+  }
+
   if (loading) return <PageShell title="Manager Dashboard"><p style={{ color: "#6b7280" }}>Loading…</p></PageShell>;
 
   return (
     <PageShell title="Manager Dashboard">
       <nav style={{ display: "flex", borderBottom: "1px solid #e5e7eb", marginBottom: 24 }}>
-        {(["sales", "tracker", "audits", "config"] as Tab[]).map(t => (
+        {(["sales", "products", "tracker", "audits", "config"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>
-            {{ sales: "Sales Entry", tracker: "Agent Tracker", audits: "Call Audits", config: "Config" }[t]}
+            {{ sales: "Sales Entry", products: "Products", tracker: "Agent Tracker", audits: "Call Audits", config: "Config" }[t]}
           </button>
         ))}
       </nav>
@@ -373,6 +486,51 @@ export default function ManagerDashboard() {
             </div>
           </div>
         </form>
+      )}
+
+      {/* ── Products ── */}
+      {tab === "products" && (
+        <div style={{ maxWidth: 900 }}>
+          {/* Existing products */}
+          <div style={CARD}>
+            <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700 }}>Products & Commission Thresholds</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 12, color: "#6b7280" }}>Manage core products, add-ons, and AD&D with their commission rates.</p>
+            {products.length === 0 && <p style={{ color: "#9ca3af", fontSize: 13 }}>No products yet — add one below.</p>}
+            {products.map(p => <ProductRow key={p.id} product={p} onSave={saveProduct} />)}
+          </div>
+
+          {/* Add new product */}
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Add Product</h3>
+            <form onSubmit={addProduct} style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                <div><label style={LBL}>Product Name</label><input style={INP} value={newProduct.name} required placeholder="e.g. BWA AmeriCare" onChange={e => setNewProduct(x => ({ ...x, name: e.target.value }))} /></div>
+                <div><label style={LBL}>Type</label>
+                  <select style={INP} value={newProduct.type} onChange={e => setNewProduct(x => ({ ...x, type: e.target.value as Product["type"] }))}>
+                    <option value="CORE">Core</option><option value="ADDON">Add-on</option><option value="AD_D">AD&D</option>
+                  </select>
+                </div>
+              </div>
+              {newProduct.type === "CORE" ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div><label style={LBL}>Premium Threshold ($)</label><input style={INP} type="number" step="0.01" value={newProduct.premiumThreshold} placeholder="e.g. 300" onChange={e => setNewProduct(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
+                  <div><label style={LBL}>Commission Below (%)</label><input style={INP} type="number" step="0.01" value={newProduct.commissionBelow} placeholder="e.g. 25" onChange={e => setNewProduct(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
+                  <div><label style={LBL}>Commission Above (%)</label><input style={INP} type="number" step="0.01" value={newProduct.commissionAbove} placeholder="e.g. 30" onChange={e => setNewProduct(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div><label style={LBL}>Bundled Commission (%)</label><input style={INP} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
+                  <div><label style={LBL}>Standalone Commission (%)</label><input style={INP} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+                </div>
+              )}
+              <div><label style={LBL}>Notes</label><input style={INP} value={newProduct.notes} placeholder="Optional" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} /></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button type="submit" style={BTN("#059669")}>Add Product</button>
+                {prodMsg && <span style={{ color: prodMsg.startsWith("Error") ? "#dc2626" : "#16a34a", fontWeight: 600, fontSize: 13 }}>{prodMsg}</span>}
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ── Agent Tracker ── */}
