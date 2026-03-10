@@ -12,8 +12,10 @@ export async function POST(req: Request) {
   });
   if (!response.ok) return new Response("Invalid credentials", { status: 401 });
   const user = await response.json();
-  if (user.role === "MANAGER") redirect(process.env.MANAGER_DASHBOARD_URL || "https://manager.example.com");
-  if (user.role === "PAYROLL") redirect(process.env.PAYROLL_DASHBOARD_URL || "https://payroll.example.com");
-  if (user.role === "OWNER_VIEW") redirect(process.env.OWNER_DASHBOARD_URL || "https://owner.example.com");
+  const roles: string[] = user.roles ?? [];
+  // SUPER_ADMIN and OWNER_VIEW go to owner dashboard
+  if (roles.includes("SUPER_ADMIN") || roles.includes("OWNER_VIEW")) redirect(process.env.OWNER_DASHBOARD_URL || "https://owner.example.com");
+  if (roles.includes("MANAGER")) redirect(process.env.MANAGER_DASHBOARD_URL || "https://manager.example.com");
+  if (roles.includes("PAYROLL")) redirect(process.env.PAYROLL_DASHBOARD_URL || "https://payroll.example.com");
   redirect("/landing");
 }

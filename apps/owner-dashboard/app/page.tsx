@@ -6,7 +6,7 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Tab = "overview" | "users";
 type Summary = { salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number };
-type User = { id: string; name: string; email: string; role: string; active: boolean; createdAt: string };
+type User = { id: string; name: string; email: string; roles: string[]; active: boolean; createdAt: string };
 
 const ROLES = ["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"] as const;
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -28,22 +28,39 @@ function StatCard({ label, value, color = "#111827" }: { label: string; value: s
   );
 }
 
+const ROLE_COLORS: Record<string, string> = { SUPER_ADMIN: "#7c3aed", MANAGER: "#2563eb", OWNER_VIEW: "#16a34a", PAYROLL: "#d97706", SERVICE: "#6b7280", ADMIN: "#0891b2" };
+
+function RoleBadge({ role }: { role: string }) {
+  return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: ROLE_COLORS[role] ?? "#6b7280", color: "white", marginRight: 4, display: "inline-block" }}>{role}</span>;
+}
+
+function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: (roles: string[]) => void }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      {ROLES.map(r => {
+        const checked = selected.includes(r);
+        return (
+          <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 13, padding: "4px 10px", borderRadius: 6, border: `1px solid ${checked ? ROLE_COLORS[r] : "#d1d5db"}`, background: checked ? ROLE_COLORS[r] + "18" : "white" }}>
+            <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked ? [...selected, r] : selected.filter(x => x !== r))} style={{ accentColor: ROLE_COLORS[r] }} />
+            <span style={{ fontWeight: checked ? 700 : 400, color: checked ? ROLE_COLORS[r] : "#374151" }}>{r}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 function UserRow({ user, onSave }: { user: User; onSave: (id: string, data: Partial<User> & { password?: string }) => Promise<string | null> }) {
   const [edit, setEdit] = useState(false);
-  const [d, setD] = useState({ name: user.name, email: user.email, role: user.role, active: user.active, password: "" });
+  const [d, setD] = useState({ name: user.name, email: user.email, roles: user.roles, active: user.active, password: "" });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-
-  const roleBadge = (role: string) => {
-    const colors: Record<string, string> = { SUPER_ADMIN: "#7c3aed", MANAGER: "#2563eb", OWNER_VIEW: "#16a34a", PAYROLL: "#d97706", SERVICE: "#6b7280", ADMIN: "#0891b2" };
-    return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: colors[role] ?? "#6b7280", color: "white" }}>{role}</span>;
-  };
 
   if (!edit) return (
     <tr style={{ borderTop: "1px solid #e5e7eb" }}>
       <td style={{ padding: "10px 16px", fontWeight: 600 }}>{user.name}</td>
       <td style={{ padding: "10px 16px", color: "#6b7280", fontSize: 13 }}>{user.email}</td>
-      <td style={{ padding: "10px 16px" }}>{roleBadge(user.role)}</td>
+      <td style={{ padding: "10px 16px" }}>{user.roles.map(r => <RoleBadge key={r} role={r} />)}</td>
       <td style={{ padding: "10px 16px" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: user.active ? "#16a34a" : "#9ca3af" }}>{user.active ? "Active" : "Inactive"}</span>
       </td>
@@ -56,29 +73,27 @@ function UserRow({ user, onSave }: { user: User; onSave: (id: string, data: Part
   return (
     <tr style={{ borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
       <td colSpan={5} style={{ padding: "12px 16px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
           <div><label style={LBL}>Name</label><input style={INP} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} /></div>
           <div><label style={LBL}>Email</label><input style={INP} value={d.email} onChange={e => setD(x => ({ ...x, email: e.target.value }))} /></div>
           <div><label style={LBL}>New Password <span style={{ fontWeight: 400, color: "#9ca3af" }}>(leave blank to keep)</span></label><input style={INP} type="password" placeholder="••••••••" value={d.password} onChange={e => setD(x => ({ ...x, password: e.target.value }))} /></div>
-          <div>
-            <label style={LBL}>Role</label>
-            <select style={INP} value={d.role} onChange={e => setD(x => ({ ...x, role: e.target.value }))}>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={LBL}>Status</label>
-            <select style={INP} value={String(d.active)} onChange={e => setD(x => ({ ...x, active: e.target.value === "true" }))}>
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
-            </select>
-          </div>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={LBL}>Roles</label>
+          <RoleCheckboxes selected={d.roles} onChange={roles => setD(x => ({ ...x, roles }))} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={LBL}>Status</label>
+          <select style={{ ...INP, width: "auto" }} value={String(d.active)} onChange={e => setD(x => ({ ...x, active: e.target.value === "true" }))}>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
         </div>
         {err && <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 8 }}>{err}</div>}
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={BTN()} disabled={saving} onClick={async () => {
+          <button style={BTN()} disabled={saving || d.roles.length === 0} onClick={async () => {
             setSaving(true); setErr("");
-            const payload: any = { name: d.name, email: d.email, role: d.role, active: d.active };
+            const payload: any = { name: d.name, email: d.email, roles: d.roles, active: d.active };
             if (d.password) payload.password = d.password;
             const e = await onSave(user.id, payload);
             if (e) { setErr(e); setSaving(false); } else setEdit(false);
@@ -97,10 +112,11 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
+
   // Users state
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "MANAGER" });
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", roles: ["MANAGER"] as string[] });
   const [createMsg, setCreateMsg] = useState("");
 
   useEffect(() => {
@@ -111,7 +127,7 @@ export default function OwnerDashboard() {
     ]).then(([s, t, me]) => {
       setSummary(s);
       setTracker(t);
-      if (me?.role === "SUPER_ADMIN") setIsSuperAdmin(true);
+      if (me?.roles?.includes("SUPER_ADMIN")) setIsSuperAdmin(true);
       setLoading(false);
     });
   }, []);
@@ -137,7 +153,7 @@ export default function OwnerDashboard() {
     if (res.ok) {
       const u = await res.json();
       setUsers(prev => [u, ...prev]);
-      setNewUser({ name: "", email: "", password: "", role: "MANAGER" });
+      setNewUser({ name: "", email: "", password: "", roles: ["MANAGER"] });
       setCreateMsg("User created successfully");
     } else {
       const err = await res.json().catch(() => ({}));
@@ -194,18 +210,16 @@ export default function OwnerDashboard() {
           <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 8, padding: 20, marginBottom: 24 }}>
             <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Create User</h3>
             <form onSubmit={createUser}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 12, alignItems: "flex-end" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
                 <div><label style={LBL}>Name</label><input style={INP} required value={newUser.name} onChange={e => setNewUser(x => ({ ...x, name: e.target.value }))} /></div>
                 <div><label style={LBL}>Email</label><input style={INP} type="email" required value={newUser.email} onChange={e => setNewUser(x => ({ ...x, email: e.target.value }))} /></div>
-                <div><label style={LBL}>Password</label><input style={INP} type="password" required minLength={8} value={newUser.password} onChange={e => setNewUser(x => ({ ...x, password: e.target.value }))} /></div>
-                <div>
-                  <label style={LBL}>Role</label>
-                  <select style={INP} value={newUser.role} onChange={e => setNewUser(x => ({ ...x, role: e.target.value }))}>
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <button type="submit" style={{ ...BTN("#059669"), whiteSpace: "nowrap" }}>Create User</button>
+                <div><label style={LBL}>Password (min 8 chars)</label><input style={INP} type="password" required minLength={8} value={newUser.password} onChange={e => setNewUser(x => ({ ...x, password: e.target.value }))} /></div>
               </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={LBL}>Roles</label>
+                <RoleCheckboxes selected={newUser.roles} onChange={roles => setNewUser(x => ({ ...x, roles }))} />
+              </div>
+              <button type="submit" disabled={newUser.roles.length === 0} style={{ ...BTN("#059669"), opacity: newUser.roles.length === 0 ? 0.5 : 1 }}>Create User</button>
               {createMsg && <p style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 600, color: createMsg.includes("success") ? "#16a34a" : "#dc2626" }}>{createMsg}</p>}
             </form>
           </div>

@@ -17,9 +17,9 @@ router.post("/auth/login", async (req, res) => {
   if (!user || !user.active || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
-  const token = signSessionToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+  const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as any });
   res.setHeader("Set-Cookie", buildSessionCookie(token));
-  return res.json({ id: user.id, role: user.role, name: user.name });
+  return res.json({ id: user.id, roles: user.roles, name: user.name });
 });
 
 router.post("/auth/logout", (_req, res) => {
@@ -31,9 +31,11 @@ router.get("/session/me", requireAuth, async (req, res) => {
   res.json(req.user);
 });
 
+const ROLE_ENUM = z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]);
+const USER_SELECT = { id: true, name: true, email: true, roles: true, active: true, createdAt: true };
+
 router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), async (_req, res) => {
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, role: true, active: true, createdAt: true } });
-  res.json(users);
+  res.json(await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: USER_SELECT }));
 });
 
 router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) => {
@@ -41,13 +43,14 @@ router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) 
     name: z.string().min(1),
     email: z.string().email(),
     password: z.string().min(8),
-    role: z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]),
+    roles: z.array(ROLE_ENUM).min(1),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  const { password, ...rest } = parsed.data;
+  const passwordHash = await bcrypt.hash(password, 10);
   try {
-    const user = await prisma.user.create({ data: { ...parsed.data, passwordHash, password: undefined } as any, select: { id: true, name: true, email: true, role: true, active: true, createdAt: true } });
+    const user = await prisma.user.create({ data: { ...rest, passwordHash }, select: USER_SELECT });
     return res.status(201).json(user);
   } catch (e: any) {
     if (e.code === "P2002") return res.status(409).json({ error: "Email already in use" });
@@ -60,7 +63,7 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), async (req, 
     name: z.string().min(1).optional(),
     email: z.string().email().optional(),
     password: z.string().min(8).optional(),
-    role: z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]).optional(),
+    roles: z.array(ROLE_ENUM).min(1).optional(),
     active: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -68,7 +71,7 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), async (req, 
   const { password, ...rest } = parsed.data;
   const data: any = { ...rest };
   if (password) data.passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.update({ where: { id: req.params.id }, data, select: { id: true, name: true, email: true, role: true, active: true, createdAt: true } });
+  const user = await prisma.user.update({ where: { id: req.params.id }, data, select: USER_SELECT });
   return res.json(user);
 });
 
