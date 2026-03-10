@@ -20,9 +20,14 @@ function tabBtn(active: boolean): React.CSSProperties {
 }
 
 // ── Receipt parser ──────────────────────────────────────────────────
-function parseReceipt(text: string) {
+type ParseResult = {
+  memberId?: string; memberName?: string; status?: string; saleDate?: string;
+  premium?: string; carrier?: string; enrollmentFee?: string; addonNames: string[];
+};
+
+function parseReceipt(text: string): ParseResult {
   const t = text.replace(/\r?\n/g, " ").replace(/\s+/g, " ");
-  const out: Record<string, string> = {};
+  const out: ParseResult = { addonNames: [] };
 
   // MemberID + Name: "MemberID: 686724349 Marc Fahrlander 812 S …"
   const mid = t.match(/MemberID:\s*(\d+)\s+((?:[A-Z][a-zA-Z'-]+\s+){1,3}[A-Z][a-zA-Z'-]+)/);
@@ -44,7 +49,34 @@ function parseReceipt(text: string) {
   const pr = t.match(/Products([A-Za-z][^$\d]{3,50?)(?:\s*[-–]\s*Plan|\s+Member\s+-|\s*[-–]\s*Add-on)/);
   if (pr) out.carrier = pr[1].trim();
 
+  // Enrollment fee: "Enrollment  $27.50" or "Enrollment $27.50"
+  const ef = t.match(/Enrollment\s+\$?([\d,]+\.?\d*)/);
+  if (ef) out.enrollmentFee = ef[1].replace(/,/g, "");
+
+  // AD&D addons: "AD&D $125K - Add-on Individual"
+  const addRe = /(AD&D[^-]*?)\s*-\s*Add-on/gi;
+  let m: RegExpExecArray | null;
+  while ((m = addRe.exec(t)) !== null) {
+    out.addonNames.push(m[1].trim());
+  }
+
+  // Regular addons: "Compass VAB Add-on Individual" — name before "Add-on" after a "Product $XX.XX" block
+  const addonRe = /Product\s+\$[\d,.]+\s*((?:[A-Z][A-Za-z&]+(?:\s+[A-Z][A-Za-z&]+)*)\s+)Add-on/g;
+  while ((m = addonRe.exec(t)) !== null) {
+    const name = m[1].trim();
+    if (!/^AD&D/i.test(name)) out.addonNames.push(name);
+  }
+
   return out;
+}
+
+/** Match a parsed product name to a DB product by substring overlap */
+function matchProduct(name: string, products: Product[]): Product | undefined {
+  const lower = name.toLowerCase();
+  return products.find(p => {
+    const pn = p.name.toLowerCase();
+    return pn.includes(lower) || lower.includes(pn);
+  });
 }
 
 // ── Editable row components ─────────────────────────────────────────
@@ -139,10 +171,36 @@ export default function ManagerDashboard() {
     });
   }, []);
 
+  const [parsedInfo, setParsedInfo] = useState<{ enrollmentFee?: string; coreProduct?: string; addons: { name: string; matched: boolean; productName?: string }[] }>({ addons: [] });
+
   function handleParse() {
     if (!receipt.trim()) return;
     const p = parseReceipt(receipt);
-    setForm(f => ({ ...f, ...p }));
+
+    // Match core product to DB
+    const coreMatch = p.carrier ? matchProduct(p.carrier, products) : undefined;
+
+    // Match addon names to DB products
+    const addonMatches = p.addonNames.map(name => {
+      const match = matchProduct(name, products);
+      return { name, matched: !!match, productName: match?.name, productId: match?.id };
+    });
+    const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
+
+    // Build form updates from parsed fields (excluding addonNames)
+    const { addonNames: _, enrollmentFee, ...formFields } = p;
+    setForm(f => ({
+      ...f,
+      ...formFields,
+      enrollmentFee: enrollmentFee ?? f.enrollmentFee,
+      addonProductIds,
+      productId: coreMatch?.id ?? f.productId,
+    }));
+    setParsedInfo({
+      enrollmentFee: enrollmentFee,
+      coreProduct: coreMatch ? coreMatch.name : p.carrier,
+      addons: addonMatches,
+    });
     setParsed(true);
   }
 
@@ -275,30 +333,40 @@ export default function ManagerDashboard() {
               </select>
             </div>
             <div>
-              <label style={LBL}>Enrollment Fee ($)</label>
-              <input style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} placeholder="e.g. 125, 99, 50" onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} />
-            </div>
-            <div>
               <label style={LBL}>Notes</label>
               <input style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
-            {products.filter(p => p.type === "ADDON" || p.type === "AD_D").length > 0 && (
-              <div style={{ gridColumn: "1/-1" }}>
-                <label style={LBL}>Add-on Products</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "8px 0" }}>
-                  {products.filter(p => (p.type === "ADDON" || p.type === "AD_D") && p.active).map(p => {
-                    const checked = form.addonProductIds.includes(p.id);
-                    return (
-                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "6px 12px", border: checked ? "2px solid #2563eb" : "1px solid #d1d5db", borderRadius: 6, background: checked ? "#eff6ff" : "white", cursor: "pointer" }}>
-                        <input type="checkbox" checked={checked} onChange={() => setForm(f => ({ ...f, addonProductIds: checked ? f.addonProductIds.filter(id => id !== p.id) : [...f.addonProductIds, p.id] }))} />
-                        <span style={{ fontWeight: checked ? 600 : 400 }}>{p.name}</span>
-                        <span style={{ fontSize: 11, color: p.type === "AD_D" ? "#d97706" : "#7c3aed" }}>({p.type === "AD_D" ? "AD&D" : "Add-on"})</span>
-                      </label>
-                    );
-                  })}
+
+            {/* Parsed product & enrollment info */}
+            {parsed && (parsedInfo.enrollmentFee || parsedInfo.addons.length > 0 || parsedInfo.coreProduct) && (
+              <div style={{ gridColumn: "1/-1", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#166534", marginBottom: 8 }}>Parsed from Receipt</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13 }}>
+                  {parsedInfo.coreProduct && (
+                    <div><span style={{ color: "#6b7280" }}>Core Product:</span> <strong>{parsedInfo.coreProduct}</strong></div>
+                  )}
+                  {parsedInfo.enrollmentFee && (
+                    <div><span style={{ color: "#6b7280" }}>Enrollment Fee:</span> <strong>${parsedInfo.enrollmentFee}</strong>
+                      {Number(parsedInfo.enrollmentFee) < 99 && <span style={{ color: "#dc2626", fontWeight: 700, marginLeft: 6 }}>Below $99 — commission halved unless approved</span>}
+                    </div>
+                  )}
                 </div>
+                {parsedInfo.addons.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>Add-ons:</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                      {parsedInfo.addons.map((a, i) => (
+                        <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: a.matched ? "#dbeafe" : "#fef2f2", color: a.matched ? "#1d4ed8" : "#dc2626" }}>
+                          {a.matched ? a.productName : a.name}
+                          {a.matched ? " (matched)" : " (not matched)"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
             <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16, paddingTop: 4 }}>
               <button type="submit" style={BTN()}>Submit Sale</button>
               {msg && <span style={{ color: msg.startsWith("Sale") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{msg}</span>}
