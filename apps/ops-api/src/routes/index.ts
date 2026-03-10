@@ -138,14 +138,33 @@ router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADM
 router.get("/products", requireAuth, async (_req, res) => res.json(await prisma.product.findMany()));
 
 router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
-  const schema = z.object({ name: z.string().min(1), notes: z.string().optional() });
+  const schema = z.object({
+    name: z.string().min(1),
+    type: z.enum(["CORE", "ADDON", "AD_D"]).default("CORE"),
+    premiumThreshold: z.number().nullable().optional(),
+    commissionBelow: z.number().nullable().optional(),
+    commissionAbove: z.number().nullable().optional(),
+    bundledCommission: z.number().nullable().optional(),
+    standaloneCommission: z.number().nullable().optional(),
+    notes: z.string().optional(),
+  });
   const data = schema.parse(req.body);
   const product = await prisma.product.create({ data });
   res.status(201).json(product);
 });
 
 router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), active: z.boolean().optional(), notes: z.string().nullable().optional() });
+  const schema = z.object({
+    name: z.string().min(1).optional(),
+    active: z.boolean().optional(),
+    type: z.enum(["CORE", "ADDON", "AD_D"]).optional(),
+    premiumThreshold: z.number().nullable().optional(),
+    commissionBelow: z.number().nullable().optional(),
+    commissionAbove: z.number().nullable().optional(),
+    bundledCommission: z.number().nullable().optional(),
+    standaloneCommission: z.number().nullable().optional(),
+    notes: z.string().nullable().optional(),
+  });
   const data = schema.parse(req.body);
   const product = await prisma.product.update({ where: { id: req.params.id }, data });
   res.json(product);
@@ -162,20 +181,35 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
     premium: z.number(),
     effectiveDate: z.string(),
     leadSourceId: z.string(),
+    enrollmentFee: z.number().nullable().optional(),
+    addonProductIds: z.array(z.string()).default([]),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).default("SUBMITTED"),
     notes: z.string().optional(),
   });
   const parsed = schema.parse(req.body);
+  const { addonProductIds, ...saleData } = parsed;
   const sale = await prisma.sale.create({
     data: {
-      ...parsed,
+      ...saleData,
       saleDate: new Date(parsed.saleDate),
       effectiveDate: new Date(parsed.effectiveDate),
       enteredByUserId: req.user!.id,
+      addons: addonProductIds.length > 0 ? {
+        create: addonProductIds.map(productId => ({ productId })),
+      } : undefined,
     },
   });
   await upsertPayrollEntryForSale(sale.id);
   res.status(201).json(sale);
+});
+
+router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+  const sale = await prisma.sale.update({
+    where: { id: req.params.id },
+    data: { commissionApproved: true },
+  });
+  await upsertPayrollEntryForSale(sale.id);
+  res.json(sale);
 });
 
 router.get("/tracker/summary", requireAuth, async (req, res) => {
@@ -205,7 +239,17 @@ router.get("/tracker/summary", requireAuth, async (req, res) => {
 });
 
 router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (_req, res) => {
-  res.json(await prisma.payrollPeriod.findMany({ include: { entries: true }, orderBy: { weekStart: "desc" } }));
+  res.json(await prisma.payrollPeriod.findMany({
+    include: {
+      entries: {
+        include: {
+          sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } },
+          agent: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { weekStart: "desc" },
+  }));
 });
 
 router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
