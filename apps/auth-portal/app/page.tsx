@@ -11,7 +11,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const form = new FormData(e.currentTarget);
-    const email = form.get("email") as string;
+    const email = (form.get("email") as string).trim();
     const password = form.get("password") as string;
 
     const res = await fetch("/api/login", {
