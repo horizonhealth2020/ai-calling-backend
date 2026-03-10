@@ -19,11 +19,12 @@ function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
     return { gte: todayStart, lt };
   }
   if (range === "week") {
-    const day = now.getDay();
+    // Sunday‑to‑Saturday week containing today
+    const day = now.getDay(); // 0=Sun … 6=Sat
     const sunday = new Date(todayStart);
     sunday.setDate(todayStart.getDate() - day);
     const saturday = new Date(sunday);
-    saturday.setDate(sunday.getDate() + 7);
+    saturday.setDate(sunday.getDate() + 7); // exclusive upper bound (next Sunday 00:00)
     return { gte: sunday, lt: saturday };
   }
   // month – rolling 30 days
@@ -198,11 +199,14 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   res.status(201).json(clawback);
 });
 
-router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), async (_req, res) => {
+router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const saleWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
+  const clawbackWhere = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
   const [salesCount, premiumAgg, clawbacks, openPayrollPeriods] = await Promise.all([
-    prisma.sale.count(),
-    prisma.sale.aggregate({ _sum: { premium: true } }),
-    prisma.clawback.count(),
+    prisma.sale.count({ where: saleWhere }),
+    prisma.sale.aggregate({ _sum: { premium: true }, where: saleWhere }),
+    prisma.clawback.count({ where: clawbackWhere }),
     prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
   ]);
   res.json({ salesCount, premiumTotal: premiumAgg._sum.premium ?? 0, clawbacks, openPayrollPeriods });
