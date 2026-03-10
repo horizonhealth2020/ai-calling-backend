@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@ops/db";
@@ -7,6 +7,10 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale } from "../services/payroll";
 
 const router = Router();
+
+/** Wrap async route handlers so errors are forwarded to Express error handler */
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
 /** Compute date‐range boundaries from a `range` query param. */
 function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
@@ -35,7 +39,7 @@ function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
   return { gte: thirtyAgo, lt };
 }
 
-router.post("/auth/login", async (req, res) => {
+router.post("/auth/login", asyncHandler(async (req, res) => {
   const schema = z.object({ email: z.string().email(), password: z.string().min(8) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
@@ -47,25 +51,25 @@ router.post("/auth/login", async (req, res) => {
   const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as any });
   res.setHeader("Set-Cookie", buildSessionCookie(token));
   return res.json({ id: user.id, roles: user.roles, name: user.name });
-});
+}));
 
 router.post("/auth/logout", (_req, res) => {
   res.setHeader("Set-Cookie", buildLogoutCookie());
   return res.status(204).end();
 });
 
-router.get("/session/me", requireAuth, async (req, res) => {
+router.get("/session/me", requireAuth, asyncHandler(async (req, res) => {
   res.json(req.user);
-});
+}));
 
 const ROLE_ENUM = z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]);
 const USER_SELECT = { id: true, name: true, email: true, roles: true, active: true, createdAt: true };
 
-router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), async (_req, res) => {
+router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: USER_SELECT }));
-});
+}));
 
-router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) => {
+router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
     email: z.string().email(),
@@ -83,9 +87,9 @@ router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) 
     if (e.code === "P2002") return res.status(409).json({ error: "Email already in use" });
     throw e;
   }
-});
+}));
 
-router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) => {
+router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     name: z.string().min(1).optional(),
     email: z.string().email().optional(),
@@ -100,11 +104,11 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), async (req, 
   if (password) data.passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.update({ where: { id: req.params.id }, data, select: USER_SELECT });
   return res.json(user);
-});
+}));
 
-router.get("/agents", requireAuth, async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } })));
+router.get("/agents", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } }))));
 
-router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), email: z.string().optional(), userId: z.string().optional(), extension: z.string().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
@@ -116,9 +120,9 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
     if (e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
     throw e;
   }
-});
+}));
 
-router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
@@ -129,11 +133,11 @@ router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
     if (e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
     throw e;
   }
-});
+}));
 
-router.get("/lead-sources", requireAuth, async (_req, res) => res.json(await prisma.leadSource.findMany()));
+router.get("/lead-sources", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.leadSource.findMany())));
 
-router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().default(0) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
@@ -144,9 +148,9 @@ router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
     if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
     throw e;
   }
-});
+}));
 
-router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
@@ -157,11 +161,11 @@ router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADM
     if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
     throw e;
   }
-});
+}));
 
-router.get("/products", requireAuth, async (_req, res) => res.json(await prisma.product.findMany()));
+router.get("/products", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.product.findMany())));
 
-router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
     type: z.enum(["CORE", "ADDON", "AD_D"]).default("CORE"),
@@ -172,12 +176,18 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
     standaloneCommission: z.number().nullable().optional(),
     notes: z.string().optional(),
   });
-  const data = schema.parse(req.body);
-  const product = await prisma.product.create({ data });
-  res.status(201).json(product);
-});
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  try {
+    const product = await prisma.product.create({ data: parsed.data });
+    res.status(201).json(product);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
+    throw e;
+  }
+}));
 
-router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     name: z.string().min(1).optional(),
     active: z.boolean().optional(),
@@ -189,12 +199,18 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     standaloneCommission: z.number().nullable().optional(),
     notes: z.string().nullable().optional(),
   });
-  const data = schema.parse(req.body);
-  const product = await prisma.product.update({ where: { id: req.params.id }, data });
-  res.json(product);
-});
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  try {
+    const product = await prisma.product.update({ where: { id: req.params.id }, data: parsed.data });
+    res.json(product);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
+    throw e;
+  }
+}));
 
-router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async (req, res) => {
+router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     saleDate: z.string(),
     agentId: z.string(),
@@ -225,9 +241,9 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async 
   });
   await upsertPayrollEntryForSale(sale.id);
   res.status(201).json(sale);
-});
+}));
 
-router.get("/sales", requireAuth, async (req, res) => {
+router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const where = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
   const sales = await prisma.sale.findMany({
@@ -236,18 +252,18 @@ router.get("/sales", requireAuth, async (req, res) => {
     orderBy: { saleDate: "desc" },
   });
   res.json(sales);
-});
+}));
 
-router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const sale = await prisma.sale.update({
     where: { id: req.params.id },
     data: { commissionApproved: true },
   });
   await upsertPayrollEntryForSale(sale.id);
   res.json(sale);
-});
+}));
 
-router.get("/tracker/summary", requireAuth, async (req, res) => {
+router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
   const data = await prisma.agent.findMany({
@@ -271,9 +287,9 @@ router.get("/tracker/summary", requireAuth, async (req, res) => {
     };
   });
   res.json(summary);
-});
+}));
 
-router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (_req, res) => {
+router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.payrollPeriod.findMany({
     include: {
       entries: {
@@ -285,9 +301,9 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
     },
     orderBy: { weekStart: "desc" },
   }));
-});
+}));
 
-router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), async (req, res) => {
+router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const payload = z.object({ memberId: z.string().optional(), memberName: z.string().optional(), notes: z.string().optional() }).parse(req.body);
   const sale = payload.memberId
     ? await prisma.sale.findFirst({ where: { memberId: payload.memberId }, include: { payrollEntries: true } })
@@ -316,9 +332,9 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
     });
   }
   res.status(201).json(clawback);
-});
+}));
 
-router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), async (req, res) => {
+router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const saleWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
   const clawbackWhere = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
@@ -329,9 +345,9 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
     prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
   ]);
   res.json({ salesCount, premiumTotal: premiumAgg._sum.premium ?? 0, clawbacks, openPayrollPeriods });
-});
+}));
 
-router.get("/sales-board/summary", async (_req, res) => {
+router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const agents = await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } });
   const agentMap = new Map(agents.map((a) => [a.id, a.name]));
   const [daily, weekly] = await Promise.all([
@@ -343,9 +359,9 @@ router.get("/sales-board/summary", async (_req, res) => {
       .map((r) => ({ agent: agentMap.get(r.agentId) ?? r.agentId, count: r._count.id, premium: Number(r._sum.premium ?? 0) }))
       .sort((a, b) => b.count - a.count);
   res.json({ daily: fmt(daily), weekly: fmt(weekly) });
-});
+}));
 
-router.get("/sales-board/detailed", async (_req, res) => {
+router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
   const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
   const agentNames = agents.map((a) => a.name);
   const agentMap = new Map(agents.map((a) => [a.id, a.name]));
@@ -429,6 +445,6 @@ router.get("/sales-board/detailed", async (_req, res) => {
     grandTotalPremium,
     todayStats,
   });
-});
+}));
 
 export default router;
