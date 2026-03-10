@@ -152,23 +152,24 @@ export default function OwnerDashboard() {
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", roles: ["MANAGER"] as string[] });
   const [createMsg, setCreateMsg] = useState("");
 
-  const fetchData = useCallback((r: Range) => {
-    setLoading(true);
+  // Detect SUPER_ADMIN from JWT on mount (before any API calls)
+  useEffect(() => {
     captureTokenFromUrl();
-
-    // Also decode JWT locally as a fallback to detect SUPER_ADMIN
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("ops_session_token") : null;
+      const token = localStorage.getItem("ops_session_token");
       if (token) {
         const payload = JSON.parse(atob(token.split(".")[1]));
         if (payload?.roles?.includes("SUPER_ADMIN")) setIsSuperAdmin(true);
       }
-    } catch { /* ignore malformed token */ }
+    } catch { /* ignore */ }
+  }, []);
 
+  const fetchData = useCallback((r: Range) => {
+    setLoading(true);
     Promise.all([
-      authFetch(`${API}/api/owner/summary?range=${r}`).then(res => res.ok ? res.json() : null),
-      authFetch(`${API}/api/tracker/summary?range=${r}`).then(res => res.ok ? res.json() : []),
-      authFetch(`${API}/api/session/me`).then(res => res.ok ? res.json() : null),
+      authFetch(`${API}/api/owner/summary?range=${r}`).then(res => res.ok ? res.json() : null).catch(() => null),
+      authFetch(`${API}/api/tracker/summary?range=${r}`).then(res => res.ok ? res.json() : []).catch(() => []),
+      authFetch(`${API}/api/session/me`).then(res => res.ok ? res.json() : null).catch(() => null),
     ]).then(([s, t, me]) => {
       setSummary(s);
       setTracker(t);

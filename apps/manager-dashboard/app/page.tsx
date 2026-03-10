@@ -253,11 +253,11 @@ export default function ManagerDashboard() {
   useEffect(() => {
     captureTokenFromUrl();
     Promise.all([
-      authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []),
-      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []),
-      authFetch(`${API}/api/lead-sources`).then(r => r.ok ? r.json() : []),
-      authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []),
-      authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []),
+      authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/lead-sources`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).catch(() => []),
     ]).then(([a, p, ls, tr, sl]) => {
       setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr); setSalesList(sl);
       setForm(f => ({ ...f, agentId: a[0]?.id ?? "", productId: p[0]?.id ?? "", leadSourceId: ls[0]?.id ?? "" }));
