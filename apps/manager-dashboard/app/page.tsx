@@ -457,17 +457,12 @@ export default function ManagerDashboard() {
             </div>
 
             {/* Parsed product & enrollment info */}
-            {parsed && (parsedInfo.enrollmentFee || parsedInfo.addons.length > 0 || parsedInfo.coreProduct) && (
+            {parsed && (parsedInfo.addons.length > 0 || parsedInfo.coreProduct) && (
               <div style={{ gridColumn: "1/-1", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#166534", marginBottom: 8 }}>Parsed from Receipt</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13 }}>
                   {parsedInfo.coreProduct && (
                     <div><span style={{ color: "#6b7280" }}>Core Product:</span> <strong>{parsedInfo.coreProduct}</strong></div>
-                  )}
-                  {parsedInfo.enrollmentFee && (
-                    <div><span style={{ color: "#6b7280" }}>Enrollment Fee:</span> <strong>${parsedInfo.enrollmentFee}</strong>
-                      {Number(parsedInfo.enrollmentFee) < 99 && <span style={{ color: "#dc2626", fontWeight: 700, marginLeft: 6 }}>Below $99 — commission halved unless approved</span>}
-                    </div>
                   )}
                 </div>
                 {parsedInfo.addons.length > 0 && (
