@@ -33,9 +33,11 @@ yarn-error.log*
 *.seed
 *.pid.lock
 
-# Build output (if added later)
+# Build output
 dist/
 build/
+.next/
+next-env.d.ts
 
 # Temp files
 tmp/
