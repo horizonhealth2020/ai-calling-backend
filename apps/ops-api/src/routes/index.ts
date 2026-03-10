@@ -32,7 +32,44 @@ router.get("/session/me", requireAuth, async (req, res) => {
 });
 
 router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), async (_req, res) => {
-  res.json(await prisma.user.findMany({ orderBy: { createdAt: "desc" } }));
+  const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, role: true, active: true, createdAt: true } });
+  res.json(users);
+});
+
+router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(8),
+    role: z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  try {
+    const user = await prisma.user.create({ data: { ...parsed.data, passwordHash, password: undefined } as any, select: { id: true, name: true, email: true, role: true, active: true, createdAt: true } });
+    return res.status(201).json(user);
+  } catch (e: any) {
+    if (e.code === "P2002") return res.status(409).json({ error: "Email already in use" });
+    throw e;
+  }
+});
+
+router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), async (req, res) => {
+  const schema = z.object({
+    name: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+    password: z.string().min(8).optional(),
+    role: z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]).optional(),
+    active: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const { password, ...rest } = parsed.data;
+  const data: any = { ...rest };
+  if (password) data.passwordHash = await bcrypt.hash(password, 10);
+  const user = await prisma.user.update({ where: { id: req.params.id }, data, select: { id: true, name: true, email: true, role: true, active: true, createdAt: true } });
+  return res.json(user);
 });
 
 router.get("/agents", requireAuth, async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } })));
