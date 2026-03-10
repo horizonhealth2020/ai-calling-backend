@@ -5,7 +5,7 @@ import { PageShell } from "@ops/ui";
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Range = "today" | "week" | "month";
 type Summary = { salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; leadsUsed: number; costPerSale: number };
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 const RANGE_LABELS: { value: Range; label: string }[] = [
