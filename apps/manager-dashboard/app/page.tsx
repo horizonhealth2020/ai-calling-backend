@@ -5,19 +5,102 @@ import { PageShell } from "@ops/ui";
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type Tab = "sales" | "tracker" | "audits" | "config";
-type Agent = { id: string; name: string; displayOrder: number };
+type Agent = { id: string; name: string; email?: string; userId?: string; displayOrder: number };
 type Product = { id: string; name: string; active: boolean };
-type LeadSource = { id: string; name: string; costPerLead: number };
+type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number };
 
 const INP: React.CSSProperties = { padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box" };
 const LBL: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4, display: "block" };
-const CARD: React.CSSProperties = { background: "white", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 };
+const CARD: React.CSSProperties = { background: "white", border: "1px solid #e5e7eb", borderRadius: 8, padding: 20 };
+const BTN = (color = "#2563eb"): React.CSSProperties => ({ padding: "8px 18px", background: color, color: "white", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 });
 
 function tabBtn(active: boolean): React.CSSProperties {
   return { padding: "8px 18px", border: "none", background: "transparent", cursor: "pointer", borderBottom: active ? "2px solid #2563eb" : "2px solid transparent", fontWeight: active ? 700 : 400, color: active ? "#2563eb" : "#6b7280", fontSize: 14 };
 }
 
+// ── Receipt parser ──────────────────────────────────────────────────
+function parseReceipt(text: string) {
+  const t = text.replace(/\r?\n/g, " ").replace(/\s+/g, " ");
+  const out: Record<string, string> = {};
+
+  // MemberID + Name: "MemberID: 686724349 Marc Fahrlander 812 S …"
+  const mid = t.match(/MemberID:\s*(\d+)\s+((?:[A-Z][a-zA-Z'-]+\s+){1,3}[A-Z][a-zA-Z'-]+)/);
+  if (mid) { out.memberId = mid[1]; out.memberName = mid[2].trim(); }
+
+  // Status: "SALE on March 9, 2026 - Approved"
+  const st = t.match(/SALE on .+?[-–]\s*(Approved|Rejected|Cancelled|Submitted)/i);
+  if (st) out.status = st[1].toUpperCase();
+
+  // Date: "Date:03/09/2026"
+  const dt = t.match(/Date:(\d{2})\/(\d{2})\/(\d{4})/);
+  if (dt) out.saleDate = `${dt[3]}-${dt[1]}-${dt[2]}`;
+
+  // Amount: "Amount:$436.43"
+  const am = t.match(/Amount:\$?([\d,]+\.?\d*)/);
+  if (am) out.premium = am[1].replace(/,/g, "");
+
+  // First product / carrier: text between "Products" and " - Plan"/" Member"/" - Add"
+  const pr = t.match(/Products([A-Za-z][^$\d]{3,50?)(?:\s*[-–]\s*Plan|\s+Member\s+-|\s*[-–]\s*Add-on)/);
+  if (pr) out.carrier = pr[1].trim();
+
+  return out;
+}
+
+// ── Editable row components ─────────────────────────────────────────
+function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: Partial<Agent>) => Promise<void> }) {
+  const [edit, setEdit] = useState(false);
+  const [d, setD] = useState({ name: agent.name, email: agent.email ?? "", userId: agent.userId ?? "" });
+  const [saving, setSaving] = useState(false);
+  if (!edit) return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{agent.name}</div>
+        {(agent.email || agent.userId) && <div style={{ fontSize: 12, color: "#6b7280" }}>{agent.email}{agent.email && agent.userId ? " · " : ""}{agent.userId ? `ID: ${agent.userId}` : ""}</div>}
+      </div>
+      <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer" }}>Edit</button>
+    </div>
+  );
+  return (
+    <div style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6", display: "grid", gap: 8 }}>
+      <input style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
+      <input style={INP} value={d.email} placeholder="Email" onChange={e => setD(x => ({ ...x, email: e.target.value }))} />
+      <input style={INP} value={d.userId} placeholder="CRM User ID" onChange={e => setD(x => ({ ...x, userId: e.target.value }))} />
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(agent.id, d); setEdit(false); setSaving(false); }}>Save</button>
+        <button onClick={() => setEdit(false)} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void> }) {
+  const [edit, setEdit] = useState(false);
+  const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead) });
+  const [saving, setSaving] = useState(false);
+  if (!edit) return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{ls.name}</div>
+        <div style={{ fontSize: 12, color: "#6b7280" }}>${ls.costPerLead}/lead{ls.listId ? ` · List: ${ls.listId}` : ""}</div>
+      </div>
+      <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer" }}>Edit</button>
+    </div>
+  );
+  return (
+    <div style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6", display: "grid", gap: 8 }}>
+      <input style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
+      <input style={INP} value={d.listId} placeholder="CRM List ID" onChange={e => setD(x => ({ ...x, listId: e.target.value }))} />
+      <input style={{ ...INP, width: "50%" }} type="number" step="0.01" value={d.costPerLead} placeholder="Cost per lead" onChange={e => setD(x => ({ ...x, costPerLead: e.target.value }))} />
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(ls.id, { ...d, costPerLead: Number(d.costPerLead) }); setEdit(false); setSaving(false); }}>Save</button>
+        <button onClick={() => setEdit(false)} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ───────────────────────────────────────────────────────
 export default function ManagerDashboard() {
   const [tab, setTab] = useState<Tab>("sales");
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -26,35 +109,80 @@ export default function ManagerDashboard() {
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
-  const [form, setForm] = useState({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", status: "SUBMITTED", notes: "" });
+
+  // Sales form
+  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", status: "SUBMITTED", notes: "" });
+  const [form, setForm] = useState(blankForm());
+  const [receipt, setReceipt] = useState("");
+  const [parsed, setParsed] = useState(false);
+
+  // Config new-item forms
+  const [newAgent, setNewAgent] = useState({ name: "", email: "", userId: "" });
+  const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
+  const [cfgMsg, setCfgMsg] = useState("");
 
   useEffect(() => {
-    async function init() {
-      const o = { credentials: "include" as const };
-      const [a, p, ls, tr] = await Promise.all([
-        fetch(`${API}/api/agents`, o).then(r => r.ok ? r.json() : []),
-        fetch(`${API}/api/products`, o).then(r => r.ok ? r.json() : []),
-        fetch(`${API}/api/lead-sources`, o).then(r => r.ok ? r.json() : []),
-        fetch(`${API}/api/tracker/summary`, o).then(r => r.ok ? r.json() : []),
-      ]);
+    const o = { credentials: "include" as const };
+    Promise.all([
+      fetch(`${API}/api/agents`, o).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/api/products`, o).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/api/lead-sources`, o).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/api/tracker/summary`, o).then(r => r.ok ? r.json() : []),
+    ]).then(([a, p, ls, tr]) => {
       setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr);
       setForm(f => ({ ...f, agentId: a[0]?.id ?? "", productId: p[0]?.id ?? "", leadSourceId: ls[0]?.id ?? "" }));
       setLoading(false);
-    }
-    init();
+    });
   }, []);
+
+  function handleParse() {
+    if (!receipt.trim()) return;
+    const p = parseReceipt(receipt);
+    setForm(f => ({ ...f, ...p }));
+    setParsed(true);
+  }
+
+  function clearReceipt() {
+    setReceipt("");
+    setParsed(false);
+    setForm(f => ({ ...blankForm(), agentId: f.agentId, productId: f.productId, leadSourceId: f.leadSourceId }));
+  }
 
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg("");
     const res = await fetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...form, premium: Number(form.premium) }) });
     if (res.ok) {
       setMsg("Sale submitted successfully");
-      setForm(f => ({ ...f, memberName: "", memberId: "", carrier: "", premium: "", effectiveDate: "", notes: "" }));
+      clearReceipt();
       fetch(`${API}/api/tracker/summary`, { credentials: "include" }).then(r => r.json()).then(setTracker);
     } else {
       const err = await res.json().catch(() => ({}));
       setMsg(`Error: ${err.error ?? "Submission failed"}`);
     }
+  }
+
+  async function saveAgent(id: string, data: Partial<Agent>) {
+    const res = await fetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
+    if (res.ok) setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+  }
+
+  async function addAgent(e: FormEvent) {
+    e.preventDefault(); setCfgMsg("");
+    const res = await fetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...newAgent, costPerLead: undefined }) });
+    if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", userId: "" }); setCfgMsg("Agent added"); }
+    else setCfgMsg("Error adding agent");
+  }
+
+  async function saveLeadSource(id: string, data: Partial<LeadSource>) {
+    const res = await fetch(`${API}/api/lead-sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
+    if (res.ok) setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls));
+  }
+
+  async function addLeadSource(e: FormEvent) {
+    e.preventDefault(); setCfgMsg("");
+    const res = await fetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...newLS, costPerLead: Number(newLS.costPerLead) || 0 }) });
+    if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgMsg("Lead source added"); }
+    else setCfgMsg("Error adding lead source");
   }
 
   if (loading) return <PageShell title="Manager Dashboard"><p style={{ color: "#6b7280" }}>Loading…</p></PageShell>;
@@ -69,26 +197,92 @@ export default function ManagerDashboard() {
         ))}
       </nav>
 
+      {/* ── Sales Entry ── */}
       {tab === "sales" && (
-        <form onSubmit={submitSale} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 820 }}>
-          <div><label style={LBL}>Sale Date</label><input style={INP} type="date" value={form.saleDate} required onChange={e => setForm(f => ({ ...f, saleDate: e.target.value }))} /></div>
-          <div><label style={LBL}>Agent</label><select style={INP} value={form.agentId} onChange={e => setForm(f => ({ ...f, agentId: e.target.value }))}>{agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
-          <div><label style={LBL}>Member Name</label><input style={INP} value={form.memberName} required onChange={e => setForm(f => ({ ...f, memberName: e.target.value }))} /></div>
-          <div><label style={LBL}>Member ID <span style={{ color: "#9ca3af", fontWeight: 400 }}>(optional)</span></label><input style={INP} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} /></div>
-          <div><label style={LBL}>Carrier</label><input style={INP} value={form.carrier} required onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} /></div>
-          <div><label style={LBL}>Product</label><select style={INP} value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}>{products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-          <div><label style={LBL}>Premium ($)</label><input style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => setForm(f => ({ ...f, premium: e.target.value }))} /></div>
-          <div><label style={LBL}>Effective Date</label><input style={INP} type="date" value={form.effectiveDate} required onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} /></div>
-          <div><label style={LBL}>Lead Source</label><select style={INP} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>{leadSources.map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}</select></div>
-          <div><label style={LBL}>Status</label><select style={INP} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>{["SUBMITTED","APPROVED","REJECTED","CANCELLED"].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-          <div style={{ gridColumn: "1/-1" }}><label style={LBL}>Notes</label><textarea style={{ ...INP, height: 72, resize: "vertical" } as React.CSSProperties} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
-          <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16 }}>
-            <button type="submit" style={{ padding: "10px 28px", background: "#2563eb", color: "white", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>Submit Sale</button>
-            {msg && <span style={{ color: msg.startsWith("Sale") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{msg}</span>}
+        <form onSubmit={submitSale} style={{ maxWidth: 860 }}>
+          {/* Step 1: Agent + Receipt */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 20 }}>
+            <div>
+              <label style={LBL}>Agent</label>
+              <select style={{ ...INP, height: 42 }} value={form.agentId} onChange={e => setForm(f => ({ ...f, agentId: e.target.value }))}>
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={LBL}>Paste Sale Receipt</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <textarea
+                  style={{ ...INP, height: 80, resize: "vertical", fontFamily: "monospace", fontSize: 12 } as React.CSSProperties}
+                  value={receipt}
+                  placeholder={"MemberID: 686724349 Marc Fahrlander…\nSALE on March 9, 2026 - Approved\nDate:03/09/2026…Amount:$436.43…"}
+                  onChange={e => { setReceipt(e.target.value); setParsed(false); }}
+                />
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                  <button type="button" onClick={handleParse} style={BTN("#059669")}>Parse</button>
+                  <button type="button" onClick={clearReceipt} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Clear</button>
+                </div>
+              </div>
+              {parsed && <p style={{ margin: "4px 0 0", fontSize: 12, color: "#059669", fontWeight: 600 }}>✓ Receipt parsed — review fields below</p>}
+            </div>
+          </div>
+
+          {/* Step 2: Parsed + remaining fields */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={LBL}>Member Name</label>
+              <input style={INP} value={form.memberName} required onChange={e => setForm(f => ({ ...f, memberName: e.target.value }))} />
+            </div>
+            <div>
+              <label style={LBL}>Member ID</label>
+              <input style={INP} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} />
+            </div>
+            <div>
+              <label style={LBL}>Sale Date</label>
+              <input style={INP} type="date" value={form.saleDate} required onChange={e => setForm(f => ({ ...f, saleDate: e.target.value }))} />
+            </div>
+            <div>
+              <label style={LBL}>Status</label>
+              <select style={INP} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                {["SUBMITTED","APPROVED","REJECTED","CANCELLED"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={LBL}>Carrier</label>
+              <input style={INP} value={form.carrier} required onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
+            </div>
+            <div>
+              <label style={LBL}>Premium ($)</label>
+              <input style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => setForm(f => ({ ...f, premium: e.target.value }))} />
+            </div>
+            <div>
+              <label style={LBL}>Effective Date</label>
+              <input style={INP} type="date" value={form.effectiveDate} required onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} />
+            </div>
+            <div>
+              <label style={LBL}>Product</label>
+              <select style={INP} value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}>
+                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={LBL}>Lead Source</label>
+              <select style={INP} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
+                {leadSources.map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={LBL}>Notes</label>
+              <input style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16, paddingTop: 4 }}>
+              <button type="submit" style={BTN()}>Submit Sale</button>
+              {msg && <span style={{ color: msg.startsWith("Sale") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{msg}</span>}
+            </div>
           </div>
         </form>
       )}
 
+      {/* ── Agent Tracker ── */}
       {tab === "tracker" && (
         <table style={{ width: "100%", borderCollapse: "collapse", background: "white", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
           <thead><tr style={{ background: "#f3f4f6" }}>
@@ -111,13 +305,40 @@ export default function ManagerDashboard() {
         </table>
       )}
 
+      {/* ── Call Audits ── */}
       {tab === "audits" && <div style={CARD}><p style={{ color: "#6b7280", margin: 0 }}>Call audit records will appear here once added via the API.</p></div>}
 
+      {/* ── Config ── */}
       {tab === "config" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-          <div style={CARD}><h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>Agents ({agents.length})</h3>{agents.map(a => <div key={a.id} style={{ padding: "6px 0", borderBottom: "1px solid #f3f4f6", fontSize: 14 }}>{a.name}</div>)}</div>
-          <div style={CARD}><h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>Products ({products.length})</h3>{products.map(p => <div key={p.id} style={{ padding: "6px 0", borderBottom: "1px solid #f3f4f6", fontSize: 14 }}>{p.name}{!p.active && <span style={{ color: "#9ca3af" }}> (inactive)</span>}</div>)}</div>
-          <div style={CARD}><h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>Lead Sources ({leadSources.length})</h3>{leadSources.map(ls => <div key={ls.id} style={{ padding: "6px 0", borderBottom: "1px solid #f3f4f6", fontSize: 14 }}>{ls.name} <span style={{ color: "#6b7280" }}>${ls.costPerLead}/lead</span></div>)}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+
+          {/* Agents */}
+          <div style={CARD}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Agents</h3>
+            {agents.map(a => <AgentRow key={a.id} agent={a} onSave={saveAgent} />)}
+            <form onSubmit={addAgent} style={{ marginTop: 16, display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Add Agent</div>
+              <input style={INP} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
+              <input style={INP} value={newAgent.email} placeholder="Email" onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
+              <input style={INP} value={newAgent.userId} placeholder="CRM User ID" onChange={e => setNewAgent(x => ({ ...x, userId: e.target.value }))} />
+              <button type="submit" style={BTN("#059669")}>Add Agent</button>
+            </form>
+          </div>
+
+          {/* Lead Sources */}
+          <div style={CARD}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Lead Sources</h3>
+            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} />)}
+            <form onSubmit={addLeadSource} style={{ marginTop: 16, display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Add Lead Source</div>
+              <input style={INP} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />
+              <input style={INP} value={newLS.listId} placeholder="CRM List ID" onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
+              <input style={{ ...INP, width: "60%" }} type="number" step="0.01" value={newLS.costPerLead} placeholder="Cost per lead ($)" onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />
+              <button type="submit" style={BTN("#059669")}>Add Lead Source</button>
+            </form>
+          </div>
+
+          {cfgMsg && <div style={{ gridColumn: "1/-1", color: cfgMsg.startsWith("Error") ? "#dc2626" : "#16a34a", fontWeight: 600, fontSize: 14 }}>{cfgMsg}</div>}
         </div>
       )}
     </PageShell>
