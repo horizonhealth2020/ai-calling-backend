@@ -61,7 +61,7 @@ function calcProductCommission(product: Product, premium: number, hasCoreInSale:
  *   $99  → $0
  *   <$99 (or <$50 for standalone addon) → halve commission, unless approved
  */
-function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean): { finalCommission: number; enrollmentBonus: number } {
+function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean, product: Product): { finalCommission: number; enrollmentBonus: number } {
   if (enrollmentFee === null || enrollmentFee === undefined) {
     return { finalCommission: commission, enrollmentBonus: 0 };
   }
@@ -75,8 +75,15 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
 
   // Determine the threshold for halving commission
   // Core/AD&D sales: $99 threshold
-  // Standalone addon sales (no core): $50 threshold
-  const halfThreshold = hasCoreInSale ? 99 : 50;
+  // Standalone addon sales (no core): use product's enrollFeeThreshold if set, else $50
+  let halfThreshold: number;
+  if (hasCoreInSale) {
+    halfThreshold = 99;
+  } else if (product.enrollFeeThreshold !== null && product.enrollFeeThreshold !== undefined) {
+    halfThreshold = Number(product.enrollFeeThreshold);
+  } else {
+    halfThreshold = 50;
+  }
 
   if (fee < halfThreshold && !commissionApproved) {
     return { finalCommission: commission / 2, enrollmentBonus };
@@ -109,6 +116,7 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
     sale.commissionApproved,
     hasCoreInSale,
+    product,
   );
 
   return finalCommission + enrollmentBonus;

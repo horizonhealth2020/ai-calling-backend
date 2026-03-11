@@ -5,12 +5,13 @@ import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
-type SaleInfo = { id: string; memberName: string; memberId?: string; carrier: string; premium: number; enrollmentFee: number | null; commissionApproved: boolean; status: string; notes?: string; product: { name: string; type: string } };
+type SaleAddonInfo = { product: { id: string; name: string } };
+type SaleInfo = { id: string; memberName: string; memberId?: string; carrier: string; premium: number; enrollmentFee: number | null; commissionApproved: boolean; status: string; notes?: string; product: { id: string; name: string; type: string }; addons?: SaleAddonInfo[] };
 type Entry = { id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number; frontedAmount: number; netAmount: number; status: string; sale?: SaleInfo; agent?: { name: string } };
 type ServiceEntry = { id: string; basePay: number; bonusAmount: number; totalPay: number; status: string; notes?: string; serviceAgent: { name: string; basePay: number } };
 type Period = { id: string; weekStart: string; weekEnd: string; quarterLabel: string; status: string; entries: Entry[]; serviceEntries: ServiceEntry[] };
 type ProductType = "CORE" | "ADDON" | "AD_D";
-type Product = { id: string; name: string; active: boolean; type: ProductType; premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null; bundledCommission?: number | null; standaloneCommission?: number | null; notes?: string };
+type Product = { id: string; name: string; active: boolean; type: ProductType; premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null; bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string };
 type ServiceAgent = { id: string; name: string; basePay: number; active: boolean };
 type ExportRange = "week" | "month" | "quarter";
 
@@ -34,6 +35,13 @@ function tabBtn(active: boolean): React.CSSProperties {
     color: active ? "#ffffff" : "#64748b",
     boxShadow: active ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
   };
+}
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${mm}-${dd}-${d.getUTCFullYear()}`;
 }
 
 const TYPE_LABELS: Record<ProductType, string> = { CORE: "Core Product", ADDON: "Add-on", AD_D: "AD&D" };
@@ -145,12 +153,13 @@ function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove 
 }
 
 // ── Product Row ─────────────────────────────────────────────────
-function ProductRow({ product, onSave }: { product: Product; onSave: (id: string, data: Partial<Product>) => Promise<void> }) {
+function ProductRow({ product, onSave, onDelete }: { product: Product; onSave: (id: string, data: Partial<Product>) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
   const [d, setD] = useState({
     name: product.name, active: product.active, type: product.type, notes: product.notes ?? "",
     premiumThreshold: String(product.premiumThreshold ?? ""), commissionBelow: String(product.commissionBelow ?? ""), commissionAbove: String(product.commissionAbove ?? ""),
     bundledCommission: String(product.bundledCommission ?? ""), standaloneCommission: String(product.standaloneCommission ?? ""),
+    enrollFeeThreshold: String(product.enrollFeeThreshold ?? ""),
   });
   const [saving, setSaving] = useState(false);
 
@@ -177,7 +186,10 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
             {product.notes ? ` \u00b7 ${product.notes}` : ""}
           </div>
         </div>
-        <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+          <button onClick={() => { if (confirm(`Delete product "${product.name}"? This will deactivate it.`)) onDelete(product.id); }} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, background: "rgba(239,68,68,0.1)", cursor: "pointer", color: "#f87171", fontWeight: 600 }}>Delete</button>
+        </div>
       </div>
     );
   }
@@ -191,6 +203,7 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
       commissionAbove: d.commissionAbove ? Number(d.commissionAbove) : null,
       bundledCommission: d.bundledCommission ? Number(d.bundledCommission) : null,
       standaloneCommission: d.standaloneCommission ? Number(d.standaloneCommission) : null,
+      enrollFeeThreshold: d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null,
     });
     setEdit(false); setSaving(false);
   };
@@ -213,9 +226,10 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
         </div>
       )}
       {(d.type === "ADDON" || d.type === "AD_D") && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " \u2014 leave blank to match core" : ""}</label><input style={INP} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input style={INP} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
           <div><label style={LBL}>Standalone Commission (%)</label><input style={INP} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+          <div><label style={LBL}>Enroll Fee Threshold ($)</label><input style={INP} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, alignItems: "end" }}>
@@ -270,7 +284,7 @@ export default function PayrollDashboard() {
   const [exportRange, setExportRange] = useState<ExportRange>("week");
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
 
-  const [newProduct, setNewProduct] = useState<{ name: string; type: ProductType; notes: string; premiumThreshold: string; commissionBelow: string; commissionAbove: string; bundledCommission: string; standaloneCommission: string }>({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "" });
+  const [newProduct, setNewProduct] = useState<{ name: string; type: ProductType; notes: string; premiumThreshold: string; commissionBelow: string; commissionAbove: string; bundledCommission: string; standaloneCommission: string; enrollFeeThreshold: string }>({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "" });
   const [cfgMsg, setCfgMsg] = useState("");
 
   // Service staff state
@@ -360,6 +374,14 @@ export default function PayrollDashboard() {
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
+  async function deleteProduct(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/products/${id}`, { method: "DELETE" });
+      if (res.ok) { setProducts(prev => prev.filter(p => p.id !== id)); setCfgMsg("Product deleted"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+  }
+
   async function addProduct(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     try {
@@ -371,9 +393,10 @@ export default function PayrollDashboard() {
       } else {
         if (newProduct.bundledCommission) body.bundledCommission = Number(newProduct.bundledCommission);
         if (newProduct.standaloneCommission) body.standaloneCommission = Number(newProduct.standaloneCommission);
+        if (newProduct.enrollFeeThreshold) body.enrollFeeThreshold = Number(newProduct.enrollFeeThreshold);
       }
       const res = await authFetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "" }); setCfgMsg("Product added"); }
+      if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "" }); setCfgMsg("Product added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
@@ -391,7 +414,7 @@ export default function PayrollDashboard() {
     e.preventDefault(); setSvcMsg("");
     try {
       const res = await authFetch(`${API}/api/service-agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newServiceAgent.name, basePay: Number(newServiceAgent.basePay) }) });
-      if (res.ok) { const a = await res.json(); setServiceAgents(prev => [...prev, a]); setNewServiceAgent({ name: "", basePay: "" }); setSvcMsg("Customer service agent added"); }
+      if (res.ok) { const a = await res.json(); setServiceAgents(prev => [...prev, a]); setNewServiceAgent({ name: "", basePay: "" }); setSvcMsg("Customer service agent added successfully"); }
       else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setSvcMsg(`Error: ${e.message ?? "network error"}`); }
   }
@@ -409,7 +432,7 @@ export default function PayrollDashboard() {
 
   if (loading) return <PageShell title="Payroll Dashboard"><p style={{ color: "#64748b" }}>Loading\u2026</p></PageShell>;
 
-  const TAB_LABELS: Record<Tab, string> = { periods: "Payroll Weeks", chargebacks: "Chargebacks", exports: "Exports", products: "Products", service: "Service Staff" };
+  const TAB_LABELS: Record<Tab, string> = { periods: "Payroll Weeks", chargebacks: "Chargebacks", exports: "Exports", products: "Products", service: "Customer Service" };
 
   return (
     <PageShell title="Payroll Dashboard">
@@ -431,11 +454,23 @@ export default function PayrollDashboard() {
             const sc = STATUS_COLORS[p.status] ?? { bg: "rgba(100,116,139,0.15)", color: "#94a3b8" };
             const expanded = expandedPeriod === p.id;
             const needsApproval = p.entries.filter(e => e.sale && e.sale.enrollmentFee !== null && Number(e.sale.enrollmentFee) < 99 && !e.sale.commissionApproved);
+
+            // Group entries by agent
+            const byAgent = new Map<string, Entry[]>();
+            for (const e of p.entries) {
+              const name = e.agent?.name ?? "Unknown";
+              if (!byAgent.has(name)) byAgent.set(name, []);
+              byAgent.get(name)!.push(e);
+            }
+
+            // Collect all product names for columns
+            const productNames: string[] = products.filter(pr => pr.active).map(pr => pr.name);
+
             return (
               <div key={p.id} style={CARD}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, cursor: "pointer" }} onClick={() => setExpandedPeriod(expanded ? null : p.id)}>
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: 16, color: "#e2e8f0" }}>{p.weekStart} \u2013 {p.weekEnd}</span>
+                    <span style={{ fontWeight: 700, fontSize: 16, color: "#e2e8f0" }}>{fmtDate(p.weekStart)}--{fmtDate(p.weekEnd)}</span>
                     <span style={{ marginLeft: 10, fontSize: 13, color: "#64748b" }}>{p.quarterLabel}</span>
                     {needsApproval.length > 0 && <span style={{ marginLeft: 10, background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{needsApproval.length} need approval</span>}
                   </div>
@@ -467,41 +502,112 @@ export default function PayrollDashboard() {
                   </div>
                 </div>
 
-                {/* Service staff totals if any */}
+                {/* Customer service totals if any */}
                 {(p.serviceEntries ?? []).length > 0 && (
                   <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(139,92,246,0.08)", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#a78bfa", fontWeight: 600 }}>Service Staff ({p.serviceEntries.length})</span>
+                    <span style={{ fontSize: 13, color: "#a78bfa", fontWeight: 600 }}>Customer Service ({p.serviceEntries.length})</span>
                     <span style={{ fontSize: 15, fontWeight: 800, color: "#a78bfa" }}>${svcTotal.toFixed(2)}</span>
                   </div>
                 )}
 
                 {expanded && (
-                  <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14 }}>
-                    {p.entries.length > 0 && (
-                      <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 900 }}>
-                          <thead><tr>
-                            {["Agent", "Member", "Product", "Enroll Fee", "Commission", "Bonus", "Fronted", "Net", "Actions"].map((h, i) => (
-                              <th key={h} style={{ padding: "10px 10px", textAlign: i >= 3 && i <= 7 ? "right" : i === 8 ? "center" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>{h}</th>
-                            ))}
-                          </tr></thead>
-                          <tbody>
-                            {p.entries.map(e => (
-                              <EditableSaleRow key={e.id} entry={e} onSaleUpdate={updateSale} onBonusFrontedUpdate={updateBonusFronted} onApprove={approveCommission} />
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                  <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14, display: "grid", gap: 16 }}>
+                    {/* Per-agent boxes */}
+                    {[...byAgent.entries()].map(([agentName, entries]) => {
+                      const agentNet = entries.reduce((s, e) => s + Number(e.netAmount), 0);
+                      const agentGross = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+                      return (
+                        <div key={agentName} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: 16 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div>
+                              <span style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0" }}>{agentName}</span>
+                              <span style={{ marginLeft: 10, fontSize: 12, color: "#64748b" }}>{entries.length} sale{entries.length !== 1 ? "s" : ""}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                              <span style={{ color: "#94a3b8" }}>Commission: <strong style={{ color: "#e2e8f0" }}>${agentGross.toFixed(2)}</strong></span>
+                              <span style={{ color: "#94a3b8" }}>Net: <strong style={{ color: "#34d399" }}>${agentNet.toFixed(2)}</strong></span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+                            Sunday {fmtDate(p.weekStart)} \u2013 Saturday {fmtDate(p.weekEnd)}
+                          </div>
+                          <div style={{ overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 800 }}>
+                              <thead><tr>
+                                <th style={{ padding: "8px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Member ID</th>
+                                <th style={{ padding: "8px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Member Name</th>
+                                {productNames.map(pn => (
+                                  <th key={pn} style={{ padding: "8px 6px", textAlign: "center", fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap", maxWidth: 80 }}>{pn}</th>
+                                ))}
+                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Enroll Fee</th>
+                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Commission</th>
+                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Bonus</th>
+                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Fronted</th>
+                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Net</th>
+                                <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Actions</th>
+                              </tr></thead>
+                              <tbody>
+                                {entries.map(e => {
+                                  const saleProductIds = new Set<string>();
+                                  if (e.sale?.product?.id) saleProductIds.add(e.sale.product.id);
+                                  if (e.sale?.addons) e.sale.addons.forEach(a => saleProductIds.add(a.product.id));
+                                  const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee) : null;
+                                  const needsApprovalRow = fee !== null && fee < 99 && !e.sale?.commissionApproved;
+                                  return (
+                                    <tr key={e.id} style={{ borderTop: "1px solid rgba(255,255,255,0.04)", background: needsApprovalRow ? "rgba(239,68,68,0.05)" : "transparent" }}>
+                                      <td style={{ padding: "8px 8px", color: "#94a3b8", fontSize: 12 }}>{e.sale?.memberId ?? "\u2014"}</td>
+                                      <td style={{ padding: "8px 8px", color: "#e2e8f0", fontWeight: 500 }}>{e.sale?.memberName ?? "\u2014"}</td>
+                                      {products.filter(pr => pr.active).map(pr => (
+                                        <td key={pr.id} style={{ padding: "8px 6px", textAlign: "center" }}>
+                                          {saleProductIds.has(pr.id) ? <span style={{ color: "#34d399", fontWeight: 700 }}>\u2713</span> : <span style={{ color: "#334155" }}>\u2014</span>}
+                                        </td>
+                                      ))}
+                                      <td style={{ padding: "8px 8px", textAlign: "right", color: needsApprovalRow ? "#f87171" : "#94a3b8", fontWeight: needsApprovalRow ? 700 : 400 }}>
+                                        {fee !== null ? `$${fee.toFixed(2)}` : "\u2014"}
+                                      </td>
+                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${Number(e.payoutAmount).toFixed(2)}</td>
+                                      <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.bonusAmount) > 0 ? "#34d399" : "#94a3b8" }}>${Number(e.bonusAmount).toFixed(2)}</td>
+                                      <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.frontedAmount) > 0 ? "#f87171" : "#94a3b8" }}>${Number(e.frontedAmount).toFixed(2)}</td>
+                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${Number(e.netAmount).toFixed(2)}</td>
+                                      <td style={{ padding: "8px 8px", textAlign: "center" }}>
+                                        {needsApprovalRow && (
+                                          <button onClick={() => approveCommission(e.sale!.id)} style={{ padding: "3px 8px", background: "linear-gradient(135deg, #059669, #10b981)", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Approve</button>
+                                        )}
+                                        {e.sale?.commissionApproved && fee !== null && fee < 99 && (
+                                          <span style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>OK</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {/* Agent subtotal row */}
+                                <tr style={{ borderTop: "2px solid rgba(255,255,255,0.08)" }}>
+                                  <td colSpan={2 + productNames.length} style={{ padding: "8px 8px", fontWeight: 700, fontSize: 12, color: "#64748b", textAlign: "right" }}>SUBTOTAL</td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", color: "#94a3b8", fontSize: 12 }}></td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${agentGross.toFixed(2)}</td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${entries.reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#f87171" }}>${entries.reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 800, color: "#34d399" }}>${agentNet.toFixed(2)}</td>
+                                  <td></td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
 
-                    {/* Service entries detail */}
+                    {/* Customer Service box */}
                     {(p.serviceEntries ?? []).length > 0 && (
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", marginBottom: 8 }}>Service Staff Payroll</div>
+                      <div style={{ background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)", borderRadius: 10, padding: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(139,92,246,0.15)" }}>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: "#a78bfa" }}>Customer Service</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa" }}>Total: ${svcTotal.toFixed(2)}</span>
+                        </div>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                           <thead><tr>
                             {["Name", "Base Pay", "Bonus", "Total", "Notes"].map((h, i) => (
-                              <th key={h} style={{ padding: "8px 10px", textAlign: i >= 1 && i <= 3 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                              <th key={h} style={{ padding: "8px 10px", textAlign: i >= 1 && i <= 3 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(139,92,246,0.15)" }}>{h}</th>
                             ))}
                           </tr></thead>
                           <tbody>
@@ -583,7 +689,7 @@ export default function PayrollDashboard() {
             <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Products & Commission</h3>
             <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>Configure product types and commission rates.</p>
 
-            {products.map(p => <ProductRow key={p.id} product={p} onSave={saveProduct} />)}
+            {products.map(p => <ProductRow key={p.id} product={p} onSave={saveProduct} onDelete={deleteProduct} />)}
             {products.length === 0 && <p style={{ color: "#475569", margin: "16px 0" }}>No products configured yet.</p>}
 
             <div style={{ marginTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20 }}>
@@ -605,9 +711,10 @@ export default function PayrollDashboard() {
                   </div>
                 )}
                 {(newProduct.type === "ADDON" || newProduct.type === "AD_D") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                     <div><label style={LBL}>Bundled Commission (%){newProduct.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input style={INP} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
                     <div><label style={LBL}>Standalone Commission (%)</label><input style={INP} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+                    <div><label style={LBL}>Enroll Fee Threshold ($)</label><input style={INP} type="number" step="0.01" value={newProduct.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setNewProduct(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
                   </div>
                 )}
                 <input style={INP} value={newProduct.notes} placeholder="Notes" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} />
@@ -630,14 +737,14 @@ export default function PayrollDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           {/* Service Agents list */}
           <div style={CARD}>
-            <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Customer Service Agents</h3>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>Manage customer service staff with base pay and bonuses.</p>
+            <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Customer Service</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>Manage customer service agents with base pay and bonuses.</p>
 
             {serviceAgents.map(a => <ServiceAgentRow key={a.id} agent={a} onSave={saveServiceAgent} />)}
             {serviceAgents.length === 0 && <p style={{ color: "#475569", margin: "16px 0" }}>No service agents yet.</p>}
 
             <form onSubmit={addServiceAgent} style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Add Service Agent</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Add Customer Service Agent</div>
               <input style={INP} value={newServiceAgent.name} placeholder="Name *" required onChange={e => setNewServiceAgent(x => ({ ...x, name: e.target.value }))} />
               <input style={INP} type="number" step="0.01" value={newServiceAgent.basePay} placeholder="Base Pay ($) *" required onChange={e => setNewServiceAgent(x => ({ ...x, basePay: e.target.value }))} />
               <button type="submit" style={BTN("#059669")}>Add Service Agent</button>

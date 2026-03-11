@@ -112,6 +112,7 @@ model Product {
   commissionAbove       Decimal?    @db.Decimal(5, 2) @map("commission_above")
   bundledCommission     Decimal?    @db.Decimal(5, 2) @map("bundled_commission")
   standaloneCommission  Decimal?    @db.Decimal(5, 2) @map("standalone_commission")
+  enrollFeeThreshold    Decimal?    @db.Decimal(10, 2) @map("enroll_fee_threshold")
   notes                 String?
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
@@ -144,6 +145,7 @@ model Sale {
 
   enrollmentFee     Decimal?        @db.Decimal(10, 2) @map("enrollment_fee")
   commissionApproved Boolean        @default(false) @map("commission_approved")
+  paymentType       String?         @map("payment_type")
 
   agent         Agent         @relation(fields: [agentId], references: [id])
   product       Product       @relation(fields: [productId], references: [id])
