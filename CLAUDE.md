@@ -49,7 +49,7 @@ This monorepo contains **two independent workloads**:
 | `manager-dashboard` | 3019 | Sales entry, agent tracker, call audits, config management |
 | `owner-dashboard` | 3026 | KPI summary and operational overview |
 
-All Next.js apps are v15, use `output: "standalone"` for Docker builds, and `transpilePackages` for shared `@ops/*` imports.
+All Next.js apps are v15 and use `transpilePackages` for shared `@ops/*` imports.
 
 ### Shared Packages (`packages/`)
 
@@ -78,7 +78,7 @@ All UI uses **inline React.CSSProperties** — no Tailwind, no globals.css. The 
 
 - Routes in `apps/ops-api/src/routes/index.ts`, single flat file.
 - All async handlers wrapped with `asyncHandler()` to forward errors.
-- Request validation via Zod schemas (`.min(0)` on financial amounts, `.min(0).max(100)` on commission percentages). **Exception:** `adjustmentAmount` allows negative values (chargebacks).
+- Request validation via Zod schemas (`.min(0)` on financial amounts, `.min(0).max(100)` on commission percentages). **Exception:** `adjustmentAmount` allows negative values (chargebacks). All Zod errors are wrapped via `zodErr()` helper so responses always include an `error` key that dashboards can display.
 - Sensitive operations call `logAudit()` from `apps/ops-api/src/services/audit.ts` → writes to `app_audit_log` table.
 - Commission calculation in `apps/ops-api/src/services/payroll.ts` — `upsertPayrollEntryForSale()` auto-creates/updates payroll entries by week.
 - Net amount formula: `payout + adjustment + bonus - fronted`.
@@ -100,5 +100,13 @@ See `apps/ops-api/.env.example` for API vars and root `.env.example` for all var
 
 ## Deployment
 
-- **Railway**: See `README.md` for per-service build/start commands. Root directory must be blank (unset) for workspace apps.
-- **Docker**: `docker-compose.yml` orchestrates postgres + all services. Next.js apps use `Dockerfile.nextjs` with `APP_NAME` build arg.
+- **Railway**: See `README.md` for per-service build/start commands. Root directory must be blank (unset) for workspace apps. Railway uses `next build && next start`.
+- **Docker**: `docker-compose.yml` orchestrates postgres + all services. Next.js apps use `Dockerfile.nextjs` with `APP_NAME` build arg. Docker sets `NEXT_OUTPUT_STANDALONE=true` to enable standalone output.
+
+## Known Gotchas
+
+- **`output: "standalone"` breaks Railway.** Next.js `next start` is incompatible with `output: "standalone"`. The config is conditional: `process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined`. Only the Docker build sets this env var. **Never hardcode `output: "standalone"` in next.config.js** — it will crash all Railway services.
+- **Zod errors must use `zodErr()` wrapper.** Raw `parsed.error.flatten()` returns `{ formErrors, fieldErrors }` with no `error` key. Dashboards check `err.error` for display. Always use `zodErr(parsed.error)` which returns `{ error: "message", details: {...} }`.
+- **Dashboard error handlers must show status codes.** Use `` `Request failed (${res.status})` `` as the fallback, not a generic "Failed to add" string. This makes debugging possible when the API returns unexpected responses (e.g., 502 from Railway proxy when a service is down).
+- **Port assignments are fixed.** auth-portal:3011, payroll:3012, sales-board:3013, manager:3019, owner:3026. These must match the `ALLOWED_ORIGINS` CORS whitelist in ops-api.
+- **`adjustmentAmount` allows negatives.** Chargebacks deduct from the current week's payroll when the original sale's period was already marked paid. Do not add `.min(0)` to this field.

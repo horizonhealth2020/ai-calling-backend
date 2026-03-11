@@ -1,4 +1,38 @@
-# High-Severity Fixes Applied
+# Fixes Applied
+
+---
+
+## Ops Platform Fix: Railway Deployment Crash + "Failed to Add" Errors
+
+Date: 2026-03-11
+
+### Problem
+All Railway services crashed after `output: "standalone"` was hardcoded in every `next.config.js`. Next.js `next start` (used by Railway) is incompatible with standalone output mode. With all services down, dashboard API calls received HTML error pages from Railway's reverse proxy instead of JSON. Dashboards parsed these with `res.json().catch(() => ({}))`, got an empty object with no `error` field, and displayed generic "Failed to add" messages.
+
+### Root Cause
+- `output: "standalone"` in `next.config.js` → `next start` fails with: `"next start" does not work with "output: standalone" configuration`
+- Zod validation errors returned `parsed.error.flatten()` → `{ formErrors, fieldErrors }` format with no `error` key → dashboards showed generic fallback messages
+
+### Fix Applied
+1. **Conditional standalone output** — All 5 `next.config.js` files changed from `output: "standalone"` to `output: process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined`. Only Docker builds set this env var (`Dockerfile.nextjs`). Railway doesn't set it, so `next start` works.
+2. **`zodErr()` helper** — All Zod error responses wrapped to always include `{ error: "message", details: {...} }` so dashboards can display the actual validation error.
+3. **Status code in error messages** — Dashboard fallback messages changed from `"Failed to add agent"` to `` `Request failed (${res.status})` `` for debuggability.
+
+### Files Changed
+- `apps/{auth-portal,manager-dashboard,payroll-dashboard,owner-dashboard,sales-board}/next.config.js`
+- `Dockerfile.nextjs`
+- `apps/ops-api/src/routes/index.ts`
+- `apps/manager-dashboard/app/page.tsx`
+- `apps/payroll-dashboard/app/page.tsx`
+
+### Prevention
+- Never hardcode `output: "standalone"` in `next.config.js` — always use the conditional env check
+- Always use `zodErr(parsed.error)` for Zod validation error responses, never raw `.flatten()`
+- Always show HTTP status codes in dashboard error fallbacks
+
+---
+
+# Morgan Voice Service Fixes
 
 Date: 2026-02-05
 
