@@ -9,6 +9,15 @@ import { logAudit } from "../services/audit";
 
 const router = Router();
 
+/** Format Zod errors so the response always includes an `error` key for dashboard display. */
+function zodErr(ze: z.ZodError) {
+  const flat = ze.flatten();
+  const msg = flat.formErrors[0]
+    || Object.values(flat.fieldErrors).flat()[0]
+    || "Validation failed";
+  return { error: msg, details: flat };
+}
+
 /** Wrap async route handlers so errors are forwarded to Express error handler */
 const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -43,7 +52,7 @@ function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
 router.post("/auth/login", asyncHandler(async (req, res) => {
   const schema = z.object({ email: z.string().email(), password: z.string().min(8) });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (!user || !user.active || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
@@ -85,7 +94,7 @@ router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(asyn
     roles: z.array(ROLE_ENUM).min(1),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const { password, ...rest } = parsed.data;
   const passwordHash = await bcrypt.hash(password, 10);
   try {
@@ -107,7 +116,7 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler
     active: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const { password, ...rest } = parsed.data;
   const data: any = { ...rest };
   if (password) data.passwordHash = await bcrypt.hash(password, 10);
@@ -127,7 +136,7 @@ router.get("/agents", requireAuth, asyncHandler(async (_req, res) => res.json(aw
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), email: z.string().optional(), userId: z.string().optional(), extension: z.string().optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const count = await prisma.agent.count();
   try {
     const agent = await prisma.agent.create({ data: { ...parsed.data, displayOrder: count } });
@@ -141,7 +150,7 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
     const agent = await prisma.agent.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(agent);
@@ -156,7 +165,7 @@ router.get("/lead-sources", requireAuth, asyncHandler(async (_req, res) => res.j
 router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().min(0).default(0) });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
     const ls = await prisma.leadSource.create({ data: { ...parsed.data, effectiveDate: new Date() } });
     await logAudit(req.user?.id ?? null, "CREATE", "LeadSource", ls.id, { name: ls.name });
@@ -170,7 +179,7 @@ router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
 router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().min(0).optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
     const ls = await prisma.leadSource.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(ls);
@@ -194,7 +203,7 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
     notes: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
     const product = await prisma.product.create({ data: parsed.data });
     await logAudit(req.user!.id, "CREATE", "Product", product.id, { name: product.name });
@@ -218,7 +227,7 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     notes: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
     const product = await prisma.product.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(product);
@@ -283,7 +292,7 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
     notes: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const sale = await prisma.sale.update({
     where: { id: req.params.id },
     data: parsed.data,
@@ -391,7 +400,7 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
     frontedAmount: z.number().min(0).optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.payrollEntry.findUnique({ where: { id: req.params.id } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
@@ -414,7 +423,7 @@ router.get("/service-agents", requireAuth, asyncHandler(async (_req, res) => {
 router.post("/service-agents", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), basePay: z.number().min(0) });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const agent = await prisma.serviceAgent.create({ data: parsed.data });
   await logAudit(req.user!.id, "CREATE", "ServiceAgent", agent.id, { name: agent.name });
   res.status(201).json(agent);
@@ -423,7 +432,7 @@ router.post("/service-agents", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
 router.patch("/service-agents/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), basePay: z.number().min(0).optional(), active: z.boolean().optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const agent = await prisma.serviceAgent.update({ where: { id: req.params.id }, data: parsed.data });
   await logAudit(req.user!.id, "UPDATE", "ServiceAgent", agent.id, parsed.data);
   res.json(agent);
@@ -440,7 +449,7 @@ router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPE
 router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ serviceAgentId: z.string(), payrollPeriodId: z.string(), bonusAmount: z.number().min(0).default(0), notes: z.string().optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
   if (!agent) return res.status(404).json({ error: "Service agent not found" });
   const basePay = Number(agent.basePay);
@@ -457,7 +466,7 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUP
 router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ bonusAmount: z.number().min(0).optional(), notes: z.string().nullable().optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: req.params.id }, include: { serviceAgent: true } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
