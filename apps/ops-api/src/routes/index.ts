@@ -147,6 +147,12 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
   }
 }));
 
+router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await prisma.agent.update({ where: { id: req.params.id }, data: { active: false } });
+  await logAudit(req.user!.id, "DELETE", "Agent", req.params.id);
+  return res.status(204).end();
+}));
+
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
   const parsed = schema.safeParse(req.body);
@@ -200,6 +206,7 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
     commissionAbove: z.number().min(0).max(100).nullable().optional(),
     bundledCommission: z.number().min(0).max(100).nullable().optional(),
     standaloneCommission: z.number().min(0).max(100).nullable().optional(),
+    enrollFeeThreshold: z.number().min(0).nullable().optional(),
     notes: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -224,6 +231,7 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     commissionAbove: z.number().min(0).max(100).nullable().optional(),
     bundledCommission: z.number().min(0).max(100).nullable().optional(),
     standaloneCommission: z.number().min(0).max(100).nullable().optional(),
+    enrollFeeThreshold: z.number().min(0).nullable().optional(),
     notes: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -235,6 +243,12 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     if (e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
     throw e;
   }
+}));
+
+router.delete("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await prisma.product.update({ where: { id: req.params.id }, data: { active: false } });
+  await logAudit(req.user!.id, "DELETE", "Product", req.params.id);
+  return res.status(204).end();
 }));
 
 router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -251,6 +265,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     enrollmentFee: z.number().min(0).nullable().optional(),
     addonProductIds: z.array(z.string()).default([]),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).default("SUBMITTED"),
+    paymentType: z.enum(["CC", "ACH"]).optional(),
     notes: z.string().optional(),
   });
   const parsed = schema.parse(req.body);
@@ -347,7 +362,7 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
     include: {
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { name: true, type: true } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { product: { select: { id: true, name: true } } } } } },
           agent: { select: { name: true } },
         },
       },

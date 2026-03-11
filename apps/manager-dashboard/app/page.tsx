@@ -6,11 +6,11 @@ import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config";
-type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number };
+type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean };
 type Product = {
   id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
   premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
-  bundledCommission?: number | null; standaloneCommission?: number | null; notes?: string | null;
+  bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
@@ -33,43 +33,127 @@ function tabBtn(active: boolean): React.CSSProperties {
 }
 
 // ── Receipt parser ──────────────────────────────────────────────────
+type ParsedProduct = { name: string; price: string; isAddon: boolean; enrollmentFee?: string };
 type ParseResult = {
   memberId?: string; memberName?: string; status?: string; saleDate?: string;
   premium?: string; carrier?: string; enrollmentFee?: string; addonNames: string[];
+  parsedProducts: ParsedProduct[]; paymentType?: "CC" | "ACH";
 };
 
 function parseReceipt(text: string): ParseResult {
-  const t = text.replace(/\r?\n/g, " ").replace(/\s+/g, " ");
-  const out: ParseResult = { addonNames: [] };
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const t = lines.join(" ");
+  const out: ParseResult = { addonNames: [], parsedProducts: [] };
 
-  const mid = t.match(/MemberID:\s*(\d+)\s+((?:[A-Z][a-zA-Z'-]+\s+){1,3}[A-Z][a-zA-Z'-]+)/);
-  if (mid) { out.memberId = mid[1]; out.memberName = mid[2].trim(); }
+  // ── Member section ──
+  // ID: 686756360
+  const idMatch = t.match(/(?:MemberID|ID):\s*(\d+)/);
+  if (idMatch) out.memberId = idMatch[1];
 
-  const st = t.match(/SALE on .+?[-–]\s*(Approved|Rejected|Cancelled|Submitted)/i);
-  if (st) out.status = st[1].toUpperCase();
-
-  const dt = t.match(/Date:(\d{2})\/(\d{2})\/(\d{4})/);
-  if (dt) out.saleDate = `${dt[3]}-${dt[1]}-${dt[2]}`;
-
-  const am = t.match(/Amount:\$?([\d,]+\.?\d*)/);
-  if (am) out.premium = am[1].replace(/,/g, "");
-
-  const pr = t.match(/Products([A-Za-z][^$\d]{3,50?)(?:\s*[-–]\s*Plan|\s+Member\s+-|\s*[-–]\s*Add-on)/);
-  if (pr) out.carrier = pr[1].trim();
-
-  const ef = t.match(/Enrollment\s+\$?([\d,]+\.?\d*)/);
-  if (ef) out.enrollmentFee = ef[1].replace(/,/g, "");
-
-  const addRe = /(AD&D[^-]*?)\s*-\s*Add-on/gi;
-  let m: RegExpExecArray | null;
-  while ((m = addRe.exec(t)) !== null) {
-    out.addonNames.push(m[1].trim());
+  // Member name: line after "ID: xxx" or after "MemberID: xxx"
+  // In copy-paste: "ID: 686756360\nRobert Malone\n1002 S..."
+  for (let i = 0; i < lines.length; i++) {
+    if (/^(?:MemberID|ID):\s*\d+/.test(lines[i])) {
+      // Name might be on same line (MemberID: 123 Robert Malone) or next line
+      const sameLine = lines[i].match(/(?:MemberID|ID):\s*\d+\s+([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)+)/);
+      if (sameLine) { out.memberName = sameLine[1].trim(); }
+      else if (i + 1 < lines.length && /^[A-Z][a-zA-Z'-]+\s+[A-Z]/.test(lines[i + 1]) && !/^\d/.test(lines[i + 1])) {
+        out.memberName = lines[i + 1].trim();
+      }
+      break;
+    }
   }
 
-  const addonRe = /Product\s+\$[\d,.]+\s*((?:[A-Z][A-Za-z&]+(?:\s+[A-Z][A-Za-z&]+)*)\s+)Add-on/g;
-  while ((m = addonRe.exec(t)) !== null) {
-    const name = m[1].trim();
-    if (!/^AD&D/i.test(name)) out.addonNames.push(name);
+  // ── Sale section ──
+  // SALE on March 11, 2026 - Approved
+  const st = t.match(/SALE on .+?[-\u2013]\s*(Approved|Rejected|Cancelled|Submitted)/i);
+  if (st) out.status = st[1].toUpperCase();
+
+  // Date: 03/11/2026
+  const dt = t.match(/Date:\s*(\d{2})\/(\d{2})\/(\d{4})/);
+  if (dt) out.saleDate = `${dt[3]}-${dt[1]}-${dt[2]}`;
+
+  // Amount: $298.64
+  const am = t.match(/Amount:\s*\$?([\d,]+\.?\d*)/);
+  if (am) out.premium = am[1].replace(/,/g, "");
+
+  // ── Products section ──
+  // Find the "Products" header and parse each product block
+  // Each product: "ProductName [- Add-on]\nPlan details - ID: XXXX - Payment: N\n[Enrollment $XX.XX] Product $XX.XX"
+  let totalEnrollment = 0;
+  const productsIdx = lines.findIndex(l => /^Products$/i.test(l));
+  if (productsIdx >= 0) {
+    // Collect lines from Products header until "Total" or "Payment" section
+    const productLines: string[] = [];
+    for (let i = productsIdx + 1; i < lines.length; i++) {
+      if (/^Total\s+\$/.test(lines[i]) || /^Payment$/i.test(lines[i])) break;
+      productLines.push(lines[i]);
+    }
+
+    // Join and split by product blocks — each product starts with a name line
+    // Pattern: product blocks are separated by "Product $XX.XX" endings
+    const joined = productLines.join(" ");
+
+    // Split on "Product  $XX.XX" boundaries to find individual products
+    const productBlockRe = /Product\s+\$([\d,]+\.?\d*)/g;
+    let pm: RegExpExecArray | null;
+    const blocks: { text: string; price: string }[] = [];
+    let prevIdx = 0;
+    while ((pm = productBlockRe.exec(joined)) !== null) {
+      blocks.push({ text: joined.substring(prevIdx, pm.index), price: pm[1].replace(/,/g, "") });
+      prevIdx = pm.index + pm[0].length;
+    }
+
+    for (const block of blocks) {
+      const bt = block.text.trim();
+      // Extract product name (everything before "Individual", "Family", "Employee", or "- ID:")
+      const nameMatch = bt.match(/^([A-Za-z][A-Za-z0-9&\s/+'.()-]+?)(?:\s+(?:Individual|Family|Employee|Member)\b|\s+-\s+ID:)/i);
+      if (nameMatch) {
+        const rawName = nameMatch[1].trim();
+        const isAddon = /[-\u2013]\s*Add-on/i.test(rawName) || /\bAdd-on\b/i.test(rawName);
+        const cleanName = rawName.replace(/\s*[-\u2013]\s*Add-on\s*/gi, "").replace(/\s+Add-on\s*/gi, "").trim();
+
+        // Check for enrollment fee in this block
+        const efMatch = bt.match(/Enrollment\s+\$?([\d,]+\.?\d*)/);
+        let enrollFee: string | undefined;
+        if (efMatch) {
+          enrollFee = efMatch[1].replace(/,/g, "");
+          totalEnrollment += Number(enrollFee);
+        }
+
+        out.parsedProducts.push({ name: cleanName, price: block.price, isAddon, enrollmentFee: enrollFee });
+        if (isAddon) out.addonNames.push(cleanName);
+      }
+    }
+
+    // Carrier = first non-addon product name
+    const primary = out.parsedProducts.find(p => !p.isAddon);
+    if (primary) out.carrier = primary.name;
+  }
+
+  if (totalEnrollment > 0) out.enrollmentFee = totalEnrollment.toFixed(2);
+
+  // ── Payment section ──
+  // Type: BANK = ACH, anything else = CC
+  const payType = t.match(/Payment\s+Type:\s*(\w+)/i) || t.match(/Type:\s*(BANK|CARD|CC|ACH|CREDIT)/i);
+  if (payType) {
+    const pt = payType[1].toUpperCase();
+    out.paymentType = (pt === "BANK" || pt === "ACH") ? "ACH" : "CC";
+  }
+
+  // ── Fallback for inline format (MemberID: 123 Name...) ──
+  if (!out.memberName && !out.memberId) {
+    const mid = t.match(/MemberID:\s*(\d+)\s+([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)+)/);
+    if (mid) { out.memberId = mid[1]; out.memberName = mid[2].trim(); }
+  }
+
+  // Fallback enrollment fee if products section didn't have it
+  if (!out.enrollmentFee) {
+    const efRe = /Enrollment\s+\$?([\d,]+\.?\d*)/g;
+    let efm: RegExpExecArray | null;
+    let ef = 0;
+    while ((efm = efRe.exec(t)) !== null) ef += Number(efm[1].replace(/,/g, ""));
+    if (ef > 0) out.enrollmentFee = ef.toFixed(2);
   }
 
   return out;
@@ -84,7 +168,7 @@ function matchProduct(name: string, products: Product[]): Product | undefined {
 }
 
 // ── Editable row components ─────────────────────────────────────────
-function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: Partial<Agent>) => Promise<void> }) {
+function AgentRow({ agent, onSave, onDelete }: { agent: Agent; onSave: (id: string, data: Partial<Agent>) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
   const [d, setD] = useState({ name: agent.name, email: agent.email ?? "", extension: agent.extension ?? "" });
   const [saving, setSaving] = useState(false);
@@ -98,7 +182,10 @@ function AgentRow({ agent, onSave }: { agent: Agent; onSave: (id: string, data: 
           {agent.extension ? `Tracking: ${agent.extension}` : ""}
         </div>
       </div>
-      <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+        <button onClick={() => { if (confirm(`Delete agent "${agent.name}"? This will deactivate them.`)) onDelete(agent.id); }} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, background: "rgba(239,68,68,0.1)", cursor: "pointer", color: "#f87171", fontWeight: 600 }}>Delete</button>
+      </div>
     </div>
   );
   return (
@@ -152,6 +239,7 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
     commissionAbove: product.commissionAbove != null ? String(product.commissionAbove) : "",
     bundledCommission: product.bundledCommission != null ? String(product.bundledCommission) : "",
     standaloneCommission: product.standaloneCommission != null ? String(product.standaloneCommission) : "",
+    enrollFeeThreshold: product.enrollFeeThreshold != null ? String(product.enrollFeeThreshold) : "",
     notes: product.notes ?? "",
   });
   const [saving, setSaving] = useState(false);
@@ -199,9 +287,10 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
           <div><label style={LBL}>Commission Above (%)</label><input style={INP} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           <div><label style={LBL}>Bundled Commission (%)</label><input style={INP} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
           <div><label style={LBL}>Standalone Commission (%)</label><input style={INP} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+          <div><label style={LBL}>Enroll Fee Threshold ($)</label><input style={INP} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
         </div>
       )}
       <div><label style={LBL}>Notes</label><input style={INP} value={d.notes} placeholder="Optional notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
@@ -215,6 +304,7 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
             commissionAbove: d.commissionAbove ? Number(d.commissionAbove) : null,
             bundledCommission: d.bundledCommission ? Number(d.bundledCommission) : null,
             standaloneCommission: d.standaloneCommission ? Number(d.standaloneCommission) : null,
+            enrollFeeThreshold: d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null,
           } as Partial<Product>);
           setEdit(false); setSaving(false);
         }}>Save</button>
@@ -248,7 +338,7 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
-  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", enrollmentFee: "", addonProductIds: [] as string[], status: "SUBMITTED", notes: "" });
+  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", enrollmentFee: "", addonProductIds: [] as string[], status: "SUBMITTED", notes: "", paymentType: "" as "CC" | "ACH" | "" });
   const [form, setForm] = useState(blankForm());
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
@@ -272,7 +362,7 @@ export default function ManagerDashboard() {
     });
   }, []);
 
-  const [parsedInfo, setParsedInfo] = useState<{ enrollmentFee?: string; coreProduct?: string; addons: { name: string; matched: boolean; productName?: string }[] }>({ addons: [] });
+  const [parsedInfo, setParsedInfo] = useState<{ enrollmentFee?: string; premium?: string; coreProduct?: string; parsedProducts: ParsedProduct[]; addons: { name: string; matched: boolean; productName?: string; productId?: string }[] }>({ addons: [], parsedProducts: [] });
 
   function handleParse() {
     if (!receipt.trim()) return;
@@ -283,9 +373,9 @@ export default function ManagerDashboard() {
       return { name, matched: !!match, productName: match?.name, productId: match?.id };
     });
     const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
-    const { addonNames: _, enrollmentFee, ...formFields } = p;
-    setForm(f => ({ ...f, ...formFields, enrollmentFee: enrollmentFee ?? f.enrollmentFee, addonProductIds, productId: coreMatch?.id ?? f.productId }));
-    setParsedInfo({ enrollmentFee, coreProduct: coreMatch ? coreMatch.name : p.carrier, addons: addonMatches });
+    const { addonNames: _, parsedProducts, enrollmentFee, paymentType: parsedPaymentType, ...formFields } = p;
+    setForm(f => ({ ...f, ...formFields, enrollmentFee: enrollmentFee ?? f.enrollmentFee, addonProductIds, productId: coreMatch?.id ?? f.productId, paymentType: parsedPaymentType ?? f.paymentType }));
+    setParsedInfo({ enrollmentFee, premium: p.premium, coreProduct: coreMatch ? coreMatch.name : p.carrier, parsedProducts, addons: addonMatches });
     setParsed(true);
   }
 
@@ -298,7 +388,7 @@ export default function ManagerDashboard() {
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg("");
     try {
-      const res = await authFetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null }) });
+      const res = await authFetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null, paymentType: form.paymentType || undefined }) });
       if (res.ok) {
         setMsg("Sale submitted successfully");
         clearReceipt();
@@ -317,6 +407,14 @@ export default function ManagerDashboard() {
     try {
       const res = await authFetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a)); setCfgMsg("Agent updated"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+  }
+
+  async function deleteAgent(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/agents/${id}`, { method: "DELETE" });
+      if (res.ok) { setAgents(prev => prev.filter(a => a.id !== id)); setCfgMsg("Agent deleted"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
@@ -367,7 +465,7 @@ export default function ManagerDashboard() {
             <div>
               <label style={LBL}>Agent</label>
               <select style={{ ...INP, height: 42 }} value={form.agentId} onChange={e => setForm(f => ({ ...f, agentId: e.target.value }))}>
-                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {agents.filter(a => a.active !== false).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div>
@@ -410,34 +508,87 @@ export default function ManagerDashboard() {
                 {leadSources.map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}
               </select>
             </div>
+            <div><label style={LBL}>Enrollment Fee ($)</label><input style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} /></div>
             <div><label style={LBL}>Notes</label><input style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
 
-            {parsed && (parsedInfo.addons.length > 0 || parsedInfo.coreProduct) && (
+            {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
               <div style={{ gridColumn: "1/-1", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", marginBottom: 8 }}>Parsed from Receipt</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13 }}>
-                  {parsedInfo.coreProduct && (
-                    <div><span style={{ color: "#64748b" }}>Core Product:</span> <strong style={{ color: "#e2e8f0" }}>{parsedInfo.coreProduct}</strong></div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", marginBottom: 10 }}>Parsed from Receipt</div>
+
+                {/* Product breakdown table */}
+                {parsedInfo.parsedProducts.length > 0 && (
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 12 }}>
+                    <thead><tr>
+                      <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid rgba(16,185,129,0.2)" }}>Product</th>
+                      <th style={{ padding: "6px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid rgba(16,185,129,0.2)" }}>Type</th>
+                      <th style={{ padding: "6px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid rgba(16,185,129,0.2)" }}>Matched</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid rgba(16,185,129,0.2)" }}>Price</th>
+                    </tr></thead>
+                    <tbody>
+                      {parsedInfo.parsedProducts.map((pp, i) => {
+                        const matched = matchProduct(pp.name, products);
+                        return (
+                          <tr key={i} style={{ borderTop: "1px solid rgba(16,185,129,0.1)" }}>
+                            <td style={{ padding: "6px 8px", color: "#e2e8f0" }}>
+                              {matched ? (
+                                <select style={{ ...INP, padding: "4px 8px", fontSize: 12, width: "auto", minWidth: 180 }} defaultValue={matched.id} onChange={e => {
+                                  if (!pp.isAddon) setForm(f => ({ ...f, productId: e.target.value }));
+                                  else setForm(f => ({ ...f, addonProductIds: f.addonProductIds.map((id, idx) => idx === i - 1 ? e.target.value : id) }));
+                                }}>
+                                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                              ) : (
+                                <span style={{ color: "#f87171" }}>{pp.name} (not matched)</span>
+                              )}
+                            </td>
+                            <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: pp.isAddon ? "#8b5cf6" : "#3b82f6", background: pp.isAddon ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)", padding: "2px 8px", borderRadius: 10 }}>
+                                {pp.isAddon ? "Add-on" : "Primary"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              {matched ? <span style={{ color: "#34d399", fontWeight: 700 }}>\u2713</span> : <span style={{ color: "#f87171" }}>\u2717</span>}
+                            </td>
+                            <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "#e2e8f0" }}>${pp.price}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+
+                {/* Summary boxes */}
+                <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                  {parsedInfo.premium && (
+                    <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: 8, padding: "8px 14px" }}>
+                      <span style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>PREMIUM TOTAL</span>
+                      <div style={{ fontWeight: 800, fontSize: 18, color: "#34d399" }}>${parsedInfo.premium}</div>
+                    </div>
+                  )}
+                  {parsedInfo.enrollmentFee && (
+                    <div style={{ background: "rgba(251,191,36,0.12)", borderRadius: 8, padding: "8px 14px" }}>
+                      <span style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>ENROLLMENT FEE</span>
+                      <div style={{ fontWeight: 800, fontSize: 18, color: "#fbbf24" }}>${parsedInfo.enrollmentFee}</div>
+                    </div>
                   )}
                 </div>
-                {parsedInfo.addons.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>Add-ons:</span>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                      {parsedInfo.addons.map((a, i) => (
-                        <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: a.matched ? "rgba(59,130,246,0.15)" : "rgba(239,68,68,0.15)", color: a.matched ? "#60a5fa" : "#f87171" }}>
-                          {a.matched ? a.productName : a.name}
-                          {a.matched ? " (matched)" : " (not matched)"}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={LBL}>Payment Type *</label>
+              <div style={{ display: "flex", gap: 16 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: form.paymentType === "CC" ? "#60a5fa" : "#94a3b8", cursor: "pointer", fontWeight: form.paymentType === "CC" ? 700 : 400 }}>
+                  <input type="radio" name="paymentType" value="CC" checked={form.paymentType === "CC"} onChange={() => setForm(f => ({ ...f, paymentType: "CC" }))} /> Credit Card
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: form.paymentType === "ACH" ? "#60a5fa" : "#94a3b8", cursor: "pointer", fontWeight: form.paymentType === "ACH" ? 700 : 400 }}>
+                  <input type="radio" name="paymentType" value="ACH" checked={form.paymentType === "ACH"} onChange={() => setForm(f => ({ ...f, paymentType: "ACH" }))} /> ACH
+                </label>
+              </div>
+            </div>
+
             <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16, paddingTop: 4 }}>
-              <button type="submit" style={BTN()}>Submit Sale</button>
+              <button type="submit" style={BTN()} disabled={!form.paymentType}>Submit Sale</button>
               {msg && <span style={{ color: msg.startsWith("Sale") ? "#34d399" : "#f87171", fontWeight: 600, fontSize: 14 }}>{msg}</span>}
             </div>
           </div>
@@ -538,7 +689,7 @@ export default function ManagerDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           <div style={CARD}>
             <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Agents</h3>
-            {agents.map(a => <AgentRow key={a.id} agent={a} onSave={saveAgent} />)}
+            {agents.map(a => <AgentRow key={a.id} agent={a} onSave={saveAgent} onDelete={deleteAgent} />)}
             <form onSubmit={addAgent} style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Add Agent</div>
               <input style={INP} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
