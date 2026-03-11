@@ -20,8 +20,10 @@ COPY apps/${APP_NAME} ./apps/${APP_NAME}
 
 # Build
 ARG APP_NAME
+ARG NEXT_PUBLIC_OPS_API_URL=http://localhost:8080
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT_STANDALONE=true
+ENV NEXT_PUBLIC_OPS_API_URL=${NEXT_PUBLIC_OPS_API_URL}
 RUN cd apps/${APP_NAME} && npx next build
 
 # Production
@@ -31,10 +33,13 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 ARG APP_NAME
+# Persist APP_NAME as ENV so it's available at runtime for CMD
+ENV APP_NAME=${APP_NAME}
 COPY --from=base /app/apps/${APP_NAME}/.next/standalone ./
 COPY --from=base /app/apps/${APP_NAME}/.next/static ./apps/${APP_NAME}/.next/static
 COPY --from=base /app/apps/${APP_NAME}/public ./apps/${APP_NAME}/public 2>/dev/null || true
 
 EXPOSE 3000
 
-CMD ["node", "apps/${APP_NAME}/server.js"]
+# Use shell form so ${APP_NAME} is expanded at runtime
+CMD node apps/${APP_NAME}/server.js

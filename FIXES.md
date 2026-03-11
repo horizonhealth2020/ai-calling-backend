@@ -32,6 +32,36 @@ All Railway services crashed after `output: "standalone"` was hardcoded in every
 
 ---
 
+## Docker Fix: Container Crashes + 404 on Add Agent
+
+Date: 2026-03-11
+
+### Problem
+All Docker Next.js containers crashed immediately on startup. The ops-api failed with postgres connection resets during `prisma migrate deploy`. With no services running, the manager dashboard returned 404 when trying to add an agent.
+
+### Root Causes
+1. **Dockerfile.nextjs CMD used exec form with unexpanded ARG** — `CMD ["node", "apps/${APP_NAME}/server.js"]` treats `${APP_NAME}` as a literal string because Docker exec form doesn't do shell variable expansion, and `ARG` values aren't available at runtime. Every container tried to run `node apps/${APP_NAME}/server.js` (literally), which doesn't exist.
+2. **Postgres not ready when ops-api starts** — `depends_on: postgres` only waits for the container to exist, not for postgres to accept connections. The ops-api's `prisma migrate deploy` ran before postgres was ready, causing connection reset errors.
+3. **`NEXT_PUBLIC_OPS_API_URL` set as runtime env** — `NEXT_PUBLIC_` vars are baked into Next.js at build time. The docker-compose `environment` section sets runtime vars, which Next.js ignores. The default `http://ops-api:8080` is also an internal Docker hostname that browsers can't resolve.
+
+### Fix Applied
+1. **Shell form CMD + ENV** — Changed `CMD ["node", "apps/${APP_NAME}/server.js"]` (exec form) to `CMD node apps/${APP_NAME}/server.js` (shell form). Added `ENV APP_NAME=${APP_NAME}` to persist the build ARG at runtime.
+2. **Postgres healthcheck** — Added `healthcheck` with `pg_isready` to the postgres service. Changed ops-api `depends_on` to `condition: service_healthy` so it waits for postgres readiness.
+3. **Build-time API URL** — Moved `NEXT_PUBLIC_OPS_API_URL` from docker-compose `environment` to `build.args`. Added `ARG`/`ENV` in Dockerfile.nextjs so the value is present during `next build`. Changed default from `http://ops-api:8080` to `http://localhost:8080`.
+
+### Files Changed
+- `Dockerfile.nextjs`
+- `docker-compose.yml`
+
+### Prevention
+- Never use Docker exec form CMD with shell variables — use shell form or pre-resolve paths at build time
+- Always persist build ARGs as ENV if needed at runtime (`ENV APP_NAME=${APP_NAME}`)
+- Always add healthchecks to database services and use `condition: service_healthy` in `depends_on`
+- `NEXT_PUBLIC_*` env vars must be set at build time (as build ARG), not runtime
+- `NEXT_PUBLIC_OPS_API_URL` must be a browser-reachable URL, never an internal Docker hostname
+
+---
+
 # Morgan Voice Service Fixes
 
 Date: 2026-02-05
