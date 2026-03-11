@@ -136,6 +136,15 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
     update: {},
   });
 
+  // Check if an existing entry has bonus/fronted to preserve those values
+  const existing = await prisma.payrollEntry.findUnique({
+    where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
+  });
+  const bonus = existing ? Number(existing.bonusAmount) : 0;
+  const fronted = existing ? Number(existing.frontedAmount) : 0;
+  const adjustment = existing ? Number(existing.adjustmentAmount) : 0;
+  const netAmount = payoutAmount + adjustment + bonus - fronted;
+
   return prisma.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
     create: {
@@ -145,6 +154,6 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
       payoutAmount,
       netAmount: payoutAmount,
     },
-    update: { payoutAmount, netAmount: payoutAmount },
+    update: { payoutAmount, netAmount },
   });
 };

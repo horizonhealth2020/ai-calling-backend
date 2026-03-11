@@ -1,0 +1,39 @@
+ARG APP_NAME
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# Copy workspace root files
+COPY package.json package-lock.json tsconfig.base.json ./
+
+# Copy all package.json files for workspace resolution
+COPY apps/${APP_NAME}/package.json apps/${APP_NAME}/
+COPY packages/ui/package.json packages/ui/
+COPY packages/auth/package.json packages/auth/
+COPY packages/types/package.json packages/types/
+
+# Install dependencies
+RUN npm ci --include-workspace-root
+
+# Copy source
+COPY packages ./packages
+COPY apps/${APP_NAME} ./apps/${APP_NAME}
+
+# Build
+ARG APP_NAME
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN cd apps/${APP_NAME} && npx next build
+
+# Production
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+ARG APP_NAME
+COPY --from=base /app/apps/${APP_NAME}/.next/standalone ./
+COPY --from=base /app/apps/${APP_NAME}/.next/static ./apps/${APP_NAME}/.next/static
+COPY --from=base /app/apps/${APP_NAME}/public ./apps/${APP_NAME}/public 2>/dev/null || true
+
+EXPOSE 3000
+
+CMD ["node", "apps/${APP_NAME}/server.js"]

@@ -18,66 +18,44 @@ const RANGE_LABELS: { value: Range; label: string }[] = [
 ];
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
-const INP: React.CSSProperties = { padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box" };
-const LBL: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4, display: "block" };
-const BTN = (color = "#2563eb"): React.CSSProperties => ({ padding: "8px 18px", background: color, color: "white", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 });
+// ── Dark theme styles ──
+const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, color: "#e2e8f0", width: "100%", boxSizing: "border-box", outline: "none" };
+const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
+const BTN = (bg = "linear-gradient(135deg, #3b82f6, #6366f1)"): React.CSSProperties => ({ padding: "10px 22px", background: bg, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: "0 2px 8px rgba(59,130,246,0.2)" });
+const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 24, backdropFilter: "blur(10px)" };
+const TH: React.CSSProperties = { padding: "12px 18px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" };
+const TD: React.CSSProperties = { padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)" };
 
-function tabBtn(active: boolean): React.CSSProperties {
-  return { padding: "8px 18px", border: "none", background: "transparent", cursor: "pointer", borderBottom: active ? "2px solid #2563eb" : "2px solid transparent", fontWeight: active ? 700 : 400, color: active ? "#2563eb" : "#6b7280", fontSize: 14 };
-}
-
-function StatCard({ label, value, color = "#111827" }: { label: string; value: string | number; color?: string }) {
-  return (
-    <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 800, color }}>{value}</div>
-    </div>
-  );
-}
-
-function RangeToggle({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
-  return (
-    <div style={{ display: "inline-flex", borderRadius: 8, overflow: "hidden", border: "1px solid #e5e7eb", marginBottom: 24 }}>
-      {RANGE_LABELS.map((r) => (
-        <button
-          key={r.value}
-          onClick={() => onChange(r.value)}
-          style={{
-            padding: "8px 20px",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            border: "none",
-            background: value === r.value ? "#111827" : "white",
-            color: value === r.value ? "white" : "#374151",
-            transition: "background 0.15s, color 0.15s",
-          }}
-        >
-          {r.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const ROLE_COLORS: Record<string, string> = { SUPER_ADMIN: "#7c3aed", MANAGER: "#2563eb", OWNER_VIEW: "#16a34a", PAYROLL: "#d97706", SERVICE: "#6b7280", ADMIN: "#0891b2" };
+const ROLE_COLORS: Record<string, string> = { SUPER_ADMIN: "#8b5cf6", MANAGER: "#3b82f6", OWNER_VIEW: "#10b981", PAYROLL: "#f59e0b", SERVICE: "#64748b", ADMIN: "#06b6d4" };
 
 function RoleBadge({ role }: { role: string }) {
-  return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: ROLE_COLORS[role] ?? "#6b7280", color: "white", marginRight: 4, display: "inline-block" }}>{role}</span>;
+  const c = ROLE_COLORS[role] ?? "#64748b";
+  return <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: c + "20", color: c, marginRight: 4, display: "inline-block", letterSpacing: "0.03em" }}>{role}</span>;
 }
 
 function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: (roles: string[]) => void }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       {ROLES.map(r => {
         const checked = selected.includes(r);
+        const c = ROLE_COLORS[r];
         return (
-          <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 13, padding: "4px 10px", borderRadius: 6, border: `1px solid ${checked ? ROLE_COLORS[r] : "#d1d5db"}`, background: checked ? ROLE_COLORS[r] + "18" : "white" }}>
-            <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked ? [...selected, r] : selected.filter(x => x !== r))} style={{ accentColor: ROLE_COLORS[r] }} />
-            <span style={{ fontWeight: checked ? 700 : 400, color: checked ? ROLE_COLORS[r] : "#374151" }}>{r}</span>
+          <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12, padding: "5px 10px", borderRadius: 6, border: `1px solid ${checked ? c + "40" : "rgba(255,255,255,0.06)"}`, background: checked ? c + "15" : "transparent" }}>
+            <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked ? [...selected, r] : selected.filter(x => x !== r))} style={{ accentColor: c }} />
+            <span style={{ fontWeight: checked ? 700 : 500, color: checked ? c : "#94a3b8" }}>{r}</span>
           </label>
         );
       })}
+    </div>
+  );
+}
+
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+  return (
+    <div style={{ ...CARD, position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "0 0 0 80px", background: accent + "08", pointerEvents: "none" }} />
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 900, color: accent }}>{value}</div>
     </div>
   );
 }
@@ -89,40 +67,40 @@ function UserRow({ user, onSave, onDelete }: { user: User; onSave: (id: string, 
   const [err, setErr] = useState("");
 
   if (!edit) return (
-    <tr style={{ borderTop: "1px solid #e5e7eb" }}>
-      <td style={{ padding: "10px 16px", fontWeight: 600 }}>{user.name}</td>
-      <td style={{ padding: "10px 16px", color: "#6b7280", fontSize: 13 }}>{user.email}</td>
-      <td style={{ padding: "10px 16px" }}>{user.roles.map(r => <RoleBadge key={r} role={r} />)}</td>
-      <td style={{ padding: "10px 16px" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: user.active ? "#16a34a" : "#9ca3af" }}>{user.active ? "Active" : "Inactive"}</span>
+    <tr>
+      <td style={{ ...TD, fontWeight: 600, color: "#e2e8f0" }}>{user.name}</td>
+      <td style={{ ...TD, color: "#64748b", fontSize: 13 }}>{user.email}</td>
+      <td style={TD}>{user.roles.map(r => <RoleBadge key={r} role={r} />)}</td>
+      <td style={TD}>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: user.active ? "rgba(34,197,94,0.1)" : "rgba(100,116,139,0.1)", color: user.active ? "#4ade80" : "#64748b" }}>{user.active ? "Active" : "Inactive"}</span>
       </td>
-      <td style={{ padding: "10px 16px", display: "flex", gap: 6 }}>
-        <button onClick={() => setEdit(true)} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 4, background: "white", cursor: "pointer" }}>Edit</button>
-        <button onClick={async () => { if (confirm(`Delete user "${user.name}"? This cannot be undone.`)) { const e = await onDelete(user.id); if (e) alert(e); } }} style={{ padding: "4px 10px", fontSize: 12, border: "1px solid #fca5a5", borderRadius: 4, background: "#fef2f2", color: "#dc2626", cursor: "pointer", fontWeight: 600 }}>Delete</button>
+      <td style={{ ...TD, display: "flex", gap: 6 }}>
+        <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600 }}>Edit</button>
+        <button onClick={async () => { if (confirm(`Delete user "${user.name}"?`)) { const e = await onDelete(user.id); if (e) alert(e); } }} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontWeight: 700 }}>Delete</button>
       </td>
     </tr>
   );
 
   return (
-    <tr style={{ borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
-      <td colSpan={5} style={{ padding: "12px 16px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+    <tr>
+      <td colSpan={5} style={{ ...TD, background: "rgba(15,23,42,0.4)", padding: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div><label style={LBL}>Name</label><input style={INP} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} /></div>
           <div><label style={LBL}>Email</label><input style={INP} value={d.email} onChange={e => setD(x => ({ ...x, email: e.target.value }))} /></div>
-          <div><label style={LBL}>New Password <span style={{ fontWeight: 400, color: "#9ca3af" }}>(leave blank to keep)</span></label><input style={INP} type="password" placeholder="••••••••" value={d.password} onChange={e => setD(x => ({ ...x, password: e.target.value }))} /></div>
+          <div><label style={LBL}>New Password</label><input style={INP} type="password" placeholder="Leave blank to keep" value={d.password} onChange={e => setD(x => ({ ...x, password: e.target.value }))} /></div>
         </div>
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 14 }}>
           <label style={LBL}>Roles</label>
           <RoleCheckboxes selected={d.roles} onChange={roles => setD(x => ({ ...x, roles }))} />
         </div>
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 14 }}>
           <label style={LBL}>Status</label>
           <select style={{ ...INP, width: "auto" }} value={String(d.active)} onChange={e => setD(x => ({ ...x, active: e.target.value === "true" }))}>
             <option value="true">Active</option>
             <option value="false">Inactive</option>
           </select>
         </div>
-        {err && <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 8 }}>{err}</div>}
+        {err && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 10, padding: "8px 12px", background: "rgba(239,68,68,0.1)", borderRadius: 6 }}>{err}</div>}
         <div style={{ display: "flex", gap: 8 }}>
           <button style={BTN()} disabled={saving || d.roles.length === 0} onClick={async () => {
             setSaving(true); setErr("");
@@ -131,7 +109,7 @@ function UserRow({ user, onSave, onDelete }: { user: User; onSave: (id: string, 
             const e = await onSave(user.id, payload);
             if (e) { setErr(e); setSaving(false); } else setEdit(false);
           }}>Save</button>
-          <button onClick={() => { setEdit(false); setErr(""); }} style={{ padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+          <button onClick={() => { setEdit(false); setErr(""); }} style={{ padding: "10px 18px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "transparent", color: "#94a3b8", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
         </div>
       </td>
     </tr>
@@ -146,13 +124,11 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // Users state
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", roles: ["MANAGER"] as string[] });
   const [createMsg, setCreateMsg] = useState("");
 
-  // Detect SUPER_ADMIN from JWT on mount (before any API calls)
   useEffect(() => {
     captureTokenFromUrl();
     try {
@@ -184,122 +160,147 @@ export default function OwnerDashboard() {
     if (tab === "users" && !usersLoaded && isSuperAdmin) {
       authFetch(`${API}/api/users`)
         .then(r => r.ok ? r.json() : [])
-        .then(u => { setUsers(u); setUsersLoaded(true); });
+        .then(u => { setUsers(u); setUsersLoaded(true); })
+        .catch(() => { setUsers([]); setUsersLoaded(true); });
     }
   }, [tab, isSuperAdmin, usersLoaded]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {
-    const res = await authFetch(`${API}/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-    if (res.ok) { const u = await res.json(); setUsers(prev => prev.map(x => x.id === id ? u : x)); return null; }
-    const err = await res.json().catch(() => ({}));
-    return err.error ?? "Failed to save";
+    try {
+      const res = await authFetch(`${API}/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      if (res.ok) { const u = await res.json(); setUsers(prev => prev.map(x => x.id === id ? u : x)); return null; }
+      const err = await res.json().catch(() => ({}));
+      return err.error ?? "Failed to save";
+    } catch (e: any) { return `Unable to reach API — ${e.message ?? "network error"}`; }
   }
 
   async function deleteUser(id: string): Promise<string | null> {
-    const res = await authFetch(`${API}/api/users/${id}`, { method: "DELETE" });
-    if (res.ok || res.status === 204) { setUsers(prev => prev.filter(x => x.id !== id)); return null; }
-    const err = await res.json().catch(() => ({}));
-    return err.error ?? "Failed to delete user";
+    try {
+      const res = await authFetch(`${API}/api/users/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) { setUsers(prev => prev.filter(x => x.id !== id)); return null; }
+      const err = await res.json().catch(() => ({}));
+      return err.error ?? "Failed to delete user";
+    } catch (e: any) { return `Unable to reach API — ${e.message ?? "network error"}`; }
   }
 
   async function createUser(e: FormEvent) {
     e.preventDefault(); setCreateMsg("");
-    const res = await authFetch(`${API}/api/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newUser) });
-    if (res.ok) {
-      const u = await res.json();
-      setUsers(prev => [u, ...prev]);
-      setNewUser({ name: "", email: "", password: "", roles: ["MANAGER"] });
-      setCreateMsg("User created successfully");
-    } else {
-      const err = await res.json().catch(() => ({}));
-      setCreateMsg(err.error ?? "Failed to create user");
+    try {
+      const res = await authFetch(`${API}/api/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newUser) });
+      if (res.ok) {
+        const u = await res.json();
+        setUsers(prev => [u, ...prev]);
+        setNewUser({ name: "", email: "", password: "", roles: ["MANAGER"] });
+        setCreateMsg("User created successfully");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCreateMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      setCreateMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`);
     }
   }
 
-  const rangeSubtitle = range === "today" ? "Today" : range === "week" ? "Sun – Sat" : "Rolling 30 days";
-
-  if (loading) return <PageShell title="Owner Dashboard"><p style={{ color: "#6b7280" }}>Loading…</p></PageShell>;
+  if (loading) return <PageShell title="Owner Dashboard"><p style={{ color: "#475569" }}>Loading\u2026</p></PageShell>;
 
   return (
     <PageShell title="Owner Dashboard">
-      <nav style={{ display: "flex", borderBottom: "1px solid #e5e7eb", marginBottom: 24 }}>
-        <button style={tabBtn(tab === "overview")} onClick={() => setTab("overview")}>Overview</button>
-        {isSuperAdmin && <button style={tabBtn(tab === "users")} onClick={() => setTab("users")}>User Management</button>}
+      {/* Tab Nav */}
+      <nav style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(15,23,42,0.4)", borderRadius: 10, padding: 4, width: "fit-content", border: "1px solid rgba(255,255,255,0.04)" }}>
+        {([["overview", "Overview"], ...(isSuperAdmin ? [["users", "User Management"]] : [])] as [Tab, string][]).map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)} style={{
+            padding: "9px 24px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 7, letterSpacing: "0.01em",
+            background: tab === key ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
+            color: tab === key ? "#fff" : "#64748b",
+            boxShadow: tab === key ? "0 2px 8px rgba(59,130,246,0.25)" : "none",
+          }}>{label}</button>
+        ))}
       </nav>
 
       {/* ── Overview ── */}
       {tab === "overview" && <>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
-          <RangeToggle value={range} onChange={setRange} />
-          <span style={{ fontSize: 13, color: "#6b7280" }}>{rangeSubtitle}</span>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 32 }}>
-          <StatCard label="Total Sales" value={summary?.salesCount ?? "—"} />
-          <StatCard label="Premium Total" value={fmt.format(Number(summary?.premiumTotal ?? 0))} color="#16a34a" />
-          <StatCard label="Chargebacks" value={summary?.clawbacks ?? "—"} color="#dc2626" />
-          <StatCard label="Open Payroll Periods" value={summary?.openPayrollPeriods ?? "—"} color="#d97706" />
-        </div>
-
-        <h2 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 12px", color: "#111827" }}>Agent Performance</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse", background: "white", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-          <thead><tr style={{ background: "#f3f4f6" }}>
-            <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Rank</th>
-            <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Agent</th>
-            <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Sales</th>
-            <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Premium Total</th>
-            <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Avg Premium</th>
-            <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 13, fontWeight: 600 }}>Cost per Sale</th>
-          </tr></thead>
-          <tbody>
-            {[...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal).map((row, i) => (
-              <tr key={row.agent} style={{ borderTop: "1px solid #e5e7eb", background: i % 2 === 0 ? "white" : "#f9fafb" }}>
-                <td style={{ padding: "10px 16px", color: "#6b7280", fontWeight: 600 }}>#{i + 1}</td>
-                <td style={{ padding: "10px 16px", fontWeight: 600 }}>{row.agent}</td>
-                <td style={{ padding: "10px 16px", textAlign: "right" }}>{row.salesCount}</td>
-                <td style={{ padding: "10px 16px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{fmt.format(Number(row.premiumTotal))}</td>
-                <td style={{ padding: "10px 16px", textAlign: "right", color: "#6b7280" }}>{row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "—"}</td>
-                <td style={{ padding: "10px 16px", textAlign: "right", color: "#d97706", fontWeight: 600 }}>{row.costPerSale > 0 ? fmt.format(row.costPerSale) : "—"}</td>
-              </tr>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <div style={{ display: "flex", gap: 4, background: "rgba(15,23,42,0.4)", borderRadius: 8, padding: 3, border: "1px solid rgba(255,255,255,0.04)" }}>
+            {RANGE_LABELS.map(r => (
+              <button key={r.value} onClick={() => setRange(r.value)} style={{
+                padding: "7px 18px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 6,
+                background: range === r.value ? "rgba(255,255,255,0.08)" : "transparent",
+                color: range === r.value ? "#e2e8f0" : "#475569",
+              }}>{r.label}</button>
             ))}
-            {tracker.length === 0 && <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No agent data yet</td></tr>}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 36 }}>
+          <StatCard label="Total Sales" value={summary?.salesCount ?? "\u2014"} accent="#3b82f6" />
+          <StatCard label="Premium Total" value={fmt.format(Number(summary?.premiumTotal ?? 0))} accent="#10b981" />
+          <StatCard label="Chargebacks" value={summary?.clawbacks ?? "\u2014"} accent="#ef4444" />
+          <StatCard label="Open Payroll" value={summary?.openPayrollPeriods ?? "\u2014"} accent="#f59e0b" />
+        </div>
+
+        <h2 style={{ fontSize: 14, fontWeight: 800, margin: "0 0 14px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Agent Performance</h2>
+        <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              <th style={TH}>Rank</th>
+              <th style={TH}>Agent</th>
+              <th style={{ ...TH, textAlign: "right" }}>Sales</th>
+              <th style={{ ...TH, textAlign: "right" }}>Premium</th>
+              <th style={{ ...TH, textAlign: "right" }}>Avg</th>
+              <th style={{ ...TH, textAlign: "right" }}>Cost/Sale</th>
+            </tr></thead>
+            <tbody>
+              {[...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal).map((row, i) => (
+                <tr key={row.agent} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                  <td style={{ ...TD, fontWeight: 800, color: i < 3 ? "#fbbf24" : "#475569", fontSize: 13 }}>#{i + 1}</td>
+                  <td style={{ ...TD, fontWeight: 700, color: "#e2e8f0" }}>{row.agent}</td>
+                  <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: "#94a3b8" }}>{row.salesCount}</td>
+                  <td style={{ ...TD, textAlign: "right", color: "#34d399", fontWeight: 700 }}>{fmt.format(Number(row.premiumTotal))}</td>
+                  <td style={{ ...TD, textAlign: "right", color: "#64748b" }}>{row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "\u2014"}</td>
+                  <td style={{ ...TD, textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{row.costPerSale > 0 ? fmt.format(row.costPerSale) : "\u2014"}</td>
+                </tr>
+              ))}
+              {tracker.length === 0 && <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#334155" }}>No agent data yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </>}
 
-      {/* ── User Management (SUPER_ADMIN only) ── */}
+      {/* ── User Management ── */}
       {tab === "users" && isSuperAdmin && (
         <div>
-          <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 8, padding: 20, marginBottom: 24 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Create User</h3>
+          <div style={{ ...CARD, marginBottom: 24 }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 800, color: "#e2e8f0" }}>Create User</h3>
             <form onSubmit={createUser}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
                 <div><label style={LBL}>Name</label><input style={INP} required value={newUser.name} onChange={e => setNewUser(x => ({ ...x, name: e.target.value }))} /></div>
                 <div><label style={LBL}>Email</label><input style={INP} type="email" required value={newUser.email} onChange={e => setNewUser(x => ({ ...x, email: e.target.value }))} /></div>
-                <div><label style={LBL}>Password (min 8 chars)</label><input style={INP} type="password" required minLength={8} value={newUser.password} onChange={e => setNewUser(x => ({ ...x, password: e.target.value }))} /></div>
+                <div><label style={LBL}>Password (min 8)</label><input style={INP} type="password" required minLength={8} value={newUser.password} onChange={e => setNewUser(x => ({ ...x, password: e.target.value }))} /></div>
               </div>
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 14 }}>
                 <label style={LBL}>Roles</label>
                 <RoleCheckboxes selected={newUser.roles} onChange={roles => setNewUser(x => ({ ...x, roles }))} />
               </div>
-              <button type="submit" disabled={newUser.roles.length === 0} style={{ ...BTN("#059669"), opacity: newUser.roles.length === 0 ? 0.5 : 1 }}>Create User</button>
-              {createMsg && <p style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 600, color: createMsg.includes("success") ? "#16a34a" : "#dc2626" }}>{createMsg}</p>}
+              <button type="submit" disabled={newUser.roles.length === 0} style={{ ...BTN("linear-gradient(135deg, #10b981, #059669)"), opacity: newUser.roles.length === 0 ? 0.4 : 1 }}>Create User</button>
+              {createMsg && <p style={{ margin: "12px 0 0", fontSize: 13, fontWeight: 700, padding: "8px 12px", borderRadius: 6, background: createMsg.includes("success") ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", color: createMsg.includes("success") ? "#4ade80" : "#f87171" }}>{createMsg}</p>}
             </form>
           </div>
 
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "white", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-            <thead><tr style={{ background: "#f3f4f6" }}>
-              <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Name</th>
-              <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Email</th>
-              <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Roles</th>
-              <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 13, fontWeight: 600 }}>Status</th>
-              <th style={{ padding: "10px 16px" }}></th>
-            </tr></thead>
-            <tbody>
-              {users.map(u => <UserRow key={u.id} user={u} onSave={saveUser} onDelete={deleteUser} />)}
-              {users.length === 0 && <tr><td colSpan={5} style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No users found</td></tr>}
-            </tbody>
-          </table>
+          <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                <th style={TH}>Name</th>
+                <th style={TH}>Email</th>
+                <th style={TH}>Roles</th>
+                <th style={TH}>Status</th>
+                <th style={TH}></th>
+              </tr></thead>
+              <tbody>
+                {users.map(u => <UserRow key={u.id} user={u} onSave={saveUser} onDelete={deleteUser} />)}
+                {users.length === 0 && <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "#334155" }}>No users found</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </PageShell>

@@ -3,6 +3,7 @@ const nextConfig = {
   transpilePackages: ["@ops/ui", "@ops/auth"],
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
+  output: "standalone",
   env: {
     NEXT_PUBLIC_OPS_API_URL: process.env.NEXT_PUBLIC_OPS_API_URL || "http://localhost:8080",
     MANAGER_DASHBOARD_URL: process.env.MANAGER_DASHBOARD_URL || "http://localhost:3019",
