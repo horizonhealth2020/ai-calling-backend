@@ -313,7 +313,7 @@ export default function PayrollDashboard() {
     try {
       const res = await authFetch(`${API}/api/sales/${saleId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { await refreshPeriods(); }
-      else { const err = await res.json().catch(() => ({})); alert(`Error: ${err.error ?? "Failed to update sale"}`); }
+      else { const err = await res.json().catch(() => ({})); alert(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { alert(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
@@ -356,7 +356,7 @@ export default function PayrollDashboard() {
     try {
       const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { const updated = await res.json(); setProducts(prev => prev.map(p => p.id === id ? updated : p)); setCfgMsg("Product updated"); }
-      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to update product"}`); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
@@ -374,7 +374,7 @@ export default function PayrollDashboard() {
       }
       const res = await authFetch(`${API}/api/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) { const p = await res.json(); setProducts(prev => [...prev, p]); setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "" }); setCfgMsg("Product added"); }
-      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? "Failed to add product"}`); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
@@ -383,7 +383,7 @@ export default function PayrollDashboard() {
     try {
       const res = await authFetch(`${API}/api/service-agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { const updated = await res.json(); setServiceAgents(prev => prev.map(a => a.id === id ? updated : a)); setSvcMsg("Agent updated"); }
-      else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? "Failed to update"}`); }
+      else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setSvcMsg(`Error: ${e.message ?? "network error"}`); }
   }
 
@@ -392,7 +392,7 @@ export default function PayrollDashboard() {
     try {
       const res = await authFetch(`${API}/api/service-agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newServiceAgent.name, basePay: Number(newServiceAgent.basePay) }) });
       if (res.ok) { const a = await res.json(); setServiceAgents(prev => [...prev, a]); setNewServiceAgent({ name: "", basePay: "" }); setSvcMsg("Customer service agent added"); }
-      else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? "Failed to add"}`); }
+      else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setSvcMsg(`Error: ${e.message ?? "network error"}`); }
   }
 
