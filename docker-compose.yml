@@ -46,6 +46,8 @@ services:
     depends_on:
       - ops-api
     environment:
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3011}
       MANAGER_DASHBOARD_URL: ${MANAGER_DASHBOARD_URL:-http://localhost:3019}
       PAYROLL_DASHBOARD_URL: ${PAYROLL_DASHBOARD_URL:-http://localhost:3012}
       OWNER_DASHBOARD_URL: ${OWNER_DASHBOARD_URL:-http://localhost:3026}
