@@ -23,4 +23,4 @@ RUN npx prisma generate --schema=prisma/schema.prisma
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npx tsx prisma/seed.ts && npx tsx apps/ops-api/src/index.ts"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npx tsx apps/ops-api/src/index.ts"]

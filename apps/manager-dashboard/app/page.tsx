@@ -12,7 +12,7 @@ type Product = {
   premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
-type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
+type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
@@ -201,7 +201,7 @@ function AgentRow({ agent, onSave, onDelete }: { agent: Agent; onSave: (id: stri
   );
 }
 
-function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void> }) {
+function LeadSourceRow({ ls, onSave, onDelete }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
   const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead) });
   const [saving, setSaving] = useState(false);
@@ -211,7 +211,10 @@ function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, da
         <div style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{ls.name}</div>
         <div style={{ fontSize: 12, color: "#64748b" }}>${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}</div>
       </div>
-      <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+        <button onClick={() => { if (confirm(`Delete lead source "${ls.name}"?`)) onDelete(ls.id); }} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, background: "rgba(239,68,68,0.1)", cursor: "pointer", color: "#f87171", fontWeight: 600 }}>Delete</button>
+      </div>
     </div>
   );
   return (
@@ -436,6 +439,14 @@ export default function ManagerDashboard() {
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
+  async function deleteLeadSource(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "DELETE" });
+      if (res.ok) { setLeadSources(prev => prev.filter(ls => ls.id !== id)); setCfgMsg("Lead source deleted"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+  }
+
   async function addLeadSource(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     try {
@@ -505,7 +516,7 @@ export default function ManagerDashboard() {
             </div>
             <div><label style={LBL}>Lead Source</label>
               <select style={INP} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
-                {leadSources.map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}
+                {leadSources.filter(ls => ls.active !== false).map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}
               </select>
             </div>
             <div><label style={LBL}>Enrollment Fee ($)</label><input style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} /></div>
@@ -701,7 +712,7 @@ export default function ManagerDashboard() {
 
           <div style={CARD}>
             <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Lead Sources</h3>
-            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} />)}
+            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} onDelete={deleteLeadSource} />)}
             <form onSubmit={addLeadSource} style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Add Lead Source</div>
               <input style={INP} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />

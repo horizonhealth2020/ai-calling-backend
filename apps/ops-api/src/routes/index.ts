@@ -148,7 +148,7 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
 }));
 
 router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await prisma.agent.update({ where: { id: req.params.id }, data: { active: false } });
+  await prisma.agent.update({ where: { id: req.params.id }, data: { active: false, email: null } });
   await logAudit(req.user!.id, "DELETE", "Agent", req.params.id);
   return res.status(204).end();
 }));
@@ -193,6 +193,12 @@ router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADM
     if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
     throw e;
   }
+}));
+
+router.delete("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await prisma.leadSource.update({ where: { id: req.params.id }, data: { active: false } });
+  await logAudit(req.user!.id, "DELETE", "LeadSource", req.params.id);
+  return res.status(204).end();
 }));
 
 router.get("/products", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.product.findMany())));
@@ -357,12 +363,12 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   res.json(summary);
 }));
 
-router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.payrollPeriod.findMany({
     include: {
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { product: { select: { id: true, name: true } } } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { product: { select: { id: true, name: true, type: true } } } } } },
           agent: { select: { name: true } },
         },
       },
@@ -454,6 +460,37 @@ router.patch("/service-agents/:id", requireAuth, requireRole("PAYROLL", "SUPER_A
 }));
 
 // ── Service Payroll Entries ─────────────────────────────────────
+// ── Service Bonus Category Settings ──────────────────────────────
+const DEFAULT_BONUS_CATEGORIES = [
+  { name: "Flips", isDeduction: false },
+  { name: "Saves", isDeduction: false },
+  { name: "Team Lead", isDeduction: false },
+  { name: "Cancel Bonus", isDeduction: false },
+  { name: "Avg Talk Time", isDeduction: false },
+  { name: "Most Calls", isDeduction: false },
+  { name: "On Time", isDeduction: false },
+  { name: "Out", isDeduction: true },
+];
+
+router.get("/settings/service-bonus-categories", requireAuth, asyncHandler(async (_req, res) => {
+  const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
+  if (setting) return res.json(JSON.parse(setting.value));
+  res.json(DEFAULT_BONUS_CATEGORIES);
+}));
+
+router.put("/settings/service-bonus-categories", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ categories: z.array(z.object({ name: z.string().min(1), isDeduction: z.boolean() })).min(1) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  await prisma.salesBoardSetting.upsert({
+    where: { key: "service_bonus_categories" },
+    create: { key: "service_bonus_categories", value: JSON.stringify(parsed.data.categories) },
+    update: { value: JSON.stringify(parsed.data.categories) },
+  });
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "service_bonus_categories", { categories: parsed.data.categories });
+  res.json(parsed.data.categories);
+}));
+
 router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.servicePayrollEntry.findMany({
     include: { serviceAgent: true, payrollPeriod: true },
@@ -461,34 +498,78 @@ router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPE
   }));
 }));
 
-router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ serviceAgentId: z.string(), payrollPeriodId: z.string(), bonusAmount: z.number().min(0).default(0), notes: z.string().optional() });
+router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    serviceAgentId: z.string(),
+    payrollPeriodId: z.string(),
+    bonusAmount: z.number().min(0).default(0),
+    bonusBreakdown: z.record(z.string(), z.number()).optional(),
+    notes: z.string().optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
   if (!agent) return res.status(404).json({ error: "Service agent not found" });
   const basePay = Number(agent.basePay);
-  const totalPay = basePay + parsed.data.bonusAmount;
+
+  let bonusAmount = parsed.data.bonusAmount;
+  let totalPay = basePay + bonusAmount;
+  const breakdown = parsed.data.bonusBreakdown;
+
+  if (breakdown) {
+    // Load category config to know which are deductions
+    const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
+    const cats: { name: string; isDeduction: boolean }[] = setting ? JSON.parse(setting.value) : DEFAULT_BONUS_CATEGORIES;
+    const deductionNames = new Set(cats.filter(c => c.isDeduction).map(c => c.name));
+    let adds = 0, deductions = 0;
+    for (const [cat, amt] of Object.entries(breakdown)) {
+      if (deductionNames.has(cat)) deductions += amt;
+      else adds += amt;
+    }
+    bonusAmount = adds;
+    totalPay = basePay + adds - deductions;
+  }
+
   const entry = await prisma.servicePayrollEntry.upsert({
     where: { payrollPeriodId_serviceAgentId: { payrollPeriodId: parsed.data.payrollPeriodId, serviceAgentId: parsed.data.serviceAgentId } },
-    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount: parsed.data.bonusAmount, totalPay, notes: parsed.data.notes },
-    update: { bonusAmount: parsed.data.bonusAmount, totalPay, notes: parsed.data.notes },
+    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
+    update: { bonusAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
     include: { serviceAgent: true },
   });
   res.status(201).json(entry);
 }));
 
-router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ bonusAmount: z.number().min(0).optional(), notes: z.string().nullable().optional() });
+router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    bonusAmount: z.number().min(0).optional(),
+    bonusBreakdown: z.record(z.string(), z.number()).optional(),
+    notes: z.string().nullable().optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: req.params.id }, include: { serviceAgent: true } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
-  const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
-  const totalPay = Number(entry.basePay) + bonus;
+
+  const breakdown = parsed.data.bonusBreakdown;
+  let bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
+  let totalPay = Number(entry.basePay) + bonus;
+
+  if (breakdown) {
+    const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
+    const cats: { name: string; isDeduction: boolean }[] = setting ? JSON.parse(setting.value) : DEFAULT_BONUS_CATEGORIES;
+    const deductionNames = new Set(cats.filter(c => c.isDeduction).map(c => c.name));
+    let adds = 0, deductions = 0;
+    for (const [cat, amt] of Object.entries(breakdown)) {
+      if (deductionNames.has(cat)) deductions += amt;
+      else adds += amt;
+    }
+    bonus = adds;
+    totalPay = Number(entry.basePay) + adds - deductions;
+  }
+
   const updated = await prisma.servicePayrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, totalPay, notes: parsed.data.notes ?? entry.notes },
+    data: { bonusAmount: bonus, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
     include: { serviceAgent: true },
   });
   res.json(updated);
