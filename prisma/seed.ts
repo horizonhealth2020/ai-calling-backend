@@ -126,6 +126,7 @@ async function main() {
     },
   });
 
+  console.warn("\n  WARNING: All seed users have default password 'ChangeMe123!' -- change before production use.\n");
   console.log("Seed complete");
 }
 
