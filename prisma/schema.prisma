@@ -78,10 +78,11 @@ model Agent {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  sales          Sale[]
-  audits         CallAudit[]
-  payrollEntries PayrollEntry[]
-  clawbacks      Clawback[]
+  sales            Sale[]
+  audits           CallAudit[]
+  payrollEntries   PayrollEntry[]
+  clawbacks        Clawback[]
+  convosoCallLogs  ConvosoCallLog[]
 
   @@map("agents")
 }
@@ -97,7 +98,8 @@ model LeadSource {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  sales Sale[]
+  sales            Sale[]
+  convosoCallLogs  ConvosoCallLog[]
 
   @@map("lead_sources")
 }
@@ -161,18 +163,24 @@ model Sale {
 }
 
 model CallAudit {
-  id             String   @id @default(cuid())
-  agentId        String   @map("agent_id")
-  callDate       DateTime @map("call_date")
-  score          Int
-  status         String
-  coachingNotes  String?  @map("coaching_notes")
-  reviewerUserId String   @map("reviewer_user_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(cuid())
+  agentId         String   @map("agent_id")
+  callDate        DateTime @map("call_date")
+  score           Int
+  status          String
+  coachingNotes   String?  @map("coaching_notes")
+  reviewerUserId  String?  @map("reviewer_user_id")
+  transcription   String?
+  aiSummary       String?  @map("ai_summary")
+  aiScore         Int?     @map("ai_score")
+  aiCoachingNotes String?  @map("ai_coaching_notes")
+  recordingUrl    String?  @map("recording_url")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  agent    Agent @relation(fields: [agentId], references: [id])
-  reviewer User  @relation("AuditReviewer", fields: [reviewerUserId], references: [id])
+  agent          Agent            @relation(fields: [agentId], references: [id])
+  reviewer       User?            @relation("AuditReviewer", fields: [reviewerUserId], references: [id])
+  convosoCallLog ConvosoCallLog?
 
   @@map("call_audits")
 }
@@ -320,6 +328,28 @@ model AppAuditLog {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("app_audit_log")
+}
+
+model ConvosoCallLog {
+  id            String      @id @default(cuid())
+  agentUser     String      @map("agent_user")
+  listId        String      @map("list_id")
+  recordingUrl  String?     @map("recording_url")
+  callTimestamp DateTime    @default(now()) @map("call_timestamp")
+  agentId       String?     @map("agent_id")
+  leadSourceId  String?     @map("lead_source_id")
+  transcription String?
+  auditStatus   String      @default("pending") @map("audit_status")
+  callAuditId   String?     @unique @map("call_audit_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  agent      Agent?      @relation(fields: [agentId], references: [id])
+  leadSource LeadSource? @relation(fields: [leadSourceId], references: [id])
+  callAudit  CallAudit?  @relation(fields: [callAuditId], references: [id])
+
+  @@index([callTimestamp])
+  @@index([agentId, leadSourceId, callTimestamp])
+  @@map("convoso_call_logs")
 }
 
 model ServiceTicket {

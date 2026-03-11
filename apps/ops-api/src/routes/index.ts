@@ -6,6 +6,7 @@ import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/au
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale } from "../services/payroll";
 import { logAudit } from "../services/audit";
+import { processCallRecording } from "../services/callAudit";
 
 const router = Router();
 
@@ -686,6 +687,144 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
     grandTotalPremium,
     todayStats,
   });
+}));
+
+// ── Convoso Webhook ─────────────────────────────────────────────
+const requireWebhookSecret = (req: Request, res: Response, next: NextFunction) => {
+  const secret = process.env.CONVOSO_WEBHOOK_SECRET;
+  if (!secret) return res.status(500).json({ error: "Webhook secret not configured" });
+  const provided = req.headers["x-webhook-secret"] || req.query.api_key;
+  if (provided !== secret) return res.status(401).json({ error: "Invalid webhook secret" });
+  return next();
+};
+
+router.post("/webhooks/convoso", requireWebhookSecret, asyncHandler(async (req, res) => {
+  const schema = z.object({
+    agent_user: z.string().min(1),
+    list_id: z.string().min(1),
+    recording_url: z.string().optional(),
+    call_timestamp: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const { agent_user, list_id, recording_url, call_timestamp } = parsed.data;
+
+  // Resolve agent by email (CRM User ID)
+  const agent = await prisma.agent.findUnique({ where: { email: agent_user } });
+  // Resolve lead source by listId (CRM List ID)
+  const leadSource = await prisma.leadSource.findFirst({ where: { listId: list_id } });
+
+  const log = await prisma.convosoCallLog.create({
+    data: {
+      agentUser: agent_user,
+      listId: list_id,
+      recordingUrl: recording_url,
+      callTimestamp: call_timestamp ? new Date(call_timestamp) : new Date(),
+      agentId: agent?.id ?? null,
+      leadSourceId: leadSource?.id ?? null,
+    },
+  });
+
+  // Kick off async recording processing if recording URL present and agent matched
+  if (recording_url && agent) {
+    processCallRecording(log.id).catch(err =>
+      console.error(`[webhook] Background processing failed for ${log.id}:`, err)
+    );
+  }
+
+  return res.status(201).json({ id: log.id, matched: { agent: !!agent, leadSource: !!leadSource } });
+}));
+
+// ── Call Audits ─────────────────────────────────────────────────
+router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where: any = {};
+  if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
+  if (req.query.agentId) where.agentId = req.query.agentId;
+
+  const audits = await prisma.callAudit.findMany({
+    where,
+    include: { agent: { select: { id: true, name: true } } },
+    orderBy: { callDate: "desc" },
+  });
+  res.json(audits);
+}));
+
+router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    score: z.number().min(0).max(100).optional(),
+    status: z.string().min(1).optional(),
+    coachingNotes: z.string().nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const audit = await prisma.callAudit.update({
+    where: { id: req.params.id },
+    data: { ...parsed.data, reviewerUserId: req.user!.id },
+    include: { agent: { select: { id: true, name: true } } },
+  });
+  await logAudit(req.user!.id, "UPDATE", "CallAudit", audit.id, parsed.data);
+  res.json(audit);
+}));
+
+// ── Call Counts (Convoso aggregation) ───────────────────────────
+router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where: any = { agentId: { not: null }, leadSourceId: { not: null } };
+  if (dr) where.callTimestamp = { gte: dr.gte, lt: dr.lt };
+
+  const counts = await prisma.convosoCallLog.groupBy({
+    by: ["agentId", "leadSourceId"],
+    _count: { id: true },
+    where,
+  });
+
+  const agentIds = [...new Set(counts.map(c => c.agentId!))];
+  const lsIds = [...new Set(counts.map(c => c.leadSourceId!))];
+
+  const [agents, leadSources] = await Promise.all([
+    prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } }),
+    prisma.leadSource.findMany({ where: { id: { in: lsIds } }, select: { id: true, name: true, costPerLead: true } }),
+  ]);
+
+  const agentMap = new Map(agents.map(a => [a.id, a.name]));
+  const lsMap = new Map(leadSources.map(ls => [ls.id, { name: ls.name, costPerLead: Number(ls.costPerLead) }]));
+
+  const result = counts.map(c => {
+    const ls = lsMap.get(c.leadSourceId!) ?? { name: "Unknown", costPerLead: 0 };
+    return {
+      agentId: c.agentId,
+      agentName: agentMap.get(c.agentId!) ?? "Unknown",
+      leadSourceId: c.leadSourceId,
+      leadSourceName: ls.name,
+      callCount: c._count.id,
+      totalLeadCost: ls.costPerLead * c._count.id,
+    };
+  });
+
+  res.json(result);
+}));
+
+// ── AI Audit System Prompt Settings ─────────────────────────────
+router.get("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_audit_system_prompt" } });
+  res.json({ prompt: setting?.value ?? "" });
+}));
+
+router.put("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ prompt: z.string().min(1) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  await prisma.salesBoardSetting.upsert({
+    where: { key: "ai_audit_system_prompt" },
+    create: { key: "ai_audit_system_prompt", value: parsed.data.prompt },
+    update: { value: parsed.data.prompt },
+  });
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "ai_audit_system_prompt");
+  res.json({ prompt: parsed.data.prompt });
 }));
 
 export default router;
