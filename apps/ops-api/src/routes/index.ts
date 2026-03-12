@@ -155,7 +155,7 @@ router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
 }));
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional(), auditEnabled: z.boolean().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
@@ -184,7 +184,7 @@ router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
 }));
 
 router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().min(0).optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().min(0).optional(), callBufferSeconds: z.number().int().min(0).optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
@@ -704,11 +704,12 @@ router.post("/webhooks/convoso", requireWebhookSecret, asyncHandler(async (req, 
     list_id: z.string().min(1),
     recording_url: z.string().optional(),
     call_timestamp: z.string().optional(),
+    call_duration_seconds: z.number().int().min(0).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const { agent_user, list_id, recording_url, call_timestamp } = parsed.data;
+  const { agent_user, list_id, recording_url, call_timestamp, call_duration_seconds } = parsed.data;
 
   // Resolve agent by email (CRM User ID)
   const agent = await prisma.agent.findUnique({ where: { email: agent_user } });
@@ -720,17 +721,35 @@ router.post("/webhooks/convoso", requireWebhookSecret, asyncHandler(async (req, 
       agentUser: agent_user,
       listId: list_id,
       recordingUrl: recording_url,
+      callDurationSeconds: call_duration_seconds ?? null,
       callTimestamp: call_timestamp ? new Date(call_timestamp) : new Date(),
       agentId: agent?.id ?? null,
       leadSourceId: leadSource?.id ?? null,
     },
   });
 
-  // Kick off async recording processing if recording URL present and agent matched
-  if (recording_url && agent) {
+  // Check audit eligibility: agent must be matched AND have auditEnabled
+  let auditEligible = !!(recording_url && agent?.auditEnabled);
+
+  // Check min/max duration filters from settings
+  if (auditEligible && call_duration_seconds !== undefined) {
+    const [minSetting, maxSetting] = await Promise.all([
+      prisma.salesBoardSetting.findUnique({ where: { key: "audit_min_seconds" } }),
+      prisma.salesBoardSetting.findUnique({ where: { key: "audit_max_seconds" } }),
+    ]);
+    const minSec = minSetting ? parseInt(minSetting.value, 10) : 0;
+    const maxSec = maxSetting ? parseInt(maxSetting.value, 10) : 0;
+    if (minSec > 0 && call_duration_seconds < minSec) auditEligible = false;
+    if (maxSec > 0 && call_duration_seconds > maxSec) auditEligible = false;
+  }
+
+  if (auditEligible) {
     processCallRecording(log.id).catch(err =>
       console.error(`[webhook] Background processing failed for ${log.id}:`, err)
     );
+  } else if (!auditEligible && recording_url) {
+    // Mark as skipped so it doesn't sit as "pending"
+    await prisma.convosoCallLog.update({ where: { id: log.id }, data: { auditStatus: "skipped" } });
   }
 
   return res.status(201).json({ id: log.id, matched: { agent: !!agent, leadSource: !!leadSource } });
@@ -775,32 +794,42 @@ router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
   const where: any = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) where.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
-  const counts = await prisma.convosoCallLog.groupBy({
-    by: ["agentId", "leadSourceId"],
-    _count: { id: true },
+  // Get all lead sources to apply per-source buffer filtering
+  const allLeadSources = await prisma.leadSource.findMany({
+    select: { id: true, name: true, costPerLead: true, callBufferSeconds: true },
+  });
+  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { name: ls.name, costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+
+  // Fetch raw call logs (not groupBy) so we can filter by per-source buffer
+  const logs = await prisma.convosoCallLog.findMany({
     where,
+    select: { agentId: true, leadSourceId: true, callDurationSeconds: true },
   });
 
-  const agentIds = [...new Set(counts.map(c => c.agentId!))];
-  const lsIds = [...new Set(counts.map(c => c.leadSourceId!))];
+  // Aggregate counts, filtering out calls shorter than the lead source buffer
+  const countMap = new Map<string, number>();
+  for (const log of logs) {
+    const lsInfo = lsMap.get(log.leadSourceId!);
+    const buffer = lsInfo?.callBufferSeconds ?? 0;
+    if (buffer > 0 && log.callDurationSeconds !== null && log.callDurationSeconds < buffer) continue;
+    const key = `${log.agentId}|${log.leadSourceId}`;
+    countMap.set(key, (countMap.get(key) ?? 0) + 1);
+  }
 
-  const [agents, leadSources] = await Promise.all([
-    prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } }),
-    prisma.leadSource.findMany({ where: { id: { in: lsIds } }, select: { id: true, name: true, costPerLead: true } }),
-  ]);
-
+  const agentIds = [...new Set(logs.map(l => l.agentId!))];
+  const agents = await prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } });
   const agentMap = new Map(agents.map(a => [a.id, a.name]));
-  const lsMap = new Map(leadSources.map(ls => [ls.id, { name: ls.name, costPerLead: Number(ls.costPerLead) }]));
 
-  const result = counts.map(c => {
-    const ls = lsMap.get(c.leadSourceId!) ?? { name: "Unknown", costPerLead: 0 };
+  const result = [...countMap.entries()].map(([key, count]) => {
+    const [agentId, leadSourceId] = key.split("|");
+    const ls = lsMap.get(leadSourceId) ?? { name: "Unknown", costPerLead: 0, callBufferSeconds: 0 };
     return {
-      agentId: c.agentId,
-      agentName: agentMap.get(c.agentId!) ?? "Unknown",
-      leadSourceId: c.leadSourceId,
+      agentId,
+      agentName: agentMap.get(agentId) ?? "Unknown",
+      leadSourceId,
       leadSourceName: ls.name,
-      callCount: c._count.id,
-      totalLeadCost: ls.costPerLead * c._count.id,
+      callCount: count,
+      totalLeadCost: ls.costPerLead * count,
     };
   });
 
@@ -825,6 +854,36 @@ router.put("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUP
   });
   await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "ai_audit_system_prompt");
   res.json({ prompt: parsed.data.prompt });
+}));
+
+// ── Audit Duration Filter Settings ──────────────────────────────
+router.get("/settings/audit-duration", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const [minS, maxS] = await Promise.all([
+    prisma.salesBoardSetting.findUnique({ where: { key: "audit_min_seconds" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "audit_max_seconds" } }),
+  ]);
+  res.json({ minSeconds: minS ? parseInt(minS.value, 10) : 0, maxSeconds: maxS ? parseInt(maxS.value, 10) : 0 });
+}));
+
+router.put("/settings/audit-duration", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ minSeconds: z.number().int().min(0), maxSeconds: z.number().int().min(0) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  await Promise.all([
+    prisma.salesBoardSetting.upsert({
+      where: { key: "audit_min_seconds" },
+      create: { key: "audit_min_seconds", value: String(parsed.data.minSeconds) },
+      update: { value: String(parsed.data.minSeconds) },
+    }),
+    prisma.salesBoardSetting.upsert({
+      where: { key: "audit_max_seconds" },
+      create: { key: "audit_max_seconds", value: String(parsed.data.maxSeconds) },
+      update: { value: String(parsed.data.maxSeconds) },
+    }),
+  ]);
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "audit_duration_filter");
+  res.json(parsed.data);
 }));
 
 export default router;

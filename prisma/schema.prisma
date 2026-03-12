@@ -74,6 +74,7 @@ model Agent {
   userId       String?  @map("user_id")
   extension    String?
   active       Boolean  @default(true)
+  auditEnabled Boolean  @default(false) @map("audit_enabled")
   displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -92,10 +93,11 @@ model LeadSource {
   name        String   @unique
   listId      String?  @map("list_id")
   costPerLead Decimal  @db.Decimal(10, 2) @map("cost_per_lead")
-  active      Boolean  @default(true)
-  effectiveDate DateTime @map("effective_date")
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  active            Boolean  @default(true)
+  callBufferSeconds Int      @default(0) @map("call_buffer_seconds")
+  effectiveDate     DateTime @map("effective_date")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   sales            Sale[]
@@ -334,8 +336,9 @@ model ConvosoCallLog {
   id            String      @id @default(cuid())
   agentUser     String      @map("agent_user")
   listId        String      @map("list_id")
-  recordingUrl  String?     @map("recording_url")
-  callTimestamp DateTime    @default(now()) @map("call_timestamp")
+  recordingUrl       String?  @map("recording_url")
+  callDurationSeconds Int?   @map("call_duration_seconds")
+  callTimestamp      DateTime @default(now()) @map("call_timestamp")
   agentId       String?     @map("agent_id")
   leadSourceId  String?     @map("lead_source_id")
   transcription String?

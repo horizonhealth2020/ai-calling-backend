@@ -6,13 +6,13 @@ import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config" | "ai-prompts";
-type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean };
+type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean; auditEnabled?: boolean };
 type Product = {
   id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
   premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
-type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean };
+type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 type CallAudit = {
   id: string; agentId: string; callDate: string; score: number; status: string;
@@ -210,13 +210,13 @@ function AgentRow({ agent, onSave, onDelete }: { agent: Agent; onSave: (id: stri
 
 function LeadSourceRow({ ls, onSave, onDelete }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
-  const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead) });
+  const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead), callBufferSeconds: String(ls.callBufferSeconds ?? 0) });
   const [saving, setSaving] = useState(false);
   if (!edit) return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{ls.name}</div>
-        <div style={{ fontSize: 12, color: "#64748b" }}>${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}</div>
+        <div style={{ fontSize: 12, color: "#64748b" }}>${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}{(ls.callBufferSeconds ?? 0) > 0 ? ` \u00b7 Buffer: ${ls.callBufferSeconds}s` : ""}</div>
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
@@ -229,8 +229,9 @@ function LeadSourceRow({ ls, onSave, onDelete }: { ls: LeadSource; onSave: (id: 
       <input style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
       <input style={INP} value={d.listId} placeholder="CRM List ID" onChange={e => setD(x => ({ ...x, listId: e.target.value }))} />
       <input style={{ ...INP, width: "50%" }} type="number" step="0.01" value={d.costPerLead} placeholder="Cost per lead" onChange={e => setD(x => ({ ...x, costPerLead: e.target.value }))} />
+      <input style={{ ...INP, width: "50%" }} type="number" min="0" value={d.callBufferSeconds} placeholder="Call buffer (seconds)" onChange={e => setD(x => ({ ...x, callBufferSeconds: e.target.value }))} />
       <div style={{ display: "flex", gap: 8 }}>
-        <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(ls.id, { ...d, costPerLead: Number(d.costPerLead) }); setEdit(false); setSaving(false); }}>Save</button>
+        <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(ls.id, { ...d, costPerLead: Number(d.costPerLead), callBufferSeconds: Number(d.callBufferSeconds) }); setEdit(false); setSaving(false); }}>Save</button>
         <button onClick={() => setEdit(false)} style={CANCEL_BTN}>Cancel</button>
       </div>
     </div>
@@ -369,6 +370,12 @@ export default function ManagerDashboard() {
   const [aiPromptLoaded, setAiPromptLoaded] = useState(false);
   const [aiPromptMsg, setAiPromptMsg] = useState("");
 
+  // Audit duration filter state
+  const [auditMinSec, setAuditMinSec] = useState(0);
+  const [auditMaxSec, setAuditMaxSec] = useState(0);
+  const [auditDurationLoaded, setAuditDurationLoaded] = useState(false);
+  const [auditDurationMsg, setAuditDurationMsg] = useState("");
+
   // Call counts state
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [callCountsLoaded, setCallCountsLoaded] = useState(false);
@@ -397,6 +404,10 @@ export default function ManagerDashboard() {
     if (tab === "ai-prompts" && !aiPromptLoaded) {
       authFetch(`${API}/api/settings/ai-audit-prompt`).then(r => r.ok ? r.json() : { prompt: "" }).then(d => setAiPrompt(d.prompt)).catch(() => {});
       setAiPromptLoaded(true);
+    }
+    if (tab === "ai-prompts" && !auditDurationLoaded) {
+      authFetch(`${API}/api/settings/audit-duration`).then(r => r.ok ? r.json() : { minSeconds: 0, maxSeconds: 0 }).then(d => { setAuditMinSec(d.minSeconds); setAuditMaxSec(d.maxSeconds); }).catch(() => {});
+      setAuditDurationLoaded(true);
     }
     if (tab === "tracker" && !callCountsLoaded) {
       authFetch(`${API}/api/call-counts?range=week`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => {});
@@ -881,6 +892,60 @@ export default function ManagerDashboard() {
           </div>
 
           <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Agent Audit Settings</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              Check agents whose call recordings should be sent for AI auditing. Unchecked agents will have their recordings skipped.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {agents.filter(a => a.active !== false).map(a => (
+                <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!a.auditEnabled}
+                    onChange={async (e) => {
+                      const val = e.target.checked;
+                      setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: val } : ag));
+                      try {
+                        const res = await authFetch(`${API}/api/agents/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditEnabled: val }) });
+                        if (!res.ok) setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag));
+                      } catch { setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag)); }
+                    }}
+                    style={{ width: 16, height: 16, accentColor: "#3b82f6", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{a.name}</span>
+                  {a.email && <span style={{ fontSize: 12, color: "#64748b" }}>({a.email})</span>}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Duration Filter</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              Only audit calls within this duration range. Set to 0 to disable a limit.
+            </p>
+            <div style={{ display: "flex", gap: 16, alignItems: "end" }}>
+              <div>
+                <label style={LBL}>Min Seconds</label>
+                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMinSec} onChange={e => setAuditMinSec(Number(e.target.value))} />
+              </div>
+              <div>
+                <label style={LBL}>Max Seconds</label>
+                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMaxSec} onChange={e => setAuditMaxSec(Number(e.target.value))} />
+              </div>
+              <button style={BTN("#059669")} onClick={async () => {
+                try {
+                  setAuditDurationMsg("");
+                  const res = await authFetch(`${API}/api/settings/audit-duration`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minSeconds: auditMinSec, maxSeconds: auditMaxSec }) });
+                  if (res.ok) setAuditDurationMsg("Saved");
+                  else { const err = await res.json().catch(() => ({})); setAuditDurationMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+                } catch (e: any) { setAuditDurationMsg(`Error: ${e.message ?? "network error"}`); }
+              }}>Save</button>
+            </div>
+            {auditDurationMsg && <span style={{ fontSize: 13, fontWeight: 600, marginTop: 8, display: "block", color: auditDurationMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{auditDurationMsg}</span>}
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
             <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Webhook Configuration</h3>
             <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 12px" }}>Configure Convoso to POST to this endpoint after each call:</p>
             <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, fontFamily: "monospace", fontSize: 13, color: "#34d399", wordBreak: "break-all" }}>
@@ -888,7 +953,7 @@ export default function ManagerDashboard() {
             </div>
             <div style={{ marginTop: 12, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
               <div><strong style={{ color: "#94a3b8" }}>Header:</strong> x-webhook-secret: your-secret</div>
-              <div><strong style={{ color: "#94a3b8" }}>Body:</strong> {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601" }`}</div>
+              <div><strong style={{ color: "#94a3b8" }}>Body:</strong> {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601", "call_duration_seconds": 120 }`}</div>
             </div>
           </div>
         </div>
