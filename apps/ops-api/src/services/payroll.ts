@@ -38,16 +38,8 @@ function calcProductCommission(product: Product, premium: number, hasCoreInSale:
 
   // ADDON
   if (hasCoreInSale && coreProduct) {
-    // If bundledCommission is set, use it; otherwise match core rate
-    if (product.bundledCommission !== null && product.bundledCommission !== undefined) {
-      return prem * (Number(product.bundledCommission) / 100);
-    }
-    // Match core product's applicable rate
-    const threshold = Number(coreProduct.premiumThreshold ?? 0);
-    const coreRate = prem >= threshold
-      ? Number(coreProduct.commissionAbove ?? 0)
-      : Number(coreProduct.commissionBelow ?? 0);
-    return prem * (coreRate / 100);
+    // Bundled addon: premium contributes to core's threshold total, no separate commission
+    return 0;
   }
 
   // Standalone addon

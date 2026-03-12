@@ -1,19 +1,26 @@
 "use client";
-import { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import { PageShell } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config";
-type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean };
+type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config" | "ai-prompts";
+type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean; auditEnabled?: boolean };
 type Product = {
   id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
   premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
-type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
+type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
+type CallAudit = {
+  id: string; agentId: string; callDate: string; score: number; status: string;
+  coachingNotes?: string; transcription?: string; aiSummary?: string; aiScore?: number;
+  aiCoachingNotes?: string; recordingUrl?: string;
+  agent: { id: string; name: string };
+};
+type CallCount = { agentId: string; agentName: string; leadSourceId: string; leadSourceName: string; callCount: number; totalLeadCost: number };
 type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
@@ -201,17 +208,20 @@ function AgentRow({ agent, onSave, onDelete }: { agent: Agent; onSave: (id: stri
   );
 }
 
-function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void> }) {
+function LeadSourceRow({ ls, onSave, onDelete }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
-  const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead) });
+  const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead), callBufferSeconds: String(ls.callBufferSeconds ?? 0) });
   const [saving, setSaving] = useState(false);
   if (!edit) return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{ls.name}</div>
-        <div style={{ fontSize: 12, color: "#64748b" }}>${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}</div>
+        <div style={{ fontSize: 12, color: "#64748b" }}>${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}{(ls.callBufferSeconds ?? 0) > 0 ? ` \u00b7 Buffer: ${ls.callBufferSeconds}s` : ""}</div>
       </div>
-      <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+        <button onClick={() => { if (confirm(`Delete lead source "${ls.name}"?`)) onDelete(ls.id); }} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, background: "rgba(239,68,68,0.1)", cursor: "pointer", color: "#f87171", fontWeight: 600 }}>Delete</button>
+      </div>
     </div>
   );
   return (
@@ -219,8 +229,9 @@ function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, da
       <input style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
       <input style={INP} value={d.listId} placeholder="CRM List ID" onChange={e => setD(x => ({ ...x, listId: e.target.value }))} />
       <input style={{ ...INP, width: "50%" }} type="number" step="0.01" value={d.costPerLead} placeholder="Cost per lead" onChange={e => setD(x => ({ ...x, costPerLead: e.target.value }))} />
+      <input style={{ ...INP, width: "50%" }} type="number" min="0" value={d.callBufferSeconds} placeholder="Call buffer (seconds)" onChange={e => setD(x => ({ ...x, callBufferSeconds: e.target.value }))} />
       <div style={{ display: "flex", gap: 8 }}>
-        <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(ls.id, { ...d, costPerLead: Number(d.costPerLead) }); setEdit(false); setSaving(false); }}>Save</button>
+        <button style={BTN()} disabled={saving} onClick={async () => { setSaving(true); await onSave(ls.id, { ...d, costPerLead: Number(d.costPerLead), callBufferSeconds: Number(d.callBufferSeconds) }); setEdit(false); setSaving(false); }}>Save</button>
         <button onClick={() => setEdit(false)} style={CANCEL_BTN}>Cancel</button>
       </div>
     </div>
@@ -347,6 +358,28 @@ export default function ManagerDashboard() {
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
   const [cfgMsg, setCfgMsg] = useState("");
 
+  // Call audits state
+  const [audits, setAudits] = useState<CallAudit[]>([]);
+  const [auditsLoaded, setAuditsLoaded] = useState(false);
+  const [expandedAudit, setExpandedAudit] = useState<string | null>(null);
+  const [editingAudit, setEditingAudit] = useState<string | null>(null);
+  const [auditEdit, setAuditEdit] = useState({ score: 0, status: "", coachingNotes: "" });
+
+  // AI prompt state
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiPromptLoaded, setAiPromptLoaded] = useState(false);
+  const [aiPromptMsg, setAiPromptMsg] = useState("");
+
+  // Audit duration filter state
+  const [auditMinSec, setAuditMinSec] = useState(0);
+  const [auditMaxSec, setAuditMaxSec] = useState(0);
+  const [auditDurationLoaded, setAuditDurationLoaded] = useState(false);
+  const [auditDurationMsg, setAuditDurationMsg] = useState("");
+
+  // Call counts state
+  const [callCounts, setCallCounts] = useState<CallCount[]>([]);
+  const [callCountsLoaded, setCallCountsLoaded] = useState(false);
+
   useEffect(() => {
     captureTokenFromUrl();
     Promise.all([
@@ -361,6 +394,26 @@ export default function ManagerDashboard() {
       setLoading(false);
     });
   }, []);
+
+  // Lazy-load data when switching to specific tabs
+  useEffect(() => {
+    if (tab === "audits" && !auditsLoaded) {
+      authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => {});
+      setAuditsLoaded(true);
+    }
+    if (tab === "ai-prompts" && !aiPromptLoaded) {
+      authFetch(`${API}/api/settings/ai-audit-prompt`).then(r => r.ok ? r.json() : { prompt: "" }).then(d => setAiPrompt(d.prompt)).catch(() => {});
+      setAiPromptLoaded(true);
+    }
+    if (tab === "ai-prompts" && !auditDurationLoaded) {
+      authFetch(`${API}/api/settings/audit-duration`).then(r => r.ok ? r.json() : { minSeconds: 0, maxSeconds: 0 }).then(d => { setAuditMinSec(d.minSeconds); setAuditMaxSec(d.maxSeconds); }).catch(() => {});
+      setAuditDurationLoaded(true);
+    }
+    if (tab === "tracker" && !callCountsLoaded) {
+      authFetch(`${API}/api/call-counts?range=week`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => {});
+      setCallCountsLoaded(true);
+    }
+  }, [tab]);
 
   const [parsedInfo, setParsedInfo] = useState<{ enrollmentFee?: string; premium?: string; coreProduct?: string; parsedProducts: ParsedProduct[]; addons: { name: string; matched: boolean; productName?: string; productId?: string }[] }>({ addons: [], parsedProducts: [] });
 
@@ -436,6 +489,14 @@ export default function ManagerDashboard() {
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
+  async function deleteLeadSource(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "DELETE" });
+      if (res.ok) { setLeadSources(prev => prev.filter(ls => ls.id !== id)); setCfgMsg("Lead source deleted"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+  }
+
   async function addLeadSource(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     try {
@@ -447,13 +508,13 @@ export default function ManagerDashboard() {
 
   if (loading) return <PageShell title="Manager Dashboard"><p style={{ color: "#64748b" }}>Loading\u2026</p></PageShell>;
 
-  const TAB_LABELS: Record<Tab, string> = { sales: "Sales Entry", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config" };
+  const TAB_LABELS: Record<Tab, string> = { sales: "Sales Entry", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config", "ai-prompts": "AI Prompts" };
 
   return (
     <PageShell title="Manager Dashboard">
       {/* Tab Navigation */}
       <nav style={{ display: "flex", gap: 6, marginBottom: 28, padding: 4, background: "rgba(15,23,42,0.4)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", width: "fit-content" }}>
-        {(["sales", "tracker", "agent-sales", "audits", "config"] as Tab[]).map(t => (
+        {(["sales", "tracker", "agent-sales", "audits", "config", "ai-prompts"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
         ))}
       </nav>
@@ -505,7 +566,7 @@ export default function ManagerDashboard() {
             </div>
             <div><label style={LBL}>Lead Source</label>
               <select style={INP} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
-                {leadSources.map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}
+                {leadSources.filter(ls => ls.active !== false).map(ls => <option key={ls.id} value={ls.id}>{ls.name}</option>)}
               </select>
             </div>
             <div><label style={LBL}>Enrollment Fee ($)</label><input style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} /></div>
@@ -596,29 +657,40 @@ export default function ManagerDashboard() {
       )}
 
       {/* ── Agent Tracker ── */}
-      {tab === "tracker" && (
-        <div style={CARD}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>
-              {["Rank", "Agent", "Total Sales", "Premium Total", "Cost per Sale"].map((h, i) => (
-                <th key={h} style={{ padding: "12px 16px", textAlign: i >= 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {[...tracker].sort((a, b) => b.salesCount - a.salesCount).map((row, i) => (
-                <tr key={row.agent} style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
-                  <td style={{ padding: "12px 16px", color: i === 0 ? "#fbbf24" : "#64748b", fontWeight: 700 }}>{i === 0 ? "\uD83E\uDD47" : `#${i + 1}`}</td>
-                  <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e2e8f0" }}>{row.agent}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#e2e8f0" }}>{row.salesCount}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#34d399", fontWeight: 700 }}>${Number(row.premiumTotal).toFixed(2)}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#fbbf24", fontWeight: 600 }}>{row.costPerSale > 0 ? `$${Number(row.costPerSale).toFixed(2)}` : "\u2014"}</td>
-                </tr>
-              ))}
-              {tracker.length === 0 && <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "#475569" }}>No sales data yet</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {tab === "tracker" && (() => {
+        // Merge call counts into tracker by agent name
+        const callCountByAgent = new Map<string, number>();
+        for (const cc of callCounts) {
+          callCountByAgent.set(cc.agentName, (callCountByAgent.get(cc.agentName) ?? 0) + cc.callCount);
+        }
+        return (
+          <div style={CARD}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                {["Rank", "Agent", "Calls", "Total Sales", "Premium Total", "Cost per Sale"].map((h, i) => (
+                  <th key={h} style={{ padding: "12px 16px", textAlign: i >= 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {[...tracker].sort((a, b) => b.salesCount - a.salesCount).map((row, i) => {
+                  const agentCalls = callCountByAgent.get(row.agent) ?? 0;
+                  return (
+                    <tr key={row.agent} style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                      <td style={{ padding: "12px 16px", color: i === 0 ? "#fbbf24" : "#64748b", fontWeight: 700 }}>{i === 0 ? "\uD83E\uDD47" : `#${i + 1}`}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e2e8f0" }}>{row.agent}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#818cf8" }}>{agentCalls || "\u2014"}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#e2e8f0" }}>{row.salesCount}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#34d399", fontWeight: 700 }}>${Number(row.premiumTotal).toFixed(2)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#fbbf24", fontWeight: 600 }}>{row.costPerSale > 0 ? `$${Number(row.costPerSale).toFixed(2)}` : "\u2014"}</td>
+                    </tr>
+                  );
+                })}
+                {tracker.length === 0 && <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#475569" }}>No sales data yet</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {/* ── Agent Sales ── */}
       {tab === "agent-sales" && (() => {
@@ -682,7 +754,84 @@ export default function ManagerDashboard() {
       })()}
 
       {/* ── Call Audits ── */}
-      {tab === "audits" && <div style={CARD}><p style={{ color: "#64748b", margin: 0 }}>Call audit records will appear here once added via the API.</p></div>}
+      {tab === "audits" && (
+        <div style={CARD}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Audits</h3>
+            <button style={BTN()} onClick={() => { authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => {}); }}>Refresh</button>
+          </div>
+          {audits.length === 0 && <p style={{ color: "#64748b", margin: 0 }}>No audit records yet. Audits are created automatically when Convoso sends call recordings via webhook.</p>}
+          {audits.length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr>
+                {["Date", "Agent", "Score", "AI Summary", "Status", "Actions"].map((h, i) => (
+                  <th key={h} style={{ padding: "10px 12px", textAlign: i === 2 ? "center" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {audits.map(a => {
+                  const scoreColor = a.score >= 80 ? "#34d399" : a.score >= 60 ? "#fbbf24" : "#f87171";
+                  const isExpanded = expandedAudit === a.id;
+                  const isEditing = editingAudit === a.id;
+                  return (
+                    <React.Fragment key={a.id}>
+                      <tr style={{ borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer" }} onClick={() => setExpandedAudit(isExpanded ? null : a.id)}>
+                        <td style={{ padding: "10px 12px", color: "#94a3b8" }}>{new Date(a.callDate).toLocaleDateString()}</td>
+                        <td style={{ padding: "10px 12px", color: "#e2e8f0" }}>{a.agent.name}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700, background: `${scoreColor}20`, color: scoreColor }}>{a.score}</span>
+                        </td>
+                        <td style={{ padding: "10px 12px", color: "#94a3b8", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.aiSummary ?? "—"}</td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: a.status === "ai_reviewed" ? "rgba(99,102,241,0.15)" : "rgba(52,211,153,0.15)", color: a.status === "ai_reviewed" ? "#818cf8" : "#34d399" }}>{a.status}</span>
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <button style={{ ...CANCEL_BTN, padding: "4px 10px", fontSize: 11 }} onClick={e => { e.stopPropagation(); setEditingAudit(isEditing ? null : a.id); setAuditEdit({ score: a.score, status: a.status, coachingNotes: a.coachingNotes ?? "" }); }}>Edit</button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr><td colSpan={6} style={{ padding: "16px 12px", background: "rgba(15,23,42,0.4)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            <div>
+                              <div style={LBL}>AI Coaching Notes</div>
+                              <p style={{ color: "#cbd5e1", fontSize: 13, margin: "4px 0 12px", lineHeight: 1.5 }}>{a.aiCoachingNotes ?? "—"}</p>
+                              {a.recordingUrl && <><div style={LBL}>Recording</div><audio controls src={a.recordingUrl} style={{ width: "100%", marginTop: 4 }} /></>}
+                            </div>
+                            <div>
+                              <div style={LBL}>Transcription</div>
+                              <div style={{ color: "#94a3b8", fontSize: 12, maxHeight: 200, overflowY: "auto", whiteSpace: "pre-wrap", lineHeight: 1.5, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 12 }}>{a.transcription ?? "No transcription available"}</div>
+                            </div>
+                          </div>
+                        </td></tr>
+                      )}
+                      {isEditing && (
+                        <tr><td colSpan={6} style={{ padding: "16px 12px", background: "rgba(15,23,42,0.3)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+                            <div><label style={LBL}>Score</label><input type="number" min={0} max={100} style={{ ...INP, width: 80 }} value={auditEdit.score} onChange={e => setAuditEdit(x => ({ ...x, score: Number(e.target.value) }))} /></div>
+                            <div><label style={LBL}>Status</label><input style={{ ...INP, width: 140 }} value={auditEdit.status} onChange={e => setAuditEdit(x => ({ ...x, status: e.target.value }))} /></div>
+                            <div style={{ flex: 1 }}><label style={LBL}>Coaching Notes</label><input style={INP} value={auditEdit.coachingNotes} onChange={e => setAuditEdit(x => ({ ...x, coachingNotes: e.target.value }))} /></div>
+                            <button style={BTN("#059669")} onClick={async () => {
+                              try {
+                                const res = await authFetch(`${API}/api/call-audits/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(auditEdit) });
+                                if (res.ok) {
+                                  const updated = await res.json();
+                                  setAudits(prev => prev.map(x => x.id === a.id ? updated : x));
+                                  setEditingAudit(null);
+                                }
+                              } catch {}
+                            }}>Save</button>
+                            <button style={CANCEL_BTN} onClick={() => setEditingAudit(null)}>Cancel</button>
+                          </div>
+                        </td></tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* ── Config ── */}
       {tab === "config" && (
@@ -701,7 +850,7 @@ export default function ManagerDashboard() {
 
           <div style={CARD}>
             <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Lead Sources</h3>
-            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} />)}
+            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} onDelete={deleteLeadSource} />)}
             <form onSubmit={addLeadSource} style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Add Lead Source</div>
               <input style={INP} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />
@@ -712,6 +861,101 @@ export default function ManagerDashboard() {
           </div>
 
           {cfgMsg && <div style={{ gridColumn: "1/-1", color: cfgMsg.startsWith("Error") ? "#f87171" : "#34d399", fontWeight: 600, fontSize: 14 }}>{cfgMsg}</div>}
+        </div>
+      )}
+
+      {/* ── AI Prompts ── */}
+      {tab === "ai-prompts" && (
+        <div style={{ maxWidth: 800 }}>
+          <div style={CARD}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Audit System Prompt</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              This prompt instructs GPT-4o-mini how to evaluate call transcriptions. It should request a JSON response with score, summary, and coachingNotes fields.
+            </p>
+            <textarea
+              style={{ ...INP, minHeight: 240, fontFamily: "monospace", fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
+              value={aiPrompt}
+              onChange={e => setAiPrompt(e.target.value)}
+              placeholder="Enter your system prompt for AI call auditing..."
+            />
+            <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "center" }}>
+              <button style={BTN("#059669")} onClick={async () => {
+                try {
+                  setAiPromptMsg("");
+                  const res = await authFetch(`${API}/api/settings/ai-audit-prompt`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: aiPrompt }) });
+                  if (res.ok) setAiPromptMsg("Saved");
+                  else { const err = await res.json().catch(() => ({})); setAiPromptMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+                } catch (e: any) { setAiPromptMsg(`Error: ${e.message ?? "network error"}`); }
+              }}>Save Prompt</button>
+              {aiPromptMsg && <span style={{ fontSize: 13, fontWeight: 600, color: aiPromptMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{aiPromptMsg}</span>}
+            </div>
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Agent Audit Settings</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              Check agents whose call recordings should be sent for AI auditing. Unchecked agents will have their recordings skipped.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {agents.filter(a => a.active !== false).map(a => (
+                <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!a.auditEnabled}
+                    onChange={async (e) => {
+                      const val = e.target.checked;
+                      setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: val } : ag));
+                      try {
+                        const res = await authFetch(`${API}/api/agents/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditEnabled: val }) });
+                        if (!res.ok) setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag));
+                      } catch { setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag)); }
+                    }}
+                    style={{ width: 16, height: 16, accentColor: "#3b82f6", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{a.name}</span>
+                  {a.email && <span style={{ fontSize: 12, color: "#64748b" }}>({a.email})</span>}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Duration Filter</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              Only audit calls within this duration range. Set to 0 to disable a limit.
+            </p>
+            <div style={{ display: "flex", gap: 16, alignItems: "end" }}>
+              <div>
+                <label style={LBL}>Min Seconds</label>
+                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMinSec} onChange={e => setAuditMinSec(Number(e.target.value))} />
+              </div>
+              <div>
+                <label style={LBL}>Max Seconds</label>
+                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMaxSec} onChange={e => setAuditMaxSec(Number(e.target.value))} />
+              </div>
+              <button style={BTN("#059669")} onClick={async () => {
+                try {
+                  setAuditDurationMsg("");
+                  const res = await authFetch(`${API}/api/settings/audit-duration`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minSeconds: auditMinSec, maxSeconds: auditMaxSec }) });
+                  if (res.ok) setAuditDurationMsg("Saved");
+                  else { const err = await res.json().catch(() => ({})); setAuditDurationMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+                } catch (e: any) { setAuditDurationMsg(`Error: ${e.message ?? "network error"}`); }
+              }}>Save</button>
+            </div>
+            {auditDurationMsg && <span style={{ fontSize: 13, fontWeight: 600, marginTop: 8, display: "block", color: auditDurationMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{auditDurationMsg}</span>}
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Webhook Configuration</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 12px" }}>Configure Convoso to POST to this endpoint after each call:</p>
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, fontFamily: "monospace", fontSize: 13, color: "#34d399", wordBreak: "break-all" }}>
+              POST {API || "https://your-api-domain.com"}/api/webhooks/convoso
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+              <div><strong style={{ color: "#94a3b8" }}>Header:</strong> x-webhook-secret: your-secret</div>
+              <div><strong style={{ color: "#94a3b8" }}>Body:</strong> {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601", "call_duration_seconds": 120 }`}</div>
+            </div>
+          </div>
         </div>
       )}
     </PageShell>
