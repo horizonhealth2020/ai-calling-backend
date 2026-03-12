@@ -278,7 +278,7 @@ export default function OwnerDashboard() {
               {[...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal).map((row, i) => {
                 const rankIcon = i === 0 ? "\uD83E\uDD47" : i === 1 ? "\uD83E\uDD48" : i === 2 ? "\uD83E\uDD49" : null;
                 const rankColor = i === 0 ? "#fbbf24" : i === 1 ? "#94a3b8" : i === 2 ? "#d97706" : "#475569";
-                const rowBg = ROW_BG[i] ?? (i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)");
+                const rowBg = i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)";
                 const isTop3 = i < 3;
                 return (
                 <tr key={row.agent} style={{ background: rowBg, borderLeft: isTop3 ? `2px solid ${rankColor}40` : "2px solid transparent", transition: "background 0.2s ease" }}>
