@@ -24,22 +24,19 @@ type CallCount = { agentId: string; agentName: string; leadSourceId: string; lea
 type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
-const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none", transition: "border-color 0.2s, box-shadow 0.2s" };
-const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: "0.06em" };
-const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 22, transition: "border-color 0.3s, box-shadow 0.3s" };
-const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 22px", background: color === "#3b82f6" ? "linear-gradient(135deg, #3b82f6, #6366f1)" : color === "#059669" ? "linear-gradient(135deg, #059669, #10b981)" : color, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: `0 4px 14px ${color}40, 0 0 20px ${color}15`, transition: "box-shadow 0.25s, transform 0.15s" });
-const SUBMIT_BTN: React.CSSProperties = { padding: "12px 32px", background: "linear-gradient(135deg, #3b82f6, #6366f1, #8b5cf6)", color: "white", border: "none", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 15, letterSpacing: "0.02em", boxShadow: "0 4px 20px rgba(99,102,241,0.45), 0 0 30px rgba(99,102,241,0.15)", transition: "box-shadow 0.25s, transform 0.15s" };
-const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8", transition: "border-color 0.2s, background 0.2s" };
-const PODIUM_BORDERS: Record<number, string> = { 0: "3px solid #fbbf24", 1: "3px solid #94a3b8", 2: "3px solid #cd7f32" };
+const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
+const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
+const CARD: React.CSSProperties = { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 24 };
+const BTN = (color = "#2563eb"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#2563eb" ? "#2563eb" : color === "#059669" ? "#059669" : color, color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 });
+const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {
-    padding: "10px 22px", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
-    background: active ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
-    color: active ? "#ffffff" : "#64748b",
-    boxShadow: active ? "0 4px 16px rgba(99,102,241,0.35), inset 0 -2px 0 rgba(255,255,255,0.15)" : "none",
-    borderBottom: active ? "2px solid rgba(139,92,246,0.8)" : "2px solid transparent",
-    position: "relative" as const,
+    padding: "10px 20px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+    background: "transparent",
+    color: active ? "#e2e8f0" : "#64748b",
+    borderBottom: active ? "2px solid #2563eb" : "2px solid transparent",
+    marginBottom: -1,
   };
 }
 
@@ -261,7 +258,7 @@ function LeadSourceRow({ ls, onSave, onDelete }: { ls: LeadSource; onSave: (id: 
 }
 
 const TYPE_LABELS: Record<string, string> = { CORE: "Core", ADDON: "Add-on", AD_D: "AD&D" };
-const TYPE_COLORS: Record<string, string> = { CORE: "#3b82f6", ADDON: "#8b5cf6", AD_D: "#f59e0b" };
+const TYPE_COLORS: Record<string, string> = { CORE: "#2563eb", ADDON: "#2563eb", AD_D: "#f59e0b" };
 
 function ProductRow({ product, onSave }: { product: Product; onSave: (id: string, data: Partial<Product>) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
@@ -283,7 +280,7 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
       <div style={{ flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{product.name}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: TYPE_COLORS[product.type], background: `${TYPE_COLORS[product.type]}15`, padding: "2px 8px", borderRadius: 10 }}>{TYPE_LABELS[product.type]}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: TYPE_COLORS[product.type], background: `${TYPE_COLORS[product.type]}15`, padding: "2px 8px", borderRadius: 8 }}>{TYPE_LABELS[product.type]}</span>
           {!product.active && <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600 }}>Inactive</span>}
         </div>
         <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
@@ -497,7 +494,7 @@ export default function ManagerDashboard() {
   async function deleteLeadSource(id: string) {
     try {
       const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "DELETE" });
-      if (res.ok) { setLeadSources(prev => prev.filter(ls => ls.id !== id)); setCfgMsg("Lead source deleted"); }
+      if (res.ok || res.status === 204) { setLeadSources(prev => prev.filter(x => x.id !== id)); setCfgMsg("Lead source deleted"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
@@ -518,8 +515,8 @@ export default function ManagerDashboard() {
   return (
     <PageShell title="Manager Dashboard">
       {/* Tab Navigation */}
-      <nav style={{ display: "flex", gap: 4, marginBottom: 24, padding: 4, background: "rgba(15,23,42,0.5)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", width: "fit-content", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
-        {(["sales", "tracker", "agent-sales", "audits", "config"] as Tab[]).map(t => (
+      <nav style={{ display: "flex", gap: 0, marginBottom: 28, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {(["sales", "tracker", "agent-sales", "audits", "config", "ai-prompts"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
         ))}
       </nav>
@@ -579,7 +576,7 @@ export default function ManagerDashboard() {
             <div><label style={LBL}>Member State</label><input style={INP} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} /></div>
 
             {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
-              <div style={{ gridColumn: "1/-1", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: 18, boxShadow: "0 2px 12px rgba(16,185,129,0.08)" }}>
+              <div style={{ gridColumn: "1/-1", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, padding: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", marginBottom: 10 }}>Parsed from Receipt</div>
 
                 {/* Product breakdown table */}
@@ -609,7 +606,7 @@ export default function ManagerDashboard() {
                               )}
                             </td>
                             <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                              <span style={{ fontSize: 11, fontWeight: 600, color: pp.isAddon ? "#8b5cf6" : "#3b82f6", background: pp.isAddon ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)", padding: "2px 8px", borderRadius: 10 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: "#2563eb", background: "rgba(37,99,235,0.15)", padding: "2px 8px", borderRadius: 8 }}>
                                 {pp.isAddon ? "Add-on" : "Primary"}
                               </span>
                             </td>
@@ -718,7 +715,7 @@ export default function ManagerDashboard() {
 
         return (
           <div>
-            <div style={{ display: "flex", gap: 4, marginBottom: 18, flexWrap: "wrap", padding: 4, background: "rgba(15,23,42,0.5)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", width: "fit-content", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", gap: 0, marginBottom: 20, flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <button style={tabBtn(salesDay === "all")} onClick={() => setSalesDay("all")}>All Week</button>
               {DAYS.map(day => (
                 <button key={day} style={tabBtn(salesDay === day)} onClick={() => setSalesDay(day)}>{day}</button>
