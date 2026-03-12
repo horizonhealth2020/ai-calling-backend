@@ -29,6 +29,7 @@ const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748
 const CARD: React.CSSProperties = { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 24 };
 const BTN = (color = "#2563eb"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#2563eb" ? "#2563eb" : color === "#059669" ? "#059669" : color, color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 });
 const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
+const SUBMIT_BTN: React.CSSProperties = { padding: "12px 32px", background: "linear-gradient(135deg, #3b82f6, #6366f1, #8b5cf6)", color: "white", border: "none", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 15, letterSpacing: "0.02em", boxShadow: "0 4px 20px rgba(99,102,241,0.45), 0 0 30px rgba(99,102,241,0.15)", transition: "box-shadow 0.25s, transform 0.15s" };
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {

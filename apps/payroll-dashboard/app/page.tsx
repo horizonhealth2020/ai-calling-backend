@@ -460,7 +460,7 @@ export default function PayrollDashboard() {
   <table>
     <thead><tr>
       <th>Member ID</th><th>Member Name</th><th class="center">Core</th><th class="center">Add-on</th><th class="center">AD&D</th>
-      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Fronted</th><th class="right">Hold</th><th class="right">Net</th>
+      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Net</th>
     </tr></thead>
     <tbody>` +
       entries.map(e => {
@@ -478,8 +478,6 @@ export default function PayrollDashboard() {
         <td class="right">${fee}</td>
         <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
         <td class="right green">${Number(e.bonusAmount) > 0 ? "$" + Number(e.bonusAmount).toFixed(2) : "$0.00"}</td>
-        <td class="right red">${Number(e.frontedAmount) > 0 ? "$" + Number(e.frontedAmount).toFixed(2) : "$0.00"}</td>
-        <td class="right" style="color:#d97706">${Number(e.holdAmount ?? 0) > 0 ? "$" + Number(e.holdAmount).toFixed(2) : "$0.00"}</td>
         <td class="right green" style="font-weight:700">$${Number(e.netAmount).toFixed(2)}</td>
       </tr>`;
       }).join("") +
@@ -487,8 +485,6 @@ export default function PayrollDashboard() {
         <td colspan="6" class="right">SUBTOTAL</td>
         <td class="right">$${agentGross.toFixed(2)}</td>
         <td class="right green">$${agentBonus.toFixed(2)}</td>
-        <td class="right red">$${agentFronted.toFixed(2)}</td>
-        <td class="right" style="color:#d97706">$${agentHold.toFixed(2)}</td>
         <td class="right green">$${agentNet.toFixed(2)}</td>
       </tr>
     </tbody></table></div>`;
@@ -660,11 +656,12 @@ export default function PayrollDashboard() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     {p.entries.length > 0 && <button onClick={e => { e.stopPropagation(); printAgentCards([...byAgent.entries()], p); }} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 700, border: "1px solid rgba(59,130,246,0.2)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer", transition: "box-shadow 0.2s ease", boxShadow: "0 1px 4px rgba(59,130,246,0.1)" }}>Print All</button>}
+                    {(p.serviceEntries ?? []).length > 0 && <button onClick={e => { e.stopPropagation(); printServiceCards(p.serviceEntries, p, bonusCategories); }} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 700, border: "1px solid rgba(139,92,246,0.2)", borderRadius: 6, background: "rgba(139,92,246,0.1)", color: "#a78bfa", cursor: "pointer", transition: "box-shadow 0.2s ease", boxShadow: "0 1px 4px rgba(139,92,246,0.1)" }}>Print Service</button>}
                     <span style={{ background: sc.bg, color: sc.color, padding: "4px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", boxShadow: `0 0 8px ${sc.color}20` }}>{p.status}</span>
                     <span style={{ fontSize: 12, color: "#475569" }}>{expanded ? "\u25B2" : "\u25BC"}</span>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12 }}>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Entries</div>
                     <div style={{ fontWeight: 700, fontSize: 22, color: "#e2e8f0" }}>{p.entries.length}</div>
@@ -680,6 +677,10 @@ export default function PayrollDashboard() {
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Fronted</div>
                     <div style={{ fontWeight: 700, fontSize: 22, color: "#f87171" }}>-${totalFronted.toFixed(2)}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
+                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Hold</div>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: "#fbbf24" }}>-${totalHold.toFixed(2)}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Net Payout</div>
@@ -731,8 +732,6 @@ export default function PayrollDashboard() {
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Enroll Fee</th>
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Commission</th>
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Bonus</th>
-                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Fronted</th>
-                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Hold</th>
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Net</th>
                                 <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Actions</th>
                               </tr></thead>
@@ -760,8 +759,6 @@ export default function PayrollDashboard() {
                                       </td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${Number(e.payoutAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.bonusAmount) > 0 ? "#34d399" : "#94a3b8" }}>${Number(e.bonusAmount).toFixed(2)}</td>
-                                      <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.frontedAmount) > 0 ? "#f87171" : "#94a3b8" }}>${Number(e.frontedAmount).toFixed(2)}</td>
-                                      <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.holdAmount) > 0 ? "#fbbf24" : "#94a3b8" }}>${Number(e.holdAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${Number(e.netAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "center" }}>
                                         {needsApprovalRow && (
@@ -780,7 +777,6 @@ export default function PayrollDashboard() {
                                   <td style={{ padding: "8px 8px", textAlign: "right", color: "#94a3b8", fontSize: 12 }}></td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${agentGross.toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${entries.reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
-                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#f87171" }}>${entries.reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${agentNet.toFixed(2)}</td>
                                   <td></td>
                                 </tr>
@@ -797,13 +793,17 @@ export default function PayrollDashboard() {
                       <div style={{ background: "rgba(37,99,235,0.05)", border: "1px solid rgba(37,99,235,0.15)", borderRadius: 8, padding: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(37,99,235,0.15)" }}>
                           <span style={{ fontWeight: 700, fontSize: 15, color: "#60a5fa" }}>Customer Service</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa" }}>Total: ${svcTotal.toFixed(2)}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa" }}>Total: ${svcTotal.toFixed(2)}</span>
+                            <button onClick={() => printServiceCards(p.serviceEntries, p, bonusCategories)} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 700, border: "1px solid rgba(139,92,246,0.2)", borderRadius: 6, background: "rgba(139,92,246,0.1)", color: "#a78bfa", cursor: "pointer", transition: "box-shadow 0.2s ease" }}>Print</button>
+                          </div>
                         </div>
                         <div style={{ overflowX: "auto" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 500 }}>
                             <thead><tr>
                               <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(37,99,235,0.15)" }}>Name</th>
                               <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(37,99,235,0.15)" }}>Base Pay</th>
+                              <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(37,99,235,0.15)" }}>Fronted</th>
                               {bonusCategories.map(cat => (
                                 <th key={cat.name} style={{ padding: "8px 6px", textAlign: "center", fontSize: 10, fontWeight: 700, color: cat.isDeduction ? "#f87171" : "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid rgba(37,99,235,0.15)", whiteSpace: "nowrap" }}>{cat.name}</th>
                               ))}
