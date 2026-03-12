@@ -425,6 +425,7 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   const schema = z.object({
     bonusAmount: z.number().min(0).optional(),
     frontedAmount: z.number().min(0).optional(),
+    holdAmount: z.number().min(0).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -432,13 +433,14 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   if (!entry) return res.status(404).json({ error: "Entry not found" });
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
-  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted;
+  const hold = parsed.data.holdAmount ?? Number(entry.holdAmount);
+  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted - hold;
   const updated = await prisma.payrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, frontedAmount: fronted, netAmount: net },
+    data: { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net },
     include: { sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } }, agent: { select: { name: true } } },
   });
-  await logAudit(req.user!.id, "UPDATE", "PayrollEntry", req.params.id, { bonusAmount: bonus, frontedAmount: fronted, netAmount: net });
+  await logAudit(req.user!.id, "UPDATE", "PayrollEntry", req.params.id, { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net });
   res.json(updated);
 }));
 
@@ -509,6 +511,7 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
     serviceAgentId: z.string(),
     payrollPeriodId: z.string(),
     bonusAmount: z.number().min(0).default(0),
+    frontedAmount: z.number().min(0).default(0),
     bonusBreakdown: z.record(z.string(), z.number()).optional(),
     notes: z.string().optional(),
   });
@@ -517,9 +520,10 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
   const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
   if (!agent) return res.status(404).json({ error: "Service agent not found" });
   const basePay = Number(agent.basePay);
+  const frontedAmt = parsed.data.frontedAmount;
 
   let bonusAmount = parsed.data.bonusAmount;
-  let totalPay = basePay + bonusAmount;
+  let totalPay = basePay + bonusAmount - frontedAmt;
   const breakdown = parsed.data.bonusBreakdown;
 
   if (breakdown) {
@@ -533,13 +537,13 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
       else adds += amt;
     }
     bonusAmount = adds;
-    totalPay = basePay + adds - deductions;
+    totalPay = basePay + adds - deductions - frontedAmt;
   }
 
   const entry = await prisma.servicePayrollEntry.upsert({
     where: { payrollPeriodId_serviceAgentId: { payrollPeriodId: parsed.data.payrollPeriodId, serviceAgentId: parsed.data.serviceAgentId } },
-    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
-    update: { bonusAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
+    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount, frontedAmount: frontedAmt, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
+    update: { bonusAmount, frontedAmount: frontedAmt, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
     include: { serviceAgent: true },
   });
   res.status(201).json(entry);
@@ -548,6 +552,7 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
 router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     bonusAmount: z.number().min(0).optional(),
+    frontedAmount: z.number().min(0).optional(),
     bonusBreakdown: z.record(z.string(), z.number()).optional(),
     notes: z.string().nullable().optional(),
   });
@@ -557,8 +562,9 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
   if (!entry) return res.status(404).json({ error: "Entry not found" });
 
   const breakdown = parsed.data.bonusBreakdown;
+  const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
   let bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
-  let totalPay = Number(entry.basePay) + bonus;
+  let totalPay = Number(entry.basePay) + bonus - fronted;
 
   if (breakdown) {
     const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
@@ -570,12 +576,12 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
       else adds += amt;
     }
     bonus = adds;
-    totalPay = Number(entry.basePay) + adds - deductions;
+    totalPay = Number(entry.basePay) + adds - deductions - fronted;
   }
 
   const updated = await prisma.servicePayrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
+    data: { bonusAmount: bonus, frontedAmount: fronted, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
     include: { serviceAgent: true },
   });
   res.json(updated);

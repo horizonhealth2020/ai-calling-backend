@@ -7,9 +7,9 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
 type SaleAddonInfo = { product: { id: string; name: string; type: string } };
 type SaleInfo = { id: string; memberName: string; memberId?: string; carrier: string; premium: number; enrollmentFee: number | null; commissionApproved: boolean; status: string; notes?: string; product: { id: string; name: string; type: string }; addons?: SaleAddonInfo[] };
-type Entry = { id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number; frontedAmount: number; netAmount: number; status: string; sale?: SaleInfo; agent?: { name: string } };
+type Entry = { id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number; frontedAmount: number; holdAmount: number; netAmount: number; status: string; sale?: SaleInfo; agent?: { name: string } };
 type BonusCategory = { name: string; isDeduction: boolean };
-type ServiceEntry = { id: string; basePay: number; bonusAmount: number; totalPay: number; bonusBreakdown?: Record<string, number>; status: string; notes?: string; serviceAgent: { name: string; basePay: number } };
+type ServiceEntry = { id: string; basePay: number; bonusAmount: number; frontedAmount: number; totalPay: number; bonusBreakdown?: Record<string, number>; status: string; notes?: string; serviceAgent: { name: string; basePay: number } };
 type Period = { id: string; weekStart: string; weekEnd: string; quarterLabel: string; status: string; entries: Entry[]; serviceEntries: ServiceEntry[] };
 type ProductType = "CORE" | "ADDON" | "AD_D";
 type Product = { id: string; name: string; active: boolean; type: ProductType; premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null; bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string };
@@ -54,7 +54,7 @@ const TYPE_COLORS: Record<ProductType, string> = { CORE: "#3b82f6", ADDON: "#8b5
 function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
-  onBonusFrontedUpdate: (entryId: string, bonus: number, fronted: number) => Promise<void>;
+  onBonusFrontedUpdate: (entryId: string, bonus: number, fronted: number, hold: number) => Promise<void>;
   onApprove: (saleId: string) => Promise<void>;
 }) {
   const [editSale, setEditSale] = useState(false);
@@ -67,6 +67,7 @@ function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove 
   });
   const [bonus, setBonus] = useState(String(entry.bonusAmount ?? 0));
   const [fronted, setFronted] = useState(String(entry.frontedAmount ?? 0));
+  const [hold, setHold] = useState(String(entry.holdAmount ?? 0));
   const [saving, setSaving] = useState(false);
 
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
@@ -109,7 +110,7 @@ function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove 
           style={{ ...SMALL_INP, width: 75, background: Number(bonus) > 0 ? "rgba(16,185,129,0.12)" : SMALL_INP.background, color: Number(bonus) > 0 ? "#34d399" : "#e2e8f0" }}
           type="number" step="0.01" value={bonus}
           onChange={e => setBonus(e.target.value)}
-          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0)}
+          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0, Number(hold) || 0)}
         />
       </td>
       <td style={{ padding: "10px 6px", textAlign: "right" }}>
@@ -117,7 +118,15 @@ function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove 
           style={{ ...SMALL_INP, width: 75, background: Number(fronted) > 0 ? "rgba(239,68,68,0.12)" : SMALL_INP.background, color: Number(fronted) > 0 ? "#f87171" : "#e2e8f0" }}
           type="number" step="0.01" value={fronted}
           onChange={e => setFronted(e.target.value)}
-          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0)}
+          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0, Number(hold) || 0)}
+        />
+      </td>
+      <td style={{ padding: "10px 6px", textAlign: "right" }}>
+        <input
+          style={{ ...SMALL_INP, width: 75, background: Number(hold) > 0 ? "rgba(251,191,36,0.12)" : SMALL_INP.background, color: Number(hold) > 0 ? "#fbbf24" : "#e2e8f0" }}
+          type="number" step="0.01" value={hold}
+          onChange={e => setHold(e.target.value)}
+          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0, Number(hold) || 0)}
         />
       </td>
       <td style={{ padding: "10px 10px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>
@@ -295,6 +304,7 @@ export default function PayrollDashboard() {
   const [svcMsg, setSvcMsg] = useState("");
   const [svcPeriodId, setSvcPeriodId] = useState("");
   const [svcBonuses, setSvcBonuses] = useState<Record<string, Record<string, string>>>({});
+  const [svcFronted, setSvcFronted] = useState<Record<string, string>>({});
   const [bonusCategories, setBonusCategories] = useState<BonusCategory[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [newCatDeduction, setNewCatDeduction] = useState(false);;
@@ -339,9 +349,9 @@ export default function PayrollDashboard() {
     } catch (e: any) { alert(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
-  async function updateBonusFronted(entryId: string, bonusAmount: number, frontedAmount: number) {
+  async function updateBonusFronted(entryId: string, bonusAmount: number, frontedAmount: number, holdAmount: number) {
     try {
-      await authFetch(`${API}/api/payroll/entries/${entryId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bonusAmount, frontedAmount }) });
+      await authFetch(`${API}/api/payroll/entries/${entryId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bonusAmount, frontedAmount, holdAmount }) });
       await refreshPeriods();
     } catch { /* silent — values will refresh on next load */ }
   }
@@ -377,7 +387,7 @@ export default function PayrollDashboard() {
   function exportDetailedCSV(range: ExportRange) {
     const filtered = filterPeriodsByRange(range);
     const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
-    const rows = [["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Net"]];
+    const rows = [["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Hold","Net"]];
     for (const p of filtered) {
       for (const e of p.entries) {
         const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
@@ -389,7 +399,7 @@ export default function PayrollDashboard() {
           esc(e.agent?.name ?? "Unknown"), e.sale?.memberId ?? "", esc(e.sale?.memberName ?? ""),
           esc(byType.CORE.join(", ")), esc(byType.ADDON.join(", ")), esc(byType.AD_D.join(", ")),
           fee, Number(e.payoutAmount).toFixed(2), Number(e.bonusAmount).toFixed(2),
-          Number(e.frontedAmount).toFixed(2), Number(e.netAmount).toFixed(2),
+          Number(e.frontedAmount).toFixed(2), Number(e.holdAmount ?? 0).toFixed(2), Number(e.netAmount).toFixed(2),
         ]);
       }
     }
@@ -428,6 +438,7 @@ export default function PayrollDashboard() {
       const agentGross = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
       const agentBonus = entries.reduce((s, e) => s + Number(e.bonusAmount), 0);
       const agentFronted = entries.reduce((s, e) => s + Number(e.frontedAmount), 0);
+      const agentHold = entries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
       const agentNet = entries.reduce((s, e) => s + Number(e.netAmount), 0);
       return `<div class="agent-card">
   <div class="header">
@@ -438,12 +449,13 @@ export default function PayrollDashboard() {
     <div class="summary-item"><div class="summary-label">Commission</div><div class="summary-value">$${agentGross.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Bonuses</div><div class="summary-value green">+$${agentBonus.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value red">-$${agentFronted.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Hold</div><div class="summary-value" style="color:#d97706">-$${agentHold.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Net Payout</div><div class="summary-value green">$${agentNet.toFixed(2)}</div></div>
   </div>
   <table>
     <thead><tr>
       <th>Member ID</th><th>Member Name</th><th class="center">Core</th><th class="center">Add-on</th><th class="center">AD&D</th>
-      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Fronted</th><th class="right">Net</th>
+      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Fronted</th><th class="right">Hold</th><th class="right">Net</th>
     </tr></thead>
     <tbody>` +
       entries.map(e => {
@@ -462,6 +474,7 @@ export default function PayrollDashboard() {
         <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
         <td class="right green">${Number(e.bonusAmount) > 0 ? "$" + Number(e.bonusAmount).toFixed(2) : "$0.00"}</td>
         <td class="right red">${Number(e.frontedAmount) > 0 ? "$" + Number(e.frontedAmount).toFixed(2) : "$0.00"}</td>
+        <td class="right" style="color:#d97706">${Number(e.holdAmount ?? 0) > 0 ? "$" + Number(e.holdAmount).toFixed(2) : "$0.00"}</td>
         <td class="right green" style="font-weight:700">$${Number(e.netAmount).toFixed(2)}</td>
       </tr>`;
       }).join("") +
@@ -470,6 +483,7 @@ export default function PayrollDashboard() {
         <td class="right">$${agentGross.toFixed(2)}</td>
         <td class="right green">$${agentBonus.toFixed(2)}</td>
         <td class="right red">$${agentFronted.toFixed(2)}</td>
+        <td class="right" style="color:#d97706">$${agentHold.toFixed(2)}</td>
         <td class="right green">$${agentNet.toFixed(2)}</td>
       </tr>
     </tbody></table></div>`;
@@ -502,10 +516,11 @@ export default function PayrollDashboard() {
 </div>
 <div class="total">Total: $${total.toFixed(2)}</div>
 <table>
-  <thead><tr><th>Name</th><th class="right">Base Pay</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#7c3aed">Total</th></tr></thead>
+  <thead><tr><th>Name</th><th class="right">Base Pay</th><th class="right" style="color:#dc2626">Fronted</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#7c3aed">Total</th></tr></thead>
   <tbody>${serviceEntries.map(se => {
       const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
-      return `<tr><td style="font-weight:600">${se.serviceAgent.name}</td><td class="right">$${Number(se.basePay).toFixed(2)}</td>${cats.map(c => {
+      const fAmt = Number(se.frontedAmount ?? 0);
+      return `<tr><td style="font-weight:600">${se.serviceAgent.name}</td><td class="right">$${Number(se.basePay).toFixed(2)}</td><td class="right red">${fAmt > 0 ? "$" + fAmt.toFixed(2) : "—"}</td>${cats.map(c => {
         const amt = bd[c.name] ?? 0;
         return `<td class="center ${amt > 0 ? (c.isDeduction ? "red" : "green") : ""}">${amt > 0 ? "$" + amt.toFixed(2) : "—"}</td>`;
       }).join("")}<td class="right purple">$${Number(se.totalPay).toFixed(2)}</td></tr>`;
@@ -580,7 +595,8 @@ export default function PayrollDashboard() {
           bonusBreakdown[cat] = Number(val) || 0;
         }
       }
-      const res = await authFetch(`${API}/api/payroll/service-entries`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceAgentId: agentId, payrollPeriodId: svcPeriodId, bonusBreakdown }) });
+      const frontedAmount = Number(svcFronted[agentId]) || 0;
+      const res = await authFetch(`${API}/api/payroll/service-entries`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceAgentId: agentId, payrollPeriodId: svcPeriodId, bonusBreakdown, frontedAmount }) });
       if (res.ok) { setSvcMsg("Service payroll entry saved"); await refreshPeriods(); }
       else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? "Failed"}`); }
     } catch (e: any) { setSvcMsg(`Error: ${e.message ?? "network error"}`); }
@@ -614,6 +630,7 @@ export default function PayrollDashboard() {
             const gross = p.entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
             const totalBonus = p.entries.reduce((s, e) => s + Number(e.bonusAmount ?? 0), 0);
             const totalFronted = p.entries.reduce((s, e) => s + Number(e.frontedAmount ?? 0), 0);
+            const totalHold = p.entries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
             const net = p.entries.reduce((s, e) => s + Number(e.netAmount), 0);
             const svcTotal = (p.serviceEntries ?? []).reduce((s, e) => s + Number(e.totalPay), 0);
             const sc = STATUS_COLORS[p.status] ?? { bg: "rgba(100,116,139,0.15)", color: "#94a3b8" };
@@ -642,7 +659,7 @@ export default function PayrollDashboard() {
                     <span style={{ fontSize: 12, color: "#475569" }}>{expanded ? "\u25B2" : "\u25BC"}</span>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10 }}>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.04)" }}>
                     <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Entries</div>
                     <div style={{ fontWeight: 900, fontSize: 26, color: "#e2e8f0" }}>{p.entries.length}</div>
@@ -658,6 +675,10 @@ export default function PayrollDashboard() {
                   <div style={{ background: "rgba(239,68,68,0.04)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(239,68,68,0.08)" }}>
                     <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Fronted</div>
                     <div style={{ fontWeight: 900, fontSize: 26, color: "#f87171" }}>-${totalFronted.toFixed(2)}</div>
+                  </div>
+                  <div style={{ background: "rgba(251,191,36,0.04)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(251,191,36,0.08)" }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Hold</div>
+                    <div style={{ fontWeight: 900, fontSize: 26, color: "#fbbf24" }}>-${totalHold.toFixed(2)}</div>
                   </div>
                   <div style={{ background: "rgba(16,185,129,0.06)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(16,185,129,0.1)" }}>
                     <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Net Payout</div>
@@ -710,6 +731,7 @@ export default function PayrollDashboard() {
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Commission</th>
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Bonus</th>
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Fronted</th>
+                                <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Hold</th>
                                 <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Net</th>
                                 <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>Actions</th>
                               </tr></thead>
@@ -738,6 +760,7 @@ export default function PayrollDashboard() {
                                       <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${Number(e.payoutAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.bonusAmount) > 0 ? "#34d399" : "#94a3b8" }}>${Number(e.bonusAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.frontedAmount) > 0 ? "#f87171" : "#94a3b8" }}>${Number(e.frontedAmount).toFixed(2)}</td>
+                                      <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.holdAmount) > 0 ? "#fbbf24" : "#94a3b8" }}>${Number(e.holdAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${Number(e.netAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "center" }}>
                                         {(needsApprovalRow || isApproved) && (
@@ -754,6 +777,7 @@ export default function PayrollDashboard() {
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${agentGross.toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${entries.reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#f87171" }}>${entries.reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#fbbf24" }}>${entries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0).toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 800, color: "#34d399" }}>${agentNet.toFixed(2)}</td>
                                   <td></td>
                                 </tr>
@@ -783,6 +807,7 @@ export default function PayrollDashboard() {
                             <thead><tr>
                               <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(139,92,246,0.15)" }}>Name</th>
                               <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(139,92,246,0.15)" }}>Base Pay</th>
+                              <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(139,92,246,0.15)" }}>Fronted</th>
                               {bonusCategories.map(cat => (
                                 <th key={cat.name} style={{ padding: "8px 6px", textAlign: "center", fontSize: 10, fontWeight: 700, color: cat.isDeduction ? "#f87171" : "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid rgba(139,92,246,0.15)", whiteSpace: "nowrap" }}>{cat.name}</th>
                               ))}
@@ -791,10 +816,12 @@ export default function PayrollDashboard() {
                             <tbody>
                               {p.serviceEntries.map(se => {
                                 const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
+                                const seFronted = Number(se.frontedAmount ?? 0);
                                 return (
                                   <tr key={se.id} style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                                     <td style={{ padding: "8px 10px", color: "#e2e8f0", fontWeight: 600 }}>{se.serviceAgent.name}</td>
                                     <td style={{ padding: "8px 8px", textAlign: "right", color: "#94a3b8" }}>${Number(se.basePay).toFixed(2)}</td>
+                                    <td style={{ padding: "8px 8px", textAlign: "right", color: seFronted > 0 ? "#f87171" : "#334155", fontWeight: seFronted > 0 ? 700 : 400 }}>{seFronted > 0 ? `$${seFronted.toFixed(2)}` : "\u2014"}</td>
                                     {bonusCategories.map(cat => {
                                       const amt = bd[cat.name] ?? 0;
                                       return (
@@ -997,6 +1024,7 @@ export default function PayrollDashboard() {
                   <thead><tr>
                     <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Agent</th>
                     <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Base Pay</th>
+                    <th style={{ padding: "8px 6px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Fronted</th>
                     {bonusCategories.map(cat => (
                       <th key={cat.name} style={{ padding: "8px 6px", textAlign: "center", fontSize: 10, fontWeight: 700, color: cat.isDeduction ? "#f87171" : "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>{cat.name}</th>
                     ))}
@@ -1010,8 +1038,10 @@ export default function PayrollDashboard() {
                       const existingEntry = currentPeriod?.serviceEntries?.find(se => se.serviceAgent.name === agent.name);
                       // Initialize from existing breakdown or empty
                       const vals = svcBonuses[key] ?? (existingEntry?.bonusBreakdown ? Object.fromEntries(Object.entries(existingEntry.bonusBreakdown).map(([k, v]) => [k, String(v)])) : {});
+                      const frontedVal = svcFronted[key] ?? String(existingEntry?.frontedAmount ?? 0);
                       const basePay = Number(agent.basePay);
-                      let total = basePay;
+                      const frontedNum = Number(frontedVal) || 0;
+                      let total = basePay - frontedNum;
                       for (const cat of bonusCategories) {
                         const amt = Number(vals[cat.name]) || 0;
                         total += cat.isDeduction ? -amt : amt;
@@ -1024,6 +1054,14 @@ export default function PayrollDashboard() {
                             {existingEntry && <span style={{ fontSize: 10, color: "#a78bfa", marginLeft: 6 }}>✓ saved</span>}
                           </td>
                           <td style={{ padding: "8px 8px", textAlign: "right", color: "#94a3b8", fontWeight: 600 }}>${basePay.toFixed(2)}</td>
+                          <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                            <input
+                              style={{ ...SMALL_INP, width: 70, textAlign: "center", background: frontedNum > 0 ? "rgba(239,68,68,0.12)" : SMALL_INP.background, color: frontedNum > 0 ? "#f87171" : "#e2e8f0" }}
+                              type="number" step="0.01" placeholder="0"
+                              value={frontedVal === "0" ? "" : frontedVal}
+                              onChange={e => setSvcFronted(prev => ({ ...prev, [key]: e.target.value }))}
+                            />
+                          </td>
                           {bonusCategories.map(cat => (
                             <td key={cat.name} style={{ padding: "4px 4px", textAlign: "center" }}>
                               <input
