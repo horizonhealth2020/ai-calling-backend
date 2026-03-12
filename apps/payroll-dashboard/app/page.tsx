@@ -17,12 +17,12 @@ type ServiceAgent = { id: string; name: string; basePay: number; active: boolean
 type ExportRange = "week" | "month" | "quarter";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  OPEN: { bg: "rgba(59,130,246,0.15)", color: "#60a5fa" },
-  LOCKED: { bg: "rgba(251,191,36,0.15)", color: "#fbbf24" },
-  FINALIZED: { bg: "rgba(16,185,129,0.15)", color: "#34d399" },
+  OPEN: { bg: "rgba(59,130,246,0.18)", color: "#60a5fa" },
+  LOCKED: { bg: "rgba(251,191,36,0.18)", color: "#fbbf24" },
+  FINALIZED: { bg: "rgba(16,185,129,0.18)", color: "#34d399" },
 };
 
-const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
+const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none", transition: "border-color 0.2s ease" };
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
 const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.55), rgba(15,23,42,0.65))", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 24, transition: "border-color 0.2s ease, box-shadow 0.2s ease" };
 const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#3b82f6" ? "linear-gradient(135deg, #3b82f6, #6366f1)" : color === "#059669" ? "linear-gradient(135deg, #059669, #10b981)" : color, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: `0 2px 12px ${color}40`, transition: "box-shadow 0.2s ease, transform 0.15s ease" });
