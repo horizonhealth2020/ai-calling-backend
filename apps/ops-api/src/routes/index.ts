@@ -6,6 +6,7 @@ import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/au
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale } from "../services/payroll";
 import { logAudit } from "../services/audit";
+import { processCallRecording } from "../services/callAudit";
 
 const router = Router();
 
@@ -162,13 +163,13 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
 }));
 
 router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await prisma.agent.update({ where: { id: req.params.id }, data: { active: false } });
+  await prisma.agent.update({ where: { id: req.params.id }, data: { active: false, email: null } });
   await logAudit(req.user!.id, "DELETE", "Agent", req.params.id);
   return res.status(204).end();
 }));
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional(), auditEnabled: z.boolean().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
@@ -181,12 +182,6 @@ router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
 }));
 
 router.get("/lead-sources", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.leadSource.findMany({ where: { active: true } }))));
-
-router.delete("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await prisma.leadSource.update({ where: { id: req.params.id }, data: { active: false } });
-  await logAudit(req.user!.id, "DELETE", "LeadSource", req.params.id);
-  return res.status(204).end();
-}));
 
 router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().min(0).default(0) });
@@ -203,7 +198,7 @@ router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
 }));
 
 router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().min(0).optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), listId: z.string().nullable().optional(), costPerLead: z.number().min(0).optional(), callBufferSeconds: z.number().int().min(0).optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
@@ -213,6 +208,12 @@ router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADM
     if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
     throw e;
   }
+}));
+
+router.delete("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await prisma.leadSource.update({ where: { id: req.params.id }, data: { active: false } });
+  await logAudit(req.user!.id, "DELETE", "LeadSource", req.params.id);
+  return res.status(204).end();
 }));
 
 router.get("/products", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.product.findMany())));
@@ -388,12 +389,12 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   res.json(summary);
 }));
 
-router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.payrollPeriod.findMany({
     include: {
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { product: { select: { id: true, name: true } } } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { product: { select: { id: true, name: true, type: true } } } } } },
           agent: { select: { name: true } },
         },
       },
@@ -485,6 +486,37 @@ router.patch("/service-agents/:id", requireAuth, requireRole("PAYROLL", "SUPER_A
 }));
 
 // ── Service Payroll Entries ─────────────────────────────────────
+// ── Service Bonus Category Settings ──────────────────────────────
+const DEFAULT_BONUS_CATEGORIES = [
+  { name: "Flips", isDeduction: false },
+  { name: "Saves", isDeduction: false },
+  { name: "Team Lead", isDeduction: false },
+  { name: "Cancel Bonus", isDeduction: false },
+  { name: "Avg Talk Time", isDeduction: false },
+  { name: "Most Calls", isDeduction: false },
+  { name: "On Time", isDeduction: false },
+  { name: "Out", isDeduction: true },
+];
+
+router.get("/settings/service-bonus-categories", requireAuth, asyncHandler(async (_req, res) => {
+  const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
+  if (setting) return res.json(JSON.parse(setting.value));
+  res.json(DEFAULT_BONUS_CATEGORIES);
+}));
+
+router.put("/settings/service-bonus-categories", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ categories: z.array(z.object({ name: z.string().min(1), isDeduction: z.boolean() })).min(1) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  await prisma.salesBoardSetting.upsert({
+    where: { key: "service_bonus_categories" },
+    create: { key: "service_bonus_categories", value: JSON.stringify(parsed.data.categories) },
+    update: { value: JSON.stringify(parsed.data.categories) },
+  });
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "service_bonus_categories", { categories: parsed.data.categories });
+  res.json(parsed.data.categories);
+}));
+
 router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.servicePayrollEntry.findMany({
     include: { serviceAgent: true, payrollPeriod: true },
@@ -492,35 +524,84 @@ router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPE
   }));
 }));
 
-router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ serviceAgentId: z.string(), payrollPeriodId: z.string(), bonusAmount: z.number().min(0).default(0), deductionAmount: z.number().min(0).default(0), notes: z.string().optional() });
+router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    serviceAgentId: z.string(),
+    payrollPeriodId: z.string(),
+    bonusAmount: z.number().min(0).default(0),
+    deductionAmount: z.number().min(0).default(0),
+    bonusBreakdown: z.record(z.string(), z.number()).optional(),
+    notes: z.string().optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
   if (!agent) return res.status(404).json({ error: "Service agent not found" });
   const basePay = Number(agent.basePay);
-  const totalPay = basePay + parsed.data.bonusAmount - parsed.data.deductionAmount;
+
+  let bonusAmount = parsed.data.bonusAmount;
+  let deductionAmount = parsed.data.deductionAmount;
+  let totalPay = basePay + bonusAmount - deductionAmount;
+  const breakdown = parsed.data.bonusBreakdown;
+
+  if (breakdown) {
+    // Load category config to know which are deductions
+    const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
+    const cats: { name: string; isDeduction: boolean }[] = setting ? JSON.parse(setting.value) : DEFAULT_BONUS_CATEGORIES;
+    const deductionNames = new Set(cats.filter(c => c.isDeduction).map(c => c.name));
+    let adds = 0, deductions = 0;
+    for (const [cat, amt] of Object.entries(breakdown)) {
+      if (deductionNames.has(cat)) deductions += amt;
+      else adds += amt;
+    }
+    bonusAmount = adds;
+    deductionAmount = deductions;
+    totalPay = basePay + adds - deductions;
+  }
+
   const entry = await prisma.servicePayrollEntry.upsert({
     where: { payrollPeriodId_serviceAgentId: { payrollPeriodId: parsed.data.payrollPeriodId, serviceAgentId: parsed.data.serviceAgentId } },
-    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount: parsed.data.bonusAmount, deductionAmount: parsed.data.deductionAmount, totalPay, notes: parsed.data.notes },
-    update: { bonusAmount: parsed.data.bonusAmount, deductionAmount: parsed.data.deductionAmount, totalPay, notes: parsed.data.notes },
+    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount, deductionAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
+    update: { bonusAmount, deductionAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
     include: { serviceAgent: true },
   });
   res.status(201).json(entry);
 }));
 
-router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ bonusAmount: z.number().min(0).optional(), deductionAmount: z.number().min(0).optional(), notes: z.string().nullable().optional() });
+router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    bonusAmount: z.number().min(0).optional(),
+    deductionAmount: z.number().min(0).optional(),
+    bonusBreakdown: z.record(z.string(), z.number()).optional(),
+    notes: z.string().nullable().optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: req.params.id }, include: { serviceAgent: true } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
-  const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
-  const deduction = parsed.data.deductionAmount ?? Number(entry.deductionAmount);
-  const totalPay = Number(entry.basePay) + bonus - deduction;
+
+  const breakdown = parsed.data.bonusBreakdown;
+  let bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
+  let deduction = parsed.data.deductionAmount ?? Number(entry.deductionAmount);
+  let totalPay = Number(entry.basePay) + bonus - deduction;
+
+  if (breakdown) {
+    const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
+    const cats: { name: string; isDeduction: boolean }[] = setting ? JSON.parse(setting.value) : DEFAULT_BONUS_CATEGORIES;
+    const deductionNames = new Set(cats.filter(c => c.isDeduction).map(c => c.name));
+    let adds = 0, deductions = 0;
+    for (const [cat, amt] of Object.entries(breakdown)) {
+      if (deductionNames.has(cat)) deductions += amt;
+      else adds += amt;
+    }
+    bonus = adds;
+    deduction = deductions;
+    totalPay = Number(entry.basePay) + adds - deductions;
+  }
+
   const updated = await prisma.servicePayrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, deductionAmount: deduction, totalPay, notes: parsed.data.notes ?? entry.notes },
+    data: { bonusAmount: bonus, deductionAmount: deduction, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
     include: { serviceAgent: true },
   });
   res.json(updated);
@@ -640,57 +721,95 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
 }));
 
 // ── Convoso Webhook ─────────────────────────────────────────────
-router.post("/webhooks/convoso", asyncHandler(async (req, res) => {
+const requireWebhookSecret = (req: Request, res: Response, next: NextFunction) => {
+  const secret = process.env.CONVOSO_WEBHOOK_SECRET;
+  if (!secret) return res.status(500).json({ error: "Webhook secret not configured" });
+  const provided = req.headers["x-webhook-secret"] || req.query.api_key;
+  if (provided !== secret) return res.status(401).json({ error: "Invalid webhook secret" });
+  return next();
+};
+
+router.post("/webhooks/convoso", requireWebhookSecret, asyncHandler(async (req, res) => {
   const schema = z.object({
-    agent_email: z.string().optional(),
-    member_id: z.string().optional(),
+    agent_user: z.string().min(1),
+    list_id: z.string().min(1),
     recording_url: z.string().optional(),
-    duration_sec: z.number().optional(),
-    call_date: z.string().optional(),
+    call_timestamp: z.string().optional(),
+    call_duration_seconds: z.number().int().min(0).optional(),
+    member_id: z.string().optional(),
     lead_id: z.union([z.number(), z.string()]).optional(),
-    list_id: z.union([z.number(), z.string()]).optional(),
-    list: z.string().optional(),
-    status: z.string().optional(),
-    plan_sold: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const data = parsed.data;
 
-  // Match agent by email (CRM User ID)
-  let agent = null;
-  if (data.agent_email) {
-    agent = await prisma.agent.findFirst({ where: { email: data.agent_email, active: true } });
+  const { agent_user, list_id, recording_url, call_timestamp, call_duration_seconds, member_id, lead_id } = parsed.data;
+
+  // Resolve agent by email (CRM User ID)
+  const agent = await prisma.agent.findUnique({ where: { email: agent_user } });
+  // Resolve lead source by listId (CRM List ID)
+  const leadSource = await prisma.leadSource.findFirst({ where: { listId: list_id } });
+
+  const log = await prisma.convosoCallLog.create({
+    data: {
+      agentUser: agent_user,
+      listId: list_id,
+      recordingUrl: recording_url,
+      callDurationSeconds: call_duration_seconds ?? null,
+      callTimestamp: call_timestamp ? new Date(call_timestamp) : new Date(),
+      agentId: agent?.id ?? null,
+      leadSourceId: leadSource?.id ?? null,
+    },
+  });
+
+  // If member_id is provided, also update the matching sale with recording data
+  if (member_id) {
+    const sale = await prisma.sale.findFirst({ where: { memberId: member_id }, orderBy: { saleDate: "desc" } });
+    if (sale) {
+      await prisma.sale.update({
+        where: { id: sale.id },
+        data: {
+          recordingUrl: recording_url || undefined,
+          callDuration: call_duration_seconds ?? undefined,
+          callDateTime: call_timestamp ? new Date(call_timestamp) : undefined,
+          convosoLeadId: lead_id != null ? String(lead_id) : undefined,
+        },
+      });
+    }
   }
 
-  // Match sale by member_id
-  let sale = null;
-  if (data.member_id) {
-    sale = await prisma.sale.findFirst({ where: { memberId: data.member_id }, orderBy: { saleDate: "desc" } });
+  // Check audit eligibility: agent must be matched AND have auditEnabled
+  let auditEligible = !!(recording_url && agent?.auditEnabled);
+
+  // Check min/max duration filters from settings
+  if (auditEligible && call_duration_seconds !== undefined) {
+    const [minSetting, maxSetting] = await Promise.all([
+      prisma.salesBoardSetting.findUnique({ where: { key: "audit_min_seconds" } }),
+      prisma.salesBoardSetting.findUnique({ where: { key: "audit_max_seconds" } }),
+    ]);
+    const minSec = minSetting ? parseInt(minSetting.value, 10) : 0;
+    const maxSec = maxSetting ? parseInt(maxSetting.value, 10) : 0;
+    if (minSec > 0 && call_duration_seconds < minSec) auditEligible = false;
+    if (maxSec > 0 && call_duration_seconds > maxSec) auditEligible = false;
   }
 
-  // Update sale with recording data if found
-  if (sale) {
-    await prisma.sale.update({
-      where: { id: sale.id },
-      data: {
-        recordingUrl: data.recording_url || undefined,
-        callDuration: data.duration_sec ?? undefined,
-        callDateTime: data.call_date ? new Date(data.call_date) : undefined,
-        convosoLeadId: data.lead_id != null ? String(data.lead_id) : undefined,
-      },
-    });
+  if (auditEligible) {
+    processCallRecording(log.id).catch(err =>
+      console.error(`[webhook] Background processing failed for ${log.id}:`, err)
+    );
+  } else if (!auditEligible && recording_url) {
+    // Mark as skipped so it doesn't sit as "pending"
+    await prisma.convosoCallLog.update({ where: { id: log.id }, data: { auditStatus: "skipped" } });
   }
 
-  res.json({ ok: true, matched: { agent: !!agent, sale: !!sale } });
+  return res.status(201).json({ id: log.id, matched: { agent: !!agent, leadSource: !!leadSource } });
 }));
 
-// ── Call Audits (sales with recording data) ─────────────────────
-router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+// ── Call Recordings (sales with attached recording data) ─────────
+router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const where: any = { recordingUrl: { not: null } };
   if (dr) where.callDateTime = { gte: dr.gte, lt: dr.lt };
-  const audits = await prisma.sale.findMany({
+  const recordings = await prisma.sale.findMany({
     where,
     select: {
       id: true, memberName: true, memberId: true, status: true, recordingUrl: true,
@@ -701,7 +820,138 @@ router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
     orderBy: { callDateTime: "desc" },
     take: 200,
   });
+  res.json(recordings);
+}));
+
+// ── Call Audits ─────────────────────────────────────────────────
+router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where: any = {};
+  if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
+  if (req.query.agentId) where.agentId = req.query.agentId;
+
+  const audits = await prisma.callAudit.findMany({
+    where,
+    include: { agent: { select: { id: true, name: true } } },
+    orderBy: { callDate: "desc" },
+  });
   res.json(audits);
+}));
+
+router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    score: z.number().min(0).max(100).optional(),
+    status: z.string().min(1).optional(),
+    coachingNotes: z.string().nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const audit = await prisma.callAudit.update({
+    where: { id: req.params.id },
+    data: { ...parsed.data, reviewerUserId: req.user!.id },
+    include: { agent: { select: { id: true, name: true } } },
+  });
+  await logAudit(req.user!.id, "UPDATE", "CallAudit", audit.id, parsed.data);
+  res.json(audit);
+}));
+
+// ── Call Counts (Convoso aggregation) ───────────────────────────
+router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where: any = { agentId: { not: null }, leadSourceId: { not: null } };
+  if (dr) where.callTimestamp = { gte: dr.gte, lt: dr.lt };
+
+  // Get all lead sources to apply per-source buffer filtering
+  const allLeadSources = await prisma.leadSource.findMany({
+    select: { id: true, name: true, costPerLead: true, callBufferSeconds: true },
+  });
+  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { name: ls.name, costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+
+  // Fetch raw call logs (not groupBy) so we can filter by per-source buffer
+  const logs = await prisma.convosoCallLog.findMany({
+    where,
+    select: { agentId: true, leadSourceId: true, callDurationSeconds: true },
+  });
+
+  // Aggregate counts, filtering out calls shorter than the lead source buffer
+  const countMap = new Map<string, number>();
+  for (const log of logs) {
+    const lsInfo = lsMap.get(log.leadSourceId!);
+    const buffer = lsInfo?.callBufferSeconds ?? 0;
+    if (buffer > 0 && log.callDurationSeconds !== null && log.callDurationSeconds < buffer) continue;
+    const key = `${log.agentId}|${log.leadSourceId}`;
+    countMap.set(key, (countMap.get(key) ?? 0) + 1);
+  }
+
+  const agentIds = [...new Set(logs.map(l => l.agentId!))];
+  const agents = await prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } });
+  const agentMap = new Map(agents.map(a => [a.id, a.name]));
+
+  const result = [...countMap.entries()].map(([key, count]) => {
+    const [agentId, leadSourceId] = key.split("|");
+    const ls = lsMap.get(leadSourceId) ?? { name: "Unknown", costPerLead: 0, callBufferSeconds: 0 };
+    return {
+      agentId,
+      agentName: agentMap.get(agentId) ?? "Unknown",
+      leadSourceId,
+      leadSourceName: ls.name,
+      callCount: count,
+      totalLeadCost: ls.costPerLead * count,
+    };
+  });
+
+  res.json(result);
+}));
+
+// ── AI Audit System Prompt Settings ─────────────────────────────
+router.get("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_audit_system_prompt" } });
+  res.json({ prompt: setting?.value ?? "" });
+}));
+
+router.put("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ prompt: z.string().min(1) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  await prisma.salesBoardSetting.upsert({
+    where: { key: "ai_audit_system_prompt" },
+    create: { key: "ai_audit_system_prompt", value: parsed.data.prompt },
+    update: { value: parsed.data.prompt },
+  });
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "ai_audit_system_prompt");
+  res.json({ prompt: parsed.data.prompt });
+}));
+
+// ── Audit Duration Filter Settings ──────────────────────────────
+router.get("/settings/audit-duration", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const [minS, maxS] = await Promise.all([
+    prisma.salesBoardSetting.findUnique({ where: { key: "audit_min_seconds" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "audit_max_seconds" } }),
+  ]);
+  res.json({ minSeconds: minS ? parseInt(minS.value, 10) : 0, maxSeconds: maxS ? parseInt(maxS.value, 10) : 0 });
+}));
+
+router.put("/settings/audit-duration", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ minSeconds: z.number().int().min(0), maxSeconds: z.number().int().min(0) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  await Promise.all([
+    prisma.salesBoardSetting.upsert({
+      where: { key: "audit_min_seconds" },
+      create: { key: "audit_min_seconds", value: String(parsed.data.minSeconds) },
+      update: { value: String(parsed.data.minSeconds) },
+    }),
+    prisma.salesBoardSetting.upsert({
+      where: { key: "audit_max_seconds" },
+      create: { key: "audit_max_seconds", value: String(parsed.data.maxSeconds) },
+      update: { value: String(parsed.data.maxSeconds) },
+    }),
+  ]);
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "audit_duration_filter");
+  res.json(parsed.data);
 }));
 
 export default router;

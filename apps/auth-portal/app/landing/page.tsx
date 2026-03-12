@@ -29,7 +29,7 @@ export default function Landing() {
     const token = getToken();
     const dest = new URL(url);
     if (token) dest.searchParams.set("session_token", token);
-    window.location.href = dest.toString();
+    window.open(dest.toString(), "_blank");
   }
 
   const seen = new Set<string>();
