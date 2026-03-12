@@ -68,6 +68,20 @@ router.post("/auth/logout", (_req, res) => {
   return res.status(204).end();
 });
 
+router.post("/auth/change-password", asyncHandler(async (req, res) => {
+  const schema = z.object({ email: z.string().email(), currentPassword: z.string().min(8), newPassword: z.string().min(8) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  if (!user || !user.active) return res.status(401).json({ error: "Invalid credentials" });
+  const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
+  if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  await logAudit(user.id, "CHANGE_PASSWORD", "User", user.id);
+  res.json({ success: true });
+}));
+
 router.get("/auth/refresh", requireAuth, asyncHandler(async (req, res) => {
   const user = req.user!;
   const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as any });
@@ -131,7 +145,7 @@ router.delete("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandle
   return res.status(204).end();
 }));
 
-router.get("/agents", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } }))));
+router.get("/agents", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } }))));
 
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), email: z.string().optional(), userId: z.string().optional(), extension: z.string().optional() });
@@ -166,7 +180,13 @@ router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
   }
 }));
 
-router.get("/lead-sources", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.leadSource.findMany())));
+router.get("/lead-sources", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.leadSource.findMany({ where: { active: true } }))));
+
+router.delete("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await prisma.leadSource.update({ where: { id: req.params.id }, data: { active: false } });
+  await logAudit(req.user!.id, "DELETE", "LeadSource", req.params.id);
+  return res.status(204).end();
+}));
 
 router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().min(0).default(0) });
@@ -331,10 +351,21 @@ router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL"
   res.json(sale);
 }));
 
+router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const sale = await prisma.sale.update({
+    where: { id: req.params.id },
+    data: { commissionApproved: false },
+  });
+  await upsertPayrollEntryForSale(sale.id);
+  await logAudit(req.user!.id, "UNAPPROVE_COMMISSION", "Sale", sale.id);
+  res.json(sale);
+}));
+
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
   const data = await prisma.agent.findMany({
+    where: { active: true },
     include: {
       sales: {
         where: salesWhere,
@@ -462,33 +493,34 @@ router.get("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPE
 }));
 
 router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ serviceAgentId: z.string(), payrollPeriodId: z.string(), bonusAmount: z.number().min(0).default(0), notes: z.string().optional() });
+  const schema = z.object({ serviceAgentId: z.string(), payrollPeriodId: z.string(), bonusAmount: z.number().min(0).default(0), deductionAmount: z.number().min(0).default(0), notes: z.string().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
   if (!agent) return res.status(404).json({ error: "Service agent not found" });
   const basePay = Number(agent.basePay);
-  const totalPay = basePay + parsed.data.bonusAmount;
+  const totalPay = basePay + parsed.data.bonusAmount - parsed.data.deductionAmount;
   const entry = await prisma.servicePayrollEntry.upsert({
     where: { payrollPeriodId_serviceAgentId: { payrollPeriodId: parsed.data.payrollPeriodId, serviceAgentId: parsed.data.serviceAgentId } },
-    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount: parsed.data.bonusAmount, totalPay, notes: parsed.data.notes },
-    update: { bonusAmount: parsed.data.bonusAmount, totalPay, notes: parsed.data.notes },
+    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount: parsed.data.bonusAmount, deductionAmount: parsed.data.deductionAmount, totalPay, notes: parsed.data.notes },
+    update: { bonusAmount: parsed.data.bonusAmount, deductionAmount: parsed.data.deductionAmount, totalPay, notes: parsed.data.notes },
     include: { serviceAgent: true },
   });
   res.status(201).json(entry);
 }));
 
 router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ bonusAmount: z.number().min(0).optional(), notes: z.string().nullable().optional() });
+  const schema = z.object({ bonusAmount: z.number().min(0).optional(), deductionAmount: z.number().min(0).optional(), notes: z.string().nullable().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: req.params.id }, include: { serviceAgent: true } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
-  const totalPay = Number(entry.basePay) + bonus;
+  const deduction = parsed.data.deductionAmount ?? Number(entry.deductionAmount);
+  const totalPay = Number(entry.basePay) + bonus - deduction;
   const updated = await prisma.servicePayrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, totalPay, notes: parsed.data.notes ?? entry.notes },
+    data: { bonusAmount: bonus, deductionAmount: deduction, totalPay, notes: parsed.data.notes ?? entry.notes },
     include: { serviceAgent: true },
   });
   res.json(updated);
@@ -508,7 +540,7 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
 }));
 
 router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
-  const agents = await prisma.agent.findMany({ orderBy: { displayOrder: "asc" } });
+  const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
   const agentMap = new Map(agents.map((a) => [a.id, a.name]));
   const [daily, weekly] = await Promise.all([
     prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { saleDate: { gte: new Date(Date.now() - 86400000) } } }),
@@ -605,6 +637,71 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
     grandTotalPremium,
     todayStats,
   });
+}));
+
+// ── Convoso Webhook ─────────────────────────────────────────────
+router.post("/webhooks/convoso", asyncHandler(async (req, res) => {
+  const schema = z.object({
+    agent_email: z.string().optional(),
+    member_id: z.string().optional(),
+    recording_url: z.string().optional(),
+    duration_sec: z.number().optional(),
+    call_date: z.string().optional(),
+    lead_id: z.union([z.number(), z.string()]).optional(),
+    list_id: z.union([z.number(), z.string()]).optional(),
+    list: z.string().optional(),
+    status: z.string().optional(),
+    plan_sold: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const data = parsed.data;
+
+  // Match agent by email (CRM User ID)
+  let agent = null;
+  if (data.agent_email) {
+    agent = await prisma.agent.findFirst({ where: { email: data.agent_email, active: true } });
+  }
+
+  // Match sale by member_id
+  let sale = null;
+  if (data.member_id) {
+    sale = await prisma.sale.findFirst({ where: { memberId: data.member_id }, orderBy: { saleDate: "desc" } });
+  }
+
+  // Update sale with recording data if found
+  if (sale) {
+    await prisma.sale.update({
+      where: { id: sale.id },
+      data: {
+        recordingUrl: data.recording_url || undefined,
+        callDuration: data.duration_sec ?? undefined,
+        callDateTime: data.call_date ? new Date(data.call_date) : undefined,
+        convosoLeadId: data.lead_id != null ? String(data.lead_id) : undefined,
+      },
+    });
+  }
+
+  res.json({ ok: true, matched: { agent: !!agent, sale: !!sale } });
+}));
+
+// ── Call Audits (sales with recording data) ─────────────────────
+router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string | undefined);
+  const where: any = { recordingUrl: { not: null } };
+  if (dr) where.callDateTime = { gte: dr.gte, lt: dr.lt };
+  const audits = await prisma.sale.findMany({
+    where,
+    select: {
+      id: true, memberName: true, memberId: true, status: true, recordingUrl: true,
+      callDuration: true, callDateTime: true, convosoLeadId: true,
+      agent: { select: { name: true, email: true } },
+      product: { select: { name: true } },
+    },
+    orderBy: { callDateTime: "desc" },
+    take: 200,
+  });
+  res.json(audits);
 }));
 
 export default router;

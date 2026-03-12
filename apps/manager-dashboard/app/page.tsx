@@ -15,20 +15,22 @@ type Product = {
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
 type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type CallAudit = { id: string; memberName: string; memberId?: string; status: string; recordingUrl?: string; callDuration?: number; callDateTime?: string; convosoLeadId?: string; agent: { name: string; email?: string }; product: { name: string } };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
-const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
+const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
-const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 24 };
-const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#3b82f6" ? "linear-gradient(135deg, #3b82f6, #6366f1)" : color === "#059669" ? "linear-gradient(135deg, #059669, #10b981)" : color, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: `0 2px 8px ${color}30` });
-const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
+const CARD: React.CSSProperties = { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 24 };
+const BTN = (color = "#2563eb"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#2563eb" ? "#2563eb" : color === "#059669" ? "#059669" : color, color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 });
+const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {
-    padding: "8px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.2s",
-    background: active ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
-    color: active ? "#ffffff" : "#64748b",
-    boxShadow: active ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+    padding: "10px 20px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+    background: "transparent",
+    color: active ? "#e2e8f0" : "#64748b",
+    borderBottom: active ? "2px solid #2563eb" : "2px solid transparent",
+    marginBottom: -1,
   };
 }
 
@@ -201,7 +203,7 @@ function AgentRow({ agent, onSave, onDelete }: { agent: Agent; onSave: (id: stri
   );
 }
 
-function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void> }) {
+function LeadSourceRow({ ls, onSave, onDelete }: { ls: LeadSource; onSave: (id: string, data: Partial<LeadSource>) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
   const [d, setD] = useState({ name: ls.name, listId: ls.listId ?? "", costPerLead: String(ls.costPerLead) });
   const [saving, setSaving] = useState(false);
@@ -211,7 +213,10 @@ function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, da
         <div style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{ls.name}</div>
         <div style={{ fontSize: 12, color: "#64748b" }}>${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}</div>
       </div>
-      <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => setEdit(true)} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", color: "#94a3b8", fontWeight: 600 }}>Edit</button>
+        <button onClick={() => { if (confirm(`Delete lead source "${ls.name}"?`)) onDelete(ls.id); }} style={{ padding: "5px 12px", fontSize: 12, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, background: "rgba(239,68,68,0.1)", cursor: "pointer", color: "#f87171", fontWeight: 600 }}>Delete</button>
+      </div>
     </div>
   );
   return (
@@ -228,7 +233,7 @@ function LeadSourceRow({ ls, onSave }: { ls: LeadSource; onSave: (id: string, da
 }
 
 const TYPE_LABELS: Record<string, string> = { CORE: "Core", ADDON: "Add-on", AD_D: "AD&D" };
-const TYPE_COLORS: Record<string, string> = { CORE: "#3b82f6", ADDON: "#8b5cf6", AD_D: "#f59e0b" };
+const TYPE_COLORS: Record<string, string> = { CORE: "#2563eb", ADDON: "#2563eb", AD_D: "#f59e0b" };
 
 function ProductRow({ product, onSave }: { product: Product; onSave: (id: string, data: Partial<Product>) => Promise<void> }) {
   const [edit, setEdit] = useState(false);
@@ -250,7 +255,7 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
       <div style={{ flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{product.name}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: TYPE_COLORS[product.type], background: `${TYPE_COLORS[product.type]}15`, padding: "2px 8px", borderRadius: 10 }}>{TYPE_LABELS[product.type]}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: TYPE_COLORS[product.type], background: `${TYPE_COLORS[product.type]}15`, padding: "2px 8px", borderRadius: 8 }}>{TYPE_LABELS[product.type]}</span>
           {!product.active && <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600 }}>Inactive</span>}
         </div>
         <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
@@ -346,6 +351,7 @@ export default function ManagerDashboard() {
   const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
   const [cfgMsg, setCfgMsg] = useState("");
+  const [audits, setAudits] = useState<CallAudit[]>([]);
 
   useEffect(() => {
     captureTokenFromUrl();
@@ -361,6 +367,12 @@ export default function ManagerDashboard() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (tab === "audits") {
+      authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => setAudits([]));
+    }
+  }, [tab]);
 
   const [parsedInfo, setParsedInfo] = useState<{ enrollmentFee?: string; premium?: string; coreProduct?: string; parsedProducts: ParsedProduct[]; addons: { name: string; matched: boolean; productName?: string; productId?: string }[] }>({ addons: [], parsedProducts: [] });
 
@@ -436,6 +448,14 @@ export default function ManagerDashboard() {
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
+  async function deleteLeadSource(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) { setLeadSources(prev => prev.filter(x => x.id !== id)); setCfgMsg("Lead source deleted"); }
+      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+    } catch { setCfgMsg("Error: Unable to reach API"); }
+  }
+
   async function addLeadSource(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     try {
@@ -452,7 +472,7 @@ export default function ManagerDashboard() {
   return (
     <PageShell title="Manager Dashboard">
       {/* Tab Navigation */}
-      <nav style={{ display: "flex", gap: 6, marginBottom: 28, padding: 4, background: "rgba(15,23,42,0.4)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", width: "fit-content" }}>
+      <nav style={{ display: "flex", gap: 0, marginBottom: 28, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         {(["sales", "tracker", "agent-sales", "audits", "config"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
         ))}
@@ -512,7 +532,7 @@ export default function ManagerDashboard() {
             <div><label style={LBL}>Notes</label><input style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
 
             {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
-              <div style={{ gridColumn: "1/-1", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: 16 }}>
+              <div style={{ gridColumn: "1/-1", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, padding: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", marginBottom: 10 }}>Parsed from Receipt</div>
 
                 {/* Product breakdown table */}
@@ -542,7 +562,7 @@ export default function ManagerDashboard() {
                               )}
                             </td>
                             <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                              <span style={{ fontSize: 11, fontWeight: 600, color: pp.isAddon ? "#8b5cf6" : "#3b82f6", background: pp.isAddon ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)", padding: "2px 8px", borderRadius: 10 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: "#2563eb", background: "rgba(37,99,235,0.15)", padding: "2px 8px", borderRadius: 8 }}>
                                 {pp.isAddon ? "Add-on" : "Primary"}
                               </span>
                             </td>
@@ -640,7 +660,7 @@ export default function ManagerDashboard() {
 
         return (
           <div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap", padding: 4, background: "rgba(15,23,42,0.4)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", width: "fit-content" }}>
+            <div style={{ display: "flex", gap: 0, marginBottom: 20, flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <button style={tabBtn(salesDay === "all")} onClick={() => setSalesDay("all")}>All Week</button>
               {DAYS.map(day => (
                 <button key={day} style={tabBtn(salesDay === day)} onClick={() => setSalesDay(day)}>{day}</button>
@@ -682,7 +702,37 @@ export default function ManagerDashboard() {
       })()}
 
       {/* ── Call Audits ── */}
-      {tab === "audits" && <div style={CARD}><p style={{ color: "#64748b", margin: 0 }}>Call audit records will appear here once added via the API.</p></div>}
+      {tab === "audits" && (
+        <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" as const }}>Agent</th>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" as const }}>Member</th>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" as const }}>Call Date</th>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "right" as const }}>Duration</th>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" as const }}>Product</th>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "center" as const }}>Status</th>
+              <th style={{ padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "center" as const }}>Recording</th>
+            </tr></thead>
+            <tbody>
+              {audits.map((a, i) => (
+                <tr key={a.id} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", fontWeight: 600, color: "#e2e8f0" }}>{a.agent.name}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#94a3b8" }}>{a.memberName}{a.memberId ? ` (${a.memberId})` : ""}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#94a3b8", fontSize: 13 }}>{a.callDateTime ? new Date(a.callDateTime).toLocaleString() : "\u2014"}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#94a3b8", textAlign: "right", fontSize: 13 }}>{a.callDuration != null ? `${Math.floor(a.callDuration / 60)}m ${a.callDuration % 60}s` : "\u2014"}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#94a3b8" }}>{a.product.name}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", textAlign: "center" }}><StatusBadge status={a.status} /></td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", textAlign: "center" }}>
+                    {a.recordingUrl ? <a href={a.recordingUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 600, fontSize: 12, textDecoration: "none" }}>Play</a> : "\u2014"}
+                  </td>
+                </tr>
+              ))}
+              {audits.length === 0 && <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#475569" }}>No call audit records yet. Connect Convoso webhook to start receiving data.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ── Config ── */}
       {tab === "config" && (
@@ -701,7 +751,7 @@ export default function ManagerDashboard() {
 
           <div style={CARD}>
             <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Lead Sources</h3>
-            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} />)}
+            {leadSources.map(ls => <LeadSourceRow key={ls.id} ls={ls} onSave={saveLeadSource} onDelete={deleteLeadSource} />)}
             <form onSubmit={addLeadSource} style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Add Lead Source</div>
               <input style={INP} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />

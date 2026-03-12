@@ -114,3 +114,33 @@ See `apps/ops-api/.env.example` for API vars and root `.env.example` for all var
 - **`NEXT_PUBLIC_*` vars are baked at build time.** Setting them in docker-compose `environment` (runtime) has no effect on Next.js. Pass them as build `args` in docker-compose and as `ARG`/`ENV` in the Dockerfile so they're present during `next build`.
 - **`NEXT_PUBLIC_OPS_API_URL` must be a browser-reachable URL.** Internal Docker hostnames like `http://ops-api:8080` don't work — the browser can't resolve them. Use `http://localhost:8080` for local Docker or the actual public domain in production.
 - **Postgres `depends_on` needs `condition: service_healthy`.** Plain `depends_on` only waits for the container to start, not for postgres to accept connections. Always pair with a `healthcheck` on the postgres service to prevent connection reset errors during migration.
+
+
+## Skill Usage Guide
+
+When working on tasks involving these technologies, invoke the corresponding skill:
+
+| Skill | Invoke When |
+|-------|-------------|
+| nextjs | Configures Next.js v15 apps with transpilePackages and standalone output |
+| typescript | Enforces strict type safety across monorepo workspaces and shared packages |
+| node | Runtime environment for Express API and Next.js servers |
+| react | Manages React components, hooks, and styling with inline CSSProperties |
+| express | Builds REST API with async handlers, middleware, RBAC, and error forwarding |
+| prisma | Configures Prisma schema, migrations, seeding, and database client |
+| postgresql | Sets up PostgreSQL schemas, migrations, and health checks for Docker |
+| frontend-design | Applies inline React.CSSProperties with dark glassmorphism theme and gradient accents |
+| zod | Validates API requests and responses with Zod schemas and error handling |
+| scoping-feature-work | Breaks features into MVP slices and acceptance criteria |
+| jest | Configures Jest tests and coverage reporting for backend service |
+| prioritizing-roadmap-bets | Ranks initiatives using impact, effort, and risk signals |
+| mapping-user-journeys | Maps in-app journeys and identifies friction points in code |
+| designing-onboarding-paths | Designs onboarding paths, checklists, and first-run UI |
+| clarifying-market-fit | Aligns ICP, positioning, and value narrative for on-page messaging |
+| instrumenting-product-metrics | Defines product events, funnels, and activation metrics |
+| structuring-offer-ladders | Frames plan tiers, value ladders, and upgrade logic |
+| tuning-landing-journeys | Improves landing page flow, hierarchy, and conversion paths |
+| crafting-page-messaging | Writes conversion-focused messaging for pages and key CTAs |
+| mapping-conversion-events | Defines funnel events, tracking, and success signals |
+| adding-structured-signals | Adds structured data for rich results |
+| inspecting-search-coverage | Audits technical and on-page search coverage |

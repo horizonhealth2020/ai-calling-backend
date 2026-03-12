@@ -21,12 +21,12 @@ const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" 
 // ── Dark theme styles ──
 const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, color: "#e2e8f0", width: "100%", boxSizing: "border-box", outline: "none" };
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
-const BTN = (bg = "linear-gradient(135deg, #3b82f6, #6366f1)"): React.CSSProperties => ({ padding: "10px 22px", background: bg, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: "0 2px 8px rgba(59,130,246,0.2)" });
-const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 24, backdropFilter: "blur(10px)" };
-const TH: React.CSSProperties = { padding: "12px 18px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" };
-const TD: React.CSSProperties = { padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)" };
+const BTN = (bg = "#2563eb"): React.CSSProperties => ({ padding: "10px 22px", background: bg, color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 });
+const CARD: React.CSSProperties = { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 24 };
+const TH: React.CSSProperties = { padding: "10px 16px", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" };
+const TD: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" };
 
-const ROLE_COLORS: Record<string, string> = { SUPER_ADMIN: "#8b5cf6", MANAGER: "#3b82f6", OWNER_VIEW: "#10b981", PAYROLL: "#f59e0b", SERVICE: "#64748b", ADMIN: "#06b6d4" };
+const ROLE_COLORS: Record<string, string> = { SUPER_ADMIN: "#2563eb", MANAGER: "#3b82f6", OWNER_VIEW: "#059669", PAYROLL: "#d97706", SERVICE: "#64748b", ADMIN: "#0891b2" };
 
 function RoleBadge({ role }: { role: string }) {
   const c = ROLE_COLORS[role] ?? "#64748b";
@@ -52,10 +52,9 @@ function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: 
 
 function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
   return (
-    <div style={{ ...CARD, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "0 0 0 80px", background: accent + "08", pointerEvents: "none" }} />
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 900, color: accent }}>{value}</div>
+    <div style={{ ...CARD, borderLeft: `3px solid ${accent}` }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: accent }}>{value}</div>
     </div>
   );
 }
@@ -102,7 +101,7 @@ function UserRow({ user, onSave, onDelete }: { user: User; onSave: (id: string, 
         </div>
         {err && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 10, padding: "8px 12px", background: "rgba(239,68,68,0.1)", borderRadius: 6 }}>{err}</div>}
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={BTN()} disabled={saving || d.roles.length === 0} onClick={async () => {
+          <button style={{ ...BTN(), opacity: saving || d.roles.length === 0 ? 0.4 : 1 }} disabled={saving || d.roles.length === 0} onClick={async () => {
             setSaving(true); setErr("");
             const payload: any = { name: d.name, email: d.email, roles: d.roles, active: d.active };
             if (d.password) payload.password = d.password;
@@ -206,13 +205,13 @@ export default function OwnerDashboard() {
   return (
     <PageShell title="Owner Dashboard">
       {/* Tab Nav */}
-      <nav style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(15,23,42,0.4)", borderRadius: 10, padding: 4, width: "fit-content", border: "1px solid rgba(255,255,255,0.04)" }}>
+      <nav style={{ display: "flex", gap: 0, marginBottom: 28, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         {([["overview", "Overview"], ...(isSuperAdmin ? [["users", "User Management"]] : [])] as [Tab, string][]).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
-            padding: "9px 24px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 7, letterSpacing: "0.01em",
-            background: tab === key ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
-            color: tab === key ? "#fff" : "#64748b",
-            boxShadow: tab === key ? "0 2px 8px rgba(59,130,246,0.25)" : "none",
+            padding: "10px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "transparent",
+            color: tab === key ? "#e2e8f0" : "#64748b",
+            borderBottom: tab === key ? "2px solid #2563eb" : "2px solid transparent",
+            marginBottom: -1,
           }}>{label}</button>
         ))}
       </nav>
@@ -238,7 +237,7 @@ export default function OwnerDashboard() {
           <StatCard label="Open Payroll" value={summary?.openPayrollPeriods ?? "\u2014"} accent="#f59e0b" />
         </div>
 
-        <h2 style={{ fontSize: 14, fontWeight: 800, margin: "0 0 14px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Agent Performance</h2>
+        <h2 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 14px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Agent Performance</h2>
         <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
@@ -270,7 +269,7 @@ export default function OwnerDashboard() {
       {tab === "users" && isSuperAdmin && (
         <div>
           <div style={{ ...CARD, marginBottom: 24 }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 800, color: "#e2e8f0" }}>Create User</h3>
+            <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 600, color: "#e2e8f0" }}>Create User</h3>
             <form onSubmit={createUser}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
                 <div><label style={LBL}>Name</label><input style={INP} required value={newUser.name} onChange={e => setNewUser(x => ({ ...x, name: e.target.value }))} /></div>
@@ -281,7 +280,7 @@ export default function OwnerDashboard() {
                 <label style={LBL}>Roles</label>
                 <RoleCheckboxes selected={newUser.roles} onChange={roles => setNewUser(x => ({ ...x, roles }))} />
               </div>
-              <button type="submit" disabled={newUser.roles.length === 0} style={{ ...BTN("linear-gradient(135deg, #10b981, #059669)"), opacity: newUser.roles.length === 0 ? 0.4 : 1 }}>Create User</button>
+              <button type="submit" disabled={newUser.roles.length === 0} style={{ ...BTN("#059669"), opacity: newUser.roles.length === 0 ? 0.4 : 1 }}>Create User</button>
               {createMsg && <p style={{ margin: "12px 0 0", fontSize: 13, fontWeight: 700, padding: "8px 12px", borderRadius: 6, background: createMsg.includes("success") ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", color: createMsg.includes("success") ? "#4ade80" : "#f87171" }}>{createMsg}</p>}
             </form>
           </div>

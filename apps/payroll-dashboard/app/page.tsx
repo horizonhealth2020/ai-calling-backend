@@ -8,7 +8,7 @@ type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
 type SaleAddonInfo = { product: { id: string; name: string } };
 type SaleInfo = { id: string; memberName: string; memberId?: string; carrier: string; premium: number; enrollmentFee: number | null; commissionApproved: boolean; status: string; notes?: string; product: { id: string; name: string; type: string }; addons?: SaleAddonInfo[] };
 type Entry = { id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number; frontedAmount: number; netAmount: number; status: string; sale?: SaleInfo; agent?: { name: string } };
-type ServiceEntry = { id: string; basePay: number; bonusAmount: number; totalPay: number; status: string; notes?: string; serviceAgent: { name: string; basePay: number } };
+type ServiceEntry = { id: string; basePay: number; bonusAmount: number; deductionAmount: number; totalPay: number; status: string; notes?: string; serviceAgent: { name: string; basePay: number } };
 type Period = { id: string; weekStart: string; weekEnd: string; quarterLabel: string; status: string; entries: Entry[]; serviceEntries: ServiceEntry[] };
 type ProductType = "CORE" | "ADDON" | "AD_D";
 type Product = { id: string; name: string; active: boolean; type: ProductType; premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null; bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string };
@@ -21,19 +21,20 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   FINALIZED: { bg: "rgba(16,185,129,0.15)", color: "#34d399" },
 };
 
-const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
+const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
-const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 24 };
-const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#3b82f6" ? "linear-gradient(135deg, #3b82f6, #6366f1)" : color === "#059669" ? "linear-gradient(135deg, #059669, #10b981)" : color, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: `0 2px 8px ${color}30` });
-const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
+const CARD: React.CSSProperties = { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 24 };
+const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#3b82f6" ? "#2563eb" : color === "#059669" ? "#059669" : color, color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 });
+const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
 const SMALL_INP: React.CSSProperties = { ...INP, padding: "6px 10px", fontSize: 13, width: 90, textAlign: "right" };
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {
-    padding: "8px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.2s",
-    background: active ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
-    color: active ? "#ffffff" : "#64748b",
-    boxShadow: active ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+    padding: "10px 20px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+    background: "transparent",
+    color: active ? "#e2e8f0" : "#64748b",
+    borderBottom: active ? "2px solid #2563eb" : "2px solid transparent",
+    marginBottom: -1,
   };
 }
 
@@ -45,14 +46,15 @@ function fmtDate(iso: string): string {
 }
 
 const TYPE_LABELS: Record<ProductType, string> = { CORE: "Core Product", ADDON: "Add-on", AD_D: "AD&D" };
-const TYPE_COLORS: Record<ProductType, string> = { CORE: "#3b82f6", ADDON: "#8b5cf6", AD_D: "#f59e0b" };
+const TYPE_COLORS: Record<ProductType, string> = { CORE: "#3b82f6", ADDON: "#2563eb", AD_D: "#f59e0b" };
 
 // ── Editable Sale Row ───────────────────────────────────────────
-function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove }: {
+function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
   onBonusFrontedUpdate: (entryId: string, bonus: number, fronted: number) => Promise<void>;
   onApprove: (saleId: string) => Promise<void>;
+  onUnapprove: (saleId: string) => Promise<void>;
 }) {
   const [editSale, setEditSale] = useState(false);
   const [saleData, setSaleData] = useState({
@@ -133,17 +135,17 @@ function EditableSaleRow({ entry, onSaleUpdate, onBonusFrontedUpdate, onApprove 
                 notes: saleData.notes || null,
               });
               setEditSale(false); setSaving(false);
-            }} style={{ padding: "4px 10px", background: "linear-gradient(135deg, #059669, #10b981)", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Save</button>
+            }} style={{ padding: "4px 10px", background: "#059669", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Save</button>
             <button onClick={() => setEditSale(false)} style={{ padding: "4px 8px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, background: "transparent", color: "#94a3b8", fontSize: 11, cursor: "pointer" }}>X</button>
           </div>
         ) : (
           <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center" }}>
             <button onClick={() => setEditSale(true)} style={{ padding: "4px 8px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, background: "rgba(30,41,59,0.5)", color: "#94a3b8", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Edit</button>
             {needsApproval && (
-              <button onClick={() => onApprove(entry.sale!.id)} style={{ padding: "4px 10px", background: "linear-gradient(135deg, #059669, #10b981)", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Approve</button>
+              <button onClick={() => onApprove(entry.sale!.id)} style={{ padding: "4px 10px", background: "#059669", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Approve</button>
             )}
             {entry.sale?.commissionApproved && fee !== null && fee < 99 && (
-              <span style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>OK</span>
+              <button onClick={() => onUnapprove(entry.sale!.id)} style={{ padding: "4px 10px", fontSize: 11, border: "1px solid rgba(251,191,36,0.3)", borderRadius: 4, background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer", fontWeight: 700 }}>Unapprove</button>
             )}
           </div>
         )}
@@ -170,7 +172,7 @@ function ProductRow({ product, onSave, onDelete }: { product: Product; onSave: (
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{product.name}</span>
-            <span style={{ background: col + "18", color: col, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{TYPE_LABELS[product.type]}</span>
+            <span style={{ background: col + "18", color: col, padding: "2px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{TYPE_LABELS[product.type]}</span>
             {!product.active && <span style={{ color: "#64748b", fontSize: 11 }}>(Inactive)</span>}
           </div>
           <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
@@ -291,7 +293,7 @@ export default function PayrollDashboard() {
   const [newServiceAgent, setNewServiceAgent] = useState({ name: "", basePay: "" });
   const [svcMsg, setSvcMsg] = useState("");
   const [svcPeriodId, setSvcPeriodId] = useState("");
-  const [svcBonuses, setSvcBonuses] = useState<Record<string, { agentId: string; bonus: string; notes: string }>>({});
+  const [svcBonuses, setSvcBonuses] = useState<Record<string, { agentId: string; bonus: string; deduction: string; notes: string }>>({});
 
   useEffect(() => {
     captureTokenFromUrl();
@@ -340,6 +342,11 @@ export default function PayrollDashboard() {
 
   async function approveCommission(saleId: string) {
     const res = await authFetch(`${API}/api/sales/${saleId}/approve-commission`, { method: "PATCH", headers: { "Content-Type": "application/json" } });
+    if (res.ok) await refreshPeriods();
+  }
+
+  async function unapproveCommission(saleId: string) {
+    const res = await authFetch(`${API}/api/sales/${saleId}/unapprove-commission`, { method: "PATCH", headers: { "Content-Type": "application/json" } });
     if (res.ok) await refreshPeriods();
   }
 
@@ -424,7 +431,7 @@ export default function PayrollDashboard() {
     if (!b || !svcPeriodId) return;
     setSvcMsg("");
     try {
-      const res = await authFetch(`${API}/api/payroll/service-entries`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceAgentId: agentId, payrollPeriodId: svcPeriodId, bonusAmount: Number(b.bonus) || 0, notes: b.notes || undefined }) });
+      const res = await authFetch(`${API}/api/payroll/service-entries`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceAgentId: agentId, payrollPeriodId: svcPeriodId, bonusAmount: Number(b.bonus) || 0, deductionAmount: Number(b.deduction) || 0, notes: b.notes || undefined }) });
       if (res.ok) { setSvcMsg("Service payroll entry saved"); await refreshPeriods(); }
       else { const err = await res.json().catch(() => ({})); setSvcMsg(`Error: ${err.error ?? "Failed"}`); }
     } catch (e: any) { setSvcMsg(`Error: ${e.message ?? "network error"}`); }
@@ -436,7 +443,7 @@ export default function PayrollDashboard() {
 
   return (
     <PageShell title="Payroll Dashboard">
-      <nav style={{ display: "flex", gap: 6, marginBottom: 28, padding: 4, background: "rgba(15,23,42,0.4)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", width: "fit-content" }}>
+      <nav style={{ display: "flex", gap: 0, marginBottom: 28, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         {(["periods","chargebacks","exports","products","service"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
         ))}
@@ -472,7 +479,7 @@ export default function PayrollDashboard() {
                   <div>
                     <span style={{ fontWeight: 700, fontSize: 16, color: "#e2e8f0" }}>{fmtDate(p.weekStart)}--{fmtDate(p.weekEnd)}</span>
                     <span style={{ marginLeft: 10, fontSize: 13, color: "#64748b" }}>{p.quarterLabel}</span>
-                    {needsApproval.length > 0 && <span style={{ marginLeft: 10, background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{needsApproval.length} need approval</span>}
+                    {needsApproval.length > 0 && <span style={{ marginLeft: 10, background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "2px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{needsApproval.length} need approval</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ background: sc.bg, color: sc.color, padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{p.status}</span>
@@ -482,31 +489,31 @@ export default function PayrollDashboard() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Entries</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#e2e8f0" }}>{p.entries.length}</div>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: "#e2e8f0" }}>{p.entries.length}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Commission</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#e2e8f0" }}>${gross.toFixed(2)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: "#e2e8f0" }}>${gross.toFixed(2)}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Bonuses</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#34d399" }}>+${totalBonus.toFixed(2)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: "#34d399" }}>+${totalBonus.toFixed(2)}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Fronted</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#f87171" }}>-${totalFronted.toFixed(2)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: "#f87171" }}>-${totalFronted.toFixed(2)}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Net Payout</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#34d399" }}>${net.toFixed(2)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: "#34d399" }}>${net.toFixed(2)}</div>
                   </div>
                 </div>
 
                 {/* Customer service totals if any */}
                 {(p.serviceEntries ?? []).length > 0 && (
-                  <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(139,92,246,0.08)", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#a78bfa", fontWeight: 600 }}>Customer Service ({p.serviceEntries.length})</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: "#a78bfa" }}>${svcTotal.toFixed(2)}</span>
+                  <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(37,99,235,0.08)", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#60a5fa", fontWeight: 600 }}>Customer Service ({p.serviceEntries.length})</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#60a5fa" }}>${svcTotal.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -517,7 +524,7 @@ export default function PayrollDashboard() {
                       const agentNet = entries.reduce((s, e) => s + Number(e.netAmount), 0);
                       const agentGross = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
                       return (
-                        <div key={agentName} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: 16 }}>
+                        <div key={agentName} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 16 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             <div>
                               <span style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0" }}>{agentName}</span>
@@ -571,10 +578,10 @@ export default function PayrollDashboard() {
                                       <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${Number(e.netAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "center" }}>
                                         {needsApprovalRow && (
-                                          <button onClick={() => approveCommission(e.sale!.id)} style={{ padding: "3px 8px", background: "linear-gradient(135deg, #059669, #10b981)", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Approve</button>
+                                          <button onClick={() => approveCommission(e.sale!.id)} style={{ padding: "3px 8px", background: "#059669", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Approve</button>
                                         )}
                                         {e.sale?.commissionApproved && fee !== null && fee < 99 && (
-                                          <span style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>OK</span>
+                                          <button onClick={() => unapproveCommission(e.sale!.id)} style={{ padding: "3px 8px", background: "rgba(217,119,6,0.2)", color: "#fbbf24", border: "1px solid rgba(217,119,6,0.3)", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Unapprove</button>
                                         )}
                                       </td>
                                     </tr>
@@ -587,7 +594,7 @@ export default function PayrollDashboard() {
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#e2e8f0" }}>${agentGross.toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${entries.reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
                                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#f87171" }}>${entries.reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
-                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 800, color: "#34d399" }}>${agentNet.toFixed(2)}</td>
+                                  <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${agentNet.toFixed(2)}</td>
                                   <td></td>
                                 </tr>
                               </tbody>
@@ -599,15 +606,15 @@ export default function PayrollDashboard() {
 
                     {/* Customer Service box */}
                     {(p.serviceEntries ?? []).length > 0 && (
-                      <div style={{ background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)", borderRadius: 10, padding: 16 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(139,92,246,0.15)" }}>
-                          <span style={{ fontWeight: 700, fontSize: 15, color: "#a78bfa" }}>Customer Service</span>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa" }}>Total: ${svcTotal.toFixed(2)}</span>
+                      <div style={{ background: "rgba(37,99,235,0.05)", border: "1px solid rgba(37,99,235,0.15)", borderRadius: 8, padding: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(37,99,235,0.15)" }}>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: "#60a5fa" }}>Customer Service</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa" }}>Total: ${svcTotal.toFixed(2)}</span>
                         </div>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                           <thead><tr>
-                            {["Name", "Base Pay", "Bonus", "Total", "Notes"].map((h, i) => (
-                              <th key={h} style={{ padding: "8px 10px", textAlign: i >= 1 && i <= 3 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(139,92,246,0.15)" }}>{h}</th>
+                            {["Name", "Base Pay", "Bonus", "Deduction", "Total", "Notes"].map((h, i) => (
+                              <th key={h} style={{ padding: "8px 10px", textAlign: i >= 1 && i <= 4 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(37,99,235,0.15)" }}>{h}</th>
                             ))}
                           </tr></thead>
                           <tbody>
@@ -616,7 +623,8 @@ export default function PayrollDashboard() {
                                 <td style={{ padding: "8px 10px", color: "#e2e8f0", fontWeight: 600 }}>{se.serviceAgent.name}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "right", color: "#94a3b8" }}>${Number(se.basePay).toFixed(2)}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "right", color: Number(se.bonusAmount) > 0 ? "#34d399" : "#94a3b8", fontWeight: Number(se.bonusAmount) > 0 ? 700 : 400 }}>${Number(se.bonusAmount).toFixed(2)}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#a78bfa", fontWeight: 700 }}>${Number(se.totalPay).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: Number(se.deductionAmount) > 0 ? "#f87171" : "#94a3b8", fontWeight: Number(se.deductionAmount) > 0 ? 700 : 400 }}>-${Number(se.deductionAmount).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#60a5fa", fontWeight: 700 }}>${Number(se.totalPay).toFixed(2)}</td>
                                 <td style={{ padding: "8px 10px", color: "#64748b", fontStyle: "italic" }}>{se.notes ?? ""}</td>
                               </tr>
                             ))}
@@ -646,7 +654,7 @@ export default function PayrollDashboard() {
             <div><label style={LBL}>Member Name <span style={{ color: "#475569", fontWeight: 400 }}>(if no ID)</span></label><input style={INP} value={chargebackForm.memberName} placeholder="e.g. John Doe" onChange={e => setChargebackForm(f => ({ ...f, memberName: e.target.value }))} /></div>
             <div><label style={LBL}>Notes</label><textarea style={{ ...INP, height: 80, resize: "vertical" } as React.CSSProperties} value={chargebackForm.notes} onChange={e => setChargebackForm(f => ({ ...f, notes: e.target.value }))} /></div>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <button type="submit" style={{ padding: "12px 28px", background: "linear-gradient(135deg, #dc2626, #ef4444)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14, boxShadow: "0 2px 8px rgba(220,38,38,0.3)" }}>Process Chargeback</button>
+              <button type="submit" style={{ padding: "12px 28px", background: "#dc2626", color: "white", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Process Chargeback</button>
               {chargebackMsg && <span style={{ color: chargebackMsg.startsWith("Chargeback") ? "#34d399" : "#f87171", fontWeight: 600, fontSize: 14 }}>{chargebackMsg}</span>}
             </div>
           </form>
@@ -665,8 +673,8 @@ export default function PayrollDashboard() {
                   <button key={r} onClick={() => setExportRange(r)} style={{
                     padding: "8px 20px",
                     border: exportRange === r ? "1px solid rgba(59,130,246,0.4)" : "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                    background: exportRange === r ? "rgba(59,130,246,0.15)" : "rgba(15,23,42,0.6)",
+                    borderRadius: 6,
+                    background: exportRange === r ? "rgba(37,99,235,0.15)" : "rgba(15,23,42,0.6)",
                     color: exportRange === r ? "#60a5fa" : "#64748b",
                     fontWeight: exportRange === r ? 700 : 500,
                     cursor: "pointer", fontSize: 13,
@@ -765,7 +773,7 @@ export default function PayrollDashboard() {
 
             {serviceAgents.filter(a => a.active).map(agent => {
               const key = agent.id;
-              const b = svcBonuses[key] ?? { agentId: agent.id, bonus: "0", notes: "" };
+              const b = svcBonuses[key] ?? { agentId: agent.id, bonus: "0", deduction: "0", notes: "" };
               // Check if there's already an entry for this period
               const currentPeriod = periods.find(p => p.id === svcPeriodId);
               const existingEntry = currentPeriod?.serviceEntries?.find(se => se.serviceAgent.name === agent.name);
@@ -777,12 +785,16 @@ export default function PayrollDashboard() {
                       <span style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>{agent.name}</span>
                       <span style={{ fontSize: 12, color: "#64748b", marginLeft: 8 }}>Base: ${Number(agent.basePay).toFixed(2)}</span>
                     </div>
-                    {existingEntry && <span style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700 }}>Saved: ${Number(existingEntry.totalPay).toFixed(2)}</span>}
+                    {existingEntry && <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 700 }}>Saved: ${Number(existingEntry.totalPay).toFixed(2)}</span>}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "100px 1fr auto", gap: 8, alignItems: "end" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "100px 100px 1fr auto", gap: 8, alignItems: "end" }}>
                     <div>
                       <label style={{ ...LBL, fontSize: 10 }}>Bonus ($)</label>
                       <input style={INP} type="number" step="0.01" value={b.bonus} placeholder="0" onChange={e => setSvcBonuses(prev => ({ ...prev, [key]: { ...b, agentId: agent.id, bonus: e.target.value } }))} />
+                    </div>
+                    <div>
+                      <label style={{ ...LBL, fontSize: 10 }}>Deduction ($)</label>
+                      <input style={INP} type="number" step="0.01" value={b.deduction} placeholder="0" onChange={e => setSvcBonuses(prev => ({ ...prev, [key]: { ...b, agentId: agent.id, deduction: e.target.value } }))} />
                     </div>
                     <div>
                       <label style={{ ...LBL, fontSize: 10 }}>Notes</label>
