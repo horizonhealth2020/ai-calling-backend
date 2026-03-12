@@ -102,6 +102,17 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     totalCommission += calcProductCommission(addon.product, premium, hasCoreInSale, coreProduct);
   }
 
+  // Compass VAB bundling rule: if core product present and Compass VAB not bundled, halve commission
+  // Exception: Florida (FL) is exempt from this rule
+  if (hasCoreInSale) {
+    const addonNames = addons.map(a => a.product.name.toLowerCase());
+    const hasCompassVab = addonNames.some(n => n.includes("compass") && n.includes("vab"));
+    const isFL = sale.memberState?.toUpperCase() === "FL";
+    if (!hasCompassVab && !isFL) {
+      totalCommission = totalCommission / 2;
+    }
+  }
+
   // Apply enrollment fee rules
   const { finalCommission, enrollmentBonus } = applyEnrollmentFee(
     totalCommission,
@@ -136,14 +147,15 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
     update: {},
   });
 
-  // Check if an existing entry has bonus/fronted to preserve those values
+  // Check if an existing entry has bonus/fronted/hold to preserve those values
   const existing = await prisma.payrollEntry.findUnique({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
   });
   const bonus = existing ? Number(existing.bonusAmount) : 0;
   const fronted = existing ? Number(existing.frontedAmount) : 0;
+  const hold = existing ? Number(existing.holdAmount) : 0;
   const adjustment = existing ? Number(existing.adjustmentAmount) : 0;
-  const netAmount = payoutAmount + adjustment + bonus - fronted;
+  const netAmount = payoutAmount + adjustment + bonus - fronted - hold;
 
   return prisma.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },

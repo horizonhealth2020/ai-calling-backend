@@ -5,7 +5,7 @@ import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config" | "ai-prompts";
+type Tab = "sales" | "tracker" | "agent-sales" | "audits" | "config";
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean; auditEnabled?: boolean };
 type Product = {
   id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
@@ -45,7 +45,7 @@ type ParsedProduct = { name: string; price: string; isAddon: boolean; enrollment
 type ParseResult = {
   memberId?: string; memberName?: string; status?: string; saleDate?: string;
   premium?: string; carrier?: string; enrollmentFee?: string; addonNames: string[];
-  parsedProducts: ParsedProduct[]; paymentType?: "CC" | "ACH";
+  parsedProducts: ParsedProduct[]; paymentType?: "CC" | "ACH"; memberState?: string;
 };
 
 function parseReceipt(text: string): ParseResult {
@@ -155,6 +155,10 @@ function parseReceipt(text: string): ParseResult {
     if (mid) { out.memberId = mid[1]; out.memberName = mid[2].trim(); }
   }
 
+  // ── Member state (from address: "City, ST ZIP") ──
+  const stateMatch = t.match(/,\s*([A-Z]{2})\s+\d{5}/);
+  if (stateMatch) out.memberState = stateMatch[1];
+
   // Fallback enrollment fee if products section didn't have it
   if (!out.enrollmentFee) {
     const efRe = /Enrollment\s+\$?([\d,]+\.?\d*)/g;
@@ -169,10 +173,24 @@ function parseReceipt(text: string): ParseResult {
 
 function matchProduct(name: string, products: Product[]): Product | undefined {
   const lower = name.toLowerCase();
-  return products.find(p => {
+  // 1. Exact match
+  const exact = products.find(p => p.name.toLowerCase() === lower);
+  if (exact) return exact;
+  // 2. Word-boundary match (product name is a whole word in receipt or vice versa)
+  const wordMatch = products.find(p => {
+    const pn = p.name.toLowerCase();
+    const re1 = new RegExp(`\\b${pn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+    const re2 = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+    return re1.test(lower) || re2.test(pn);
+  });
+  if (wordMatch) return wordMatch;
+  // 3. Substring fallback — prefer longest matching product name
+  const subs = products.filter(p => {
     const pn = p.name.toLowerCase();
     return pn.includes(lower) || lower.includes(pn);
   });
+  if (subs.length > 0) return subs.sort((a, b) => b.name.length - a.name.length)[0];
+  return undefined;
 }
 
 // ── Editable row components ─────────────────────────────────────────
@@ -350,7 +368,7 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
-  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", enrollmentFee: "", addonProductIds: [] as string[], status: "SUBMITTED", notes: "", paymentType: "" as "CC" | "ACH" | "" });
+  const blankForm = () => ({ saleDate: new Date().toISOString().slice(0, 10), agentId: "", memberName: "", memberId: "", carrier: "", productId: "", premium: "", effectiveDate: "", leadSourceId: "", enrollmentFee: "", addonProductIds: [] as string[], status: "SUBMITTED", notes: "", paymentType: "" as "CC" | "ACH" | "", memberState: "" });
   const [form, setForm] = useState(blankForm());
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
@@ -366,16 +384,7 @@ export default function ManagerDashboard() {
   const [editingAudit, setEditingAudit] = useState<string | null>(null);
   const [auditEdit, setAuditEdit] = useState({ score: 0, status: "", coachingNotes: "" });
 
-  // AI prompt state
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiPromptLoaded, setAiPromptLoaded] = useState(false);
-  const [aiPromptMsg, setAiPromptMsg] = useState("");
-
-  // Audit duration filter state
-  const [auditMinSec, setAuditMinSec] = useState(0);
-  const [auditMaxSec, setAuditMaxSec] = useState(0);
-  const [auditDurationLoaded, setAuditDurationLoaded] = useState(false);
-  const [auditDurationMsg, setAuditDurationMsg] = useState("");
+  // (AI prompts moved to owner dashboard)
 
   // Call counts state
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
@@ -401,14 +410,6 @@ export default function ManagerDashboard() {
     if (tab === "audits" && !auditsLoaded) {
       authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => {});
       setAuditsLoaded(true);
-    }
-    if (tab === "ai-prompts" && !aiPromptLoaded) {
-      authFetch(`${API}/api/settings/ai-audit-prompt`).then(r => r.ok ? r.json() : { prompt: "" }).then(d => setAiPrompt(d.prompt)).catch(() => {});
-      setAiPromptLoaded(true);
-    }
-    if (tab === "ai-prompts" && !auditDurationLoaded) {
-      authFetch(`${API}/api/settings/audit-duration`).then(r => r.ok ? r.json() : { minSeconds: 0, maxSeconds: 0 }).then(d => { setAuditMinSec(d.minSeconds); setAuditMaxSec(d.maxSeconds); }).catch(() => {});
-      setAuditDurationLoaded(true);
     }
     if (tab === "tracker" && !callCountsLoaded) {
       authFetch(`${API}/api/call-counts?range=week`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => {});
@@ -442,7 +443,7 @@ export default function ManagerDashboard() {
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg("");
     try {
-      const res = await authFetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null, paymentType: form.paymentType || undefined }) });
+      const res = await authFetch(`${API}/api/sales`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, premium: Number(form.premium), enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null, paymentType: form.paymentType || undefined, memberState: form.memberState || undefined }) });
       if (res.ok) {
         setMsg("Sale submitted successfully");
         clearReceipt();
@@ -509,7 +510,7 @@ export default function ManagerDashboard() {
 
   if (loading) return <PageShell title="Manager Dashboard"><p style={{ color: "#64748b" }}>Loading\u2026</p></PageShell>;
 
-  const TAB_LABELS: Record<Tab, string> = { sales: "Sales Entry", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config", "ai-prompts": "AI Prompts" };
+  const TAB_LABELS: Record<Tab, string> = { sales: "Sales Entry", tracker: "Agent Tracker", "agent-sales": "Agent Sales", audits: "Call Audits", config: "Config" };
 
   return (
     <PageShell title="Manager Dashboard">
@@ -523,7 +524,7 @@ export default function ManagerDashboard() {
       {/* ── Sales Entry ── */}
       {tab === "sales" && (
         <form onSubmit={submitSale} style={{ maxWidth: 900 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 16, paddingBottom: 18, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <div>
               <label style={LBL}>Agent</label>
               <select style={{ ...INP, height: 42 }} value={form.agentId} onChange={e => setForm(f => ({ ...f, agentId: e.target.value }))}>
@@ -548,7 +549,7 @@ export default function ManagerDashboard() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div><label style={LBL}>Member Name</label><input style={INP} value={form.memberName} required onChange={e => setForm(f => ({ ...f, memberName: e.target.value }))} /></div>
             <div><label style={LBL}>Member ID</label><input style={INP} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} /></div>
             <div><label style={LBL}>Sale Date</label><input style={INP} type="date" value={form.saleDate} required onChange={e => setForm(f => ({ ...f, saleDate: e.target.value }))} /></div>
@@ -572,6 +573,7 @@ export default function ManagerDashboard() {
             </div>
             <div><label style={LBL}>Enrollment Fee ($)</label><input style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} /></div>
             <div><label style={LBL}>Notes</label><input style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            <div><label style={LBL}>Member State</label><input style={INP} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} /></div>
 
             {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
               <div style={{ gridColumn: "1/-1", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, padding: 16 }}>
@@ -622,22 +624,22 @@ export default function ManagerDashboard() {
                 {/* Summary boxes */}
                 <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
                   {parsedInfo.premium && (
-                    <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: 8, padding: "8px 14px" }}>
-                      <span style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>PREMIUM TOTAL</span>
-                      <div style={{ fontWeight: 800, fontSize: 18, color: "#34d399" }}>${parsedInfo.premium}</div>
+                    <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: 10, padding: "10px 16px", border: "1px solid rgba(16,185,129,0.15)" }}>
+                      <span style={{ color: "#64748b", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>PREMIUM TOTAL</span>
+                      <div style={{ fontWeight: 900, fontSize: 22, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>${parsedInfo.premium}</div>
                     </div>
                   )}
                   {parsedInfo.enrollmentFee && (
-                    <div style={{ background: "rgba(251,191,36,0.12)", borderRadius: 8, padding: "8px 14px" }}>
-                      <span style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>ENROLLMENT FEE</span>
-                      <div style={{ fontWeight: 800, fontSize: 18, color: "#fbbf24" }}>${parsedInfo.enrollmentFee}</div>
+                    <div style={{ background: "rgba(251,191,36,0.12)", borderRadius: 10, padding: "10px 16px", border: "1px solid rgba(251,191,36,0.15)" }}>
+                      <span style={{ color: "#64748b", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>ENROLLMENT FEE</span>
+                      <div style={{ fontWeight: 900, fontSize: 22, background: "linear-gradient(135deg, #fbbf24, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>${parsedInfo.enrollmentFee}</div>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            <div style={{ gridColumn: "1/-1" }}>
+            <div style={{ gridColumn: "1/-1", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
               <label style={LBL}>Payment Type *</label>
               <div style={{ display: "flex", gap: 16 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: form.paymentType === "CC" ? "#60a5fa" : "#94a3b8", cursor: "pointer", fontWeight: form.paymentType === "CC" ? 700 : 400 }}>
@@ -649,8 +651,8 @@ export default function ManagerDashboard() {
               </div>
             </div>
 
-            <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16, paddingTop: 4 }}>
-              <button type="submit" style={BTN()} disabled={!form.paymentType}>Submit Sale</button>
+            <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 16, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 4 }}>
+              <button type="submit" style={{ ...SUBMIT_BTN, opacity: !form.paymentType ? 0.5 : 1 }} disabled={!form.paymentType}>Submit Sale</button>
               {msg && <span style={{ color: msg.startsWith("Sale") ? "#34d399" : "#f87171", fontWeight: 600, fontSize: 14 }}>{msg}</span>}
             </div>
           </div>
@@ -669,19 +671,19 @@ export default function ManagerDashboard() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
                 {["Rank", "Agent", "Calls", "Total Sales", "Premium Total", "Cost per Sale"].map((h, i) => (
-                  <th key={h} style={{ padding: "12px 16px", textAlign: i >= 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                  <th key={h} style={{ padding: "12px 16px", textAlign: i >= 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "2px solid rgba(99,102,241,0.2)" }}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
                 {[...tracker].sort((a, b) => b.salesCount - a.salesCount).map((row, i) => {
                   const agentCalls = callCountByAgent.get(row.agent) ?? 0;
                   return (
-                    <tr key={row.agent} style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
-                      <td style={{ padding: "12px 16px", color: i === 0 ? "#fbbf24" : "#64748b", fontWeight: 700 }}>{i === 0 ? "\uD83E\uDD47" : `#${i + 1}`}</td>
-                      <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e2e8f0" }}>{row.agent}</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#818cf8" }}>{agentCalls || "\u2014"}</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#e2e8f0" }}>{row.salesCount}</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#34d399", fontWeight: 700 }}>${Number(row.premiumTotal).toFixed(2)}</td>
+                    <tr key={row.agent} style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none", background: i < 3 ? `rgba(${i === 0 ? "251,191,36" : i === 1 ? "148,163,184" : "205,127,50"},0.04)` : i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)", borderLeft: PODIUM_BORDERS[i] ?? "3px solid transparent", transition: "background 0.2s" }}>
+                      <td style={{ padding: "12px 16px", color: i === 0 ? "#fbbf24" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "#64748b", fontWeight: 700, fontSize: i < 3 ? 15 : 14 }}>{i === 0 ? "\uD83E\uDD47" : i === 1 ? "\uD83E\uDD48" : i === 2 ? "\uD83E\uDD49" : `#${i + 1}`}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: i < 3 ? 700 : 600, color: "#e2e8f0", fontSize: i < 3 ? 15 : 14 }}>{row.agent}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#818cf8", fontWeight: 600 }}>{agentCalls || "\u2014"}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#e2e8f0", fontWeight: i < 3 ? 700 : 400 }}>{row.salesCount}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#34d399", fontWeight: 800, fontSize: i < 3 ? 16 : 14 }}>${Number(row.premiumTotal).toFixed(2)}</td>
                       <td style={{ padding: "12px 16px", textAlign: "right", color: "#fbbf24", fontWeight: 600 }}>{row.costPerSale > 0 ? `$${Number(row.costPerSale).toFixed(2)}` : "\u2014"}</td>
                     </tr>
                   );
@@ -723,10 +725,10 @@ export default function ManagerDashboard() {
             {byAgent.size === 0 && <div style={CARD}><p style={{ color: "#475569", margin: 0 }}>No sales for this period</p></div>}
 
             {[...byAgent.entries()].map(([agentName, sales]) => (
-              <div key={agentName} style={{ ...CARD, marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div key={agentName} style={{ ...CARD, marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>{agentName}</h3>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>{sales.length} sale{sales.length !== 1 ? "s" : ""} \u00b7 <span style={{ color: "#34d399", fontWeight: 700 }}>${sales.reduce((s, x) => s + Number(x.premium), 0).toFixed(2)}</span> premium</span>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>{sales.length} sale{sales.length !== 1 ? "s" : ""} &middot; <span style={{ fontWeight: 800, fontSize: 15, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>${sales.reduce((s, x) => s + Number(x.premium), 0).toFixed(2)}</span> premium</span>
                 </div>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead><tr>
@@ -836,7 +838,7 @@ export default function ManagerDashboard() {
 
       {/* ── Config ── */}
       {tab === "config" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
           <div style={CARD}>
             <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Agents</h3>
             {agents.map(a => <AgentRow key={a.id} agent={a} onSave={saveAgent} onDelete={deleteAgent} />)}
@@ -865,100 +867,6 @@ export default function ManagerDashboard() {
         </div>
       )}
 
-      {/* ── AI Prompts ── */}
-      {tab === "ai-prompts" && (
-        <div style={{ maxWidth: 800 }}>
-          <div style={CARD}>
-            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Audit System Prompt</h3>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
-              This prompt instructs GPT-4o-mini how to evaluate call transcriptions. It should request a JSON response with score, summary, and coachingNotes fields.
-            </p>
-            <textarea
-              style={{ ...INP, minHeight: 240, fontFamily: "monospace", fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
-              value={aiPrompt}
-              onChange={e => setAiPrompt(e.target.value)}
-              placeholder="Enter your system prompt for AI call auditing..."
-            />
-            <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "center" }}>
-              <button style={BTN("#059669")} onClick={async () => {
-                try {
-                  setAiPromptMsg("");
-                  const res = await authFetch(`${API}/api/settings/ai-audit-prompt`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: aiPrompt }) });
-                  if (res.ok) setAiPromptMsg("Saved");
-                  else { const err = await res.json().catch(() => ({})); setAiPromptMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-                } catch (e: any) { setAiPromptMsg(`Error: ${e.message ?? "network error"}`); }
-              }}>Save Prompt</button>
-              {aiPromptMsg && <span style={{ fontSize: 13, fontWeight: 600, color: aiPromptMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{aiPromptMsg}</span>}
-            </div>
-          </div>
-
-          <div style={{ ...CARD, marginTop: 20 }}>
-            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Agent Audit Settings</h3>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
-              Check agents whose call recordings should be sent for AI auditing. Unchecked agents will have their recordings skipped.
-            </p>
-            <div style={{ display: "grid", gap: 8 }}>
-              {agents.filter(a => a.active !== false).map(a => (
-                <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(255,255,255,0.04)" }}>
-                  <input
-                    type="checkbox"
-                    checked={!!a.auditEnabled}
-                    onChange={async (e) => {
-                      const val = e.target.checked;
-                      setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: val } : ag));
-                      try {
-                        const res = await authFetch(`${API}/api/agents/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditEnabled: val }) });
-                        if (!res.ok) setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag));
-                      } catch { setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag)); }
-                    }}
-                    style={{ width: 16, height: 16, accentColor: "#3b82f6", cursor: "pointer" }}
-                  />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{a.name}</span>
-                  {a.email && <span style={{ fontSize: 12, color: "#64748b" }}>({a.email})</span>}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ ...CARD, marginTop: 20 }}>
-            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Duration Filter</h3>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
-              Only audit calls within this duration range. Set to 0 to disable a limit.
-            </p>
-            <div style={{ display: "flex", gap: 16, alignItems: "end" }}>
-              <div>
-                <label style={LBL}>Min Seconds</label>
-                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMinSec} onChange={e => setAuditMinSec(Number(e.target.value))} />
-              </div>
-              <div>
-                <label style={LBL}>Max Seconds</label>
-                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMaxSec} onChange={e => setAuditMaxSec(Number(e.target.value))} />
-              </div>
-              <button style={BTN("#059669")} onClick={async () => {
-                try {
-                  setAuditDurationMsg("");
-                  const res = await authFetch(`${API}/api/settings/audit-duration`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minSeconds: auditMinSec, maxSeconds: auditMaxSec }) });
-                  if (res.ok) setAuditDurationMsg("Saved");
-                  else { const err = await res.json().catch(() => ({})); setAuditDurationMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-                } catch (e: any) { setAuditDurationMsg(`Error: ${e.message ?? "network error"}`); }
-              }}>Save</button>
-            </div>
-            {auditDurationMsg && <span style={{ fontSize: 13, fontWeight: 600, marginTop: 8, display: "block", color: auditDurationMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{auditDurationMsg}</span>}
-          </div>
-
-          <div style={{ ...CARD, marginTop: 20 }}>
-            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Webhook Configuration</h3>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 12px" }}>Configure Convoso to POST to this endpoint after each call:</p>
-            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, fontFamily: "monospace", fontSize: 13, color: "#34d399", wordBreak: "break-all" }}>
-              POST {API || "https://your-api-domain.com"}/api/webhooks/convoso
-            </div>
-            <div style={{ marginTop: 12, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
-              <div><strong style={{ color: "#94a3b8" }}>Header:</strong> x-webhook-secret: your-secret</div>
-              <div><strong style={{ color: "#94a3b8" }}>Body:</strong> {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601", "call_duration_seconds": 120 }`}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </PageShell>
   );
 }

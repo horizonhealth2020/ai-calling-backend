@@ -287,6 +287,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     addonProductIds: z.array(z.string()).default([]),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).default("SUBMITTED"),
     paymentType: z.enum(["CC", "ACH"]).optional(),
+    memberState: z.string().max(2).optional(),
     notes: z.string().optional(),
   });
   const parsed = schema.parse(req.body);
@@ -325,6 +326,7 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
     premium: z.number().min(0).optional(),
     enrollmentFee: z.number().min(0).nullable().optional(),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).optional(),
+    memberState: z.string().max(2).nullable().optional(),
     notes: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -343,12 +345,15 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
 }));
 
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ approved: z.boolean().default(true) });
+  const parsed = schema.safeParse(req.body);
+  const approved = parsed.success ? parsed.data.approved : true;
   const sale = await prisma.sale.update({
     where: { id: req.params.id },
-    data: { commissionApproved: true },
+    data: { commissionApproved: approved },
   });
   await upsertPayrollEntryForSale(sale.id);
-  await logAudit(req.user!.id, "APPROVE_COMMISSION", "Sale", sale.id);
+  await logAudit(req.user!.id, approved ? "APPROVE_COMMISSION" : "REVOKE_COMMISSION", "Sale", sale.id);
   res.json(sale);
 }));
 
@@ -445,6 +450,7 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   const schema = z.object({
     bonusAmount: z.number().min(0).optional(),
     frontedAmount: z.number().min(0).optional(),
+    holdAmount: z.number().min(0).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -452,13 +458,14 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   if (!entry) return res.status(404).json({ error: "Entry not found" });
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
-  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted;
+  const hold = parsed.data.holdAmount ?? Number(entry.holdAmount);
+  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted - hold;
   const updated = await prisma.payrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, frontedAmount: fronted, netAmount: net },
+    data: { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net },
     include: { sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } }, agent: { select: { name: true } } },
   });
-  await logAudit(req.user!.id, "UPDATE", "PayrollEntry", req.params.id, { bonusAmount: bonus, frontedAmount: fronted, netAmount: net });
+  await logAudit(req.user!.id, "UPDATE", "PayrollEntry", req.params.id, { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net });
   res.json(updated);
 }));
 
@@ -538,6 +545,7 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
   const agent = await prisma.serviceAgent.findUnique({ where: { id: parsed.data.serviceAgentId } });
   if (!agent) return res.status(404).json({ error: "Service agent not found" });
   const basePay = Number(agent.basePay);
+  const frontedAmt = parsed.data.frontedAmount;
 
   let bonusAmount = parsed.data.bonusAmount;
   let deductionAmount = parsed.data.deductionAmount;
@@ -581,6 +589,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
   if (!entry) return res.status(404).json({ error: "Entry not found" });
 
   const breakdown = parsed.data.bonusBreakdown;
+  const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
   let bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   let deduction = parsed.data.deductionAmount ?? Number(entry.deductionAmount);
   let totalPay = Number(entry.basePay) + bonus - deduction;
