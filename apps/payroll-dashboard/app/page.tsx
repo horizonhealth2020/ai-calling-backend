@@ -24,17 +24,19 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, width: "100%", boxSizing: "border-box", color: "#e2e8f0", outline: "none" };
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
-const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 24 };
-const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#3b82f6" ? "linear-gradient(135deg, #3b82f6, #6366f1)" : color === "#059669" ? "linear-gradient(135deg, #059669, #10b981)" : color, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: `0 2px 8px ${color}30` });
-const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8" };
+const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.55), rgba(15,23,42,0.65))", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 24, transition: "border-color 0.2s ease, box-shadow 0.2s ease" };
+const BTN = (color = "#3b82f6"): React.CSSProperties => ({ padding: "10px 20px", background: color === "#3b82f6" ? "linear-gradient(135deg, #3b82f6, #6366f1)" : color === "#059669" ? "linear-gradient(135deg, #059669, #10b981)" : color, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: `0 2px 12px ${color}40`, transition: "box-shadow 0.2s ease, transform 0.15s ease" });
+const CANCEL_BTN: React.CSSProperties = { padding: "10px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(30,41,59,0.5)", cursor: "pointer", fontSize: 13, color: "#94a3b8", transition: "border-color 0.2s ease" };
 const SMALL_INP: React.CSSProperties = { ...INP, padding: "6px 10px", fontSize: 13, width: 90, textAlign: "right" };
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {
-    padding: "8px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.2s",
-    background: active ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
-    color: active ? "#ffffff" : "#64748b",
-    boxShadow: active ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+    padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.25s ease",
+    background: active ? "rgba(59,130,246,0.12)" : "transparent",
+    color: active ? "#60a5fa" : "#64748b",
+    boxShadow: active ? "inset 0 -2px 0 #3b82f6, 0 2px 12px rgba(59,130,246,0.2)" : "none",
+    borderBottom: active ? "none" : "2px solid transparent",
+    letterSpacing: active ? "0.01em" : "0",
   };
 }
 
@@ -344,8 +346,8 @@ export default function PayrollDashboard() {
     } catch { /* silent — values will refresh on next load */ }
   }
 
-  async function approveCommission(saleId: string) {
-    const res = await authFetch(`${API}/api/sales/${saleId}/approve-commission`, { method: "PATCH", headers: { "Content-Type": "application/json" } });
+  async function toggleApproval(saleId: string, approved: boolean) {
+    const res = await authFetch(`${API}/api/sales/${saleId}/approve-commission`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved }) });
     if (res.ok) await refreshPeriods();
   }
 
@@ -445,16 +447,17 @@ export default function PayrollDashboard() {
     </tr></thead>
     <tbody>` +
       entries.map(e => {
-        const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
-        if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
-        if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
+        const byType: Record<string, {name:string,premium?:number}[]> = { CORE: [], ADDON: [], AD_D: [] };
+        if (e.sale?.product?.type) byType[e.sale.product.type]?.push({ name: e.sale.product.name, premium: Number(e.sale.premium) });
+        if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push({ name: ad.product.name });
+        const printProd = (items: {name:string,premium?:number}[]) => items.length ? items.map(p => p.name + (p.premium != null ? `<br><span style="font-size:10px;color:#64748b">$${p.premium.toFixed(2)}</span>` : "")).join(", ") : "—";
         const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "—";
         return `<tr>
         <td>${e.sale?.memberId ?? "—"}</td>
         <td>${e.sale?.memberName ?? "—"}</td>
-        <td class="center core">${byType.CORE.join(", ") || "—"}</td>
-        <td class="center addon">${byType.ADDON.join(", ") || "—"}</td>
-        <td class="center add">${byType.AD_D.join(", ") || "—"}</td>
+        <td class="center core">${printProd(byType.CORE)}</td>
+        <td class="center addon">${printProd(byType.ADDON)}</td>
+        <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}</td>
         <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
         <td class="right green">${Number(e.bonusAmount) > 0 ? "$" + Number(e.bonusAmount).toFixed(2) : "$0.00"}</td>
@@ -472,6 +475,43 @@ export default function PayrollDashboard() {
     </tbody></table></div>`;
     }).join("") +
     `</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  }
+
+  function printServiceCards(serviceEntries: ServiceEntry[], period: Period, cats: BonusCategory[]) {
+    const total = serviceEntries.reduce((s, se) => s + Number(se.totalPay), 0);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Service Payroll - ${fmtDate(period.weekStart)} to ${fmtDate(period.weekEnd)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; background: #fff; padding: 20px; }
+  .header { border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 20px; font-weight: 800; color: #7c3aed; }
+  .header .meta { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .total { font-size: 16px; font-weight: 800; color: #7c3aed; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { padding: 8px 8px; text-align: left; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+  .right { text-align: right; } .center { text-align: center; }
+  .green { color: #059669; } .red { color: #dc2626; } .purple { color: #7c3aed; font-weight: 700; }
+  @media print { body { padding: 0; } }
+</style></head><body>
+<div class="header">
+  <h1>Customer Service Payroll</h1>
+  <div class="meta">Sunday ${fmtDate(period.weekStart)} – Saturday ${fmtDate(period.weekEnd)} &nbsp;·&nbsp; ${period.quarterLabel}</div>
+</div>
+<div class="total">Total: $${total.toFixed(2)}</div>
+<table>
+  <thead><tr><th>Name</th><th class="right">Base Pay</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#7c3aed">Total</th></tr></thead>
+  <tbody>${serviceEntries.map(se => {
+      const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
+      return `<tr><td style="font-weight:600">${se.serviceAgent.name}</td><td class="right">$${Number(se.basePay).toFixed(2)}</td>${cats.map(c => {
+        const amt = bd[c.name] ?? 0;
+        return `<td class="center ${amt > 0 ? (c.isDeduction ? "red" : "green") : ""}">${amt > 0 ? "$" + amt.toFixed(2) : "—"}</td>`;
+      }).join("")}<td class="right purple">$${Number(se.totalPay).toFixed(2)}</td></tr>`;
+    }).join("")}</tbody>
+</table>
+</body></html>`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
   }
@@ -561,7 +601,7 @@ export default function PayrollDashboard() {
 
   return (
     <PageShell title="Payroll Dashboard">
-      <nav style={{ display: "flex", gap: 6, marginBottom: 28, padding: 4, background: "rgba(15,23,42,0.4)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", width: "fit-content" }}>
+      <nav style={{ display: "flex", gap: 4, marginBottom: 24, padding: "4px 6px", background: "rgba(15,23,42,0.5)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", width: "fit-content" }}>
         {(["periods","chargebacks","exports","products","service"] as Tab[]).map(t => (
           <button key={t} style={tabBtn(tab === t)} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
         ))}
@@ -569,7 +609,7 @@ export default function PayrollDashboard() {
 
       {/* ── Payroll Weeks ── */}
       {tab === "periods" && (
-        <div style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "grid", gap: 14 }}>
           {periods.map(p => {
             const gross = p.entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
             const totalBonus = p.entries.reduce((s, e) => s + Number(e.bonusAmount ?? 0), 0);
@@ -592,64 +632,67 @@ export default function PayrollDashboard() {
               <div key={p.id} style={CARD}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, cursor: "pointer" }} onClick={() => setExpandedPeriod(expanded ? null : p.id)}>
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: 16, color: "#e2e8f0" }}>{fmtDate(p.weekStart)}--{fmtDate(p.weekEnd)}</span>
+                    <span style={{ fontWeight: 800, fontSize: 16, color: "#f1f5f9", letterSpacing: "0.01em" }}>{fmtDate(p.weekStart)}--{fmtDate(p.weekEnd)}</span>
                     <span style={{ marginLeft: 10, fontSize: 13, color: "#64748b" }}>{p.quarterLabel}</span>
-                    {needsApproval.length > 0 && <span style={{ marginLeft: 10, background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{needsApproval.length} need approval</span>}
+                    {needsApproval.length > 0 && <span style={{ marginLeft: 10, background: "rgba(251,191,36,0.15)", color: "#fbbf24", padding: "3px 10px", borderRadius: 10, fontSize: 11, fontWeight: 700, boxShadow: "0 0 8px rgba(251,191,36,0.15)" }}>{needsApproval.length} need approval</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    {p.entries.length > 0 && <button onClick={e => { e.stopPropagation(); printAgentCards([...byAgent.entries()], p); }} style={{ padding: "4px 14px", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer" }}>Print All</button>}
-                    <span style={{ background: sc.bg, color: sc.color, padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{p.status}</span>
+                    {p.entries.length > 0 && <button onClick={e => { e.stopPropagation(); printAgentCards([...byAgent.entries()], p); }} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 700, border: "1px solid rgba(59,130,246,0.2)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer", transition: "box-shadow 0.2s ease", boxShadow: "0 1px 4px rgba(59,130,246,0.1)" }}>Print All</button>}
+                    <span style={{ background: sc.bg, color: sc.color, padding: "4px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", boxShadow: `0 0 8px ${sc.color}20` }}>{p.status}</span>
                     <span style={{ fontSize: 12, color: "#475569" }}>{expanded ? "\u25B2" : "\u25BC"}</span>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
-                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Entries</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#e2e8f0" }}>{p.entries.length}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Entries</div>
+                    <div style={{ fontWeight: 900, fontSize: 26, color: "#e2e8f0" }}>{p.entries.length}</div>
                   </div>
-                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
-                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Commission</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#e2e8f0" }}>${gross.toFixed(2)}</div>
+                  <div style={{ background: "rgba(59,130,246,0.04)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(59,130,246,0.08)" }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Commission</div>
+                    <div style={{ fontWeight: 900, fontSize: 26, background: "linear-gradient(135deg, #60a5fa, #818cf8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>${gross.toFixed(2)}</div>
                   </div>
-                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
-                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Bonuses</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#34d399" }}>+${totalBonus.toFixed(2)}</div>
+                  <div style={{ background: "rgba(16,185,129,0.04)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(16,185,129,0.08)" }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Bonuses</div>
+                    <div style={{ fontWeight: 900, fontSize: 26, color: "#34d399" }}>+${totalBonus.toFixed(2)}</div>
                   </div>
-                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
-                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Fronted</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#f87171" }}>-${totalFronted.toFixed(2)}</div>
+                  <div style={{ background: "rgba(239,68,68,0.04)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(239,68,68,0.08)" }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Fronted</div>
+                    <div style={{ fontWeight: 900, fontSize: 26, color: "#f87171" }}>-${totalFronted.toFixed(2)}</div>
                   </div>
-                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 14 }}>
-                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Net Payout</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#34d399" }}>${net.toFixed(2)}</div>
+                  <div style={{ background: "rgba(16,185,129,0.06)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(16,185,129,0.1)" }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 6, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Net Payout</div>
+                    <div style={{ fontWeight: 900, fontSize: 26, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>${net.toFixed(2)}</div>
                   </div>
                 </div>
 
                 {/* Customer service totals if any */}
                 {(p.serviceEntries ?? []).length > 0 && (
-                  <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(139,92,246,0.08)", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#a78bfa", fontWeight: 600 }}>Customer Service ({p.serviceEntries.length})</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: "#a78bfa" }}>${svcTotal.toFixed(2)}</span>
+                  <div style={{ marginTop: 10, padding: "12px 16px", background: "rgba(139,92,246,0.08)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid rgba(139,92,246,0.12)" }}>
+                    <span style={{ fontSize: 13, color: "#a78bfa", fontWeight: 700 }}>Customer Service ({p.serviceEntries.length})</span>
+                    <span style={{ fontSize: 16, fontWeight: 900, background: "linear-gradient(135deg, #a78bfa, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>${svcTotal.toFixed(2)}</span>
                   </div>
                 )}
 
                 {expanded && (
                   <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14, display: "grid", gap: 16 }}>
                     {/* Per-agent boxes */}
-                    {[...byAgent.entries()].map(([agentName, entries]) => {
-                      const agentNet = entries.reduce((s, e) => s + Number(e.netAmount), 0);
-                      const agentGross = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+                    {(() => {
+                      const agentEntries = [...byAgent.entries()].map(([name, ents]) => ({ name, entries: ents, net: ents.reduce((s, e) => s + Number(e.netAmount), 0), gross: ents.reduce((s, e) => s + Number(e.payoutAmount), 0) }));
+                      const sorted = [...agentEntries].sort((a, b) => b.net - a.net);
+                      const top3 = new Set(sorted.slice(0, 3).filter(a => a.net > 0).map(a => a.name));
+                      return agentEntries.map(({ name: agentName, entries, net: agentNet, gross: agentGross }) => {
+                      const isTopEarner = top3.has(agentName);
                       return (
-                        <div key={agentName} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: 16 }}>
+                        <div key={agentName} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 16, borderLeft: isTopEarner ? "3px solid #10b981" : "1px solid rgba(255,255,255,0.06)", transition: "border-color 0.2s ease" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             <div>
                               <span style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0" }}>{agentName}</span>
                               <span style={{ marginLeft: 10, fontSize: 12, color: "#64748b" }}>{entries.length} sale{entries.length !== 1 ? "s" : ""}</span>
                             </div>
                             <div style={{ display: "flex", gap: 16, fontSize: 13, alignItems: "center" }}>
-                              <span style={{ color: "#94a3b8" }}>Commission: <strong style={{ color: "#e2e8f0" }}>${agentGross.toFixed(2)}</strong></span>
-                              <span style={{ color: "#94a3b8" }}>Net: <strong style={{ color: "#34d399" }}>${agentNet.toFixed(2)}</strong></span>
-                              <button onClick={e2 => { e2.stopPropagation(); printAgentCards([[agentName, entries]], p); }} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer" }}>Print</button>
+                              <span style={{ color: "#94a3b8" }}>Commission: <strong style={{ color: "#e2e8f0", fontSize: 14 }}>${agentGross.toFixed(2)}</strong></span>
+                              <span style={{ color: "#94a3b8" }}>Net: <strong style={{ color: "#34d399", fontSize: 14 }}>${agentNet.toFixed(2)}</strong></span>
+                              <button onClick={e2 => { e2.stopPropagation(); printAgentCards([[agentName, entries]], p); }} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 700, border: "1px solid rgba(59,130,246,0.2)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer", transition: "box-shadow 0.2s ease" }}>Print</button>
                             </div>
                           </div>
                           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
@@ -674,17 +717,21 @@ export default function PayrollDashboard() {
                                 {entries.map(e => {
                                   const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee) : null;
                                   const needsApprovalRow = fee !== null && fee < 99 && !e.sale?.commissionApproved;
-                                  // Collect product names by type
-                                  const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
-                                  if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
-                                  if (e.sale?.addons) for (const a of e.sale.addons) byType[a.product.type]?.push(a.product.name);
+                                  const isApproved = e.sale?.commissionApproved && fee !== null && fee < 99;
+                                  // Collect product names by type with premium
+                                  const byType: Record<string, {name:string, premium?:number}[]> = { CORE: [], ADDON: [], AD_D: [] };
+                                  if (e.sale?.product?.type) byType[e.sale.product.type]?.push({ name: e.sale.product.name, premium: Number(e.sale.premium) });
+                                  if (e.sale?.addons) for (const a of e.sale.addons) byType[a.product.type]?.push({ name: a.product.name });
+                                  const prodCell = (items: {name:string,premium?:number}[], color: string) => items.length ? (
+                                    <>{items.map((p, i) => <div key={i}><span style={{ fontWeight: 600 }}>{p.name}</span>{p.premium != null && <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>${p.premium.toFixed(2)}</div>}</div>)}</>
+                                  ) : "\u2014";
                                   return (
                                     <tr key={e.id} style={{ borderTop: "1px solid rgba(255,255,255,0.04)", background: needsApprovalRow ? "rgba(239,68,68,0.05)" : "transparent" }}>
                                       <td style={{ padding: "8px 8px", color: "#94a3b8", fontSize: 12 }}>{e.sale?.memberId ?? "\u2014"}</td>
                                       <td style={{ padding: "8px 8px", color: "#e2e8f0", fontWeight: 500 }}>{e.sale?.memberName ?? "\u2014"}</td>
-                                      <td style={{ padding: "8px 6px", textAlign: "center", fontSize: 12, color: byType.CORE.length ? "#3b82f6" : "#334155", fontWeight: byType.CORE.length ? 600 : 400 }}>{byType.CORE.join(", ") || "\u2014"}</td>
-                                      <td style={{ padding: "8px 6px", textAlign: "center", fontSize: 12, color: byType.ADDON.length ? "#8b5cf6" : "#334155", fontWeight: byType.ADDON.length ? 600 : 400 }}>{byType.ADDON.join(", ") || "\u2014"}</td>
-                                      <td style={{ padding: "8px 6px", textAlign: "center", fontSize: 12, color: byType.AD_D.length ? "#f59e0b" : "#334155", fontWeight: byType.AD_D.length ? 600 : 400 }}>{byType.AD_D.join(", ") || "\u2014"}</td>
+                                      <td style={{ padding: "8px 6px", textAlign: "center", fontSize: 12, color: byType.CORE.length ? "#3b82f6" : "#334155" }}>{prodCell(byType.CORE, "#3b82f6")}</td>
+                                      <td style={{ padding: "8px 6px", textAlign: "center", fontSize: 12, color: byType.ADDON.length ? "#8b5cf6" : "#334155" }}>{prodCell(byType.ADDON, "#8b5cf6")}</td>
+                                      <td style={{ padding: "8px 6px", textAlign: "center", fontSize: 12, color: byType.AD_D.length ? "#f59e0b" : "#334155" }}>{prodCell(byType.AD_D, "#f59e0b")}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", color: needsApprovalRow ? "#f87171" : "#94a3b8", fontWeight: needsApprovalRow ? 700 : 400 }}>
                                         {fee !== null ? `$${fee.toFixed(2)}` : "\u2014"}
                                       </td>
@@ -693,11 +740,8 @@ export default function PayrollDashboard() {
                                       <td style={{ padding: "8px 8px", textAlign: "right", color: Number(e.frontedAmount) > 0 ? "#f87171" : "#94a3b8" }}>${Number(e.frontedAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#34d399" }}>${Number(e.netAmount).toFixed(2)}</td>
                                       <td style={{ padding: "8px 8px", textAlign: "center" }}>
-                                        {needsApprovalRow && (
-                                          <button onClick={() => approveCommission(e.sale!.id)} style={{ padding: "3px 8px", background: "linear-gradient(135deg, #059669, #10b981)", color: "white", border: "none", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Approve</button>
-                                        )}
-                                        {e.sale?.commissionApproved && fee !== null && fee < 99 && (
-                                          <span style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>OK</span>
+                                        {(needsApprovalRow || isApproved) && (
+                                          <button onClick={() => toggleApproval(e.sale!.id, !e.sale!.commissionApproved)} style={{ padding: "4px 12px", background: isApproved ? "linear-gradient(135deg, #059669, #10b981)" : "rgba(251,191,36,0.12)", color: isApproved ? "white" : "#fbbf24", border: isApproved ? "none" : "1px solid rgba(251,191,36,0.25)", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: isApproved ? "0 0 12px rgba(16,185,129,0.4), 0 0 4px rgba(16,185,129,0.2)" : "0 0 8px rgba(251,191,36,0.15)", transition: "all 0.2s ease" }}>{isApproved ? "Approved" : "Pending"}</button>
                                         )}
                                       </td>
                                     </tr>
@@ -718,14 +762,21 @@ export default function PayrollDashboard() {
                           </div>
                         </div>
                       );
-                    })}
+                    });
+                    })()}
 
                     {/* Customer Service box */}
                     {(p.serviceEntries ?? []).length > 0 && (
-                      <div style={{ background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)", borderRadius: 10, padding: 16 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(139,92,246,0.15)" }}>
+                      <div style={{ background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)", borderRadius: 12, padding: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, paddingBottom: 10, borderBottom: "1px solid rgba(139,92,246,0.15)" }}>
                           <span style={{ fontWeight: 700, fontSize: 15, color: "#a78bfa" }}>Customer Service</span>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa" }}>Total: ${svcTotal.toFixed(2)}</span>
+                          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa" }}>Total: ${svcTotal.toFixed(2)}</span>
+                            <button onClick={e2 => { e2.stopPropagation(); printServiceCards(p.serviceEntries, p, bonusCategories); }} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, border: "1px solid rgba(139,92,246,0.2)", borderRadius: 6, background: "rgba(139,92,246,0.1)", color: "#a78bfa", cursor: "pointer" }}>Print</button>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+                          Sunday {fmtDate(p.weekStart)} {"\u2013"} Saturday {fmtDate(p.weekEnd)}
                         </div>
                         <div style={{ overflowX: "auto" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 500 }}>
@@ -783,7 +834,7 @@ export default function PayrollDashboard() {
             <div><label style={LBL}>Member Name <span style={{ color: "#475569", fontWeight: 400 }}>(if no ID)</span></label><input style={INP} value={chargebackForm.memberName} placeholder="e.g. John Doe" onChange={e => setChargebackForm(f => ({ ...f, memberName: e.target.value }))} /></div>
             <div><label style={LBL}>Notes</label><textarea style={{ ...INP, height: 80, resize: "vertical" } as React.CSSProperties} value={chargebackForm.notes} onChange={e => setChargebackForm(f => ({ ...f, notes: e.target.value }))} /></div>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <button type="submit" style={{ padding: "12px 28px", background: "linear-gradient(135deg, #dc2626, #ef4444)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14, boxShadow: "0 2px 8px rgba(220,38,38,0.3)" }}>Process Chargeback</button>
+              <button type="submit" style={{ padding: "12px 28px", background: "linear-gradient(135deg, #dc2626, #ef4444)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14, boxShadow: "0 2px 12px rgba(220,38,38,0.35)", transition: "box-shadow 0.2s ease, transform 0.15s ease" }}>Process Chargeback</button>
               {chargebackMsg && <span style={{ color: chargebackMsg.startsWith("Chargeback") ? "#34d399" : "#f87171", fontWeight: 600, fontSize: 14 }}>{chargebackMsg}</span>}
             </div>
           </form>
@@ -807,6 +858,8 @@ export default function PayrollDashboard() {
                     color: exportRange === r ? "#60a5fa" : "#64748b",
                     fontWeight: exportRange === r ? 700 : 500,
                     cursor: "pointer", fontSize: 13,
+                    boxShadow: exportRange === r ? "0 0 8px rgba(59,130,246,0.15)" : "none",
+                    transition: "all 0.2s ease",
                   }}>
                     {{ week: "Week", month: "Month", quarter: "Quarter" }[r]}
                   </button>

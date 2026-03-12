@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import React, { useState, useEffect, useCallback, FormEvent } from "react";
 import { PageShell } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
-type Tab = "overview" | "users";
+type Tab = "overview" | "ai-prompts" | "users";
+type AgentInfo = { id: string; name: string; email?: string; active?: boolean; auditEnabled?: boolean };
 type Range = "today" | "week" | "month";
 type Summary = { salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
@@ -21,10 +22,17 @@ const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" 
 // ── Dark theme styles ──
 const INP: React.CSSProperties = { padding: "10px 14px", background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 14, color: "#e2e8f0", width: "100%", boxSizing: "border-box", outline: "none" };
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
-const BTN = (bg = "linear-gradient(135deg, #3b82f6, #6366f1)"): React.CSSProperties => ({ padding: "10px 22px", background: bg, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: "0 2px 8px rgba(59,130,246,0.2)" });
-const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.6))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 24, backdropFilter: "blur(10px)" };
-const TH: React.CSSProperties = { padding: "12px 18px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.06)", textAlign: "left" };
-const TD: React.CSSProperties = { padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)" };
+const BTN = (bg = "linear-gradient(135deg, #3b82f6, #6366f1)"): React.CSSProperties => ({ padding: "10px 22px", background: bg, color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, boxShadow: "0 2px 12px rgba(59,130,246,0.25)", transition: "box-shadow 0.2s ease, transform 0.15s ease" });
+const CARD: React.CSSProperties = { background: "linear-gradient(135deg, rgba(30,41,59,0.6), rgba(15,23,42,0.7))", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 24, backdropFilter: "blur(16px)", boxShadow: "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)" };
+const TH: React.CSSProperties = { padding: "12px 18px", fontSize: 11, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(255,255,255,0.08)", textAlign: "left" };
+const TD: React.CSSProperties = { padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)" };
+
+// Top-3 row gradient backgrounds
+const ROW_BG: Record<number, string> = {
+  0: "linear-gradient(90deg, rgba(251,191,36,0.10) 0%, rgba(251,191,36,0.03) 100%)",
+  1: "linear-gradient(90deg, rgba(148,163,184,0.10) 0%, rgba(148,163,184,0.03) 100%)",
+  2: "linear-gradient(90deg, rgba(217,119,6,0.10) 0%, rgba(217,119,6,0.03) 100%)",
+};
 
 const ROLE_COLORS: Record<string, string> = { SUPER_ADMIN: "#8b5cf6", MANAGER: "#3b82f6", OWNER_VIEW: "#10b981", PAYROLL: "#f59e0b", SERVICE: "#64748b", ADMIN: "#06b6d4" };
 
@@ -52,10 +60,13 @@ function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: 
 
 function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
   return (
-    <div style={{ ...CARD, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "0 0 0 80px", background: accent + "08", pointerEvents: "none" }} />
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 900, color: accent }}>{value}</div>
+    <div style={{ position: "relative", borderRadius: 12, padding: 1, background: `linear-gradient(135deg, ${accent}30, transparent 60%, ${accent}15)` }}>
+      <div style={{ ...CARD, borderRadius: 11, position: "relative", overflow: "hidden", border: "none" }}>
+        <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, borderRadius: "0 0 0 100px", background: `radial-gradient(circle at top right, ${accent}15, transparent)`, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, width: 60, height: 60, borderRadius: "0 60px 0 0", background: `${accent}06`, pointerEvents: "none" }} />
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</div>
+        <div style={{ fontSize: 34, fontWeight: 900, color: accent, letterSpacing: "-0.02em", textShadow: `0 0 30px ${accent}25` }}>{value}</div>
+      </div>
     </div>
   );
 }
@@ -129,6 +140,17 @@ export default function OwnerDashboard() {
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", roles: ["MANAGER"] as string[] });
   const [createMsg, setCreateMsg] = useState("");
 
+  // AI Prompts state
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiPromptLoaded, setAiPromptLoaded] = useState(false);
+  const [aiPromptMsg, setAiPromptMsg] = useState("");
+  const [auditMinSec, setAuditMinSec] = useState(0);
+  const [auditMaxSec, setAuditMaxSec] = useState(0);
+  const [auditDurationLoaded, setAuditDurationLoaded] = useState(false);
+  const [auditDurationMsg, setAuditDurationMsg] = useState("");
+
   useEffect(() => {
     captureTokenFromUrl();
     try {
@@ -157,6 +179,18 @@ export default function OwnerDashboard() {
   useEffect(() => { fetchData(range); }, [range, fetchData]);
 
   useEffect(() => {
+    if (tab === "ai-prompts" && !agentsLoaded) {
+      authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
+      setAgentsLoaded(true);
+    }
+    if (tab === "ai-prompts" && !aiPromptLoaded) {
+      authFetch(`${API}/api/settings/ai-audit-prompt`).then(r => r.ok ? r.json() : { prompt: "" }).then(d => setAiPrompt(d.prompt)).catch(() => {});
+      setAiPromptLoaded(true);
+    }
+    if (tab === "ai-prompts" && !auditDurationLoaded) {
+      authFetch(`${API}/api/settings/audit-duration`).then(r => r.ok ? r.json() : { minSeconds: 0, maxSeconds: 0 }).then(d => { setAuditMinSec(d.minSeconds); setAuditMaxSec(d.maxSeconds); }).catch(() => {});
+      setAuditDurationLoaded(true);
+    }
     if (tab === "users" && !usersLoaded && isSuperAdmin) {
       authFetch(`${API}/api/users`)
         .then(r => r.ok ? r.json() : [])
@@ -206,13 +240,16 @@ export default function OwnerDashboard() {
   return (
     <PageShell title="Owner Dashboard">
       {/* Tab Nav */}
-      <nav style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(15,23,42,0.4)", borderRadius: 10, padding: 4, width: "fit-content", border: "1px solid rgba(255,255,255,0.04)" }}>
-        {([["overview", "Overview"], ...(isSuperAdmin ? [["users", "User Management"]] : [])] as [Tab, string][]).map(([key, label]) => (
+      <nav style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(15,23,42,0.5)", borderRadius: 10, padding: 4, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(8px)" }}>
+        {([["overview", "Overview"], ["ai-prompts", "AI Prompts"], ...(isSuperAdmin ? [["users", "User Management"]] : [])] as [Tab, string][]).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             padding: "9px 24px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 7, letterSpacing: "0.01em",
+            position: "relative",
             background: tab === key ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
             color: tab === key ? "#fff" : "#64748b",
-            boxShadow: tab === key ? "0 2px 8px rgba(59,130,246,0.25)" : "none",
+            boxShadow: tab === key ? "0 4px 16px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.1)" : "none",
+            borderBottom: tab === key ? "2px solid #818cf8" : "2px solid transparent",
+            transition: "all 0.2s ease",
           }}>{label}</button>
         ))}
       </nav>
@@ -220,12 +257,14 @@ export default function OwnerDashboard() {
       {/* ── Overview ── */}
       {tab === "overview" && <>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <div style={{ display: "flex", gap: 4, background: "rgba(15,23,42,0.4)", borderRadius: 8, padding: 3, border: "1px solid rgba(255,255,255,0.04)" }}>
+          <div style={{ display: "flex", gap: 4, background: "rgba(15,23,42,0.5)", borderRadius: 8, padding: 3, border: "1px solid rgba(255,255,255,0.06)" }}>
             {RANGE_LABELS.map(r => (
               <button key={r.value} onClick={() => setRange(r.value)} style={{
                 padding: "7px 18px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 6,
-                background: range === r.value ? "rgba(255,255,255,0.08)" : "transparent",
-                color: range === r.value ? "#e2e8f0" : "#475569",
+                background: range === r.value ? "rgba(255,255,255,0.10)" : "transparent",
+                color: range === r.value ? "#f1f5f9" : "#475569",
+                boxShadow: range === r.value ? "0 1px 6px rgba(255,255,255,0.06)" : "none",
+                transition: "all 0.15s ease",
               }}>{r.label}</button>
             ))}
           </div>
@@ -238,7 +277,7 @@ export default function OwnerDashboard() {
           <StatCard label="Open Payroll" value={summary?.openPayrollPeriods ?? "\u2014"} accent="#f59e0b" />
         </div>
 
-        <h2 style={{ fontSize: 14, fontWeight: 800, margin: "0 0 14px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Agent Performance</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 800, margin: "0 0 14px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Agent Performance</h2>
         <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
@@ -250,21 +289,123 @@ export default function OwnerDashboard() {
               <th style={{ ...TH, textAlign: "right" }}>Cost/Sale</th>
             </tr></thead>
             <tbody>
-              {[...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal).map((row, i) => (
-                <tr key={row.agent} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
-                  <td style={{ ...TD, fontWeight: 800, color: i < 3 ? "#fbbf24" : "#475569", fontSize: 13 }}>#{i + 1}</td>
-                  <td style={{ ...TD, fontWeight: 700, color: "#e2e8f0" }}>{row.agent}</td>
+              {[...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal).map((row, i) => {
+                const rankIcon = i === 0 ? "\uD83E\uDD47" : i === 1 ? "\uD83E\uDD48" : i === 2 ? "\uD83E\uDD49" : null;
+                const rankColor = i === 0 ? "#fbbf24" : i === 1 ? "#94a3b8" : i === 2 ? "#d97706" : "#475569";
+                const rowBg = ROW_BG[i] ?? (i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)");
+                const isTop3 = i < 3;
+                return (
+                <tr key={row.agent} style={{ background: rowBg, borderLeft: isTop3 ? `2px solid ${rankColor}40` : "2px solid transparent", transition: "background 0.2s ease" }}>
+                  <td style={{ ...TD, fontWeight: 900, color: rankColor, fontSize: 14, textShadow: isTop3 ? `0 0 12px ${rankColor}30` : "none" }}>{rankIcon ? `${rankIcon} ` : ""}#{i + 1}</td>
+                  <td style={{ ...TD, fontWeight: 700, color: isTop3 ? "#f1f5f9" : "#e2e8f0" }}>{row.agent}</td>
                   <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: "#94a3b8" }}>{row.salesCount}</td>
-                  <td style={{ ...TD, textAlign: "right", color: "#34d399", fontWeight: 700 }}>{fmt.format(Number(row.premiumTotal))}</td>
+                  <td style={{ ...TD, textAlign: "right", fontWeight: 800 }}>
+                    <span style={{ backgroundImage: "linear-gradient(135deg, #34d399, #10b981, #059669)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{fmt.format(Number(row.premiumTotal))}</span>
+                  </td>
                   <td style={{ ...TD, textAlign: "right", color: "#64748b" }}>{row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "\u2014"}</td>
                   <td style={{ ...TD, textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{row.costPerSale > 0 ? fmt.format(row.costPerSale) : "\u2014"}</td>
-                </tr>
-              ))}
+                </tr>);
+              })}
               {tracker.length === 0 && <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#334155" }}>No agent data yet</td></tr>}
             </tbody>
           </table>
         </div>
       </>}
+
+      {/* ── AI Prompts ── */}
+      {tab === "ai-prompts" && (
+        <div style={{ maxWidth: 800 }}>
+          <div style={CARD}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Audit System Prompt</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              This prompt instructs GPT-4o-mini how to evaluate call transcriptions. It should request a JSON response with score, summary, and coachingNotes fields.
+            </p>
+            <textarea
+              style={{ ...INP, minHeight: 240, fontFamily: "monospace", fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
+              value={aiPrompt}
+              onChange={e => setAiPrompt(e.target.value)}
+              placeholder="Enter your system prompt for AI call auditing..."
+            />
+            <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "center" }}>
+              <button style={BTN("linear-gradient(135deg, #059669, #10b981)")} onClick={async () => {
+                try {
+                  setAiPromptMsg("");
+                  const res = await authFetch(`${API}/api/settings/ai-audit-prompt`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: aiPrompt }) });
+                  if (res.ok) setAiPromptMsg("Saved");
+                  else { const err = await res.json().catch(() => ({})); setAiPromptMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+                } catch (e: any) { setAiPromptMsg(`Error: ${e.message ?? "network error"}`); }
+              }}>Save Prompt</button>
+              {aiPromptMsg && <span style={{ fontSize: 13, fontWeight: 600, color: aiPromptMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{aiPromptMsg}</span>}
+            </div>
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Agent Audit Settings</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              Check agents whose call recordings should be sent for AI auditing. Unchecked agents will have their recordings skipped.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {agents.filter(a => a.active !== false).map(a => (
+                <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!a.auditEnabled}
+                    onChange={async (e) => {
+                      const val = e.target.checked;
+                      setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: val } : ag));
+                      try {
+                        const res = await authFetch(`${API}/api/agents/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditEnabled: val }) });
+                        if (!res.ok) setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag));
+                      } catch { setAgents(prev => prev.map(ag => ag.id === a.id ? { ...ag, auditEnabled: !val } : ag)); }
+                    }}
+                    style={{ width: 16, height: 16, accentColor: "#3b82f6", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{a.name}</span>
+                  {a.email && <span style={{ fontSize: 12, color: "#64748b" }}>({a.email})</span>}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Call Duration Filter</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              Only audit calls within this duration range. Set to 0 to disable a limit.
+            </p>
+            <div style={{ display: "flex", gap: 16, alignItems: "end" }}>
+              <div>
+                <label style={LBL}>Min Seconds</label>
+                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMinSec} onChange={e => setAuditMinSec(Number(e.target.value))} />
+              </div>
+              <div>
+                <label style={LBL}>Max Seconds</label>
+                <input style={{ ...INP, width: 120 }} type="number" min="0" value={auditMaxSec} onChange={e => setAuditMaxSec(Number(e.target.value))} />
+              </div>
+              <button style={BTN("linear-gradient(135deg, #059669, #10b981)")} onClick={async () => {
+                try {
+                  setAuditDurationMsg("");
+                  const res = await authFetch(`${API}/api/settings/audit-duration`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minSeconds: auditMinSec, maxSeconds: auditMaxSec }) });
+                  if (res.ok) setAuditDurationMsg("Saved");
+                  else { const err = await res.json().catch(() => ({})); setAuditDurationMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+                } catch (e: any) { setAuditDurationMsg(`Error: ${e.message ?? "network error"}`); }
+              }}>Save</button>
+            </div>
+            {auditDurationMsg && <span style={{ fontSize: 13, fontWeight: 600, marginTop: 8, display: "block", color: auditDurationMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{auditDurationMsg}</span>}
+          </div>
+
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Webhook Configuration</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 12px" }}>Configure Convoso to POST to this endpoint after each call:</p>
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, fontFamily: "monospace", fontSize: 13, color: "#34d399", wordBreak: "break-all" }}>
+              POST {API || "https://your-api-domain.com"}/api/webhooks/convoso
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+              <div><strong style={{ color: "#94a3b8" }}>Header:</strong> x-webhook-secret: your-secret</div>
+              <div><strong style={{ color: "#94a3b8" }}>Body:</strong> {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601", "call_duration_seconds": 120 }`}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── User Management ── */}
       {tab === "users" && isSuperAdmin && (

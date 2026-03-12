@@ -102,6 +102,17 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     totalCommission += calcProductCommission(addon.product, premium, hasCoreInSale, coreProduct);
   }
 
+  // Compass VAB bundling rule: if core product present and Compass VAB not bundled, halve commission
+  // Exception: Florida (FL) is exempt from this rule
+  if (hasCoreInSale) {
+    const addonNames = addons.map(a => a.product.name.toLowerCase());
+    const hasCompassVab = addonNames.some(n => n.includes("compass") && n.includes("vab"));
+    const isFL = sale.memberState?.toUpperCase() === "FL";
+    if (!hasCompassVab && !isFL) {
+      totalCommission = totalCommission / 2;
+    }
+  }
+
   // Apply enrollment fee rules
   const { finalCommission, enrollmentBonus } = applyEnrollmentFee(
     totalCommission,

@@ -150,6 +150,7 @@ model Sale {
   enrollmentFee     Decimal?        @db.Decimal(10, 2) @map("enrollment_fee")
   commissionApproved Boolean        @default(false) @map("commission_approved")
   paymentType       String?         @map("payment_type")
+  memberState       String?         @map("member_state")
 
   agent         Agent         @relation(fields: [agentId], references: [id])
   product       Product       @relation(fields: [productId], references: [id])

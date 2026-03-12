@@ -273,6 +273,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     addonProductIds: z.array(z.string()).default([]),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).default("SUBMITTED"),
     paymentType: z.enum(["CC", "ACH"]).optional(),
+    memberState: z.string().max(2).optional(),
     notes: z.string().optional(),
   });
   const parsed = schema.parse(req.body);
@@ -311,6 +312,7 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
     premium: z.number().min(0).optional(),
     enrollmentFee: z.number().min(0).nullable().optional(),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).optional(),
+    memberState: z.string().max(2).nullable().optional(),
     notes: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -329,12 +331,15 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
 }));
 
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ approved: z.boolean().default(true) });
+  const parsed = schema.safeParse(req.body);
+  const approved = parsed.success ? parsed.data.approved : true;
   const sale = await prisma.sale.update({
     where: { id: req.params.id },
-    data: { commissionApproved: true },
+    data: { commissionApproved: approved },
   });
   await upsertPayrollEntryForSale(sale.id);
-  await logAudit(req.user!.id, "APPROVE_COMMISSION", "Sale", sale.id);
+  await logAudit(req.user!.id, approved ? "APPROVE_COMMISSION" : "REVOKE_COMMISSION", "Sale", sale.id);
   res.json(sale);
 }));
 
