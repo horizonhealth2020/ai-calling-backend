@@ -372,6 +372,110 @@ export default function PayrollDashboard() {
     a.click();
   }
 
+  function exportDetailedCSV(range: ExportRange) {
+    const filtered = filterPeriodsByRange(range);
+    const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+    const rows = [["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Net"]];
+    for (const p of filtered) {
+      for (const e of p.entries) {
+        const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
+        if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
+        if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
+        const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee).toFixed(2) : "";
+        rows.push([
+          fmtDate(p.weekStart), fmtDate(p.weekEnd), p.quarterLabel,
+          esc(e.agent?.name ?? "Unknown"), e.sale?.memberId ?? "", esc(e.sale?.memberName ?? ""),
+          esc(byType.CORE.join(", ")), esc(byType.ADDON.join(", ")), esc(byType.AD_D.join(", ")),
+          fee, Number(e.payoutAmount).toFixed(2), Number(e.bonusAmount).toFixed(2),
+          Number(e.frontedAmount).toFixed(2), Number(e.netAmount).toFixed(2),
+        ]);
+      }
+    }
+    const label = range === "week" ? "weekly" : range === "month" ? "monthly" : "quarterly";
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" })), download: `payroll-detailed-${label}.csv` });
+    a.click();
+  }
+
+  function printAgentCards(agents: [string, Entry[]][], period: Period) {
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payroll - ${fmtDate(period.weekStart)} to ${fmtDate(period.weekEnd)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; background: #fff; padding: 20px; }
+  .agent-card { page-break-after: always; padding: 24px 0; }
+  .agent-card:last-child { page-break-after: auto; }
+  .header { border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 20px; font-weight: 800; }
+  .header .meta { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .summary { display: flex; gap: 24px; margin-bottom: 16px; }
+  .summary-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; }
+  .summary-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary-value { font-size: 18px; font-weight: 800; margin-top: 2px; }
+  .green { color: #059669; } .red { color: #dc2626; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { padding: 8px 6px; text-align: left; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 7px 6px; border-bottom: 1px solid #f1f5f9; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .core { color: #2563eb; font-weight: 600; }
+  .addon { color: #7c3aed; font-weight: 600; }
+  .add { color: #d97706; font-weight: 600; }
+  .subtotal td { border-top: 2px solid #cbd5e1; font-weight: 700; border-bottom: none; }
+  @media print { body { padding: 0; } .agent-card { padding: 16px 0; } }
+</style></head><body>` +
+    agents.map(([agentName, entries]) => {
+      const agentGross = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+      const agentBonus = entries.reduce((s, e) => s + Number(e.bonusAmount), 0);
+      const agentFronted = entries.reduce((s, e) => s + Number(e.frontedAmount), 0);
+      const agentNet = entries.reduce((s, e) => s + Number(e.netAmount), 0);
+      return `<div class="agent-card">
+  <div class="header">
+    <h1>${agentName}</h1>
+    <div class="meta">Sunday ${fmtDate(period.weekStart)} – Saturday ${fmtDate(period.weekEnd)} &nbsp;·&nbsp; ${period.quarterLabel} &nbsp;·&nbsp; ${entries.length} sale${entries.length !== 1 ? "s" : ""}</div>
+  </div>
+  <div class="summary">
+    <div class="summary-item"><div class="summary-label">Commission</div><div class="summary-value">$${agentGross.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Bonuses</div><div class="summary-value green">+$${agentBonus.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value red">-$${agentFronted.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Net Payout</div><div class="summary-value green">$${agentNet.toFixed(2)}</div></div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Member ID</th><th>Member Name</th><th class="center">Core</th><th class="center">Add-on</th><th class="center">AD&D</th>
+      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Fronted</th><th class="right">Net</th>
+    </tr></thead>
+    <tbody>` +
+      entries.map(e => {
+        const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
+        if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
+        if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
+        const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "—";
+        return `<tr>
+        <td>${e.sale?.memberId ?? "—"}</td>
+        <td>${e.sale?.memberName ?? "—"}</td>
+        <td class="center core">${byType.CORE.join(", ") || "—"}</td>
+        <td class="center addon">${byType.ADDON.join(", ") || "—"}</td>
+        <td class="center add">${byType.AD_D.join(", ") || "—"}</td>
+        <td class="right">${fee}</td>
+        <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
+        <td class="right green">${Number(e.bonusAmount) > 0 ? "$" + Number(e.bonusAmount).toFixed(2) : "$0.00"}</td>
+        <td class="right red">${Number(e.frontedAmount) > 0 ? "$" + Number(e.frontedAmount).toFixed(2) : "$0.00"}</td>
+        <td class="right green" style="font-weight:700">$${Number(e.netAmount).toFixed(2)}</td>
+      </tr>`;
+      }).join("") +
+      `<tr class="subtotal">
+        <td colspan="6" class="right">SUBTOTAL</td>
+        <td class="right">$${agentGross.toFixed(2)}</td>
+        <td class="right green">$${agentBonus.toFixed(2)}</td>
+        <td class="right red">$${agentFronted.toFixed(2)}</td>
+        <td class="right green">$${agentNet.toFixed(2)}</td>
+      </tr>
+    </tbody></table></div>`;
+    }).join("") +
+    `</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  }
+
   async function saveProduct(id: string, data: Partial<Product>) {
     try {
       const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
@@ -493,6 +597,7 @@ export default function PayrollDashboard() {
                     {needsApproval.length > 0 && <span style={{ marginLeft: 10, background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{needsApproval.length} need approval</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {p.entries.length > 0 && <button onClick={e => { e.stopPropagation(); printAgentCards([...byAgent.entries()], p); }} style={{ padding: "4px 14px", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer" }}>Print All</button>}
                     <span style={{ background: sc.bg, color: sc.color, padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{p.status}</span>
                     <span style={{ fontSize: 12, color: "#475569" }}>{expanded ? "\u25B2" : "\u25BC"}</span>
                   </div>
@@ -541,9 +646,10 @@ export default function PayrollDashboard() {
                               <span style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0" }}>{agentName}</span>
                               <span style={{ marginLeft: 10, fontSize: 12, color: "#64748b" }}>{entries.length} sale{entries.length !== 1 ? "s" : ""}</span>
                             </div>
-                            <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                            <div style={{ display: "flex", gap: 16, fontSize: 13, alignItems: "center" }}>
                               <span style={{ color: "#94a3b8" }}>Commission: <strong style={{ color: "#e2e8f0" }}>${agentGross.toFixed(2)}</strong></span>
                               <span style={{ color: "#94a3b8" }}>Net: <strong style={{ color: "#34d399" }}>${agentNet.toFixed(2)}</strong></span>
+                              <button onClick={e2 => { e2.stopPropagation(); printAgentCards([[agentName, entries]], p); }} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, background: "rgba(59,130,246,0.1)", color: "#60a5fa", cursor: "pointer" }}>Print</button>
                             </div>
                           </div>
                           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
@@ -707,8 +813,12 @@ export default function PayrollDashboard() {
                 ))}
               </div>
             </div>
-            <button onClick={() => exportCSV(exportRange)} style={BTN()}>Download Payroll CSV</button>
-            <p style={{ color: "#475569", fontSize: 13, marginTop: 14, marginBottom: 0 }}>Includes: week range, status, entries, gross and net payout per period.</p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button onClick={() => exportCSV(exportRange)} style={BTN()}>Download Summary CSV</button>
+              <button onClick={() => exportDetailedCSV(exportRange)} style={BTN("#059669")}>Download Detailed CSV</button>
+            </div>
+            <p style={{ color: "#475569", fontSize: 13, marginTop: 14, marginBottom: 0 }}><strong style={{ color: "#94a3b8" }}>Summary:</strong> week range, status, entries, gross and net per period.</p>
+            <p style={{ color: "#475569", fontSize: 13, marginTop: 6, marginBottom: 0 }}><strong style={{ color: "#94a3b8" }}>Detailed:</strong> per-entry rows matching payroll card format — agent, member, products, fees, commission, bonus, fronted, net.</p>
           </div>
         </div>
       )}
