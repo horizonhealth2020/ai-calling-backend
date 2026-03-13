@@ -1,1 +1,0 @@
-Covers: `next.config.js` template, standalone output anti-pattern, `NEXT_PUBLIC_*` build-time baking, Dockerfile `CMD` shell-form requirement, and missing data-fetching warning.
