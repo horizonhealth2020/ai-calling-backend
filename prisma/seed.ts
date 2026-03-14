@@ -21,13 +21,7 @@ async function main() {
   }
 
   // ── Agents ─────────────────────────────────────────────────────────
-  const agents: [string, string, number][] = [
-    ["Amy Agent", "amy.agent@example.com", 1],
-    ["Bob Agent", "bob.agent@example.com", 2],
-    ["Cara Agent", "cara.agent@example.com", 3],
-    ["David Agent", "david.agent@example.com", 4],
-    ["Elena Agent", "elena.agent@example.com", 5],
-  ];
+  const agents: [string, string, number][]
 
   for (const [name, email, displayOrder] of agents) {
     await prisma.agent.upsert({
@@ -38,13 +32,7 @@ async function main() {
   }
 
   // ── Lead Sources ───────────────────────────────────────────────────
-  const leadSources: [string, number, string?][] = [
-    ["Facebook", 40, "Primary social channel"],
-    ["Google Ads", 55, "Search campaigns"],
-    ["Direct Mail", 25, "Postcards and flyers"],
-    ["Referral", 0, "Agent and member referrals"],
-    ["TV Ads", 75, "Television commercials"],
-  ];
+  const leadSources: [string, number, string?][] = 
 
   for (const [name, costPerLead, notes] of leadSources) {
     await prisma.leadSource.upsert({
@@ -56,65 +44,19 @@ async function main() {
 
   // ── Products ───────────────────────────────────────────────────────
   // Core products
-  await prisma.product.upsert({
-    where: { name: "Medicare Advantage" },
-    update: {},
-    create: {
-      name: "Medicare Advantage", type: "CORE",
-      premiumThreshold: 300, commissionBelow: 25, commissionAbove: 30,
-      notes: "Primary MA plan",
-    },
-  });
+  await prisma.product.upsert
 
-  await prisma.product.upsert({
-    where: { name: "Part D Prescription" },
-    update: {},
-    create: {
-      name: "Part D Prescription", type: "CORE",
-      premiumThreshold: 150, commissionBelow: 15, commissionAbove: 22,
-    },
-  });
+  await prisma.product.upsert
 
   // Add-on products
-  await prisma.product.upsert({
-    where: { name: "Compass VAB" },
-    update: {},
-    create: {
-      name: "Compass VAB", type: "ADDON",
-      bundledCommission: 30, standaloneCommission: 30,
-      notes: "Vision, Hearing, Dental add-on",
-    },
-  });
+  await prisma.product.upsert
 
-  await prisma.product.upsert({
-    where: { name: "Hospital Indemnity" },
-    update: {},
-    create: {
-      name: "Hospital Indemnity", type: "ADDON",
-      bundledCommission: 25, standaloneCommission: 25,
-    },
-  });
+  await prisma.product.upsert
 
   // AD&D products
-  await prisma.product.upsert({
-    where: { name: "AD&D $125K" },
-    update: {},
-    create: {
-      name: "AD&D $125K", type: "AD_D",
-      bundledCommission: 70, standaloneCommission: 35,
-      notes: "Accidental Death & Dismemberment 125K",
-    },
-  });
+  await prisma.product.upsert
 
-  await prisma.product.upsert({
-    where: { name: "AD&D $250K" },
-    update: {},
-    create: {
-      name: "AD&D $250K", type: "AD_D",
-      bundledCommission: 70, standaloneCommission: 35,
-      notes: "Accidental Death & Dismemberment 250K",
-    },
-  });
+  await prisma.product.upsert
 
   // ── AI Audit System Prompt ────────────────────────────────────────
   await prisma.salesBoardSetting.upsert({

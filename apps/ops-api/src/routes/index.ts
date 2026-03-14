@@ -147,7 +147,10 @@ router.delete("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandle
   return res.status(204).end();
 }));
 
-router.get("/agents", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } }))));
+router.get("/agents", requireAuth, asyncHandler(async (req, res) => {
+  const includeInactive = req.query.all === "true";
+  res.json(await prisma.agent.findMany({ where: includeInactive ? {} : { active: true }, orderBy: { displayOrder: "asc" } }));
+}));
 
 router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ name: z.string().min(1), email: z.string().optional(), userId: z.string().optional(), extension: z.string().optional() });
@@ -170,7 +173,7 @@ router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
 }));
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional(), auditEnabled: z.boolean().optional() });
+  const schema = z.object({ name: z.string().min(1).optional(), email: z.string().nullable().optional(), userId: z.string().nullable().optional(), extension: z.string().nullable().optional(), auditEnabled: z.boolean().optional(), active: z.boolean().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {

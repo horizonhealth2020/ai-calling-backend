@@ -392,6 +392,20 @@ function AgentRow({ agent, onSave, onDelete }: {
     );
   }
 
+  if (agent.active === false) {
+    return (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, opacity: 0.5 }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: colors.textMuted, textDecoration: "line-through" }}>{agent.name}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Inactive</div>
+        </div>
+        <button className="btn-hover" style={SUCCESS_BTN} onClick={() => onSave(agent.id, { active: true })} title="Reactivate agent">
+          Reactivate
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="row-hover" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, transition: `background ${motion.duration.fast}` }}>
       <div>
@@ -649,7 +663,7 @@ export default function ManagerDashboard() {
   useEffect(() => {
     captureTokenFromUrl();
     Promise.all([
-      authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/agents?all=true`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/lead-sources`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).catch(() => []),
