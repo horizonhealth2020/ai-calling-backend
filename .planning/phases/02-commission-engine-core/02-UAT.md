@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 02-commission-engine-core
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md]
 started: 2026-03-14T23:00:00Z
@@ -56,17 +56,27 @@ skipped: 1
   reason: "User reported: manager board sales entry only allows me to add 1 product at a time. i can not bundle to test"
   severity: major
   test: 3
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Manager dashboard sales entry form has no addon selection UI. The API (POST /sales addonProductIds), schema (SaleAddon model), and form state (addonProductIds: []) all support addons, but no UI controls exist to select them. Only the receipt paste parser populates addons."
+  artifacts:
+    - path: "apps/manager-dashboard/app/page.tsx"
+      issue: "No addon selection controls in sales entry form — only single Product dropdown at line 986"
+  missing:
+    - "Add addon product picker (checkboxes or multi-select) after core Product dropdown"
+    - "Add per-addon premium fields (SaleAddon.premium needed for commission calc)"
+    - "Filter core vs addon products by type in dropdowns"
+  debug_session: ".planning/debug/manager-sales-no-addon-ui.md"
 
 - truth: "Premium values appear in correct payroll columns, not in the enrollment fee column"
   status: failed
   reason: "User reported: PREMIUM IS BEING TOTALED IN ENROLLMENT FEE COLUMN IN PAYROLL"
   severity: major
   test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "EditableSaleRow in payroll dashboard has misaligned edit-mode columns. The 4th td (Enroll Fee header) renders saleData.premium input instead of enrollment fee. Additionally, enrollmentFee is missing from saleData state so it's never editable."
+  artifacts:
+    - path: "apps/payroll-dashboard/app/page.tsx"
+      issue: "EditableSaleRow td#4 renders premium input under Enroll Fee header (lines 271-284); saleData state (lines 195-200) missing enrollmentFee"
+  missing:
+    - "Add enrollmentFee to saleData state in EditableSaleRow"
+    - "Move premium input to correct column, put enrollmentFee input under Enroll Fee header"
+    - "Update save handler to send enrollmentFee when editing"
+  debug_session: ".planning/debug/premium-in-enroll-fee-column.md"
