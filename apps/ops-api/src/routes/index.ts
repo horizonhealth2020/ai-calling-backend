@@ -289,6 +289,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     leadSourceId: z.string(),
     enrollmentFee: z.number().min(0).nullable().optional(),
     addonProductIds: z.array(z.string()).default([]),
+    addonPremiums: z.record(z.string(), z.number().min(0)).default({}),
     status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).default("SUBMITTED"),
     paymentType: z.enum(["CC", "ACH"]).optional(),
     memberState: z.string().max(2).optional(),
@@ -297,7 +298,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   const result = schema.safeParse(req.body);
   if (!result.success) return res.status(400).json(zodErr(result.error));
   const parsed = result.data;
-  const { addonProductIds, ...saleData } = parsed;
+  const { addonProductIds, addonPremiums, ...saleData } = parsed;
   const uniqueAddonIds = [...new Set(addonProductIds)];
   const sale = await prisma.sale.create({
     data: {
@@ -306,7 +307,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
       effectiveDate: new Date(parsed.effectiveDate + "T12:00:00"),
       enteredByUserId: req.user!.id,
       addons: uniqueAddonIds.length > 0 ? {
-        create: uniqueAddonIds.map(productId => ({ productId })),
+        create: uniqueAddonIds.map(productId => ({ productId, premium: addonPremiums[productId] ?? null })),
       } : undefined,
     },
   });
