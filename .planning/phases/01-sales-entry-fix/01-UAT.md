@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 phase: 01-sales-entry-fix
 source: 01-01-SUMMARY.md
 started: 2026-03-14T21:00:00Z
@@ -59,7 +59,7 @@ skipped: 0
 ## Gaps
 
 - truth: "Sale creation completes without 500 error"
-  status: failed
+  status: resolved
   reason: "User reported: internal server error"
   severity: blocker
   test: 1
@@ -77,7 +77,7 @@ skipped: 0
     - "Wrap upsertPayrollEntryForSale in try/catch to prevent sale creation failure from payroll errors"
 
 - truth: "Sale is persisted in database with correct fields"
-  status: failed
+  status: resolved
   reason: "User reported: sale entry failed"
   severity: blocker
   test: 2
@@ -86,7 +86,7 @@ skipped: 0
   missing: []
 
 - truth: "memberState persisted and FL exemption logic works"
-  status: failed
+  status: resolved
   reason: "User reported: fail"
   severity: blocker
   test: 3
@@ -95,7 +95,7 @@ skipped: 0
   missing: []
 
 - truth: "Agent dropdown starts with no selection, allowing validation error test"
-  status: failed
+  status: resolved
   reason: "User reported: agent is always selected. the drop down does not start with a clear form."
   severity: minor
   test: 4
@@ -108,7 +108,7 @@ skipped: 0
     - "Initialize agentId to empty string instead of first agent ID"
 
 - truth: "Agent name in sales tracker matches agent selected in form"
-  status: failed
+  status: resolved
   reason: "User reported: sale submitted succesful but agent name in sales tracker does not match agent in drop down menu for sale entry"
   severity: major
   test: 5
@@ -122,7 +122,7 @@ skipped: 0
     - "Or: use same active filter consistently for both default and dropdown"
 
 - truth: "Sale date in tracker matches the date entered in the form"
-  status: failed
+  status: resolved
   reason: "User reported: yes but wrong date. today is 3/13/2026 submit date show 3/13/2026 in tracker"
   severity: major
   test: 6
