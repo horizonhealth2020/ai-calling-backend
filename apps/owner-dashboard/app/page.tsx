@@ -721,7 +721,7 @@ function ConfigSection({
             className="input-focus"
             style={{
               ...INP,
-              minHeight: 220,
+              minHeight: 480,
               fontFamily: typography.fontMono,
               fontSize: 13,
               lineHeight: 1.7,

@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 async function main() {
   const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
 
-  // ── Users ──────────────────────────────────────────────────────────
+  // ── Users (login accounts only) ──────────────────────────────────
   const users: [string, string, string[]][] = [
     ["Juan A", "juan.a@horizon.com", ["SUPER_ADMIN"]],
     ["Nick D", "nick.d@horizon.com", ["MANAGER"]],
@@ -19,44 +19,6 @@ async function main() {
       create: { name, email, roles, passwordHash, active: true },
     });
   }
-
-  // ── Agents ─────────────────────────────────────────────────────────
-  const agents: [string, string, number][]
-
-  for (const [name, email, displayOrder] of agents) {
-    await prisma.agent.upsert({
-      where: { email },
-      update: {},
-      create: { name, email, displayOrder },
-    });
-  }
-
-  // ── Lead Sources ───────────────────────────────────────────────────
-  const leadSources: [string, number, string?][] = 
-
-  for (const [name, costPerLead, notes] of leadSources) {
-    await prisma.leadSource.upsert({
-      where: { name },
-      update: {},
-      create: { name, costPerLead, effectiveDate: new Date(), notes },
-    });
-  }
-
-  // ── Products ───────────────────────────────────────────────────────
-  // Core products
-  await prisma.product.upsert
-
-  await prisma.product.upsert
-
-  // Add-on products
-  await prisma.product.upsert
-
-  await prisma.product.upsert
-
-  // AD&D products
-  await prisma.product.upsert
-
-  await prisma.product.upsert
 
   // ── AI Audit System Prompt ────────────────────────────────────────
   await prisma.salesBoardSetting.upsert({
