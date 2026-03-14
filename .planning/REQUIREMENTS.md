@@ -20,7 +20,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [ ] **COMM-01**: Core products earn full commission rate when bundled with Compass VAB product
 - [ ] **COMM-02**: Core products earn half commission rate when not bundled with Compass VAB
-- [ ] **COMM-03**: Compass VAB bundle detection uses product flag (not string matching on name)
+- [x] **COMM-03**: Compass VAB bundle detection uses product flag (not string matching on name)
 - [ ] **COMM-04**: Add-on products match core product commission rate when bundled with core
 - [ ] **COMM-05**: Add-on products follow threshold rules when standalone (below threshold = half)
 - [ ] **COMM-06**: AD&D products earn half commission from set rate when standalone
@@ -106,7 +106,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SALE-06 | Phase 5 | Pending |
 | COMM-01 | Phase 2 | Pending |
 | COMM-02 | Phase 2 | Pending |
-| COMM-03 | Phase 2 | Pending |
+| COMM-03 | Phase 2 | Complete |
 | COMM-04 | Phase 2 | Pending |
 | COMM-05 | Phase 2 | Pending |
 | COMM-06 | Phase 2 | Pending |

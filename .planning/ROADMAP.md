@@ -45,7 +45,7 @@ Plans:
   5. All commission amounts are rounded to exactly 2 decimal places with no floating-point drift
 **Plans:** 2 plans
 Plans:
-- [ ] 02-01-PLAN.md -- Add isBundleQualifier to Product model and set up TypeScript test infrastructure
+- [x] 02-01-PLAN.md -- Add isBundleQualifier to Product model and set up TypeScript test infrastructure
 - [ ] 02-02-PLAN.md -- TDD rewrite of commission engine with bundle aggregation logic
 
 ### Phase 3: Commission Fees & Period Assignment
@@ -130,7 +130,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
-| 2. Commission Engine Core | 0/2 | Planning | - |
+| 2. Commission Engine Core | 1/2 | In Progress | - |
 | 3. Commission Fees & Period Assignment | 0/? | Not started | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
 | 5. Commission Preview & Sale Editing | 0/? | Not started | - |

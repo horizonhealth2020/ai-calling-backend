@@ -2,28 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-14T22:13:14.695Z"
-progress:
-  total_phases: 9
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
----
-
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
 status: In progress
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-03-14T21:40:30Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-14T22:29:09Z"
 progress:
   total_phases: 9
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 33
 ---
 
@@ -37,13 +23,13 @@ progress:
 
 ## Current Position
 
-**Phase:** 1 of 9 -- Sales Entry Fix (COMPLETE)
-**Plan:** 3 of 3 -- COMPLETE
-**Status:** Ready to plan
+**Phase:** 2 of 9 -- Commission Engine Core
+**Plan:** 1 of 2 -- COMPLETE
+**Status:** In progress
 
 ```
-Progress: [###.......] 33%
-Phase 1 [#####] | Phase 2 [.....] | Phase 3 [.....] | Phase 4 [.....]
+Progress: [####......] 33%
+Phase 1 [#####] | Phase 2 [##...] | Phase 3 [.....] | Phase 4 [.....]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....]
 ```
@@ -52,9 +38,9 @@ Phase 9 [.....]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 3 |
-| Plans total | 3+ (remaining phases TBD) |
-| Requirements done | 1/36 |
+| Plans completed | 4 |
+| Plans total | 5+ (remaining phases TBD) |
+| Requirements done | 2/36 |
 | Phases done | 1/9 |
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -62,10 +48,14 @@ Phase 9 [.....]
 | 01 | 01 | 220s | 2 | 3 |
 | 01 | 02 | 39s | 1 | 1 |
 | 01 | 03 | 33s | 2 | 1 |
+| 02 | 01 | 147s | 2 | 5 |
 
 ## Accumulated Context
 
 ### Key Decisions
+- [Phase 2] ts-node added as devDependency for Jest TypeScript config file parsing
+- [Phase 2] Jest config uses path.resolve(__dirname) for tsconfig path to avoid ts-jest relative resolution issues
+- [Phase 2] Manual migration SQL (no prisma migrate dev) continued from Phase 1 decision
 - Fix sales entry 500 error before all other work (everything depends on it)
 - Commission engine split into two phases: core bundle logic (Phase 2), then fees and arrears (Phase 3)
 - Multi-product form (Phase 4) separated from commission preview/edit (Phase 5) to reduce complexity per phase
@@ -95,14 +85,14 @@ Phase 9 [.....]
 None currently.
 
 ### TODOs
-- Plan Phase 2 (Commission Engine Core)
-- Resolve SaleAddon premium business question before Phase 2
+- Execute Phase 2 Plan 02 (TDD commission engine rewrite)
+- Resolve SaleAddon premium business question before Phase 2 Plan 02
 
 ## Session Continuity
 
-**Last session:** 2026-03-14T22:13:14.691Z
-**Stopped at:** Phase 2 context gathered
-**Next action:** Plan Phase 2 (Commission Engine Core)
+**Last session:** 2026-03-14T22:29:09Z
+**Stopped at:** Completed 02-01-PLAN.md
+**Next action:** Execute Phase 2 Plan 02 (TDD commission engine rewrite)
 
 ---
 *State initialized: 2026-03-14*
