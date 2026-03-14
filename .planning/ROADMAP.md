@@ -27,7 +27,9 @@
   1. User submits a sale from the manager dashboard and receives a success response (no 500 error)
   2. The created sale is persisted in the database with correct agent, product, and date fields
   3. The sale appears in the sales list when the page is refreshed
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 01-01-PLAN.md -- Fix Prisma schema sync (memberState, SaleAddon premium) and improve form feedback UX
 
 ### Phase 2: Commission Engine Core
 **Goal**: Commission rates are calculated correctly based on product type and bundle rules
@@ -122,7 +124,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sales Entry Fix | 0/? | Not started | - |
+| 1. Sales Entry Fix | 0/1 | Planned | - |
 | 2. Commission Engine Core | 0/? | Not started | - |
 | 3. Commission Fees & Period Assignment | 0/? | Not started | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
