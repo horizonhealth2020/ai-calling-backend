@@ -176,7 +176,7 @@ const NAV_ITEMS = [
   { icon: <AlertTriangle size={18} />,  label: "Chargebacks",key: "chargebacks" },
   { icon: <FileDown size={18} />,       label: "Exports",    key: "exports" },
   { icon: <Package size={18} />,        label: "Products",   key: "products" },
-  { icon: <Users size={18} />,          label: "Service",    key: "service" },
+  { icon: <Users size={18} />,          label: "Customer Service", key: "service" },
 ];
 
 /* ── Editable Sale Row ───────────────────────────────────────── */
@@ -244,7 +244,26 @@ function EditableSaleRow({
             onChange={e => setSaleData(d => ({ ...d, carrier: e.target.value }))}
           />
         ) : (
-          <span style={{ color: C.textSecondary }}>{entry.sale?.product?.name ?? "—"}</span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {/* Core product */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
+              {entry.sale?.premium != null && (
+                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>${Number(entry.sale.premium).toFixed(2)}</span>
+              )}
+            </div>
+            {/* Addon & AD&D products side by side */}
+            {entry.sale?.addons?.map((addon: { product: { id: string; name: string; type: string } }) => (
+              <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
+                <Badge
+                  color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
+                  size="sm"
+                >
+                  {addon.product.name}
+                </Badge>
+              </div>
+            ))}
+          </div>
         )}
       </td>
 
@@ -447,9 +466,15 @@ function ProductCard({
               <div style={{ display: "flex", alignItems: "center", gap: S[2], flexWrap: "wrap" }}>
                 <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{product.name}</span>
                 <Badge color={col}>{TYPE_LABELS[product.type]}</Badge>
-                <Badge color={product.active ? C.success : C.textMuted} dot>
-                  {product.active ? "Active" : "Inactive"}
-                </Badge>
+                <span
+                  onClick={(e) => { e.stopPropagation(); onSave(product.id, { active: !product.active }); }}
+                  style={{ cursor: "pointer" }}
+                  title={product.active ? "Click to deactivate" : "Click to activate"}
+                >
+                  <Badge color={product.active ? C.success : C.textMuted} dot>
+                    {product.active ? "Active" : "Inactive"}
+                  </Badge>
+                </span>
               </div>
               <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
                 <button
@@ -797,6 +822,16 @@ export default function PayrollDashboard() {
     if (res.ok) await refreshPeriods();
   }
 
+  async function markEntriesPaid(entryIds: string[], serviceEntryIds: string[], label: string) {
+    if (!window.confirm(`Mark ${label} as PAID?`)) return;
+    const res = await authFetch(`${API}/api/payroll/mark-paid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entryIds, serviceEntryIds }),
+    });
+    if (res.ok) await refreshPeriods();
+  }
+
   function filterPeriodsByRange(range: ExportRange): Period[] {
     const now = new Date();
     return periods.filter(p => {
@@ -828,18 +863,55 @@ export default function PayrollDashboard() {
     const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
     const rows = [["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Hold","Net"]];
     for (const p of filtered) {
-      for (const e of p.entries) {
+      // Sort entries by agent name for grouping
+      const sortedEntries = [...p.entries].sort((a, b) =>
+        (a.agent?.name ?? "").localeCompare(b.agent?.name ?? "")
+      );
+      let currentAgent = "";
+      let agentCommission = 0, agentBonus = 0, agentFronted = 0, agentHold = 0, agentNet = 0;
+      for (const e of sortedEntries) {
+        const agentName = e.agent?.name ?? "Unknown";
+        // When agent changes, output subtotal for previous agent
+        if (agentName !== currentAgent) {
+          if (currentAgent !== "") {
+            rows.push([
+              "", "", "", esc(currentAgent + " — Subtotal"), "", "",
+              "", "", "", "",
+              agentCommission.toFixed(2), agentBonus.toFixed(2),
+              agentFronted.toFixed(2), agentHold.toFixed(2), agentNet.toFixed(2),
+            ]);
+            rows.push([""]); // blank separator
+          }
+          currentAgent = agentName;
+          agentCommission = 0; agentBonus = 0; agentFronted = 0; agentHold = 0; agentNet = 0;
+        }
         const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
         if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
         if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
         const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee).toFixed(2) : "";
+        const commission = Number(e.payoutAmount);
+        const bonus = Number(e.bonusAmount);
+        const fronted = Number(e.frontedAmount);
+        const hold = Number(e.holdAmount ?? 0);
+        const net = Number(e.netAmount);
+        agentCommission += commission; agentBonus += bonus; agentFronted += fronted; agentHold += hold; agentNet += net;
         rows.push([
           fmtDate(p.weekStart), fmtDate(p.weekEnd), p.quarterLabel,
-          esc(e.agent?.name ?? "Unknown"), e.sale?.memberId ?? "", esc(e.sale?.memberName ?? ""),
+          esc(agentName), e.sale?.memberId ?? "", esc(e.sale?.memberName ?? ""),
           esc(byType.CORE.join(", ")), esc(byType.ADDON.join(", ")), esc(byType.AD_D.join(", ")),
-          fee, Number(e.payoutAmount).toFixed(2), Number(e.bonusAmount).toFixed(2),
-          Number(e.frontedAmount).toFixed(2), Number(e.holdAmount ?? 0).toFixed(2), Number(e.netAmount).toFixed(2),
+          fee, commission.toFixed(2), bonus.toFixed(2),
+          fronted.toFixed(2), hold.toFixed(2), net.toFixed(2),
         ]);
+      }
+      // Final agent subtotal
+      if (currentAgent !== "") {
+        rows.push([
+          "", "", "", esc(currentAgent + " — Subtotal"), "", "",
+          "", "", "", "",
+          agentCommission.toFixed(2), agentBonus.toFixed(2),
+          agentFronted.toFixed(2), agentHold.toFixed(2), agentNet.toFixed(2),
+        ]);
+        rows.push([""]); // blank separator between periods
       }
     }
     const label = range === "week" ? "weekly" : range === "month" ? "monthly" : "quarterly";
@@ -1233,9 +1305,14 @@ export default function PayrollDashboard() {
                         onClick={ev => { ev.stopPropagation(); printServiceCards(p.serviceEntries, p, bonusCategories); }}
                         style={{ ...BTN_ICON, background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}
                       >
-                        <Printer size={12} /> Service
+                        <Printer size={12} /> CS
                       </button>
                     )}
+                    {(() => {
+                      const allEntries = [...p.entries, ...(p.serviceEntries ?? [])];
+                      const allPaid = allEntries.length > 0 && allEntries.every(e => e.status === "PAID");
+                      return allPaid ? <Badge color={C.success}>PAID</Badge> : null;
+                    })()}
                     <div
                       style={{
                         color: C.textMuted,
@@ -1330,6 +1407,17 @@ export default function PayrollDashboard() {
                                 >
                                   <Printer size={11} /> Print
                                 </button>
+                                {entries.every(e => e.status === "PAID") ? (
+                                  <Badge color={C.success} size="sm">PAID</Badge>
+                                ) : (
+                                  <button
+                                    className="btn-hover"
+                                    onClick={() => markEntriesPaid(entries.map(e => e.id), [], agentName)}
+                                    style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                  >
+                                    <CheckCircle size={11} /> Paid
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -1427,6 +1515,7 @@ export default function PayrollDashboard() {
                                   </th>
                                 ))}
                                 <th style={{ ...TH_R, color: C.info }}>Total</th>
+                                <th style={TH_C}>Status</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1449,6 +1538,19 @@ export default function PayrollDashboard() {
                                       );
                                     })}
                                     <td style={{ ...TD_R, color: C.info, fontWeight: 700 }}>${Number(se.totalPay).toFixed(2)}</td>
+                                    <td style={TD_C}>
+                                      {se.status === "PAID" ? (
+                                        <Badge color={C.success} size="sm">PAID</Badge>
+                                      ) : (
+                                        <button
+                                          className="btn-hover"
+                                          onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
+                                          style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                        >
+                                          <CheckCircle size={11} /> Paid
+                                        </button>
+                                      )}
+                                    </td>
                                   </tr>
                                 );
                               })}

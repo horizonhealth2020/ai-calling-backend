@@ -414,6 +414,35 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
   }));
 }));
 
+router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const { entryIds, serviceEntryIds } = z.object({
+    entryIds: z.array(z.string()).optional().default([]),
+    serviceEntryIds: z.array(z.string()).optional().default([]),
+  }).parse(req.body);
+
+  if (entryIds.length === 0 && serviceEntryIds.length === 0) {
+    return res.status(400).json({ error: "No entry IDs provided" });
+  }
+
+  if (entryIds.length > 0) {
+    await prisma.payrollEntry.updateMany({
+      where: { id: { in: entryIds }, status: { not: "ZEROED_OUT" } },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+  }
+
+  if (serviceEntryIds.length > 0) {
+    await prisma.servicePayrollEntry.updateMany({
+      where: { id: { in: serviceEntryIds } },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+  }
+
+  await logAudit(req.user!.id, "MARK_PAID", "PayrollEntry", entryIds.concat(serviceEntryIds).join(","));
+
+  res.json({ ok: true });
+}));
+
 router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const payload = z.object({ memberId: z.string().optional(), memberName: z.string().optional(), notes: z.string().optional() }).parse(req.body);
   const sale = payload.memberId

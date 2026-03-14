@@ -44,146 +44,115 @@ const fmt$ = (n: number) =>
 
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
-/* ── Race bar configuration ───────────────────────────────────── */
+/* ── Podium rank configuration ────────────────────────────────── */
 
-const MIN_BAR_HEIGHT = 120;
-const MAX_BAR_HEIGHT = 300;
-const BAR_WIDTH = 110;
-
-const RANK_STYLES: Record<number, { bg: string; border: string; glow: string; rankColor: string; icon: React.ReactNode }> = {
+const PODIUM_CONFIG = {
   0: {
     bg: "radial-gradient(ellipse at top, rgba(251,191,36,0.25) 0%, rgba(217,119,6,0.12) 50%, transparent 100%), linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(180,83,9,0.1) 100%)",
     border: "rgba(251,191,36,0.45)",
     glow: `0 0 40px rgba(251,191,36,0.3), ${shadows.xl}`,
     rankColor: colors.gold,
-    icon: <Trophy size={24} strokeWidth={1.5} />,
+    icon: <Trophy size={32} strokeWidth={1.5} />,
+    height: 220,
+    width: 200,
+    nameSize: 17,
+    countSize: 36,
+    stagger: "stagger-2",
+    label: "1st Place",
+    order: 1,
   },
   1: {
     bg: "radial-gradient(ellipse at top, rgba(209,213,219,0.18) 0%, rgba(156,163,175,0.08) 50%, transparent 100%), linear-gradient(135deg, rgba(209,213,219,0.12) 0%, rgba(107,114,128,0.08) 100%)",
     border: "rgba(209,213,219,0.35)",
     glow: `0 0 24px rgba(209,213,219,0.2), ${shadows.lg}`,
     rankColor: colors.silver,
-    icon: <Medal size={22} strokeWidth={1.5} />,
+    icon: <Medal size={28} strokeWidth={1.5} />,
+    height: 180,
+    width: 175,
+    nameSize: 15,
+    countSize: 28,
+    stagger: "stagger-1",
+    label: "2nd Place",
+    order: 0,
   },
   2: {
     bg: "radial-gradient(ellipse at top, rgba(217,119,6,0.2) 0%, rgba(180,83,9,0.1) 50%, transparent 100%), linear-gradient(135deg, rgba(217,119,6,0.12) 0%, rgba(146,64,14,0.08) 100%)",
     border: "rgba(217,119,6,0.4)",
     glow: `0 0 24px rgba(217,119,6,0.25), ${shadows.lg}`,
     rankColor: colors.bronze,
-    icon: <Award size={20} strokeWidth={1.5} />,
+    icon: <Award size={26} strokeWidth={1.5} />,
+    height: 160,
+    width: 165,
+    nameSize: 14,
+    countSize: 26,
+    stagger: "stagger-3",
+    label: "3rd Place",
+    order: 2,
   },
-};
+} as const;
 
-const DEFAULT_BAR_STYLE = {
-  bg: "linear-gradient(135deg, rgba(20,184,166,0.12) 0%, rgba(13,148,136,0.06) 100%)",
-  border: "rgba(20,184,166,0.3)",
-  glow: shadows.md,
-  rankColor: colors.textSecondary,
-  icon: null,
-};
+/* ── PodiumCard ───────────────────────────────────────────────── */
 
-/** Arrange sorted items center-out: 1st→center, 2nd→left, 3rd→right, 4th→further left... */
-function buildRaceOrder(count: number): number[] {
-  if (count === 0) return [];
-  // Build position array: [center, left1, right1, left2, right2, ...]
-  const result = new Array<number>(count);
-  const positions: number[] = [];
-  const center = Math.floor(count / 2);
-  positions.push(center);
-  for (let offset = 1; positions.length < count; offset++) {
-    if (center - offset >= 0) positions.push(center - offset);
-    if (positions.length < count && center + offset < count) positions.push(center + offset);
-  }
-  for (let i = 0; i < count; i++) {
-    result[i] = positions[i];
-  }
-  return result;
-}
-
-/* ── RaceBar ──────────────────────────────────────────────────── */
-
-function RaceBar({
+function PodiumCard({
   rank,
   name,
   count,
   premium,
-  barHeight,
-  order,
 }: {
-  rank: number;
+  rank: 0 | 1 | 2;
   name: string;
   count: number;
   premium: number;
-  barHeight: number;
-  order: number;
 }) {
-  const style = RANK_STYLES[rank] ?? DEFAULT_BAR_STYLE;
-  const isTop3 = rank < 3;
+  const cfg = PODIUM_CONFIG[rank];
 
   return (
     <div
-      className={`animate-podium-rise stagger-${Math.min(rank + 1, 10)}`}
+      className={`animate-podium-rise ${cfg.stagger}`}
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "flex-end",
-        order,
-        flexShrink: 0,
+        order: cfg.order,
       }}
     >
-      {/* Medal or rank label above bar */}
-      {isTop3 && style.icon ? (
-        <div
-          style={{
-            color: style.rankColor,
-            marginBottom: 6,
-            filter: `drop-shadow(0 2px 6px ${style.rankColor}60)`,
-          }}
-        >
-          {style.icon}
-        </div>
-      ) : (
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: radius.full,
-            background: colors.bgSurfaceOverlay,
-            border: `1px solid ${colors.borderDefault}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 10,
-            fontWeight: 700,
-            color: colors.textMuted,
-            marginBottom: 6,
-          }}
-        >
-          {rank + 1}
-        </div>
-      )}
-
-      {/* Bar column */}
+      {/* Rank label above card */}
       <div
         style={{
-          width: BAR_WIDTH,
-          height: barHeight,
-          borderRadius: `${radius.xl}px ${radius.xl}px 0 0`,
-          background: style.bg,
-          border: `1.5px solid ${style.border}`,
+          fontSize: 10,
+          fontWeight: 700,
+          color: cfg.rankColor,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: 8,
+          opacity: 0.8,
+        }}
+      >
+        {cfg.label}
+      </div>
+
+      {/* Podium column */}
+      <div
+        style={{
+          width: cfg.width,
+          height: cfg.height,
+          borderRadius: `${radius["2xl"]}px ${radius["2xl"]}px 0 0`,
+          background: cfg.bg,
+          border: `1.5px solid ${cfg.border}`,
           borderBottom: "none",
-          boxShadow: style.glow,
+          boxShadow: cfg.glow,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: `${spacing[4]}px ${spacing[2]}px`,
+          padding: `${spacing[5]}px ${spacing[4]}px`,
           position: "relative",
+          overflow: "hidden",
           backdropFilter: "blur(8px)",
         }}
       >
-        {/* Top highlight */}
+        {/* Subtle top highlight */}
         <div
           style={{
             position: "absolute",
@@ -191,23 +160,32 @@ function RaceBar({
             left: "10%",
             right: "10%",
             height: 1,
-            background: `linear-gradient(90deg, transparent, ${style.border}, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${cfg.border}, transparent)`,
             pointerEvents: "none",
           }}
         />
 
+        {/* Icon */}
+        <div
+          style={{
+            color: cfg.rankColor,
+            marginBottom: spacing[2],
+            filter: `drop-shadow(0 2px 8px ${cfg.rankColor}60)`,
+          }}
+        >
+          {cfg.icon}
+        </div>
+
         {/* Agent name */}
         <div
           style={{
-            fontSize: isTop3 ? 14 : 12,
+            fontSize: cfg.nameSize,
             fontWeight: 700,
             color: colors.textPrimary,
             textAlign: "center",
             lineHeight: 1.2,
-            marginBottom: spacing[1],
+            marginBottom: spacing[2],
             letterSpacing: "-0.01em",
-            wordBreak: "break-word",
-            maxWidth: "100%",
           }}
         >
           {name}
@@ -216,21 +194,84 @@ function RaceBar({
         {/* Sales count */}
         <div
           style={{
-            fontSize: isTop3 ? 28 : 22,
+            fontSize: cfg.countSize,
             fontWeight: 800,
-            color: isTop3 ? style.rankColor : colors.textPrimary,
+            color: cfg.rankColor,
             lineHeight: 1,
             letterSpacing: "-0.03em",
-            marginBottom: 2,
+            marginBottom: 4,
           }}
         >
           <AnimatedNumber value={count} />
         </div>
 
         {/* Premium */}
-        <div style={{ fontSize: 11, fontWeight: 600, color: colors.textTertiary }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary }}>
           <AnimatedNumber value={premium} prefix="$" decimals={2} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Podium base platform ─────────────────────────────────────── */
+
+function PodiumPlatform() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        gap: 0,
+        height: 48,
+        marginTop: -1,
+      }}
+    >
+      {/* 2nd */}
+      <div
+        style={{
+          width: 175,
+          height: 32,
+          background: "rgba(209,213,219,0.06)",
+          border: "1px solid rgba(209,213,219,0.15)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.silver, opacity: 0.6 }}>2</span>
+      </div>
+      {/* 1st */}
+      <div
+        style={{
+          width: 200,
+          height: 48,
+          background: "rgba(251,191,36,0.06)",
+          border: "1px solid rgba(251,191,36,0.2)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.gold, opacity: 0.7 }}>1</span>
+      </div>
+      {/* 3rd */}
+      <div
+        style={{
+          width: 165,
+          height: 20,
+          background: "rgba(217,119,6,0.06)",
+          border: "1px solid rgba(217,119,6,0.15)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.bronze, opacity: 0.6 }}>3</span>
       </div>
     </div>
   );
@@ -239,21 +280,22 @@ function RaceBar({
 /* ── DailyView ────────────────────────────────────────────────── */
 
 function DailyView({ data }: { data: DetailedData }) {
-  const { agents, todayStats } = data;
+  const { agents, todayStats, weeklyTotals } = data;
 
-  // Sort all agents by premium (descending) for the race
   const sorted = [...agents].sort(
-    (a, b) => (todayStats[b]?.premium ?? 0) - (todayStats[a]?.premium ?? 0)
+    (a, b) => (todayStats[b]?.count ?? 0) - (todayStats[a]?.count ?? 0)
   );
-
-  const maxPremium = Math.max(...sorted.map((a) => todayStats[a]?.premium ?? 0), 1);
-  const orders = buildRaceOrder(sorted.length);
+  const top3 = sorted
+    .slice(0, 3)
+    .map((a) => ({ name: a, count: todayStats[a]?.count ?? 0, premium: todayStats[a]?.premium ?? 0 }));
+  const rest = sorted.slice(3);
 
   return (
     <div className="animate-fade-in">
-      {sorted.length > 0 ? (
-        <>
-          {/* Race header */}
+      {/* Podium section */}
+      {top3.length > 0 && (
+        <div style={{ marginBottom: spacing[10] }}>
+          {/* Podium stage header */}
           <div
             style={{
               textAlign: "center",
@@ -276,55 +318,195 @@ function DailyView({ data }: { data: DetailedData }) {
                   textTransform: "uppercase",
                 }}
               >
-                Leaderboard
+                Top Performers
               </span>
               <Crown size={14} color={colors.gold} />
             </div>
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${colors.borderDefault})` }} />
           </div>
 
-          {/* Race bars container */}
+          {/* Podium cards */}
           <div
             style={{
               display: "flex",
               justifyContent: "center",
               alignItems: "flex-end",
-              gap: spacing[2],
-              overflowX: "auto",
-              paddingBottom: spacing[4],
-              paddingTop: spacing[4],
+              gap: 0,
             }}
           >
-            {sorted.map((agent, i) => {
-              const stat = todayStats[agent];
-              const premium = stat?.premium ?? 0;
-              const count = stat?.count ?? 0;
-              const barHeight = MIN_BAR_HEIGHT + (premium / maxPremium) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
+            {top3.map((a, i) => (
+              <PodiumCard
+                key={a.name}
+                rank={i as 0 | 1 | 2}
+                name={a.name}
+                count={a.count}
+                premium={a.premium}
+              />
+            ))}
+          </div>
 
+          {/* Platform base */}
+          <PodiumPlatform />
+        </div>
+      )}
+
+      {/* Remaining agents grid */}
+      {rest.length > 0 && (
+        <>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: colors.textMuted,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: spacing[4],
+            }}
+          >
+            All Agents
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: spacing[4],
+            }}
+          >
+            {rest.map((agent, i) => {
+              const todayStat = todayStats[agent];
+              const weekStat = weeklyTotals[agent];
+              const staggerClass = `stagger-${Math.min(i + 1, 10)}` as string;
               return (
-                <RaceBar
+                <div
                   key={agent}
-                  rank={i}
-                  name={agent}
-                  count={count}
-                  premium={premium}
-                  barHeight={barHeight}
-                  order={orders[i]}
-                />
+                  className={`animate-fade-in-up hover-lift ${staggerClass}`}
+                  style={{
+                    ...baseCardStyle,
+                    padding: `${spacing[5]}px ${spacing[6]}px`,
+                    position: "relative",
+                  }}
+                >
+                  {/* Rank badge */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: spacing[4],
+                      right: spacing[4],
+                      width: 28,
+                      height: 28,
+                      borderRadius: radius.full,
+                      background: colors.bgSurfaceOverlay,
+                      border: `1px solid ${colors.borderDefault}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: colors.textMuted,
+                    }}
+                  >
+                    {i + 4}
+                  </div>
+
+                  {/* Agent name */}
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: colors.textPrimary,
+                      marginBottom: spacing[4],
+                      paddingRight: spacing[10],
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {agent}
+                  </div>
+
+                  {/* Stats grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[3] }}>
+                    {/* Today */}
+                    <div
+                      style={{
+                        padding: `${spacing[3]}px`,
+                        background: colors.successBg,
+                        borderRadius: radius.lg,
+                        border: `1px solid rgba(52,211,153,0.12)`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: colors.success,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Today
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: todayStat?.count ? colors.success : colors.borderStrong,
+                          lineHeight: 1,
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        <AnimatedNumber value={todayStat?.count ?? 0} />
+                      </div>
+                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
+                        <AnimatedNumber value={todayStat?.premium ?? 0} prefix="$" decimals={2} />
+                      </div>
+                    </div>
+
+                    {/* Week */}
+                    <div
+                      style={{
+                        padding: `${spacing[3]}px`,
+                        background: colors.infoBg,
+                        borderRadius: radius.lg,
+                        border: `1px solid rgba(45,212,191,0.12)`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: colors.info,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Week
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: weekStat?.count ? colors.info : colors.borderStrong,
+                          lineHeight: 1,
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        <AnimatedNumber value={weekStat?.count ?? 0} />
+                      </div>
+                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
+                        <AnimatedNumber value={weekStat?.premium ?? 0} prefix="$" decimals={2} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
-
-          {/* Base line */}
-          <div
-            style={{
-              height: 2,
-              background: `linear-gradient(90deg, transparent, ${colors.borderDefault}, transparent)`,
-              marginTop: -1,
-            }}
-          />
         </>
-      ) : (
+      )}
+
+      {/* Empty state if no agents at all */}
+      {top3.length === 0 && rest.length === 0 && (
         <EmptyState
           icon={<Users size={32} />}
           title="No Agents Yet"
