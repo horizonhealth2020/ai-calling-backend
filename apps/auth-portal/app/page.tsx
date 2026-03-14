@@ -1,13 +1,271 @@
 "use client";
 import { useState, FormEvent } from "react";
+import { Mail, Lock, Eye, EyeOff, KeyRound, LogIn, ArrowLeft } from "lucide-react";
+import {
+  colors,
+  spacing,
+  radius,
+  shadows,
+  typography,
+  motion,
+  baseInputStyle,
+  baseLabelStyle,
+  baseButtonStyle,
+} from "@ops/ui";
 
-const INPUT_STYLE: React.CSSProperties = {
-  width: "100%", padding: "12px 14px",
-  background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: 6, fontSize: 14, color: "#e2e8f0", boxSizing: "border-box",
-  outline: "none",
+/* ── Static style constants ─────────────────────────────────── */
+
+const BG: React.CSSProperties = {
+  minHeight: "100vh",
+  display: "grid",
+  placeItems: "center",
+  padding: spacing[6],
+  position: "relative",
+  overflow: "hidden",
+  background: colors.bgRoot,
 };
-const LABEL_STYLE: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" };
+
+const BG_MESH: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  backgroundImage: [
+    "radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99,102,241,0.12) 0%, transparent 60%)",
+    "radial-gradient(ellipse 60% 50% at 80% 90%, rgba(139,92,246,0.10) 0%, transparent 55%)",
+    "radial-gradient(ellipse 40% 40% at 60% 30%, rgba(59,130,246,0.07) 0%, transparent 50%)",
+  ].join(", "),
+  animation: "gradientShift 12s ease infinite",
+  backgroundSize: "200% 200%",
+  pointerEvents: "none",
+};
+
+const CARD: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 420,
+  position: "relative",
+  zIndex: 1,
+};
+
+const LOGO_WRAP: React.CSSProperties = {
+  textAlign: "center",
+  marginBottom: spacing[8],
+};
+
+const LOGO_BADGE: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  borderRadius: radius.xl,
+  background: colors.accentGradient,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 22,
+  fontWeight: typography.weights.extrabold,
+  color: "#fff",
+  boxShadow: `${shadows.glowPrimary}, ${shadows.lg}`,
+  marginBottom: spacing[4],
+  letterSpacing: typography.tracking.tight,
+};
+
+const TITLE: React.CSSProperties = {
+  margin: `0 0 ${spacing[1]}px`,
+  fontSize: 24,
+  fontWeight: typography.weights.bold,
+  letterSpacing: typography.tracking.tight,
+  color: colors.textPrimary,
+};
+
+const SUBTITLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  color: colors.textTertiary,
+  fontWeight: typography.weights.medium,
+};
+
+const FORM_CARD: React.CSSProperties = {
+  background: colors.bgSurface,
+  border: `1px solid ${colors.borderDefault}`,
+  borderRadius: radius["2xl"],
+  padding: `${spacing[8]}px ${spacing[6]}px`,
+  boxShadow: shadows.xl,
+};
+
+const FIELD: React.CSSProperties = {
+  marginBottom: spacing[5],
+  textAlign: "left",
+};
+
+const INPUT_WRAP: React.CSSProperties = {
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+};
+
+const INPUT_ICON: React.CSSProperties = {
+  position: "absolute",
+  left: 12,
+  color: colors.textMuted,
+  pointerEvents: "none",
+  display: "flex",
+  alignItems: "center",
+};
+
+const INPUT: React.CSSProperties = {
+  ...baseInputStyle,
+  paddingLeft: 38,
+  boxSizing: "border-box",
+};
+
+const INPUT_PASSWORD: React.CSSProperties = {
+  ...INPUT,
+  paddingRight: 42,
+};
+
+const EYE_BTN: React.CSSProperties = {
+  position: "absolute",
+  right: 10,
+  background: "none",
+  border: "none",
+  color: colors.textMuted,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  padding: 4,
+  borderRadius: radius.sm,
+  lineHeight: 0,
+  transition: `color ${motion.duration.fast} ${motion.easing.out}`,
+};
+
+const SUBMIT_BTN: React.CSSProperties = {
+  ...baseButtonStyle,
+  width: "100%",
+  minHeight: 44,
+  background: colors.accentGradient,
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: typography.weights.semibold,
+  borderRadius: radius.lg,
+  boxSizing: "border-box",
+  letterSpacing: "0.01em",
+  gap: spacing[2],
+};
+
+const SUBMIT_BTN_DISABLED: React.CSSProperties = {
+  ...SUBMIT_BTN,
+  background: colors.bgSurfaceRaised,
+  color: colors.textMuted,
+  cursor: "not-allowed",
+};
+
+const ERROR_BOX: React.CSSProperties = {
+  marginBottom: spacing[4],
+  padding: `${spacing[3]}px ${spacing[4]}px`,
+  borderRadius: radius.lg,
+  background: colors.dangerBg,
+  border: `1px solid rgba(248,113,113,0.18)`,
+  color: colors.danger,
+  fontSize: 13,
+  fontWeight: typography.weights.semibold,
+  textAlign: "center",
+};
+
+const SUCCESS_BOX: React.CSSProperties = {
+  marginBottom: spacing[4],
+  padding: `${spacing[3]}px ${spacing[4]}px`,
+  borderRadius: radius.lg,
+  background: colors.successBg,
+  border: `1px solid rgba(52,211,153,0.18)`,
+  color: colors.success,
+  fontSize: 13,
+  fontWeight: typography.weights.semibold,
+  textAlign: "center",
+};
+
+const GHOST_BTN: React.CSSProperties = {
+  ...baseButtonStyle,
+  background: "none",
+  border: `1px solid ${colors.borderDefault}`,
+  color: colors.textTertiary,
+  fontSize: 13,
+  marginTop: spacing[4],
+  width: "100%",
+  borderRadius: radius.lg,
+};
+
+const FOOTER_TEXT: React.CSSProperties = {
+  marginTop: spacing[5],
+  textAlign: "center",
+  fontSize: 11,
+  color: colors.textMuted,
+  letterSpacing: typography.tracking.caps,
+  textTransform: "uppercase",
+};
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+
+function Spinner() {
+  return (
+    <span
+      className="animate-spin"
+      style={{
+        width: 16,
+        height: 16,
+        borderRadius: "50%",
+        border: `2px solid rgba(255,255,255,0.25)`,
+        borderTopColor: "#fff",
+        display: "inline-block",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+/* ── Password input with show/hide toggle ───────────────────── */
+
+function PasswordInput({
+  id,
+  name,
+  placeholder,
+  autoComplete,
+  minLength,
+}: {
+  id: string;
+  name: string;
+  placeholder?: string;
+  autoComplete?: string;
+  minLength?: number;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div style={INPUT_WRAP}>
+      <span style={INPUT_ICON}>
+        <Lock size={15} />
+      </span>
+      <input
+        id={id}
+        name={name}
+        type={visible ? "text" : "password"}
+        required
+        minLength={minLength}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        style={INPUT_PASSWORD}
+        className="input-focus"
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={visible ? "Hide password" : "Show password"}
+        onClick={() => setVisible((v) => !v)}
+        style={EYE_BTN}
+      >
+        {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+      </button>
+    </div>
+  );
+}
+
+/* ── Main page ──────────────────────────────────────────────── */
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "change-password">("login");
@@ -17,7 +275,8 @@ export default function LoginPage() {
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(""); setLoading(true);
+    setError("");
+    setLoading(true);
 
     const form = new FormData(e.currentTarget);
     const email = (form.get("email") as string).trim();
@@ -51,7 +310,9 @@ export default function LoginPage() {
 
   async function handleChangePassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(""); setSuccess(""); setLoading(true);
+    setError("");
+    setSuccess("");
+    setLoading(true);
 
     const form = new FormData(e.currentTarget);
     const email = (form.get("email") as string).trim();
@@ -87,113 +348,234 @@ export default function LoginPage() {
     }
 
     setSuccess("Password changed successfully! Redirecting to sign in...");
-    setTimeout(() => { setMode("login"); setSuccess(""); setError(""); }, 2000);
+    setTimeout(() => {
+      setMode("login");
+      setSuccess("");
+      setError("");
+    }, 2000);
   }
 
+  function switchMode() {
+    setMode(mode === "login" ? "change-password" : "login");
+    setError("");
+    setSuccess("");
+  }
+
+  const isLogin = mode === "login";
+
   return (
-    <main style={{
-      minHeight: "100vh",
-      display: "grid",
-      placeItems: "center",
-      background: "#0a0a0f",
-      fontFamily: "'Inter', -apple-system, sans-serif",
-      padding: 24,
-    }}>
-      <div style={{ width: "100%", maxWidth: 400, textAlign: "center" }}>
-        <div style={{ borderTop: "2px solid #2563eb", width: 48, margin: "0 auto 28px", borderRadius: 1 }} />
+    <main style={BG}>
+      {/* Animated gradient mesh background */}
+      <div style={BG_MESH} aria-hidden="true" />
 
-        <div style={{
-          width: 40, height: 40, borderRadius: 6, margin: "0 auto 20px",
-          background: "#2563eb",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 18, fontWeight: 700, color: "white",
-        }}>H</div>
+      <div style={CARD} className="animate-scale-in">
+        {/* Logo + brand */}
+        <div style={LOGO_WRAP}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: spacing[4] }}>
+            <div style={LOGO_BADGE} className="animate-scale-in stagger-1">
+              H
+            </div>
+          </div>
+          <h1 style={TITLE} className="animate-fade-in-up stagger-2">
+            {isLogin ? "Welcome back" : "Change Password"}
+          </h1>
+          <p style={SUBTITLE} className="animate-fade-in-up stagger-3">
+            {isLogin
+              ? "Sign in to Horizon Health Operations"
+              : "Update your account password"}
+          </p>
+        </div>
 
-        <h1 style={{
-          margin: "0 0 6px", fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em",
-          color: "#f1f5f9",
-        }}>{mode === "login" ? "Welcome back" : "Change Password"}</h1>
-        <p style={{ margin: "0 0 28px", color: "#475569", fontSize: 14, fontWeight: 500 }}>
-          {mode === "login" ? "Sign in to Horizon Health Operations" : "Update your account password"}
-        </p>
-
-        <section style={{
-          background: "rgba(15,23,42,0.8)",
-          border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8,
-          padding: "28px 24px",
-        }}>
-          {mode === "login" ? (
-            <form onSubmit={handleLogin}>
-              <div style={{ marginBottom: 18, textAlign: "left" }}>
-                <label htmlFor="email" style={LABEL_STYLE}>Email</label>
-                <input id="email" name="email" type="email" required autoComplete="email" placeholder="you@company.com" style={INPUT_STYLE} />
+        {/* Form card */}
+        <div style={FORM_CARD} className="animate-fade-in-up stagger-2">
+          {isLogin ? (
+            <form onSubmit={handleLogin} noValidate>
+              {/* Email field */}
+              <div style={FIELD} className="animate-fade-in-up stagger-3">
+                <label htmlFor="email" style={baseLabelStyle}>
+                  Email
+                </label>
+                <div style={INPUT_WRAP}>
+                  <span style={INPUT_ICON}>
+                    <Mail size={15} />
+                  </span>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@company.com"
+                    style={INPUT}
+                    className="input-focus"
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: 24, textAlign: "left" }}>
-                <label htmlFor="password" style={LABEL_STYLE}>Password</label>
-                <input id="password" name="password" type="password" required minLength={8} autoComplete="current-password" style={INPUT_STYLE} />
+
+              {/* Password field */}
+              <div
+                style={{ ...FIELD, marginBottom: spacing[6] }}
+                className="animate-fade-in-up stagger-4"
+              >
+                <label htmlFor="password" style={baseLabelStyle}>
+                  Password
+                </label>
+                <PasswordInput
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  minLength={8}
+                />
               </div>
 
+              {/* Error */}
               {error && (
-                <div style={{ margin: "0 0 18px", padding: "10px 14px", borderRadius: 6, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)", color: "#f87171", fontSize: 13, fontWeight: 600, textAlign: "center" }}>{error}</div>
+                <div style={ERROR_BOX} className="animate-fade-in-up">
+                  {error}
+                </div>
               )}
 
-              <button type="submit" disabled={loading} style={{
-                width: "100%", padding: "12px 18px",
-                background: loading ? "#334155" : "#2563eb",
-                color: "#fff", border: "none", borderRadius: 6, fontWeight: 600, fontSize: 14,
-                cursor: loading ? "not-allowed" : "pointer",
-                letterSpacing: "0.01em",
-              }}>
-                {loading ? "Signing in\u2026" : "Sign In"}
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={loading ? SUBMIT_BTN_DISABLED : SUBMIT_BTN}
+                className={loading ? "" : "btn-hover"}
+              >
+                {loading ? (
+                  <>
+                    <Spinner />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn size={16} />
+                    Sign In
+                  </>
+                )}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleChangePassword}>
-              <div style={{ marginBottom: 18, textAlign: "left" }}>
-                <label htmlFor="cp-email" style={LABEL_STYLE}>Email</label>
-                <input id="cp-email" name="email" type="email" required autoComplete="email" placeholder="you@company.com" style={INPUT_STYLE} />
-              </div>
-              <div style={{ marginBottom: 18, textAlign: "left" }}>
-                <label htmlFor="cp-current" style={LABEL_STYLE}>Current Password</label>
-                <input id="cp-current" name="currentPassword" type="password" required minLength={8} autoComplete="current-password" style={INPUT_STYLE} />
-              </div>
-              <div style={{ marginBottom: 18, textAlign: "left" }}>
-                <label htmlFor="cp-new" style={LABEL_STYLE}>New Password</label>
-                <input id="cp-new" name="newPassword" type="password" required minLength={8} autoComplete="new-password" style={INPUT_STYLE} />
-              </div>
-              <div style={{ marginBottom: 24, textAlign: "left" }}>
-                <label htmlFor="cp-confirm" style={LABEL_STYLE}>Confirm New Password</label>
-                <input id="cp-confirm" name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" style={INPUT_STYLE} />
+            <form onSubmit={handleChangePassword} noValidate className="animate-slide-down">
+              {/* Email */}
+              <div style={FIELD} className="animate-fade-in-up stagger-1">
+                <label htmlFor="cp-email" style={baseLabelStyle}>
+                  Email
+                </label>
+                <div style={INPUT_WRAP}>
+                  <span style={INPUT_ICON}>
+                    <Mail size={15} />
+                  </span>
+                  <input
+                    id="cp-email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@company.com"
+                    style={INPUT}
+                    className="input-focus"
+                  />
+                </div>
               </div>
 
+              {/* Current password */}
+              <div style={FIELD} className="animate-fade-in-up stagger-2">
+                <label htmlFor="cp-current" style={baseLabelStyle}>
+                  Current Password
+                </label>
+                <PasswordInput
+                  id="cp-current"
+                  name="currentPassword"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  minLength={8}
+                />
+              </div>
+
+              {/* New password */}
+              <div style={FIELD} className="animate-fade-in-up stagger-3">
+                <label htmlFor="cp-new" style={baseLabelStyle}>
+                  New Password
+                </label>
+                <PasswordInput
+                  id="cp-new"
+                  name="newPassword"
+                  autoComplete="new-password"
+                  placeholder="Min. 8 characters"
+                  minLength={8}
+                />
+              </div>
+
+              {/* Confirm new password */}
+              <div
+                style={{ ...FIELD, marginBottom: spacing[6] }}
+                className="animate-fade-in-up stagger-4"
+              >
+                <label htmlFor="cp-confirm" style={baseLabelStyle}>
+                  Confirm New Password
+                </label>
+                <PasswordInput
+                  id="cp-confirm"
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  placeholder="Repeat new password"
+                  minLength={8}
+                />
+              </div>
+
+              {/* Error / Success */}
               {error && (
-                <div style={{ margin: "0 0 18px", padding: "10px 14px", borderRadius: 6, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)", color: "#f87171", fontSize: 13, fontWeight: 600, textAlign: "center" }}>{error}</div>
+                <div style={ERROR_BOX} className="animate-fade-in-up">
+                  {error}
+                </div>
               )}
               {success && (
-                <div style={{ margin: "0 0 18px", padding: "10px 14px", borderRadius: 6, background: "rgba(5,150,105,0.1)", border: "1px solid rgba(5,150,105,0.2)", color: "#34d399", fontSize: 13, fontWeight: 600, textAlign: "center" }}>{success}</div>
+                <div style={SUCCESS_BOX} className="animate-fade-in-up">
+                  {success}
+                </div>
               )}
 
-              <button type="submit" disabled={loading} style={{
-                width: "100%", padding: "12px 18px",
-                background: loading ? "#334155" : "#2563eb",
-                color: "#fff", border: "none", borderRadius: 6, fontWeight: 600, fontSize: 14,
-                cursor: loading ? "not-allowed" : "pointer",
-                letterSpacing: "0.01em",
-              }}>
-                {loading ? "Updating\u2026" : "Change Password"}
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={loading ? SUBMIT_BTN_DISABLED : SUBMIT_BTN}
+                className={loading ? "" : "btn-hover"}
+              >
+                {loading ? (
+                  <>
+                    <Spinner />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <KeyRound size={16} />
+                    Change Password
+                  </>
+                )}
               </button>
             </form>
           )}
-        </section>
+        </div>
 
-        <button
-          onClick={() => { setMode(mode === "login" ? "change-password" : "login"); setError(""); setSuccess(""); }}
-          style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", marginTop: 16, fontWeight: 600 }}
-        >
-          {mode === "login" ? "Change Password" : "Back to Sign In"}
+        {/* Toggle mode */}
+        <button onClick={switchMode} style={GHOST_BTN} className="btn-hover">
+          {isLogin ? (
+            <>
+              <KeyRound size={14} />
+              Change Password
+            </>
+          ) : (
+            <>
+              <ArrowLeft size={14} />
+              Back to Sign In
+            </>
+          )}
         </button>
 
-        <p style={{ marginTop: 12, fontSize: 11, color: "#334155", letterSpacing: "0.04em", textTransform: "uppercase" }}>Horizon Health Operations</p>
+        <p style={FOOTER_TEXT}>Horizon Health Operations</p>
       </div>
     </main>
   );

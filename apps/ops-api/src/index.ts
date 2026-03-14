@@ -1,7 +1,10 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
 import routes from "./routes";
+import { setIO } from "./socket";
 
 // ── Validate required environment variables ─────────────────────
 const required = ["DATABASE_URL", "AUTH_JWT_SECRET"];
@@ -41,5 +44,22 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   }
 });
 
+// ── HTTP server + Socket.IO ─────────────────────────────────────
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
+setIO(io);
+
+io.on("connection", (socket) => {
+  console.log(`[socket.io] Client connected: ${socket.id}`);
+  socket.on("disconnect", () => {
+    console.log(`[socket.io] Client disconnected: ${socket.id}`);
+  });
+});
+
 const port = Number(process.env.PORT || 8080);
-app.listen(port, () => console.log(`ops-api listening on ${port}`));
+server.listen(port, () => console.log(`ops-api listening on ${port}`));

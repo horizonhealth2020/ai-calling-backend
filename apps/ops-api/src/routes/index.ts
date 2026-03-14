@@ -6,7 +6,8 @@ import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/au
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale } from "../services/payroll";
 import { logAudit } from "../services/audit";
-import { processCallRecording } from "../services/callAudit";
+import { reAuditCall } from "../services/callAudit";
+import { enqueueAuditJob } from "../services/auditQueue";
 
 const router = Router();
 
@@ -802,9 +803,7 @@ router.post("/webhooks/convoso", requireWebhookSecret, asyncHandler(async (req, 
   }
 
   if (auditEligible) {
-    processCallRecording(log.id).catch(err =>
-      console.error(`[webhook] Background processing failed for ${log.id}:`, err)
-    );
+    enqueueAuditJob(log.id);
   } else if (!auditEligible && recording_url) {
     // Mark as skipped so it doesn't sit as "pending"
     await prisma.convosoCallLog.update({ where: { id: log.id }, data: { auditStatus: "skipped" } });
@@ -847,11 +846,25 @@ router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
   res.json(audits);
 }));
 
+router.get("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const audit = await prisma.callAudit.findUnique({
+    where: { id: req.params.id },
+    include: {
+      agent: { select: { id: true, name: true } },
+      convosoCallLog: { select: { id: true, callDurationSeconds: true, agentUser: true, listId: true, callTimestamp: true, auditStatus: true } },
+    },
+  });
+  if (!audit) return res.status(404).json({ error: "Audit not found" });
+  res.json(audit);
+}));
+
 router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     score: z.number().min(0).max(100).optional(),
     status: z.string().min(1).optional(),
     coachingNotes: z.string().nullable().optional(),
+    callOutcome: z.enum(["sold", "callback_scheduled", "lost", "not_qualified", "incomplete"]).optional(),
+    managerSummary: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -862,6 +875,16 @@ router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMI
     include: { agent: { select: { id: true, name: true } } },
   });
   await logAudit(req.user!.id, "UPDATE", "CallAudit", audit.id, parsed.data);
+  res.json(audit);
+}));
+
+router.post("/call-audits/:id/re-audit", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  await reAuditCall(req.params.id);
+  const audit = await prisma.callAudit.findUnique({
+    where: { id: req.params.id },
+    include: { agent: { select: { id: true, name: true } } },
+  });
+  await logAudit(req.user!.id, "RE_AUDIT", "CallAudit", req.params.id, {});
   res.json(audit);
 }));
 

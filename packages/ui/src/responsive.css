@@ -1,0 +1,135 @@
+/* ── Responsive Utilities ───────────────────────────────────── */
+
+/* ── Hover & Interaction (CSS-only, can't do inline) ────────── */
+
+.hover-lift {
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.hover-glow-primary {
+  transition: box-shadow var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.hover-glow-primary:hover {
+  box-shadow: var(--shadow-glow-primary);
+  border-color: var(--primary-500);
+}
+
+.hover-glow-success:hover {
+  box-shadow: var(--shadow-glow-success);
+  border-color: var(--success);
+}
+
+.hover-glow-warning:hover {
+  box-shadow: var(--shadow-glow-warning);
+  border-color: var(--warning);
+}
+
+.interactive-card {
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+.interactive-card:hover {
+  background: var(--bg-surface-raised);
+  border-color: var(--border-strong);
+}
+
+.btn-hover {
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.btn-hover:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.btn-hover:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+.input-focus {
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+.input-focus:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  outline: none;
+}
+
+.row-hover {
+  transition: background var(--duration-instant) var(--ease-out);
+}
+.row-hover:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+/* ── Mobile (<768px) ────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: block !important; }
+  .stack-mobile { flex-direction: column !important; }
+  .grid-mobile-1 { grid-template-columns: 1fr !important; }
+  .full-width-mobile { width: 100% !important; max-width: 100% !important; }
+  .page-padding { padding-left: 16px !important; padding-right: 16px !important; }
+  .gap-mobile-sm { gap: 8px !important; }
+
+  .responsive-table thead { display: none; }
+  .responsive-table tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+    padding: 12px;
+    background: var(--bg-surface);
+  }
+  .responsive-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border: none;
+  }
+  .responsive-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* ── Tablet (768–1023px) ────────────────────────────────────── */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-tablet { display: none !important; }
+  .show-tablet { display: block !important; }
+  .grid-tablet-2 { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ── Desktop (1024px+) ──────────────────────────────────────── */
+
+@media (min-width: 1024px) {
+  .hide-desktop { display: none !important; }
+  .show-desktop { display: block !important; }
+}
+
+/* ── Wide (1440px+) ─────────────────────────────────────────── */
+
+@media (min-width: 1440px) {
+  .container-wide { max-width: 1400px; }
+}
+
+/* ── Show helpers (hidden by default) ───────────────────────── */
+
+.show-mobile,
+.show-tablet,
+.show-desktop {
+  display: none !important;
+}

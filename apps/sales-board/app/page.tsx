@@ -1,5 +1,28 @@
 "use client";
 import { useState, useEffect } from "react";
+import {
+  Trophy,
+  Medal,
+  Award,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Activity,
+  BarChart3,
+  Calendar,
+  Crown,
+} from "lucide-react";
+import {
+  AnimatedNumber,
+  Badge,
+  TabNav,
+  ProgressRing,
+  EmptyState,
+  SkeletonCard,
+  SkeletonLine,
+  SkeletonTable,
+} from "@ops/ui";
+import { colors, spacing, radius, shadows, baseCardStyle } from "@ops/ui";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 const INTERVAL = 30_000;
@@ -15,164 +38,785 @@ type DetailedData = {
   todayStats: Record<string, AgentStat>;
 };
 
-const fmt$ = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const RANK_STYLES: Record<number, { bg: string; border: string; glow: string; icon: string }> = {
-  0: { bg: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)", border: "#fbbf24", glow: "0 0 30px rgba(251,191,36,0.4)", icon: "\u{1F947}" },
-  1: { bg: "linear-gradient(135deg, #d1d5db 0%, #9ca3af 50%, #6b7280 100%)", border: "#9ca3af", glow: "0 0 20px rgba(156,163,175,0.3)", icon: "\u{1F948}" },
-  2: { bg: "linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%)", border: "#d97706", glow: "0 0 20px rgba(217,119,6,0.3)", icon: "\u{1F949}" },
-};
+const fmt$ = (n: number) =>
+  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
-function PodiumCard({ rank, name, count, premium }: { rank: number; name: string; count: number; premium: number }) {
-  const style = RANK_STYLES[rank] ?? { bg: "#1e293b", border: "#334155", glow: "none", icon: "" };
-  const height = rank === 0 ? 220 : rank === 1 ? 180 : 160;
+/* ── Podium rank configuration ────────────────────────────────── */
+
+const PODIUM_CONFIG = {
+  0: {
+    bg: "radial-gradient(ellipse at top, rgba(251,191,36,0.25) 0%, rgba(217,119,6,0.12) 50%, transparent 100%), linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(180,83,9,0.1) 100%)",
+    border: "rgba(251,191,36,0.45)",
+    glow: `0 0 40px rgba(251,191,36,0.3), ${shadows.xl}`,
+    rankColor: colors.gold,
+    icon: <Trophy size={32} strokeWidth={1.5} />,
+    height: 220,
+    width: 200,
+    nameSize: 17,
+    countSize: 36,
+    stagger: "stagger-2",
+    label: "1st Place",
+    order: 1,
+  },
+  1: {
+    bg: "radial-gradient(ellipse at top, rgba(209,213,219,0.18) 0%, rgba(156,163,175,0.08) 50%, transparent 100%), linear-gradient(135deg, rgba(209,213,219,0.12) 0%, rgba(107,114,128,0.08) 100%)",
+    border: "rgba(209,213,219,0.35)",
+    glow: `0 0 24px rgba(209,213,219,0.2), ${shadows.lg}`,
+    rankColor: colors.silver,
+    icon: <Medal size={28} strokeWidth={1.5} />,
+    height: 180,
+    width: 175,
+    nameSize: 15,
+    countSize: 28,
+    stagger: "stagger-1",
+    label: "2nd Place",
+    order: 0,
+  },
+  2: {
+    bg: "radial-gradient(ellipse at top, rgba(217,119,6,0.2) 0%, rgba(180,83,9,0.1) 50%, transparent 100%), linear-gradient(135deg, rgba(217,119,6,0.12) 0%, rgba(146,64,14,0.08) 100%)",
+    border: "rgba(217,119,6,0.4)",
+    glow: `0 0 24px rgba(217,119,6,0.25), ${shadows.lg}`,
+    rankColor: colors.bronze,
+    icon: <Award size={26} strokeWidth={1.5} />,
+    height: 160,
+    width: 165,
+    nameSize: 14,
+    countSize: 26,
+    stagger: "stagger-3",
+    label: "3rd Place",
+    order: 2,
+  },
+} as const;
+
+/* ── PodiumCard ───────────────────────────────────────────────── */
+
+function PodiumCard({
+  rank,
+  name,
+  count,
+  premium,
+}: {
+  rank: 0 | 1 | 2;
+  name: string;
+  count: number;
+  premium: number;
+}) {
+  const cfg = PODIUM_CONFIG[rank];
+
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
-      order: rank === 0 ? 1 : rank === 1 ? 0 : 2,
-    }}>
-      <div style={{
-        width: rank === 0 ? 200 : 170, height, borderRadius: "16px 16px 0 0",
-        background: style.bg, border: `2px solid ${style.border}`, borderBottom: "none",
-        boxShadow: style.glow,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: "20px 16px", position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 60%)", pointerEvents: "none" }} />
-        <div style={{ fontSize: 40, marginBottom: 8, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>{style.icon}</div>
-        <div style={{ fontSize: rank === 0 ? 18 : 16, fontWeight: 700, color: "#111", textShadow: "0 1px 2px rgba(255,255,255,0.3)", textAlign: "center", lineHeight: 1.2, marginBottom: 8 }}>{name}</div>
-        <div style={{ fontSize: rank === 0 ? 36 : 28, fontWeight: 700, color: "#111", textShadow: "0 1px 2px rgba(255,255,255,0.3)" }}>{count}</div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.6)" }}>{fmt$(premium)}</div>
+    <div
+      className={`animate-podium-rise ${cfg.stagger}`}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        order: cfg.order,
+      }}
+    >
+      {/* Rank label above card */}
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: cfg.rankColor,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: 8,
+          opacity: 0.8,
+        }}
+      >
+        {cfg.label}
+      </div>
+
+      {/* Podium column */}
+      <div
+        style={{
+          width: cfg.width,
+          height: cfg.height,
+          borderRadius: `${radius["2xl"]}px ${radius["2xl"]}px 0 0`,
+          background: cfg.bg,
+          border: `1.5px solid ${cfg.border}`,
+          borderBottom: "none",
+          boxShadow: cfg.glow,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: `${spacing[5]}px ${spacing[4]}px`,
+          position: "relative",
+          overflow: "hidden",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {/* Subtle top highlight */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "10%",
+            right: "10%",
+            height: 1,
+            background: `linear-gradient(90deg, transparent, ${cfg.border}, transparent)`,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Icon */}
+        <div
+          style={{
+            color: cfg.rankColor,
+            marginBottom: spacing[2],
+            filter: `drop-shadow(0 2px 8px ${cfg.rankColor}60)`,
+          }}
+        >
+          {cfg.icon}
+        </div>
+
+        {/* Agent name */}
+        <div
+          style={{
+            fontSize: cfg.nameSize,
+            fontWeight: 700,
+            color: colors.textPrimary,
+            textAlign: "center",
+            lineHeight: 1.2,
+            marginBottom: spacing[2],
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {name}
+        </div>
+
+        {/* Sales count */}
+        <div
+          style={{
+            fontSize: cfg.countSize,
+            fontWeight: 800,
+            color: cfg.rankColor,
+            lineHeight: 1,
+            letterSpacing: "-0.03em",
+            marginBottom: 4,
+          }}
+        >
+          <AnimatedNumber value={count} />
+        </div>
+
+        {/* Premium */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary }}>
+          <AnimatedNumber value={premium} prefix="$" decimals={2} />
+        </div>
       </div>
     </div>
   );
 }
+
+/* ── Podium base platform ─────────────────────────────────────── */
+
+function PodiumPlatform() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        gap: 0,
+        height: 48,
+        marginTop: -1,
+      }}
+    >
+      {/* 2nd */}
+      <div
+        style={{
+          width: 175,
+          height: 32,
+          background: "rgba(209,213,219,0.06)",
+          border: "1px solid rgba(209,213,219,0.15)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.silver, opacity: 0.6 }}>2</span>
+      </div>
+      {/* 1st */}
+      <div
+        style={{
+          width: 200,
+          height: 48,
+          background: "rgba(251,191,36,0.06)",
+          border: "1px solid rgba(251,191,36,0.2)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.gold, opacity: 0.7 }}>1</span>
+      </div>
+      {/* 3rd */}
+      <div
+        style={{
+          width: 165,
+          height: 20,
+          background: "rgba(217,119,6,0.06)",
+          border: "1px solid rgba(217,119,6,0.15)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.bronze, opacity: 0.6 }}>3</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── DailyView ────────────────────────────────────────────────── */
 
 function DailyView({ data }: { data: DetailedData }) {
   const { agents, todayStats, weeklyTotals } = data;
 
-  const sorted = [...agents].sort((a, b) => (todayStats[b]?.count ?? 0) - (todayStats[a]?.count ?? 0));
-  const top3 = sorted.slice(0, 3).map(a => ({ name: a, count: todayStats[a]?.count ?? 0, premium: todayStats[a]?.premium ?? 0 }));
+  const sorted = [...agents].sort(
+    (a, b) => (todayStats[b]?.count ?? 0) - (todayStats[a]?.count ?? 0)
+  );
+  const top3 = sorted
+    .slice(0, 3)
+    .map((a) => ({ name: a, count: todayStats[a]?.count ?? 0, premium: todayStats[a]?.premium ?? 0 }));
   const rest = sorted.slice(3);
 
   return (
-    <div>
-      {/* Podium */}
+    <div className="animate-fade-in">
+      {/* Podium section */}
       {top3.length > 0 && (
-        <div style={{
-          display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 12,
-          marginBottom: 40, padding: "40px 0 0",
-        }}>
-          {top3.map((a, i) => <PodiumCard key={a.name} rank={i} name={a.name} count={a.count} premium={a.premium} />)}
+        <div style={{ marginBottom: spacing[10] }}>
+          {/* Podium stage header */}
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: spacing[6],
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: spacing[3],
+            }}
+          >
+            <div style={{ height: 1, flex: 1, background: `linear-gradient(to right, transparent, ${colors.borderDefault})` }} />
+            <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
+              <Crown size={14} color={colors.gold} />
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: colors.textTertiary,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Top Performers
+              </span>
+              <Crown size={14} color={colors.gold} />
+            </div>
+            <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${colors.borderDefault})` }} />
+          </div>
+
+          {/* Podium cards */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-end",
+              gap: 0,
+            }}
+          >
+            {top3.map((a, i) => (
+              <PodiumCard
+                key={a.name}
+                rank={i as 0 | 1 | 2}
+                name={a.name}
+                count={a.count}
+                premium={a.premium}
+              />
+            ))}
+          </div>
+
+          {/* Platform base */}
+          <PodiumPlatform />
         </div>
       )}
 
-      {/* Remaining agents */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-        {rest.map((agent, i) => {
-          const todayStat = todayStats[agent];
-          const weekStat = weeklyTotals[agent];
-          return (
-            <div key={agent} style={{
-              background: "rgba(15,23,42,0.8)",
-              border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8,
-              padding: "18px 22px",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#475569", width: 28 }}>#{i + 4}</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>{agent}</span>
+      {/* Remaining agents grid */}
+      {rest.length > 0 && (
+        <>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: colors.textMuted,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: spacing[4],
+            }}
+          >
+            All Agents
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: spacing[4],
+            }}
+          >
+            {rest.map((agent, i) => {
+              const todayStat = todayStats[agent];
+              const weekStat = weeklyTotals[agent];
+              const staggerClass = `stagger-${Math.min(i + 1, 10)}` as string;
+              return (
+                <div
+                  key={agent}
+                  className={`animate-fade-in-up hover-lift ${staggerClass}`}
+                  style={{
+                    ...baseCardStyle,
+                    padding: `${spacing[5]}px ${spacing[6]}px`,
+                    position: "relative",
+                  }}
+                >
+                  {/* Rank badge */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: spacing[4],
+                      right: spacing[4],
+                      width: 28,
+                      height: 28,
+                      borderRadius: radius.full,
+                      background: colors.bgSurfaceOverlay,
+                      border: `1px solid ${colors.borderDefault}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: colors.textMuted,
+                    }}
+                  >
+                    {i + 4}
+                  </div>
+
+                  {/* Agent name */}
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: colors.textPrimary,
+                      marginBottom: spacing[4],
+                      paddingRight: spacing[10],
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {agent}
+                  </div>
+
+                  {/* Stats grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[3] }}>
+                    {/* Today */}
+                    <div
+                      style={{
+                        padding: `${spacing[3]}px`,
+                        background: colors.successBg,
+                        borderRadius: radius.lg,
+                        border: `1px solid rgba(52,211,153,0.12)`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: colors.success,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Today
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: todayStat?.count ? colors.success : colors.borderStrong,
+                          lineHeight: 1,
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        <AnimatedNumber value={todayStat?.count ?? 0} />
+                      </div>
+                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
+                        <AnimatedNumber value={todayStat?.premium ?? 0} prefix="$" decimals={2} />
+                      </div>
+                    </div>
+
+                    {/* Week */}
+                    <div
+                      style={{
+                        padding: `${spacing[3]}px`,
+                        background: colors.infoBg,
+                        borderRadius: radius.lg,
+                        border: `1px solid rgba(96,165,250,0.12)`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: colors.info,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Week
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: weekStat?.count ? colors.info : colors.borderStrong,
+                          lineHeight: 1,
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        <AnimatedNumber value={weekStat?.count ?? 0} />
+                      </div>
+                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
+                        <AnimatedNumber value={weekStat?.premium ?? 0} prefix="$" decimals={2} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Today</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: todayStat?.count ? "#34d399" : "#334155" }}>{todayStat?.count ?? 0}</div>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>{fmt$(todayStat?.premium ?? 0)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Week</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: weekStat?.count ? "#60a5fa" : "#334155" }}>{weekStat?.count ?? 0}</div>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>{fmt$(weekStat?.premium ?? 0)}</div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Empty state if no agents at all */}
+      {top3.length === 0 && rest.length === 0 && (
+        <EmptyState
+          icon={<Users size={32} />}
+          title="No Agents Yet"
+          description="Add agents in the Manager Dashboard to see the leaderboard."
+        />
+      )}
     </div>
   );
 }
+
+/* ── WeeklyView ───────────────────────────────────────────────── */
 
 function WeeklyView({ data }: { data: DetailedData }) {
   const { agents, weeklyDays, weeklyTotals, grandTotalSales, grandTotalPremium } = data;
   const dayMap: Record<string, DayRow> = {};
   for (const d of weeklyDays) dayMap[d.label] = d;
 
-  const sorted = [...agents].sort((a, b) => (weeklyTotals[b]?.count ?? 0) - (weeklyTotals[a]?.count ?? 0));
+  const sorted = [...agents].sort(
+    (a, b) => (weeklyTotals[b]?.count ?? 0) - (weeklyTotals[a]?.count ?? 0)
+  );
+
+  const TH: React.CSSProperties = {
+    padding: "14px 16px",
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    background: "rgba(12,16,33,0.9)",
+    backdropFilter: "blur(8px)",
+    borderBottom: `1px solid ${colors.borderDefault}`,
+    position: "sticky" as const,
+    top: 0,
+    zIndex: 2,
+    whiteSpace: "nowrap" as const,
+  };
 
   return (
-    <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div
+      className="animate-fade-in"
+      style={{
+        overflowX: "auto",
+        borderRadius: radius.xl,
+        border: `1px solid ${colors.borderDefault}`,
+        boxShadow: shadows.lg,
+      }}
+    >
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
         <thead>
           <tr>
-            <th style={{ padding: "14px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", background: "rgba(15,23,42,0.8)", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky" as const, top: 0 }}>Agent</th>
-            {WEEK_DAYS.map(day => (
-              <th key={day} style={{ padding: "14px 16px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", background: "rgba(15,23,42,0.8)", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky" as const, top: 0 }}>{day.slice(0, 3)}</th>
+            <th style={{ ...TH, textAlign: "left", paddingLeft: spacing[5] }}>Agent</th>
+            {WEEK_DAYS.map((day) => (
+              <th key={day} style={TH}>
+                {day.slice(0, 3)}
+              </th>
             ))}
-            <th style={{ padding: "14px 16px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.06em", background: "rgba(15,23,42,0.8)", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky" as const, top: 0 }}>Total</th>
-            <th style={{ padding: "14px 16px", textAlign: "right", fontSize: 11, fontWeight: 600, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.06em", background: "rgba(15,23,42,0.8)", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky" as const, top: 0 }}>Premium</th>
+            <th style={{ ...TH, color: colors.gold }}>Total</th>
+            <th style={{ ...TH, textAlign: "right", paddingRight: spacing[5], color: colors.gold }}>
+              Premium
+            </th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((agent, i) => {
             const total = weeklyTotals[agent];
             const isTop = i < 3;
+            const isFirst = i === 0;
+            const staggerClass = `stagger-${Math.min(i + 1, 10)}` as string;
+
             return (
-              <tr key={agent} style={{ background: isTop ? "rgba(251,191,36,0.04)" : i % 2 === 0 ? "rgba(30,41,59,0.4)" : "transparent" }}>
-                <td style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", fontWeight: 700, color: "#e2e8f0" }}>
-                  <span style={{ color: isTop ? "#fbbf24" : "#475569", marginRight: 10, fontWeight: 700, fontSize: 13 }}>#{i + 1}</span>
-                  {agent}
-                  {i === 0 && <span style={{ marginLeft: 8, fontSize: 16 }}>{"\u{1F451}"}</span>}
+              <tr
+                key={agent}
+                className={`row-hover animate-fade-in-up ${staggerClass}`}
+                style={{
+                  background: isTop
+                    ? "rgba(251,191,36,0.04)"
+                    : i % 2 === 0
+                    ? `rgba(12,16,33,0.4)`
+                    : "transparent",
+                }}
+              >
+                {/* Agent name cell */}
+                <td
+                  style={{
+                    padding: `14px ${spacing[5]}px`,
+                    borderBottom: `1px solid ${colors.borderSubtle}`,
+                    fontWeight: 700,
+                    color: colors.textPrimary,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
+                    {/* Rank badge */}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: radius.full,
+                        background: isTop ? `rgba(251,191,36,0.12)` : colors.bgSurfaceOverlay,
+                        border: `1px solid ${isTop ? "rgba(251,191,36,0.25)" : colors.borderSubtle}`,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: isTop ? colors.gold : colors.textMuted,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span>{agent}</span>
+                    {isFirst && (
+                      <span style={{ color: colors.gold, display: "flex", alignItems: "center" }}>
+                        <Crown size={14} />
+                      </span>
+                    )}
+                  </div>
                 </td>
-                {WEEK_DAYS.map(day => {
+
+                {/* Daily cells */}
+                {WEEK_DAYS.map((day) => {
                   const stat = dayMap[day]?.agents[agent];
                   return (
-                    <td key={day} style={{ padding: "14px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <td
+                      key={day}
+                      style={{
+                        padding: "14px 16px",
+                        textAlign: "center",
+                        borderBottom: `1px solid ${colors.borderSubtle}`,
+                      }}
+                    >
                       {stat ? (
                         <>
-                          <div style={{ fontSize: 18, fontWeight: 700, color: stat.count >= 3 ? "#34d399" : stat.count >= 1 ? "#60a5fa" : "#334155" }}>{stat.count}</div>
-                          <div style={{ fontSize: 10, color: "#475569", marginTop: 1 }}>{fmt$(stat.premium)}</div>
+                          <div
+                            style={{
+                              fontSize: 17,
+                              fontWeight: 700,
+                              color:
+                                stat.count >= 3
+                                  ? colors.success
+                                  : stat.count >= 1
+                                  ? colors.info
+                                  : colors.borderStrong,
+                            }}
+                          >
+                            <AnimatedNumber value={stat.count} />
+                          </div>
+                          <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>
+                            {fmt$(stat.premium)}
+                          </div>
                         </>
-                      ) : <span style={{ color: "#1e293b" }}>&mdash;</span>}
+                      ) : (
+                        <span style={{ color: colors.borderStrong, fontSize: 14 }}>&mdash;</span>
+                      )}
                     </td>
                   );
                 })}
-                <td style={{ padding: "14px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 20, fontWeight: 700, color: isTop ? "#fbbf24" : "#34d399" }}>{total?.count ?? 0}</td>
-                <td style={{ padding: "14px 16px", textAlign: "right", borderBottom: "1px solid rgba(255,255,255,0.04)", fontWeight: 700, color: "#94a3b8", fontSize: 14 }}>{fmt$(total?.premium ?? 0)}</td>
+
+                {/* Total */}
+                <td
+                  style={{
+                    padding: "14px 16px",
+                    textAlign: "center",
+                    borderBottom: `1px solid ${colors.borderSubtle}`,
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: isTop ? colors.gold : colors.success,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  <AnimatedNumber value={total?.count ?? 0} />
+                </td>
+
+                {/* Premium */}
+                <td
+                  style={{
+                    padding: `14px ${spacing[5]}px`,
+                    textAlign: "right",
+                    borderBottom: `1px solid ${colors.borderSubtle}`,
+                    fontWeight: 700,
+                    color: colors.textSecondary,
+                    fontSize: 13,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <AnimatedNumber value={total?.premium ?? 0} prefix="$" decimals={2} />
+                </td>
               </tr>
             );
           })}
-          <tr style={{ background: "rgba(251,191,36,0.08)" }}>
-            <td style={{ padding: "16px 20px", fontWeight: 700, color: "#fbbf24", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", borderTop: "2px solid rgba(251,191,36,0.2)" }}>Team Total</td>
-            {WEEK_DAYS.map(day => {
+
+          {/* Team total row */}
+          <tr style={{ background: "rgba(251,191,36,0.07)" }}>
+            <td
+              style={{
+                padding: `${spacing[4]}px ${spacing[5]}px`,
+                fontWeight: 800,
+                color: colors.gold,
+                fontSize: 12,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                borderTop: `2px solid rgba(251,191,36,0.2)`,
+              }}
+            >
+              Team Total
+            </td>
+            {WEEK_DAYS.map((day) => {
               const d = dayMap[day];
               return (
-                <td key={day} style={{ padding: "16px", textAlign: "center", borderTop: "2px solid rgba(251,191,36,0.2)" }}>
-                  {d ? <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>{d.totalSales}</div> : <span style={{ color: "#1e293b" }}>&mdash;</span>}
+                <td
+                  key={day}
+                  style={{
+                    padding: `${spacing[4]}px 16px`,
+                    textAlign: "center",
+                    borderTop: `2px solid rgba(251,191,36,0.2)`,
+                  }}
+                >
+                  {d ? (
+                    <div style={{ fontSize: 17, fontWeight: 800, color: colors.gold }}>
+                      <AnimatedNumber value={d.totalSales} />
+                    </div>
+                  ) : (
+                    <span style={{ color: colors.borderStrong }}>&mdash;</span>
+                  )}
                 </td>
               );
             })}
-            <td style={{ padding: "16px", textAlign: "center", borderTop: "2px solid rgba(251,191,36,0.2)", fontSize: 24, fontWeight: 700, color: "#fbbf24" }}>{grandTotalSales}</td>
-            <td style={{ padding: "16px", textAlign: "right", borderTop: "2px solid rgba(251,191,36,0.2)", fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>{fmt$(grandTotalPremium)}</td>
+            <td
+              style={{
+                padding: `${spacing[4]}px 16px`,
+                textAlign: "center",
+                borderTop: `2px solid rgba(251,191,36,0.2)`,
+                fontSize: 24,
+                fontWeight: 800,
+                color: colors.gold,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              <AnimatedNumber value={grandTotalSales} />
+            </td>
+            <td
+              style={{
+                padding: `${spacing[4]}px ${spacing[5]}px`,
+                textAlign: "right",
+                borderTop: `2px solid rgba(251,191,36,0.2)`,
+                fontSize: 15,
+                fontWeight: 800,
+                color: colors.gold,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <AnimatedNumber value={grandTotalPremium} prefix="$" decimals={2} />
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   );
 }
+
+/* ── LoadingSkeleton ──────────────────────────────────────────── */
+
+function LoadingSkeleton() {
+  return (
+    <div className="animate-fade-in">
+      {/* Header skeleton */}
+      <div style={{ marginBottom: spacing[8] }}>
+        <SkeletonLine height={11} width={120} />
+        <div style={{ marginTop: 10 }}>
+          <SkeletonLine height={36} width={220} />
+        </div>
+      </div>
+
+      {/* Stats bar skeleton */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: spacing[4],
+          marginBottom: spacing[8],
+        }}
+      >
+        {[0, 1, 2, 3].map((i) => (
+          <SkeletonCard key={i} height={100} />
+        ))}
+      </div>
+
+      {/* Podium skeleton */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-end",
+          gap: spacing[2],
+          marginBottom: spacing[8],
+        }}
+      >
+        <SkeletonCard height={180} />
+        <SkeletonCard height={220} />
+        <SkeletonCard height={160} />
+      </div>
+
+      {/* Table skeleton */}
+      <SkeletonTable rows={5} columns={9} />
+    </div>
+  );
+}
+
+/* ── Main SalesBoard page ─────────────────────────────────────── */
 
 export default function SalesBoard() {
   const [view, setView] = useState<"daily" | "weekly">("daily");
@@ -193,117 +837,395 @@ export default function SalesBoard() {
     refresh();
     const poll = setInterval(refresh, INTERVAL);
     const cd = setInterval(() => setTick((t) => Math.max(0, t - 1)), 1000);
-    return () => { clearInterval(poll); clearInterval(cd); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      clearInterval(poll);
+      clearInterval(cd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const totalToday = data ? Object.values(data.todayStats).reduce((s, v) => s + v.count, 0) : 0;
-  const totalPremToday = data ? Object.values(data.todayStats).reduce((s, v) => s + v.premium, 0) : 0;
+  /* Derived summary stats */
+  const totalToday = data
+    ? Object.values(data.todayStats).reduce((s, v) => s + v.count, 0)
+    : 0;
+  const totalPremToday = data
+    ? Object.values(data.todayStats).reduce((s, v) => s + v.premium, 0)
+    : 0;
+
+  /* Progress ring: tick out of 30s */
+  const ringProgress = (tick / (INTERVAL / 1000)) * 100;
 
   return (
-    <main style={{
-      background: "#0a0a0f",
-      minHeight: "100vh",
-      padding: "0 40px 48px",
-      fontFamily: "'Inter', -apple-system, sans-serif",
-      color: "white",
-    }}>
-      <div style={{ borderTop: "2px solid #2563eb" }} />
-      {/* Hero Header */}
-      <div style={{
-        padding: "36px 0 28px",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        marginBottom: 28,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+    <main
+      style={{
+        background: colors.bgRoot,
+        minHeight: "100vh",
+        padding: `0 ${spacing[10]}px ${spacing[12]}px`,
+        color: colors.textPrimary,
+      }}
+    >
+      {/* Top accent bar */}
+      <div
+        style={{
+          height: 3,
+          background: colors.accentGradient,
+          marginLeft: -spacing[10],
+          marginRight: -spacing[10],
+          marginBottom: 0,
+        }}
+      />
+
+      {/* ── Hero Header ─────────────────────────────────────────── */}
+      <div
+        className="animate-fade-in-down"
+        style={{
+          padding: `${spacing[8]}px 0 ${spacing[6]}px`,
+          borderBottom: `1px solid ${colors.borderSubtle}`,
+          marginBottom: spacing[6],
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+          className="stack-mobile"
+        >
+          {/* Title block */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#d97706", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Live Leaderboard</div>
-            <h1 style={{
-              margin: 0, fontSize: 36, fontWeight: 700, lineHeight: 1,
-              color: "#f1f5f9",
-              letterSpacing: "-0.02em",
-            }}>Sales Arena</h1>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: colors.primary400,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                marginBottom: spacing[2],
+              }}
+            >
+              Live Leaderboard
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 36,
+                fontWeight: 800,
+                lineHeight: 1,
+                color: colors.textPrimary,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Sales Arena
+            </h1>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 12, color: "#475569", marginBottom: 4 }}>Updated {lastUpdated}</div>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "4px 12px", borderRadius: 20,
-              background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)",
-            }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#22c55e" }}>LIVE</span>
-              <span style={{ fontSize: 11, color: "#475569" }}>{tick}s</span>
+
+          {/* Right: live indicator + countdown */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: spacing[2],
+            }}
+          >
+            {/* Live badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
+              <Badge color="#22c55e" variant="subtle" size="md">
+                <span
+                  className="animate-live-pulse"
+                  style={{
+                    display: "inline-block",
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: "#22c55e",
+                    flexShrink: 0,
+                  }}
+                />
+                LIVE
+              </Badge>
+            </div>
+
+            {/* Countdown ring */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: spacing[2],
+              }}
+            >
+              <ProgressRing
+                progress={ringProgress}
+                size={28}
+                strokeWidth={2.5}
+                color="#22c55e"
+              />
+              <span
+                style={{
+                  fontSize: 11,
+                  color: colors.textMuted,
+                  fontWeight: 600,
+                  minWidth: 48,
+                }}
+              >
+                {tick}s
+              </span>
+              <span style={{ fontSize: 11, color: colors.textMuted }}>
+                Updated {lastUpdated}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Today Stats Bar */}
-        {data && (
-          <div style={{ display: "flex", gap: 20, marginTop: 24 }}>
-            <div style={{
-              padding: "14px 24px", borderRadius: 8,
-              background: "rgba(5,150,105,0.08)",
-              border: "1px solid rgba(5,150,105,0.15)",
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Today&apos;s Sales</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "#34d399" }}>{totalToday}</div>
+        {/* ── Stats bar ───────────────────────────────────────── */}
+        <div
+          className="stagger-1"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: spacing[4],
+            marginTop: spacing[6],
+          }}
+        >
+          {/* Today's Sales */}
+          <div
+            className="animate-fade-in-up stagger-1"
+            style={{
+              padding: `${spacing[5]}px`,
+              borderRadius: radius.xl,
+              background: colors.successBg,
+              border: `1px solid rgba(52,211,153,0.15)`,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: spacing[4],
+                right: spacing[4],
+                color: colors.success,
+                opacity: 0.5,
+              }}
+            >
+              <Activity size={20} />
             </div>
-            <div style={{
-              padding: "14px 24px", borderRadius: 8,
-              background: "rgba(217,119,6,0.08)",
-              border: "1px solid rgba(217,119,6,0.15)",
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Today&apos;s Premium</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "#d97706" }}>{fmt$(totalPremToday)}</div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: colors.success,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: spacing[1],
+              }}
+            >
+              Today&apos;s Sales
             </div>
-            <div style={{
-              padding: "14px 24px", borderRadius: 8,
-              background: "rgba(37,99,235,0.08)",
-              border: "1px solid rgba(37,99,235,0.15)",
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Weekly Total</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "#2563eb" }}>{data.grandTotalSales}</div>
-            </div>
-            <div style={{
-              padding: "14px 24px", borderRadius: 8,
-              background: "rgba(37,99,235,0.08)",
-              border: "1px solid rgba(37,99,235,0.15)",
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Weekly Premium</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "#2563eb" }}>{fmt$(data.grandTotalPremium)}</div>
+            <div
+              style={{
+                fontSize: 30,
+                fontWeight: 800,
+                color: colors.success,
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
+            >
+              {data ? <AnimatedNumber value={totalToday} /> : <span style={{ color: colors.borderStrong }}>—</span>}
             </div>
           </div>
-        )}
+
+          {/* Today's Premium */}
+          <div
+            className="animate-fade-in-up stagger-2"
+            style={{
+              padding: `${spacing[5]}px`,
+              borderRadius: radius.xl,
+              background: colors.warningBg,
+              border: `1px solid rgba(251,191,36,0.15)`,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: spacing[4],
+                right: spacing[4],
+                color: colors.gold,
+                opacity: 0.5,
+              }}
+            >
+              <DollarSign size={20} />
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: colors.gold,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: spacing[1],
+              }}
+            >
+              Today&apos;s Premium
+            </div>
+            <div
+              style={{
+                fontSize: data && totalPremToday >= 10000 ? 22 : 26,
+                fontWeight: 800,
+                color: colors.gold,
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
+            >
+              {data ? (
+                <AnimatedNumber value={totalPremToday} prefix="$" decimals={2} />
+              ) : (
+                <span style={{ color: colors.borderStrong }}>—</span>
+              )}
+            </div>
+          </div>
+
+          {/* Weekly Sales */}
+          <div
+            className="animate-fade-in-up stagger-3"
+            style={{
+              padding: `${spacing[5]}px`,
+              borderRadius: radius.xl,
+              background: colors.infoBg,
+              border: `1px solid rgba(96,165,250,0.15)`,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: spacing[4],
+                right: spacing[4],
+                color: colors.info,
+                opacity: 0.5,
+              }}
+            >
+              <BarChart3 size={20} />
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: colors.info,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: spacing[1],
+              }}
+            >
+              Weekly Sales
+            </div>
+            <div
+              style={{
+                fontSize: 30,
+                fontWeight: 800,
+                color: colors.info,
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
+            >
+              {data ? (
+                <AnimatedNumber value={data.grandTotalSales} />
+              ) : (
+                <span style={{ color: colors.borderStrong }}>—</span>
+              )}
+            </div>
+          </div>
+
+          {/* Weekly Premium */}
+          <div
+            className="animate-fade-in-up stagger-4"
+            style={{
+              padding: `${spacing[5]}px`,
+              borderRadius: radius.xl,
+              background: colors.infoBg,
+              border: `1px solid rgba(96,165,250,0.15)`,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: spacing[4],
+                right: spacing[4],
+                color: colors.info,
+                opacity: 0.5,
+              }}
+            >
+              <TrendingUp size={20} />
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: colors.info,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: spacing[1],
+              }}
+            >
+              Weekly Premium
+            </div>
+            <div
+              style={{
+                fontSize: data && data.grandTotalPremium >= 10000 ? 20 : 26,
+                fontWeight: 800,
+                color: colors.info,
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
+            >
+              {data ? (
+                <AnimatedNumber value={data.grandTotalPremium} prefix="$" decimals={2} />
+              ) : (
+                <span style={{ color: colors.borderStrong }}>—</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* View Toggle */}
-      <div style={{ display: "flex", marginBottom: 28, gap: 0, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        {(["daily", "weekly"] as const).map(v => (
-          <button key={v} onClick={() => setView(v)} style={{
-            padding: "10px 28px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
-            background: "transparent", textTransform: "uppercase", letterSpacing: "0.05em",
-            color: view === v ? "#e2e8f0" : "#64748b",
-            borderBottom: view === v ? "2px solid #2563eb" : "2px solid transparent",
-            marginBottom: -1,
-          }}>{v}</button>
-        ))}
+      {/* ── View Toggle ──────────────────────────────────────────── */}
+      <div className="animate-fade-in stagger-3" style={{ marginBottom: spacing[6] }}>
+        <TabNav
+          tabs={[
+            { key: "daily", label: "Daily View", icon: <Users size={14} /> },
+            { key: "weekly", label: "Weekly View", icon: <Calendar size={14} /> },
+          ]}
+          active={view}
+          onChange={(k) => setView(k as "daily" | "weekly")}
+        />
       </div>
 
+      {/* ── Content area ─────────────────────────────────────────── */}
       {!data ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#475569", background: "rgba(15,23,42,0.8)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Loading...</div>
-          <div style={{ fontSize: 14 }}>Fetching live data</div>
-        </div>
+        <LoadingSkeleton />
       ) : data.agents.length === 0 ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#475569", background: "rgba(15,23,42,0.8)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>No Agents Yet</div>
-          <div style={{ fontSize: 14 }}>Add agents in the Manager Dashboard</div>
+        <div
+          style={{
+            ...baseCardStyle,
+            padding: `${spacing[16]}px ${spacing[8]}px`,
+          }}
+        >
+          <EmptyState
+            icon={<Users size={32} />}
+            title="No Agents Yet"
+            description="Add agents in the Manager Dashboard to start tracking the leaderboard."
+          />
         </div>
       ) : view === "weekly" ? (
-        <WeeklyView data={data} />
+        <WeeklyView key="weekly" data={data} />
       ) : (
-        <DailyView data={data} />
+        <DailyView key="daily" data={data} />
       )}
     </main>
   );

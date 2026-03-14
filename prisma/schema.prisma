@@ -180,9 +180,16 @@ model CallAudit {
   aiSummary       String?  @map("ai_summary")
   aiScore         Int?     @map("ai_score")
   aiCoachingNotes String?  @map("ai_coaching_notes")
-  recordingUrl    String?  @map("recording_url")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  recordingUrl         String?  @map("recording_url")
+  callOutcome          String?  @map("call_outcome")
+  callDurationEstimate String?  @map("call_duration_estimate")
+  issues               Json?
+  wins                 Json?
+  missedOpportunities  Json?    @map("missed_opportunities")
+  suggestedCoaching    Json?    @map("suggested_coaching")
+  managerSummary       String?  @map("manager_summary")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   agent          Agent            @relation(fields: [agentId], references: [id])
   reviewer       User?            @relation("AuditReviewer", fields: [reviewerUserId], references: [id])
