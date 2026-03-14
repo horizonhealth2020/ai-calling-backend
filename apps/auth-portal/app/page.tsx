@@ -29,9 +29,9 @@ const BG_MESH: React.CSSProperties = {
   position: "absolute",
   inset: 0,
   backgroundImage: [
-    "radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99,102,241,0.12) 0%, transparent 60%)",
-    "radial-gradient(ellipse 60% 50% at 80% 90%, rgba(139,92,246,0.10) 0%, transparent 55%)",
-    "radial-gradient(ellipse 40% 40% at 60% 30%, rgba(59,130,246,0.07) 0%, transparent 50%)",
+    "radial-gradient(ellipse 80% 60% at 20% 10%, rgba(20,184,166,0.12) 0%, transparent 60%)",
+    "radial-gradient(ellipse 60% 50% at 80% 90%, rgba(13,148,136,0.10) 0%, transparent 55%)",
+    "radial-gradient(ellipse 40% 40% at 60% 30%, rgba(94,234,212,0.07) 0%, transparent 50%)",
   ].join(", "),
   animation: "gradientShift 12s ease infinite",
   backgroundSize: "200% 200%",

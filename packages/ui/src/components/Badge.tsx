@@ -17,8 +17,10 @@ const SIZE_STYLES: Record<NonNullable<BadgeProps["size"]>, React.CSSProperties> 
 };
 
 function hexToRgba(hex: string, alpha: number): string {
-  // Handle non-hex colors (rgba, named, etc.) by using the opacity hex suffix approach
-  if (!hex.startsWith("#")) return hex;
+  // Handle CSS var() or non-hex colors with color-mix
+  if (!hex.startsWith("#")) {
+    return `color-mix(in srgb, ${hex} ${Math.round(alpha * 100)}%, transparent)`;
+  }
   const cleaned = hex.replace("#", "");
   const r = parseInt(cleaned.slice(0, 2), 16);
   const g = parseInt(cleaned.slice(2, 4), 16);

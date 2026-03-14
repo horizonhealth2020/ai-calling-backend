@@ -147,7 +147,7 @@ const TD_C: React.CSSProperties = { ...TD, textAlign: "center" };
 /* ── Status config ───────────────────────────────────────────── */
 
 const STATUS_BADGE: Record<string, { color: string; label: string }> = {
-  OPEN:      { color: C.accentBlue,  label: "Open" },
+  OPEN:      { color: C.accentTeal,  label: "Open" },
   LOCKED:    { color: C.warning,     label: "Locked" },
   FINALIZED: { color: C.success,     label: "Finalized" },
 };
@@ -157,7 +157,7 @@ const TYPE_LABELS: Record<ProductType, string> = {
 };
 
 const TYPE_COLORS: Record<ProductType, string> = {
-  CORE: C.primary400, ADDON: C.accentBlue, AD_D: C.warning,
+  CORE: C.primary400, ADDON: C.accentTeal, AD_D: C.warning,
 };
 
 /* ── Helpers ─────────────────────────────────────────────────── */
@@ -870,8 +870,8 @@ export default function PayrollDashboard() {
   td { padding: 7px 6px; border-bottom: 1px solid #f1f5f9; }
   .right { text-align: right; }
   .center { text-align: center; }
-  .core { color: #2563eb; font-weight: 600; }
-  .addon { color: #7c3aed; font-weight: 600; }
+  .core { color: #14b8a6; font-weight: 600; }
+  .addon { color: #0d9488; font-weight: 600; }
   .add { color: #d97706; font-weight: 600; }
   .subtotal td { border-top: 2px solid #cbd5e1; font-weight: 700; border-bottom: none; }
   @media print { body { padding: 0; } .agent-card { padding: 16px 0; } }
@@ -939,15 +939,15 @@ export default function PayrollDashboard() {
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; background: #fff; padding: 20px; }
-  .header { border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 16px; }
-  .header h1 { font-size: 20px; font-weight: 800; color: #7c3aed; }
+  .header { border-bottom: 2px solid #14b8a6; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 20px; font-weight: 800; color: #14b8a6; }
   .header .meta { font-size: 13px; color: #64748b; margin-top: 4px; }
-  .total { font-size: 16px; font-weight: 800; color: #7c3aed; margin-bottom: 16px; }
+  .total { font-size: 16px; font-weight: 800; color: #14b8a6; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { padding: 8px 8px; text-align: left; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e2e8f0; }
   td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
   .right { text-align: right; } .center { text-align: center; }
-  .green { color: #059669; } .red { color: #dc2626; } .purple { color: #7c3aed; font-weight: 700; }
+  .green { color: #059669; } .red { color: #dc2626; } .purple { color: #14b8a6; font-weight: 700; }
   @media print { body { padding: 0; } }
 </style></head><body>
 <div class="header">
@@ -956,7 +956,7 @@ export default function PayrollDashboard() {
 </div>
 <div class="total">Total: $${total.toFixed(2)}</div>
 <table>
-  <thead><tr><th>Name</th><th class="right">Base Pay</th><th class="right" style="color:#dc2626">Fronted</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#7c3aed">Total</th></tr></thead>
+  <thead><tr><th>Name</th><th class="right">Base Pay</th><th class="right" style="color:#dc2626">Fronted</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#14b8a6">Total</th></tr></thead>
   <tbody>${serviceEntries.map(se => {
       const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
       const fAmt = Number(se.frontedAmount ?? 0);
@@ -1222,7 +1222,7 @@ export default function PayrollDashboard() {
                       <button
                         className="btn-hover"
                         onClick={ev => { ev.stopPropagation(); printAgentCards([...byAgent.entries()], p); }}
-                        style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(96,165,250,0.2)`, color: C.info }}
+                        style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
                       >
                         <Printer size={12} /> Print All
                       </button>
@@ -1263,7 +1263,7 @@ export default function PayrollDashboard() {
                   <div style={{
                     marginTop: S[3], padding: "10px 16px",
                     background: C.infoBg,
-                    border: `1px solid rgba(96,165,250,0.15)`,
+                    border: `1px solid rgba(45,212,191,0.15)`,
                     borderRadius: R.lg,
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                   }}>
@@ -1301,7 +1301,7 @@ export default function PayrollDashboard() {
                             className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`}
                             style={{
                               background: C.bgSurfaceRaised,
-                              border: `1px solid ${isTopEarner ? "rgba(99,102,241,0.25)" : C.borderSubtle}`,
+                              border: `1px solid ${isTopEarner ? "rgba(20,184,166,0.25)" : C.borderSubtle}`,
                               borderRadius: R.xl,
                               overflow: "hidden",
                             }}
@@ -1311,7 +1311,7 @@ export default function PayrollDashboard() {
                               display: "flex", justifyContent: "space-between", alignItems: "center",
                               padding: `${S[4]}px ${S[5]}px`,
                               borderBottom: `1px solid ${C.borderSubtle}`,
-                              background: isTopEarner ? "rgba(99,102,241,0.04)" : "transparent",
+                              background: isTopEarner ? "rgba(20,184,166,0.04)" : "transparent",
                             }}>
                               <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
                                 <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{agentName}</span>
@@ -1326,7 +1326,7 @@ export default function PayrollDashboard() {
                                 <button
                                   className="btn-hover"
                                   onClick={() => printAgentCards([[agentName, entries]], p)}
-                                  style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(96,165,250,0.2)`, color: C.info }}
+                                  style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
                                 >
                                   <Printer size={11} /> Print
                                 </button>
@@ -1390,14 +1390,14 @@ export default function PayrollDashboard() {
                     {(p.serviceEntries ?? []).length > 0 && (
                       <div style={{
                         background: C.bgSurfaceRaised,
-                        border: `1px solid rgba(96,165,250,0.15)`,
+                        border: `1px solid rgba(45,212,191,0.15)`,
                         borderRadius: R.xl,
                         overflow: "hidden",
                       }}>
                         <div style={{
                           display: "flex", justifyContent: "space-between", alignItems: "center",
                           padding: `${S[4]}px ${S[5]}px`,
-                          borderBottom: `1px solid rgba(96,165,250,0.1)`,
+                          borderBottom: `1px solid rgba(45,212,191,0.1)`,
                           background: C.infoBg,
                         }}>
                           <span style={{ fontWeight: 700, fontSize: 15, color: C.info }}>Customer Service</span>
@@ -1553,9 +1553,9 @@ export default function PayrollDashboard() {
                       onClick={() => setExportRange(r)}
                       style={{
                         padding: "10px 20px",
-                        border: active ? `1px solid rgba(99,102,241,0.4)` : `1px solid ${C.borderDefault}`,
+                        border: active ? `1px solid rgba(20,184,166,0.4)` : `1px solid ${C.borderDefault}`,
                         borderRadius: R.lg,
-                        background: active ? "rgba(99,102,241,0.12)" : C.bgSurfaceInset,
+                        background: active ? "rgba(20,184,166,0.12)" : C.bgSurfaceInset,
                         color: active ? C.primary400 : C.textMuted,
                         fontWeight: active ? 700 : 500,
                         cursor: "pointer", fontSize: 13,

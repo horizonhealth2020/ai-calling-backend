@@ -466,7 +466,7 @@ function DailyView({ data }: { data: DetailedData }) {
                         padding: `${spacing[3]}px`,
                         background: colors.infoBg,
                         borderRadius: radius.lg,
-                        border: `1px solid rgba(96,165,250,0.12)`,
+                        border: `1px solid rgba(45,212,191,0.12)`,
                       }}
                     >
                       <div
@@ -1095,7 +1095,7 @@ export default function SalesBoard() {
               padding: `${spacing[5]}px`,
               borderRadius: radius.xl,
               background: colors.infoBg,
-              border: `1px solid rgba(96,165,250,0.15)`,
+              border: `1px solid rgba(45,212,191,0.15)`,
               position: "relative",
               overflow: "hidden",
             }}
@@ -1147,7 +1147,7 @@ export default function SalesBoard() {
               padding: `${spacing[5]}px`,
               borderRadius: radius.xl,
               background: colors.infoBg,
-              border: `1px solid rgba(96,165,250,0.15)`,
+              border: `1px solid rgba(45,212,191,0.15)`,
               position: "relative",
               overflow: "hidden",
             }}

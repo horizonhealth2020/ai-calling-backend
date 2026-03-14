@@ -58,12 +58,12 @@ const RANGE_LABELS: { value: Range; label: string }[] = [
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 const ROLE_COLORS: Record<string, string> = {
-  SUPER_ADMIN: "#8b5cf6",
+  SUPER_ADMIN: "#14b8a6",
   OWNER_VIEW: "#059669",
-  MANAGER: "#3b82f6",
+  MANAGER: "#0d9488",
   PAYROLL: "#d97706",
   SERVICE: "#64748b",
-  ADMIN: "#0891b2",
+  ADMIN: "#0f766e",
 };
 
 const RANK_COLORS = ["#fbbf24", "#94a3b8", "#d97706"] as const;
@@ -316,7 +316,7 @@ function UserRow({
           ...TD,
           background: colors.bgSurfaceRaised,
           padding: 20,
-          borderLeft: `3px solid ${colors.accentBlue}`,
+          borderLeft: `3px solid ${colors.accentTeal}`,
         }}
       >
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -487,9 +487,9 @@ function DashboardSection({
           label="Total Sales"
           value={summary ? summary.salesCount : "—"}
           icon={<BarChart3 size={18} />}
-          accent={colors.accentBlue}
+          accent={colors.accentTeal}
           className="stagger-1"
-          style={{ borderTop: `3px solid ${colors.accentBlue}` }}
+          style={{ borderTop: `3px solid ${colors.accentTeal}` }}
         />
         <StatCard
           label="Premium Total"

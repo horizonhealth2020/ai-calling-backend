@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { colors, spacing, radius, shadows, typography, motion } from "./tokens";
+import { ThemeToggle } from "./ThemeToggle";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -490,11 +491,10 @@ export function PageShell({
         <div style={MOBILE_TOPBAR}>
           <div style={MOBILE_LOGO_BADGE}>H</div>
           <h1 style={MOBILE_PAGE_TITLE}>{title}</h1>
-          {headerRight && (
-            <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: spacing[2] }}>
-              {headerRight}
-            </div>
-          )}
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: spacing[2] }}>
+            {headerRight}
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Page content */}
@@ -566,11 +566,10 @@ export function PageShell({
             <h1 style={PAGE_TITLE}>{title}</h1>
             {subtitle && <span style={PAGE_SUBTITLE}>{subtitle}</span>}
           </div>
-          {headerRight && (
-            <div style={{ display: "flex", alignItems: "center", gap: spacing[3], flexShrink: 0 }}>
-              {headerRight}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: spacing[3], flexShrink: 0 }}>
+            {headerRight}
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Page content */}
@@ -584,3 +583,5 @@ export function PageShell({
 
 export * from "./components";
 export * from "./tokens";
+export { ThemeProvider, useTheme } from "./ThemeProvider";
+export { ThemeToggle } from "./ThemeToggle";

@@ -57,7 +57,7 @@
 }
 .input-focus:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  box-shadow: 0 0 0 3px rgba(20,184,166,0.12);
   outline: none;
 }
 
@@ -65,7 +65,7 @@
   transition: background var(--duration-instant) var(--ease-out);
 }
 .row-hover:hover {
-  background: rgba(255,255,255,0.02);
+  background: var(--row-hover-bg);
 }
 
 /* ── Mobile (<768px) ────────────────────────────────────────── */

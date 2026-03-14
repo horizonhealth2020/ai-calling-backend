@@ -163,7 +163,7 @@ const SUBMIT_BTN: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 15,
   minHeight: 48,
-  boxShadow: `${shadows.glowPrimary}, 0 4px 20px rgba(99,102,241,0.3)`,
+  boxShadow: `${shadows.glowPrimary}, 0 4px 20px rgba(20,184,166,0.3)`,
   letterSpacing: "0.02em",
   width: "100%",
 };
@@ -198,7 +198,7 @@ const OUTCOME_COLORS: Record<string, { bg: string; color: string }> = {
 const PRIORITY_COLORS: Record<number, { bg: string; color: string }> = {
   1: { bg: "rgba(248,113,113,0.15)", color: "#f87171" },
   2: { bg: "rgba(251,191,36,0.15)", color: "#fbbf24" },
-  3: { bg: "rgba(96,165,250,0.15)", color: "#60a5fa" },
+  3: { bg: "rgba(45,212,191,0.15)", color: "#2dd4bf" },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -217,7 +217,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const QUOTE_BLOCK: React.CSSProperties = {
-  borderLeft: "3px solid rgba(96,165,250,0.4)",
+  borderLeft: "3px solid rgba(45,212,191,0.4)",
   paddingLeft: 12,
   fontStyle: "italic",
   color: colors.textSecondary,
@@ -1059,7 +1059,7 @@ export default function ManagerDashboard() {
                           ? `2px solid ${colors.primary500}`
                           : `2px solid ${colors.borderDefault}`,
                         background: form.paymentType === pt
-                          ? `rgba(99,102,241,0.1)`
+                          ? `rgba(20,184,166,0.1)`
                           : "transparent",
                         cursor: "pointer",
                         transition: `all ${motion.duration.fast} ${motion.easing.out}`,
@@ -1333,8 +1333,8 @@ export default function ManagerDashboard() {
                     alignItems: "center",
                     gap: 12,
                     padding: "10px 16px",
-                    background: "rgba(99,102,241,0.08)",
-                    border: `1px solid rgba(99,102,241,0.2)`,
+                    background: "rgba(20,184,166,0.08)",
+                    border: `1px solid rgba(20,184,166,0.2)`,
                     borderRadius: radius.lg,
                     fontSize: 13,
                     color: colors.textSecondary,
@@ -1343,7 +1343,7 @@ export default function ManagerDashboard() {
                   <div style={{
                     width: 16,
                     height: 16,
-                    border: "2px solid rgba(99,102,241,0.3)",
+                    border: "2px solid rgba(20,184,166,0.3)",
                     borderTopColor: colors.primary400,
                     borderRadius: "50%",
                     animation: "spin 0.8s linear infinite",
@@ -1702,7 +1702,7 @@ export default function ManagerDashboard() {
                         {isEditing && (
                           <tr>
                             <td colSpan={6} style={{ padding: 0 }}>
-                              <div className="animate-fade-in" style={{ padding: 20, background: "rgba(99,102,241,0.04)", borderTop: `1px solid ${colors.borderSubtle}` }}>
+                              <div className="animate-fade-in" style={{ padding: 20, background: "rgba(20,184,166,0.04)", borderTop: `1px solid ${colors.borderSubtle}` }}>
                                 <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
                                   <div>
                                     <label style={LBL}>Score</label>

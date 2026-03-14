@@ -106,7 +106,7 @@ export default function ErrorPage({ error, reset }: { error: Error; reset: () =>
             alignItems: "center",
             gap: spacing[2],
             padding: `${spacing[3]}px ${spacing[6]}px`,
-            background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+            background: "linear-gradient(135deg, #14b8a6, #0d9488)",
             color: "#ffffff",
             border: "none",
             borderRadius: radius.lg,

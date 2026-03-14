@@ -1,48 +1,48 @@
 "use client";
 /* ── Design Tokens ─────────────────────────────────────────────── */
 /* Single source of truth for the Ops Platform design system.      */
-/* Used by both TypeScript components (inline styles) and CSS      */
-/* custom properties (theme.css).                                  */
+/* Values reference CSS custom properties defined in theme.css     */
+/* so they respond to light/dark theme switching automatically.    */
 
 export const colors = {
   // Backgrounds
-  bgRoot: "#07080d",
-  bgSurface: "#0c1021",
-  bgSurfaceRaised: "#111827",
-  bgSurfaceOverlay: "#1a2236",
-  bgSurfaceInset: "#060810",
+  bgRoot: "var(--bg-root)",
+  bgSurface: "var(--bg-surface)",
+  bgSurfaceRaised: "var(--bg-surface-raised)",
+  bgSurfaceOverlay: "var(--bg-surface-overlay)",
+  bgSurfaceInset: "var(--bg-surface-inset)",
 
   // Borders
-  borderSubtle: "rgba(255,255,255,0.04)",
-  borderDefault: "rgba(255,255,255,0.08)",
-  borderStrong: "rgba(255,255,255,0.12)",
-  borderFocus: "#3b82f6",
+  borderSubtle: "var(--border-subtle)",
+  borderDefault: "var(--border-default)",
+  borderStrong: "var(--border-strong)",
+  borderFocus: "var(--border-focus)",
 
-  // Primary (blue-indigo for premium feel)
-  primary300: "#a5b4fc",
-  primary400: "#818cf8",
-  primary500: "#6366f1",
-  primary600: "#4f46e5",
-  primary700: "#4338ca",
-  accentBlue: "#3b82f6",
-  accentGradient: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  // Primary (teal)
+  primary300: "var(--primary-300)",
+  primary400: "var(--primary-400)",
+  primary500: "var(--primary-500)",
+  primary600: "var(--primary-600)",
+  primary700: "var(--primary-700)",
+  accentTeal: "var(--accent-teal)",
+  accentGradient: "var(--accent-gradient)",
 
   // Semantic
-  success: "#34d399",
-  successBg: "rgba(52,211,153,0.08)",
-  warning: "#fbbf24",
-  warningBg: "rgba(251,191,36,0.08)",
-  danger: "#f87171",
-  dangerBg: "rgba(248,113,113,0.08)",
-  info: "#60a5fa",
-  infoBg: "rgba(96,165,250,0.08)",
+  success: "var(--success)",
+  successBg: "var(--success-bg)",
+  warning: "var(--warning)",
+  warningBg: "var(--warning-bg)",
+  danger: "var(--danger)",
+  dangerBg: "var(--danger-bg)",
+  info: "var(--info)",
+  infoBg: "var(--info-bg)",
 
   // Text
-  textPrimary: "#f1f5f9",
-  textSecondary: "#94a3b8",
-  textTertiary: "#64748b",
-  textMuted: "#475569",
-  textInverse: "#0f172a",
+  textPrimary: "var(--text-primary)",
+  textSecondary: "var(--text-secondary)",
+  textTertiary: "var(--text-tertiary)",
+  textMuted: "var(--text-muted)",
+  textInverse: "var(--text-inverse)",
 
   // Status (for badges/pills)
   gold: "#fbbf24",
@@ -105,14 +105,14 @@ export const typography = {
 } as const;
 
 export const shadows = {
-  sm: "0 1px 2px rgba(0,0,0,0.3)",
-  md: "0 4px 12px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.2)",
-  lg: "0 8px 24px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)",
-  xl: "0 16px 48px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.25)",
-  glowPrimary: "0 0 24px rgba(99,102,241,0.15)",
-  glowSuccess: "0 0 24px rgba(52,211,153,0.12)",
-  glowDanger: "0 0 24px rgba(248,113,113,0.12)",
-  glowWarning: "0 0 24px rgba(251,191,36,0.12)",
+  sm: "var(--shadow-sm)",
+  md: "var(--shadow-md)",
+  lg: "var(--shadow-lg)",
+  xl: "var(--shadow-xl)",
+  glowPrimary: "var(--shadow-glow-primary)",
+  glowSuccess: "var(--shadow-glow-success)",
+  glowDanger: "var(--shadow-glow-danger)",
+  glowWarning: "var(--shadow-glow-warning)",
 } as const;
 
 export const motion = {
