@@ -298,18 +298,23 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   if (!result.success) return res.status(400).json(zodErr(result.error));
   const parsed = result.data;
   const { addonProductIds, ...saleData } = parsed;
+  const uniqueAddonIds = [...new Set(addonProductIds)];
   const sale = await prisma.sale.create({
     data: {
       ...saleData,
-      saleDate: new Date(parsed.saleDate),
-      effectiveDate: new Date(parsed.effectiveDate),
+      saleDate: new Date(parsed.saleDate + "T12:00:00"),
+      effectiveDate: new Date(parsed.effectiveDate + "T12:00:00"),
       enteredByUserId: req.user!.id,
-      addons: addonProductIds.length > 0 ? {
-        create: addonProductIds.map(productId => ({ productId })),
+      addons: uniqueAddonIds.length > 0 ? {
+        create: uniqueAddonIds.map(productId => ({ productId })),
       } : undefined,
     },
   });
-  await upsertPayrollEntryForSale(sale.id);
+  try {
+    await upsertPayrollEntryForSale(sale.id);
+  } catch (err) {
+    console.error("Payroll entry failed for sale", sale.id, err);
+  }
   res.status(201).json(sale);
 }));
 
