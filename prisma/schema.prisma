@@ -116,6 +116,7 @@ model Product {
   commissionAbove       Decimal?    @db.Decimal(5, 2) @map("commission_above")
   bundledCommission     Decimal?    @db.Decimal(5, 2) @map("bundled_commission")
   standaloneCommission  Decimal?    @db.Decimal(5, 2) @map("standalone_commission")
+  isBundleQualifier     Boolean     @default(false) @map("is_bundle_qualifier")
   enrollFeeThreshold    Decimal?    @db.Decimal(10, 2) @map("enroll_fee_threshold")
   notes                 String?
   createdAt             DateTime    @default(now()) @map("created_at")
