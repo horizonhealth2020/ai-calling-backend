@@ -197,6 +197,7 @@ function EditableSaleRow({
     memberId: entry.sale?.memberId ?? "",
     carrier: entry.sale?.carrier ?? "",
     premium: String(entry.sale?.premium ?? ""),
+    enrollmentFee: String(entry.sale?.enrollmentFee ?? ""),
     notes: entry.sale?.notes ?? "",
   });
   const [bonus, setBonus] = useState(String(entry.bonusAmount ?? 0));
@@ -237,35 +238,26 @@ function EditableSaleRow({
       </td>
 
       <td style={TD}>
-        {editSale ? (
-          <input
-            className="input-focus"
-            style={{ ...SMALL_INP, width: 110, textAlign: "left" }}
-            value={saleData.carrier}
-            onChange={e => setSaleData(d => ({ ...d, carrier: e.target.value }))}
-          />
-        ) : (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {/* Core product */}
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
-              {entry.sale?.premium != null && (
-                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>${Number(entry.sale.premium).toFixed(2)}</span>
-              )}
-            </div>
-            {/* Addon & AD&D products side by side */}
-            {entry.sale?.addons?.map((addon: { product: { id: string; name: string; type: string } }) => (
-              <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
-                <Badge
-                  color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
-                  size="sm"
-                >
-                  {addon.product.name}
-                </Badge>
-              </div>
-            ))}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Core product */}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
+            {entry.sale?.premium != null && (
+              <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>${Number(entry.sale.premium).toFixed(2)}</span>
+            )}
           </div>
-        )}
+          {/* Addon & AD&D products side by side */}
+          {entry.sale?.addons?.map((addon: { product: { id: string; name: string; type: string } }) => (
+            <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
+              <Badge
+                color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
+                size="sm"
+              >
+                {addon.product.name}
+              </Badge>
+            </div>
+          ))}
+        </div>
       </td>
 
       <td style={TD_R}>
@@ -274,8 +266,8 @@ function EditableSaleRow({
             className="input-focus"
             style={SMALL_INP}
             type="number" step="0.01"
-            value={saleData.premium}
-            onChange={e => setSaleData(d => ({ ...d, premium: e.target.value }))}
+            value={saleData.enrollmentFee}
+            onChange={e => setSaleData(d => ({ ...d, enrollmentFee: e.target.value }))}
           />
         ) : (
           <span style={{ color: needsApproval ? C.danger : C.textSecondary, fontWeight: needsApproval ? 700 : 400 }}>
@@ -354,8 +346,7 @@ function EditableSaleRow({
                 await onSaleUpdate(entry.sale!.id, {
                   memberName: saleData.memberName,
                   memberId: saleData.memberId || null,
-                  carrier: saleData.carrier,
-                  premium: Number(saleData.premium),
+                  enrollmentFee: saleData.enrollmentFee ? Number(saleData.enrollmentFee) : null,
                   notes: saleData.notes || null,
                 });
                 setEditSale(false); setSaving(false);
