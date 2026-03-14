@@ -12,46 +12,10 @@ export const getSundayWeekRange = (date: Date) => {
 type SaleWithProduct = Sale & { product: Product; addons: (SaleAddon & { product: Product })[] };
 
 /**
- * Calculate commission for a single product in context of a sale.
- *
- * Core:   commissionBelow / commissionAbove based on premium vs premiumThreshold
- * AD&D:   bundledCommission (70% default) if sold with core, standaloneCommission (35%) otherwise
- * Addon:  bundledCommission (match core) if sold with core, standaloneCommission (30%) otherwise
- */
-function calcProductCommission(product: Product, premium: number, hasCoreInSale: boolean, coreProduct: Product | null): number {
-  const prem = premium;
-
-  if (product.type === "CORE") {
-    const threshold = Number(product.premiumThreshold ?? 0);
-    const rate = prem >= threshold
-      ? Number(product.commissionAbove ?? 0)
-      : Number(product.commissionBelow ?? 0);
-    return prem * (rate / 100);
-  }
-
-  if (product.type === "AD_D") {
-    const rate = hasCoreInSale
-      ? Number(product.bundledCommission ?? 70)
-      : Number(product.standaloneCommission ?? 35);
-    return prem * (rate / 100);
-  }
-
-  // ADDON
-  if (hasCoreInSale && coreProduct) {
-    // Bundled addon: premium contributes to core's threshold total, no separate commission
-    return 0;
-  }
-
-  // Standalone addon
-  const rate = Number(product.standaloneCommission ?? 30);
-  return prem * (rate / 100);
-}
-
-/**
  * Apply enrollment fee rules:
- *   $125 → +$10 bonus
- *   $99  → $0
- *   <$99 (or <$50 for standalone addon) → halve commission, unless approved
+ *   $125 -> +$10 bonus
+ *   $99  -> $0
+ *   <$99 (or <$50 for standalone addon) -> halve commission, unless approved
  */
 function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean, product: Product): { finalCommission: number; enrollmentBonus: number } {
   if (enrollmentFee === null || enrollmentFee === undefined) {
@@ -84,45 +48,100 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
   return { finalCommission: commission, enrollmentBonus };
 }
 
+/**
+ * Calculate commission for a sale using bundle aggregation logic.
+ *
+ * When a core product exists:
+ *   1. Sum bundle premium = core premium + regular addon premiums (exclude qualifier premiums)
+ *   2. Apply core product's rate (above/below threshold) to the combined bundle premium
+ *   3. Calculate AD&D commission separately using bundledCommission rate
+ *   4. If no bundle qualifier (isBundleQualifier) and not commissionApproved: halve entire total
+ *
+ * When no core (standalone):
+ *   - Each product uses its standaloneCommission rate x its own premium
+ *
+ * Null commission rates produce $0 (no hardcoded fallbacks).
+ * Final result rounded to 2 decimal places.
+ */
 export const calculateCommission = (sale: SaleWithProduct): number => {
-  const premium = Number(sale.premium);
-  const product = sale.product;
   const addons = sale.addons ?? [];
 
-  // Determine if there's a core product in this sale
-  const allProducts = [product, ...addons.map(a => a.product)];
-  const coreProduct = allProducts.find(p => p.type === "CORE") ?? null;
-  const hasCoreInSale = coreProduct !== null;
+  // Build product entries with their respective premiums
+  const allEntries = [
+    { product: sale.product, premium: Number(sale.premium) },
+    ...addons.map(a => ({ product: a.product, premium: Number(a.premium ?? 0) })),
+  ];
 
-  // Calculate commission for the primary product
-  let totalCommission = calcProductCommission(product, premium, hasCoreInSale, coreProduct);
+  // Classify products
+  const coreEntry = allEntries.find(e => e.product.type === "CORE");
+  const hasCoreInSale = !!coreEntry;
+  const qualifierExists = allEntries.some(e => e.product.isBundleQualifier);
 
-  // Calculate commission for each addon product
-  for (const addon of addons) {
-    totalCommission += calcProductCommission(addon.product, premium, hasCoreInSale, coreProduct);
-  }
+  let totalCommission = 0;
 
-  // Compass VAB bundling rule: if core product present and Compass VAB not bundled, halve commission
-  // Exception: Florida (FL) is exempt from this rule
   if (hasCoreInSale) {
-    const addonNames = addons.map(a => a.product.name.toLowerCase());
-    const hasCompassVab = addonNames.some(n => n.includes("compass") && n.includes("vab"));
-    const isFL = sale.memberState?.toUpperCase() === "FL";
-    if (!hasCompassVab && !isFL) {
-      totalCommission = totalCommission / 2;
+    // --- CORE + ADDON BUNDLE ---
+    // Sum premiums: core + non-qualifier addons (exclude qualifier premiums like Compass VAB)
+    const bundlePremium = allEntries
+      .filter(e => (e.product.type === "CORE" || e.product.type === "ADDON") && !e.product.isBundleQualifier)
+      .reduce((sum, e) => sum + e.premium, 0);
+
+    // Apply core product's rate based on threshold
+    const threshold = Number(coreEntry.product.premiumThreshold ?? 0);
+    const aboveRate = coreEntry.product.commissionAbove;
+    const belowRate = coreEntry.product.commissionBelow;
+
+    if (bundlePremium >= threshold) {
+      if (aboveRate === null) {
+        console.warn(`Product ${coreEntry.product.id} has null commissionAbove rate`);
+      }
+      const rate = Number(aboveRate ?? 0);
+      totalCommission += bundlePremium * (rate / 100);
+    } else {
+      if (belowRate === null) {
+        console.warn(`Product ${coreEntry.product.id} has null commissionBelow rate`);
+      }
+      const rate = Number(belowRate ?? 0);
+      totalCommission += bundlePremium * (rate / 100);
+    }
+
+    // --- AD&D (separate calculation, bundled rate) ---
+    for (const entry of allEntries.filter(e => e.product.type === "AD_D")) {
+      if (entry.product.bundledCommission === null) {
+        console.warn(`Product ${entry.product.id} has null bundledCommission rate`);
+      }
+      const addDRate = Number(entry.product.bundledCommission ?? 0);
+      totalCommission += entry.premium * (addDRate / 100);
+    }
+
+    // --- COMPASS VAB HALVING ---
+    // If no bundle qualifier present and not manually approved: halve entire sale commission
+    if (!qualifierExists && !sale.commissionApproved) {
+      totalCommission /= 2;
+    }
+  } else {
+    // --- STANDALONE (no core product) ---
+    for (const entry of allEntries) {
+      if (entry.product.type === "AD_D" || entry.product.type === "ADDON") {
+        if (entry.product.standaloneCommission === null) {
+          console.warn(`Product ${entry.product.id} has null standaloneCommission rate`);
+        }
+        const rate = Number(entry.product.standaloneCommission ?? 0);
+        totalCommission += entry.premium * (rate / 100);
+      }
     }
   }
 
-  // Apply enrollment fee rules
+  // Apply enrollment fee rules (Phase 3 scope -- do not modify applyEnrollmentFee)
   const { finalCommission, enrollmentBonus } = applyEnrollmentFee(
     totalCommission,
     sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
     sale.commissionApproved,
     hasCoreInSale,
-    product,
+    sale.product,
   );
 
-  return finalCommission + enrollmentBonus;
+  return Math.round((finalCommission + enrollmentBonus) * 100) / 100;
 };
 
 export const upsertPayrollEntryForSale = async (saleId: string) => {
