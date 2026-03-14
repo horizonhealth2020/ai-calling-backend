@@ -861,7 +861,7 @@ export default function ManagerDashboard() {
 
       {/* ── Sales Entry ────────────────────────────────────────────── */}
       {tab === "entry" && (
-        <div className="animate-fade-in" style={{ maxWidth: 900 }}>
+        <div className="animate-fade-in" style={{ maxWidth: 1200 }}>
           {msg && (
             <div className="animate-fade-in-up" style={{
               marginBottom: 16,
@@ -881,11 +881,12 @@ export default function ManagerDashboard() {
             </div>
           )}
           <form onSubmit={submitSale}>
-            {/* Top row: Agent + Receipt */}
-            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16, marginBottom: 20 }} className="stack-mobile">
+            {/* Two-column layout: Form (left) + Receipt/Addons (right) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }} className="stack-mobile">
 
-              {/* Agent selector */}
-              <div>
+            {/* ── LEFT COLUMN: Form fields ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="grid-mobile-1">
+              <div className="animate-fade-in-up stagger-1">
                 <label style={LBL}>Agent</label>
                 <select
                   className="input-focus"
@@ -899,63 +900,6 @@ export default function ManagerDashboard() {
                   ))}
                 </select>
               </div>
-
-              {/* Receipt paste area */}
-              <div>
-                <label style={LBL}>Paste Sale Receipt</label>
-                <div style={{ position: "relative" }}>
-                  <textarea
-                    className="input-focus"
-                    style={{
-                      ...INP,
-                      height: 100,
-                      resize: "vertical",
-                      fontFamily: typography.fontMono,
-                      fontSize: 12,
-                      borderStyle: "dashed",
-                      borderWidth: 2,
-                      borderColor: parsed ? colors.success : colors.borderStrong,
-                      borderRadius: radius.xl,
-                      paddingRight: parsed ? 40 : 14,
-                    } as React.CSSProperties}
-                    value={receipt}
-                    placeholder={"MemberID: 686724349 Marc Fahrlander\u2026\nSALE on March 9, 2026 - Approved\nDate:03/09/2026\u2026Amount:$436.43\u2026"}
-                    onChange={e => { setReceipt(e.target.value); setParsed(false); }}
-                  />
-                  {parsed && (
-                    <div style={{ position: "absolute", top: 10, right: 12, color: colors.success }}>
-                      <CheckCircle size={18} />
-                    </div>
-                  )}
-                  {!receipt && (
-                    <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", color: colors.textMuted, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, opacity: 0.5 }}>
-                      <ClipboardList size={28} />
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button type="button" className="btn-hover" onClick={handleParse} style={{ ...SUCCESS_BTN }}>
-                    <Upload size={14} />Parse Receipt
-                  </button>
-                  {receipt && (
-                    <button type="button" className="btn-hover" style={CANCEL_BTN} onClick={clearReceipt}>
-                      <X size={14} />Clear
-                    </button>
-                  )}
-                </div>
-                {parsed && (
-                  <p style={{ margin: "8px 0 0", fontSize: 12, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                    <Check size={13} />Receipt parsed successfully — review fields below
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, marginBottom: 20 }} />
-
-            {/* Form fields grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="grid-mobile-1">
               <div className="animate-fade-in-up stagger-1">
                 <label style={LBL}>Member Name</label>
                 <input className="input-focus" style={INP} value={form.memberName} required onChange={e => setForm(f => ({ ...f, memberName: e.target.value }))} />
@@ -994,63 +938,7 @@ export default function ManagerDashboard() {
                   {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              {/* Add-on Products */}
-              {(() => {
-                const addonProducts = products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId);
-                return (
-                  <div className="animate-fade-in-up stagger-9" style={{ gridColumn: "1/-1" }}>
-                    <label style={LBL}>Add-on Products</label>
-                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[3] }}>
-                      {addonProducts.length === 0 ? (
-                        <span style={{ fontSize: 13, color: colors.textTertiary }}>No add-on products available</span>
-                      ) : (
-                        addonProducts.map(ap => {
-                          const isChecked = form.addonProductIds.includes(ap.id);
-                          return (
-                            <div key={ap.id}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  style={{ accentColor: colors.primary400 }}
-                                  onChange={e => {
-                                    if (e.target.checked) {
-                                      setForm(f => ({ ...f, addonProductIds: [...f.addonProductIds, ap.id] }));
-                                    } else {
-                                      setForm(f => ({ ...f, addonProductIds: f.addonProductIds.filter(id => id !== ap.id) }));
-                                      setAddonPremiums(prev => { const next = { ...prev }; delete next[ap.id]; return next; });
-                                    }
-                                  }}
-                                />
-                                <span style={{ fontSize: 13, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
-                                <Badge color={ap.type === "AD_D" ? colors.warning : colors.info} variant="subtle" size="sm">
-                                  {ap.type === "AD_D" ? "AD&D" : "ADDON"}
-                                </Badge>
-                              </div>
-                              {isChecked && (
-                                <div style={{ paddingLeft: 28, paddingBottom: 6 }}>
-                                  <input
-                                    className="input-focus"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="Addon premium ($)"
-                                    value={addonPremiums[ap.id] ?? ""}
-                                    onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
-                                    style={{ ...INP, width: 160 }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="animate-fade-in-up stagger-10">
+              <div className="animate-fade-in-up stagger-9">
                 <label style={LBL}>Lead Source</label>
                 <select className="input-focus" style={{ ...INP }} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
                   {leadSources.filter(ls => ls.active !== false).map(ls => (
@@ -1070,93 +958,6 @@ export default function ManagerDashboard() {
                 <label style={LBL}>Member State</label>
                 <input className="input-focus" style={INP} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
               </div>
-
-              {/* Parsed receipt info card */}
-              {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
-                <div className="animate-slide-in-right" style={{
-                  gridColumn: "1/-1",
-                  background: colors.successBg,
-                  border: `1px solid rgba(52,211,153,0.2)`,
-                  borderLeft: `3px solid ${colors.success}`,
-                  borderRadius: radius.xl,
-                  padding: spacing[5],
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                    <CheckCircle size={16} color={colors.success} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: colors.success }}>Parsed from Receipt</span>
-                  </div>
-
-                  {/* Product matching table */}
-                  {parsedInfo.parsedProducts.length > 0 && (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 16 }}>
-                      <thead>
-                        <tr>
-                          {["Product", "Type", "Matched", "Price"].map((h, i) => (
-                            <th key={h} style={{ ...TH, textAlign: i === 2 ? "center" : i === 3 ? "right" : "left", borderBottom: `1px solid rgba(52,211,153,0.2)`, color: colors.textTertiary }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {parsedInfo.parsedProducts.map((pp, i) => {
-                          const matched = matchProduct(pp.name, products);
-                          return (
-                            <tr key={i} style={{ borderTop: `1px solid rgba(52,211,153,0.08)` }}>
-                              <td style={{ ...TD, color: colors.textPrimary, borderBottom: "none" }}>
-                                {matched ? (
-                                  <select
-                                    className="input-focus"
-                                    style={{ ...INP, padding: "4px 8px", fontSize: 12, width: "auto", minWidth: 180, background: colors.bgSurfaceInset }}
-                                    defaultValue={matched.id}
-                                    onChange={e => {
-                                      if (!pp.isAddon) setForm(f => ({ ...f, productId: e.target.value }));
-                                      else setForm(f => ({ ...f, addonProductIds: f.addonProductIds.map((id, idx) => idx === i - 1 ? e.target.value : id) }));
-                                    }}
-                                  >
-                                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                  </select>
-                                ) : (
-                                  <span style={{ color: colors.danger }}>{pp.name} (not matched)</span>
-                                )}
-                              </td>
-                              <td style={{ ...TD, textAlign: "center", borderBottom: "none" }}>
-                                <Badge color={pp.isAddon ? colors.info : colors.primary400} variant="subtle" size="sm">
-                                  {pp.isAddon ? "Add-on" : "Primary"}
-                                </Badge>
-                              </td>
-                              <td style={{ ...TD, textAlign: "center", borderBottom: "none" }}>
-                                {matched
-                                  ? <Check size={14} color={colors.success} />
-                                  : <XCircle size={14} color={colors.danger} />}
-                              </td>
-                              <td style={{ ...TD, textAlign: "right", fontWeight: 600, color: colors.textPrimary, borderBottom: "none" }}>${pp.price}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {/* Summary boxes */}
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    {parsedInfo.premium && (
-                      <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: radius.xl, padding: "10px 18px", border: `1px solid rgba(52,211,153,0.15)`, minWidth: 120 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase", marginBottom: 4 }}>PREMIUM TOTAL</div>
-                        <div style={{ fontWeight: 900, fontSize: 22, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
-                          <AnimatedNumber value={Number(parsedInfo.premium)} prefix="$" decimals={2} />
-                        </div>
-                      </div>
-                    )}
-                    {parsedInfo.enrollmentFee && (
-                      <div style={{ background: colors.warningBg, borderRadius: radius.xl, padding: "10px 18px", border: `1px solid rgba(251,191,36,0.15)`, minWidth: 140 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase", marginBottom: 4 }}>ENROLLMENT FEE</div>
-                        <div style={{ fontWeight: 900, fontSize: 22, background: "linear-gradient(135deg, #fbbf24, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
-                          <AnimatedNumber value={Number(parsedInfo.enrollmentFee)} prefix="$" decimals={2} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Payment type selector */}
               <div style={{ gridColumn: "1/-1", borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 18 }}>
@@ -1217,6 +1018,157 @@ export default function ManagerDashboard() {
                   )}
                 </button>
               </div>
+            </div>
+            {/* ── END LEFT COLUMN ── */}
+
+            {/* ── RIGHT COLUMN: Receipt Parser + Add-ons ── */}
+            <div style={{ position: "sticky", top: 20 }}>
+              {/* Receipt paste area */}
+              <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
+                <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                  <ClipboardList size={14} />Paste Sale Receipt
+                </label>
+                <div style={{ position: "relative" }}>
+                  <textarea
+                    className="input-focus"
+                    style={{
+                      ...INP,
+                      height: 120,
+                      resize: "vertical",
+                      fontFamily: typography.fontMono,
+                      fontSize: 11,
+                      borderStyle: "dashed",
+                      borderWidth: 2,
+                      borderColor: parsed ? colors.success : colors.borderStrong,
+                      borderRadius: radius.lg,
+                      paddingRight: parsed ? 40 : 14,
+                    } as React.CSSProperties}
+                    value={receipt}
+                    placeholder={"MemberID: 686724349 Marc Fahrlander\u2026\nSALE on March 9, 2026 - Approved\nDate:03/09/2026\u2026Amount:$436.43\u2026"}
+                    onChange={e => { setReceipt(e.target.value); setParsed(false); }}
+                  />
+                  {parsed && (
+                    <div style={{ position: "absolute", top: 10, right: 12, color: colors.success }}>
+                      <CheckCircle size={18} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button type="button" className="btn-hover" onClick={handleParse} style={{ ...SUCCESS_BTN, fontSize: 12, padding: "6px 14px" }}>
+                    <Upload size={13} />Parse Receipt
+                  </button>
+                  {receipt && (
+                    <button type="button" className="btn-hover" style={{ ...CANCEL_BTN, fontSize: 12, padding: "6px 14px" }} onClick={clearReceipt}>
+                      <X size={13} />Clear
+                    </button>
+                  )}
+                </div>
+                {parsed && (
+                  <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Check size={12} />Parsed — fields filled in form
+                  </p>
+                )}
+
+                {/* Parsed receipt info */}
+                {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
+                  <div className="animate-fade-in" style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid rgba(52,211,153,0.2)` }}>
+                    {parsedInfo.parsedProducts.length > 0 && (
+                      <div style={{ marginBottom: 10 }}>
+                        {parsedInfo.parsedProducts.map((pp, i) => {
+                          const matched = matchProduct(pp.name, products);
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                {matched ? <Check size={12} color={colors.success} /> : <XCircle size={12} color={colors.danger} />}
+                                <span style={{ color: colors.textPrimary }}>{matched ? matched.name : pp.name}</span>
+                                <Badge color={pp.isAddon ? colors.info : colors.primary400} variant="subtle" size="sm">
+                                  {pp.isAddon ? "Add-on" : "Core"}
+                                </Badge>
+                              </div>
+                              <span style={{ fontWeight: 600, color: colors.textPrimary }}>${pp.price}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {parsedInfo.premium && (
+                        <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(52,211,153,0.15)`, flex: 1, minWidth: 100 }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>PREMIUM</div>
+                          <div style={{ fontWeight: 800, fontSize: 16, color: colors.success }}>${parsedInfo.premium}</div>
+                        </div>
+                      )}
+                      {parsedInfo.enrollmentFee && (
+                        <div style={{ background: colors.warningBg, borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(251,191,36,0.15)`, flex: 1, minWidth: 100 }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>ENROLL FEE</div>
+                          <div style={{ fontWeight: 800, fontSize: 16, color: colors.warning }}>${parsedInfo.enrollmentFee}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Add-on Products */}
+              {(() => {
+                const addonProducts = products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId);
+                return (
+                  <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5] }}>
+                    <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Plus size={14} />Add-on Products
+                    </label>
+                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[2] }}>
+                      {addonProducts.length === 0 ? (
+                        <span style={{ fontSize: 12, color: colors.textTertiary }}>No add-on products available</span>
+                      ) : (
+                        addonProducts.map(ap => {
+                          const isChecked = form.addonProductIds.includes(ap.id);
+                          return (
+                            <div key={ap.id}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  style={{ accentColor: colors.primary400 }}
+                                  onChange={e => {
+                                    if (e.target.checked) {
+                                      setForm(f => ({ ...f, addonProductIds: [...f.addonProductIds, ap.id] }));
+                                    } else {
+                                      setForm(f => ({ ...f, addonProductIds: f.addonProductIds.filter(id => id !== ap.id) }));
+                                      setAddonPremiums(prev => { const next = { ...prev }; delete next[ap.id]; return next; });
+                                    }
+                                  }}
+                                />
+                                <span style={{ fontSize: 12, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
+                                <Badge color={ap.type === "AD_D" ? colors.warning : colors.info} variant="subtle" size="sm">
+                                  {ap.type === "AD_D" ? "AD&D" : "ADDON"}
+                                </Badge>
+                              </div>
+                              {isChecked && (
+                                <div style={{ paddingLeft: 26, paddingBottom: 6 }}>
+                                  <input
+                                    className="input-focus"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="Premium ($)"
+                                    value={addonPremiums[ap.id] ?? ""}
+                                    onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
+                                    style={{ ...INP, width: "100%", fontSize: 12 }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            {/* ── END RIGHT COLUMN ── */}
+
             </div>
           </form>
         </div>
