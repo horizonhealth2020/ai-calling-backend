@@ -18,17 +18,17 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Commission Engine
 
-- [ ] **COMM-01**: Core products earn full commission rate when bundled with Compass VAB product
-- [ ] **COMM-02**: Core products earn half commission rate when not bundled with Compass VAB
+- [x] **COMM-01**: Core products earn full commission rate when bundled with Compass VAB product
+- [x] **COMM-02**: Core products earn half commission rate when not bundled with Compass VAB
 - [x] **COMM-03**: Compass VAB bundle detection uses product flag (not string matching on name)
-- [ ] **COMM-04**: Add-on products match core product commission rate when bundled with core
-- [ ] **COMM-05**: Add-on products follow threshold rules when standalone (below threshold = half)
-- [ ] **COMM-06**: AD&D products earn half commission from set rate when standalone
-- [ ] **COMM-07**: AD&D products earn full commission when bundled with core product
+- [x] **COMM-04**: Add-on products match core product commission rate when bundled with core
+- [x] **COMM-05**: Add-on products follow threshold rules when standalone (below threshold = half)
+- [x] **COMM-06**: AD&D products earn half commission from set rate when standalone
+- [x] **COMM-07**: AD&D products earn full commission when bundled with core product
 - [ ] **COMM-08**: Enrollment fee below product threshold triggers half commission
 - [ ] **COMM-09**: Enrollment fee of exactly $125 triggers $10 bonus
 - [ ] **COMM-10**: ACH sales are assigned to pay period two weeks out (extra week arrears)
-- [ ] **COMM-11**: Commission calculations use consistent rounding (2 decimal places)
+- [x] **COMM-11**: Commission calculations use consistent rounding (2 decimal places)
 
 ### Payroll Management
 
@@ -104,17 +104,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SALE-04 | Phase 4 | Pending |
 | SALE-05 | Phase 5 | Pending |
 | SALE-06 | Phase 5 | Pending |
-| COMM-01 | Phase 2 | Pending |
-| COMM-02 | Phase 2 | Pending |
+| COMM-01 | Phase 2 | Complete |
+| COMM-02 | Phase 2 | Complete |
 | COMM-03 | Phase 2 | Complete |
-| COMM-04 | Phase 2 | Pending |
-| COMM-05 | Phase 2 | Pending |
-| COMM-06 | Phase 2 | Pending |
-| COMM-07 | Phase 2 | Pending |
+| COMM-04 | Phase 2 | Complete |
+| COMM-05 | Phase 2 | Complete |
+| COMM-06 | Phase 2 | Complete |
+| COMM-07 | Phase 2 | Complete |
 | COMM-08 | Phase 3 | Pending |
 | COMM-09 | Phase 3 | Pending |
 | COMM-10 | Phase 3 | Pending |
-| COMM-11 | Phase 2 | Pending |
+| COMM-11 | Phase 2 | Complete |
 | PAYR-01 | Phase 3 | Pending |
 | PAYR-02 | Phase 7 | Pending |
 | PAYR-03 | Phase 7 | Pending |

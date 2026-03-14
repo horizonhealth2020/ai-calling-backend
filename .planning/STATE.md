@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: In progress
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-14T22:29:09Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-14T22:35:55Z"
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 33
+  completed_plans: 5
+  percent: 44
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,17 +19,17 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 2 -- Commission Engine Core
+**Current Focus:** Phase 3 -- Commission Fees & Period Assignment
 
 ## Current Position
 
-**Phase:** 2 of 9 -- Commission Engine Core
-**Plan:** 1 of 2 -- COMPLETE
-**Status:** In progress
+**Phase:** 2 of 9 -- Commission Engine Core -- COMPLETE
+**Plan:** 2 of 2 -- COMPLETE
+**Status:** Phase 2 complete, ready for Phase 3
 
 ```
-Progress: [####......] 33%
-Phase 1 [#####] | Phase 2 [##...] | Phase 3 [.....] | Phase 4 [.....]
+Progress: [####......] 44%
+Phase 1 [#####] | Phase 2 [#####] | Phase 3 [.....] | Phase 4 [.....]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....]
 ```
@@ -38,10 +38,10 @@ Phase 9 [.....]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 4 |
+| Plans completed | 5 |
 | Plans total | 5+ (remaining phases TBD) |
-| Requirements done | 2/36 |
-| Phases done | 1/9 |
+| Requirements done | 9/36 |
+| Phases done | 2/9 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -49,10 +49,14 @@ Phase 9 [.....]
 | 01 | 02 | 39s | 1 | 1 |
 | 01 | 03 | 33s | 2 | 1 |
 | 02 | 01 | 147s | 2 | 5 |
+| 02 | 02 | 240s | 2 | 4 |
 
 ## Accumulated Context
 
 ### Key Decisions
+- [Phase 2] Final-only rounding (Math.round at end) avoids penny accumulation from intermediate rounding
+- [Phase 2] Console.warn for null commission rates -- ops visibility without breaking calculation
+- [Phase 2] Mock @ops/db module for unit tests to avoid PrismaClient connection
 - [Phase 2] ts-node added as devDependency for Jest TypeScript config file parsing
 - [Phase 2] Jest config uses path.resolve(__dirname) for tsconfig path to avoid ts-jest relative resolution issues
 - [Phase 2] Manual migration SQL (no prisma migrate dev) continued from Phase 1 decision
@@ -70,7 +74,7 @@ Phase 9 [.....]
 
 ### Research Findings Applied
 - `memberState` reference in payroll.ts causes 500 on every sale creation -- FIXED in Phase 1
-- String-matching bundle detection must be replaced with `isBundleQualifier` flag -- Phase 2
+- String-matching bundle detection replaced with `isBundleQualifier` flag -- DONE in Phase 2
 - Week-in-arrears logic not implemented (`getSundayWeekRange` maps to current week) -- Phase 3
 - Socket.IO currently only emits audit events, needs sale/payroll/KPI events -- Phase 6
 - Luxon already installed but underused; should be used for arrears period logic -- Phase 3
@@ -85,14 +89,14 @@ Phase 9 [.....]
 None currently.
 
 ### TODOs
-- Execute Phase 2 Plan 02 (TDD commission engine rewrite)
-- Resolve SaleAddon premium business question before Phase 2 Plan 02
+- Plan Phase 3 (Commission Fees & Period Assignment)
+- Resolve Luxon timezone convention (UTC vs local) before Phase 3
 
 ## Session Continuity
 
-**Last session:** 2026-03-14T22:29:09Z
-**Stopped at:** Completed 02-01-PLAN.md
-**Next action:** Execute Phase 2 Plan 02 (TDD commission engine rewrite)
+**Last session:** 2026-03-14T22:35:55Z
+**Stopped at:** Completed 02-02-PLAN.md
+**Next action:** Plan Phase 3 (Commission Fees & Period Assignment)
 
 ---
 *State initialized: 2026-03-14*
