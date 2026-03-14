@@ -1321,7 +1321,7 @@ export default function ManagerDashboard() {
                       <tbody>
                         {sales.map(s => (
                           <tr key={s.id} className="row-hover">
-                            <td style={TD}>{new Date(s.saleDate).toLocaleDateString()}</td>
+                            <td style={TD}>{new Date(s.saleDate).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
                             <td style={{ ...TD, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
                             <td style={TD}>{s.carrier}</td>
                             <td style={TD}>{s.product.name}</td>
