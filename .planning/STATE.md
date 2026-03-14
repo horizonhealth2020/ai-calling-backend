@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Not started
-last_updated: "2026-03-14T20:09:22.268Z"
+status: In progress
+last_updated: "2026-03-14T20:26:19Z"
 progress:
   total_phases: 9
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 11
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -18,17 +18,17 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 1 -- Sales Entry Fix
+**Current Focus:** Phase 2 -- Commission Engine Core
 
 ## Current Position
 
-**Phase:** 1 of 9 -- Sales Entry Fix
-**Plan:** Not yet planned
-**Status:** Not started
+**Phase:** 1 of 9 -- Sales Entry Fix (COMPLETE)
+**Plan:** 1 of 1 -- COMPLETE
+**Status:** Phase 1 complete, ready for Phase 2
 
 ```
-Progress: [..........] 0%
-Phase 1 [.....] | Phase 2 [.....] | Phase 3 [.....] | Phase 4 [.....]
+Progress: [#.........] 11%
+Phase 1 [#####] | Phase 2 [.....] | Phase 3 [.....] | Phase 4 [.....]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....]
 ```
@@ -37,10 +37,14 @@ Phase 9 [.....]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 0 |
-| Plans total | TBD |
-| Requirements done | 0/36 |
-| Phases done | 0/9 |
+| Plans completed | 1 |
+| Plans total | 1+ (remaining phases TBD) |
+| Requirements done | 1/36 |
+| Phases done | 1/9 |
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 01 | 01 | 220s | 2 | 3 |
 
 ## Accumulated Context
 
@@ -50,16 +54,19 @@ Phase 9 [.....]
 - Multi-product form (Phase 4) separated from commission preview/edit (Phase 5) to reduce complexity per phase
 - Dashboard cascade (Phase 6) depends on correct commission data, so it follows the engine phases
 - UI/UX polish is last phase -- polish is meaningless on broken functionality
+- [Phase 1] memberState added to Sale model using @map("member_state") convention; migration only for SaleAddon premium since member_state column already existed
+- [Phase 1] Alert bar moved above form for immediate visibility; typed message state replaces fragile string-prefix detection
+- [Phase 1] Manual migration SQL created due to no DATABASE_URL in dev environment
 
 ### Research Findings Applied
-- `memberState` reference in payroll.ts causes 500 on every sale creation -- Phase 1 priority
+- `memberState` reference in payroll.ts causes 500 on every sale creation -- FIXED in Phase 1
 - String-matching bundle detection must be replaced with `isBundleQualifier` flag -- Phase 2
 - Week-in-arrears logic not implemented (`getSundayWeekRange` maps to current week) -- Phase 3
 - Socket.IO currently only emits audit events, needs sale/payroll/KPI events -- Phase 6
 - Luxon already installed but underused; should be used for arrears period logic -- Phase 3
 
 ### Open Questions
-- SaleAddon premium model: do products share one `sale.premium` or have per-product premiums? (resolve in Phase 1 planning)
+- SaleAddon premium model resolved: per-addon premium field added as Decimal(12,2) optional
 - CSV vs Excel export format (resolve before Phase 7)
 - Luxon timezone convention: UTC vs local (resolve before Phase 3)
 - Commission preview endpoint design: separate `/api/sales/preview` vs dry-run mode (resolve before Phase 5)
@@ -68,13 +75,14 @@ Phase 9 [.....]
 None currently.
 
 ### TODOs
-- Plan Phase 1
+- Plan Phase 2 (Commission Engine Core)
 - Resolve SaleAddon premium business question before Phase 2
 
 ## Session Continuity
 
-**Last session:** 2026-03-14T20:09:22.264Z
-**Next action:** Plan Phase 1 (Sales Entry Fix)
+**Last session:** 2026-03-14T20:26:19Z
+**Stopped at:** Completed 01-01-PLAN.md
+**Next action:** Plan Phase 2 (Commission Engine Core)
 
 ---
 *State initialized: 2026-03-14*
