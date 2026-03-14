@@ -1,4 +1,4 @@
-# Requirements: Ops Platform — Payroll & Usability Overhaul
+# Requirements: Ops Platform -- Payroll & Usability Overhaul
 
 **Defined:** 2026-03-14
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations
@@ -35,7 +35,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **PAYR-01**: Sales are assigned to the following Sun-Sat pay period (one week in arrears)
 - [ ] **PAYR-02**: Payroll cards display per agent per period with correct commission totals
 - [ ] **PAYR-03**: Payroll cards are scrollable when content exceeds viewport
-- [ ] **PAYR-04**: Payroll periods follow status workflow: Pending → Ready → Finalized
+- [ ] **PAYR-04**: Payroll periods follow status workflow: Pending -> Ready -> Finalized
 - [ ] **PAYR-05**: Finalized periods reject new writes (entries or modifications)
 - [ ] **PAYR-06**: Payroll data can be exported as CSV
 - [ ] **PAYR-07**: Net amount formula is consistent: payout + adjustment + bonus - fronted
@@ -98,48 +98,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SALE-01 | — | Pending |
-| SALE-02 | — | Pending |
-| SALE-03 | — | Pending |
-| SALE-04 | — | Pending |
-| SALE-05 | — | Pending |
-| SALE-06 | — | Pending |
-| COMM-01 | — | Pending |
-| COMM-02 | — | Pending |
-| COMM-03 | — | Pending |
-| COMM-04 | — | Pending |
-| COMM-05 | — | Pending |
-| COMM-06 | — | Pending |
-| COMM-07 | — | Pending |
-| COMM-08 | — | Pending |
-| COMM-09 | — | Pending |
-| COMM-10 | — | Pending |
-| COMM-11 | — | Pending |
-| PAYR-01 | — | Pending |
-| PAYR-02 | — | Pending |
-| PAYR-03 | — | Pending |
-| PAYR-04 | — | Pending |
-| PAYR-05 | — | Pending |
-| PAYR-06 | — | Pending |
-| PAYR-07 | — | Pending |
-| CASC-01 | — | Pending |
-| CASC-02 | — | Pending |
-| CASC-03 | — | Pending |
-| CASC-04 | — | Pending |
-| REPT-01 | — | Pending |
-| REPT-02 | — | Pending |
-| REPT-03 | — | Pending |
-| REPT-04 | — | Pending |
-| REPT-05 | — | Pending |
-| UIUX-01 | — | Pending |
-| UIUX-02 | — | Pending |
-| UIUX-03 | — | Pending |
+| SALE-01 | Phase 1 | Pending |
+| SALE-02 | Phase 4 | Pending |
+| SALE-03 | Phase 4 | Pending |
+| SALE-04 | Phase 4 | Pending |
+| SALE-05 | Phase 5 | Pending |
+| SALE-06 | Phase 5 | Pending |
+| COMM-01 | Phase 2 | Pending |
+| COMM-02 | Phase 2 | Pending |
+| COMM-03 | Phase 2 | Pending |
+| COMM-04 | Phase 2 | Pending |
+| COMM-05 | Phase 2 | Pending |
+| COMM-06 | Phase 2 | Pending |
+| COMM-07 | Phase 2 | Pending |
+| COMM-08 | Phase 3 | Pending |
+| COMM-09 | Phase 3 | Pending |
+| COMM-10 | Phase 3 | Pending |
+| COMM-11 | Phase 2 | Pending |
+| PAYR-01 | Phase 3 | Pending |
+| PAYR-02 | Phase 7 | Pending |
+| PAYR-03 | Phase 7 | Pending |
+| PAYR-04 | Phase 7 | Pending |
+| PAYR-05 | Phase 7 | Pending |
+| PAYR-06 | Phase 7 | Pending |
+| PAYR-07 | Phase 7 | Pending |
+| CASC-01 | Phase 6 | Pending |
+| CASC-02 | Phase 6 | Pending |
+| CASC-03 | Phase 6 | Pending |
+| CASC-04 | Phase 6 | Pending |
+| REPT-01 | Phase 8 | Pending |
+| REPT-02 | Phase 8 | Pending |
+| REPT-03 | Phase 8 | Pending |
+| REPT-04 | Phase 8 | Pending |
+| REPT-05 | Phase 8 | Pending |
+| UIUX-01 | Phase 9 | Pending |
+| UIUX-02 | Phase 9 | Pending |
+| UIUX-03 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 36 total
-- Mapped to phases: 0
-- Unmapped: 36
+- Mapped to phases: 36
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after initial definition*
+*Last updated: 2026-03-14 after roadmap creation*
