@@ -671,7 +671,7 @@ export default function ManagerDashboard() {
       authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).catch(() => []),
     ]).then(([a, p, ls, tr, sl]) => {
       setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr); setSalesList(sl);
-      setForm(f => ({ ...f, agentId: a[0]?.id ?? "", productId: p[0]?.id ?? "", leadSourceId: ls[0]?.id ?? "" }));
+      setForm(f => ({ ...f, agentId: "", productId: p[0]?.id ?? "", leadSourceId: ls[0]?.id ?? "" }));
       setLoading(false);
     });
   }, []);
@@ -886,6 +886,7 @@ export default function ManagerDashboard() {
                   value={form.agentId}
                   onChange={e => setForm(f => ({ ...f, agentId: e.target.value }))}
                 >
+                  <option value="" disabled>Select agent...</option>
                   {agents.filter(a => a.active !== false).map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
