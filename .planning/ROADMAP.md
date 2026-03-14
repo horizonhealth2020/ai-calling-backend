@@ -8,7 +8,7 @@
 ## Phases
 
 - [x] **Phase 1: Sales Entry Fix** - Unblock the platform by fixing the 500 error on sale creation
-- [x] **Phase 2: Commission Engine Core** - Product type bundle logic calculates correct commission rates
+- [ ] **Phase 2: Commission Engine Core** - Product type bundle logic calculates correct commission rates
 - [ ] **Phase 3: Commission Fees & Period Assignment** - Enrollment fee rules and week-in-arrears period mapping
 - [ ] **Phase 4: Multi-Product Sales Form** - Manager dashboard supports multiple products, payment type, and enrollment fee per sale
 - [ ] **Phase 5: Commission Preview & Sale Editing** - Live commission preview before submit and full recalculation on edit
@@ -43,10 +43,12 @@ Plans:
   3. An add-on product bundled with a core product matches the core product commission rate; standalone add-ons follow threshold rules
   4. An AD&D product earns half commission standalone and full commission when bundled with a core product
   5. All commission amounts are rounded to exactly 2 decimal places with no floating-point drift
-**Plans:** 2 plans
+**Plans:** 4 plans
 Plans:
 - [x] 02-01-PLAN.md -- Add isBundleQualifier to Product model and set up TypeScript test infrastructure
 - [x] 02-02-PLAN.md -- TDD rewrite of commission engine with bundle aggregation logic
+- [ ] 02-03-PLAN.md -- Fix payroll dashboard column misalignment (premium in enroll fee column)
+- [ ] 02-04-PLAN.md -- Add addon product picker to manager dashboard sales entry form
 
 ### Phase 3: Commission Fees & Period Assignment
 **Goal**: Enrollment fee rules apply correctly and sales land in the right pay period based on arrears logic
@@ -130,7 +132,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
-| 2. Commission Engine Core | 2/2 | Complete | 2026-03-14 |
+| 2. Commission Engine Core | 2/4 | Gap closure | - |
 | 3. Commission Fees & Period Assignment | 0/? | Not started | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
 | 5. Commission Preview & Sale Editing | 0/? | Not started | - |
