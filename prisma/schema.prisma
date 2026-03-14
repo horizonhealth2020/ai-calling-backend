@@ -154,6 +154,7 @@ model Sale {
   convosoLeadId      String?         @map("convoso_lead_id")
   callDuration       Int?            @map("call_duration")
   callDateTime       DateTime?       @map("call_date_time")
+  memberState        String?         @map("member_state") @db.VarChar(2)
 
   agent         Agent         @relation(fields: [agentId], references: [id])
   product       Product       @relation(fields: [productId], references: [id])
@@ -259,6 +260,7 @@ model SaleAddon {
   id        String   @id @default(cuid())
   saleId    String   @map("sale_id")
   productId String   @map("product_id")
+  premium   Decimal? @db.Decimal(12, 2)
   createdAt DateTime @default(now()) @map("created_at")
 
   sale    Sale    @relation(fields: [saleId], references: [id])
