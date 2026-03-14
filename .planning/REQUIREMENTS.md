@@ -1,0 +1,145 @@
+# Requirements: Ops Platform — Payroll & Usability Overhaul
+
+**Defined:** 2026-03-14
+**Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations
+
+## v1 Requirements
+
+Requirements for this milestone. Each maps to roadmap phases.
+
+### Sales Entry
+
+- [ ] **SALE-01**: Sale creation completes without errors (fix 500 internal server error)
+- [ ] **SALE-02**: User can select multiple products per sale from products created in payroll
+- [ ] **SALE-03**: User can select payment type (ACH/Check/Other) per sale
+- [ ] **SALE-04**: User can enter enrollment fee with product threshold displayed
+- [ ] **SALE-05**: User sees live commission preview as products are selected before submission
+- [ ] **SALE-06**: User can edit a submitted sale with full commission and period recalculation
+
+### Commission Engine
+
+- [ ] **COMM-01**: Core products earn full commission rate when bundled with Compass VAB product
+- [ ] **COMM-02**: Core products earn half commission rate when not bundled with Compass VAB
+- [ ] **COMM-03**: Compass VAB bundle detection uses product flag (not string matching on name)
+- [ ] **COMM-04**: Add-on products match core product commission rate when bundled with core
+- [ ] **COMM-05**: Add-on products follow threshold rules when standalone (below threshold = half)
+- [ ] **COMM-06**: AD&D products earn half commission from set rate when standalone
+- [ ] **COMM-07**: AD&D products earn full commission when bundled with core product
+- [ ] **COMM-08**: Enrollment fee below product threshold triggers half commission
+- [ ] **COMM-09**: Enrollment fee of exactly $125 triggers $10 bonus
+- [ ] **COMM-10**: ACH sales are assigned to pay period two weeks out (extra week arrears)
+- [ ] **COMM-11**: Commission calculations use consistent rounding (2 decimal places)
+
+### Payroll Management
+
+- [ ] **PAYR-01**: Sales are assigned to the following Sun-Sat pay period (one week in arrears)
+- [ ] **PAYR-02**: Payroll cards display per agent per period with correct commission totals
+- [ ] **PAYR-03**: Payroll cards are scrollable when content exceeds viewport
+- [ ] **PAYR-04**: Payroll periods follow status workflow: Pending → Ready → Finalized
+- [ ] **PAYR-05**: Finalized periods reject new writes (entries or modifications)
+- [ ] **PAYR-06**: Payroll data can be exported as CSV
+- [ ] **PAYR-07**: Net amount formula is consistent: payout + adjustment + bonus - fronted
+
+### Dashboard Cascade
+
+- [ ] **CASC-01**: Sale entry appears on agent tracker in manager dashboard in real-time
+- [ ] **CASC-02**: Sale entry appears on sales board leaderboard in real-time
+- [ ] **CASC-03**: Sale entry updates the correct agent's payroll card in payroll dashboard
+- [ ] **CASC-04**: Sale entry updates KPI metrics on owner dashboard
+
+### Reporting
+
+- [ ] **REPT-01**: Per-agent sales count and total commission earned are visible
+- [ ] **REPT-02**: Per-agent cost-per-sale is tracked and displayed
+- [ ] **REPT-03**: Weekly and monthly period summary totals are available
+- [ ] **REPT-04**: Export-ready payroll reports can be generated
+- [ ] **REPT-05**: Owner dashboard shows trend KPIs (vs prior week/month)
+
+### UI/UX
+
+- [ ] **UIUX-01**: All forms have proper input validation with clear error messages
+- [ ] **UIUX-02**: Form layouts are consistent and polished across all dashboards
+- [ ] **UIUX-03**: UI/UX changes follow ui-ux-pro-max design guidance
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Sales Entry
+- **SALE-V2-01**: Bulk sale import from CSV
+- **SALE-V2-02**: Commission dispute workflow with audit trail
+
+### Reporting
+- **REPT-V2-01**: Agent performance scoring (composite metric)
+- **REPT-V2-02**: Custom date range selection for reports
+
+### AI Features
+- **AIFR-V2-01**: Enhanced AI call audit analysis
+- **AIFR-V2-02**: Automated call quality scoring
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Morgan voice service changes | Separate workload, not part of this initiative |
+| Mobile native app | Web-first, responsive is sufficient |
+| Custom report builder | Predefined reports cover the use case |
+| Automated payroll provider integration | Manual export acceptable for v1 |
+| Commission plan designer (drag-and-drop) | Current product/rate model is sufficient |
+| Multi-tenant support | Single organization tool |
+| Agent self-service portal | Agents view via sales board only |
+| Automated clawback triggers | Manual clawback workflow is safer |
+| Real-time chat | Not needed for operations workflow |
+| Client-side commission calculation | Must be server-authoritative for payroll accuracy |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SALE-01 | — | Pending |
+| SALE-02 | — | Pending |
+| SALE-03 | — | Pending |
+| SALE-04 | — | Pending |
+| SALE-05 | — | Pending |
+| SALE-06 | — | Pending |
+| COMM-01 | — | Pending |
+| COMM-02 | — | Pending |
+| COMM-03 | — | Pending |
+| COMM-04 | — | Pending |
+| COMM-05 | — | Pending |
+| COMM-06 | — | Pending |
+| COMM-07 | — | Pending |
+| COMM-08 | — | Pending |
+| COMM-09 | — | Pending |
+| COMM-10 | — | Pending |
+| COMM-11 | — | Pending |
+| PAYR-01 | — | Pending |
+| PAYR-02 | — | Pending |
+| PAYR-03 | — | Pending |
+| PAYR-04 | — | Pending |
+| PAYR-05 | — | Pending |
+| PAYR-06 | — | Pending |
+| PAYR-07 | — | Pending |
+| CASC-01 | — | Pending |
+| CASC-02 | — | Pending |
+| CASC-03 | — | Pending |
+| CASC-04 | — | Pending |
+| REPT-01 | — | Pending |
+| REPT-02 | — | Pending |
+| REPT-03 | — | Pending |
+| REPT-04 | — | Pending |
+| REPT-05 | — | Pending |
+| UIUX-01 | — | Pending |
+| UIUX-02 | — | Pending |
+| UIUX-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 36 total
+- Mapped to phases: 0
+- Unmapped: 36
+
+---
+*Requirements defined: 2026-03-14*
+*Last updated: 2026-03-14 after initial definition*
