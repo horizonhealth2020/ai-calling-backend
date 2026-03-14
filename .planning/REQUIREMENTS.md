@@ -98,7 +98,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SALE-01 | Phase 1 | Pending |
+| SALE-01 | Phase 1 | Complete |
 | SALE-02 | Phase 4 | Pending |
 | SALE-03 | Phase 4 | Pending |
 | SALE-04 | Phase 4 | Pending |

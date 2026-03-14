@@ -7,7 +7,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Sales Entry Fix** - Unblock the platform by fixing the 500 error on sale creation
+- [x] **Phase 1: Sales Entry Fix** - Unblock the platform by fixing the 500 error on sale creation
 - [ ] **Phase 2: Commission Engine Core** - Product type bundle logic calculates correct commission rates
 - [ ] **Phase 3: Commission Fees & Period Assignment** - Enrollment fee rules and week-in-arrears period mapping
 - [ ] **Phase 4: Multi-Product Sales Form** - Manager dashboard supports multiple products, payment type, and enrollment fee per sale
@@ -30,8 +30,8 @@
 **Plans:** 3 plans
 Plans:
 - [x] 01-01-PLAN.md -- Fix Prisma schema sync (memberState, SaleAddon premium) and improve form feedback UX
-- [ ] 01-02-PLAN.md -- Fix API: dedup addon IDs, wrap payroll in try/catch, noon-UTC dates
-- [ ] 01-03-PLAN.md -- Fix frontend: agent dropdown placeholder, active-only default, UTC date display
+- [x] 01-02-PLAN.md -- Fix API: dedup addon IDs, wrap payroll in try/catch, noon-UTC dates
+- [x] 01-03-PLAN.md -- Fix frontend: agent dropdown placeholder, active-only default, UTC date display
 
 ### Phase 2: Commission Engine Core
 **Goal**: Commission rates are calculated correctly based on product type and bundle rules
@@ -126,7 +126,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sales Entry Fix | 1/3 | In Progress | - |
+| 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
 | 2. Commission Engine Core | 0/? | Not started | - |
 | 3. Commission Fees & Period Assignment | 0/? | Not started | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
