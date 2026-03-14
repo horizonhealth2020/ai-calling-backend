@@ -11,6 +11,7 @@ const config: Config = {
   },
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleNameMapper: {
+    '^@ops/db$': '<rootDir>/src/services/__tests__/__mocks__/ops-db.ts',
     '^@ops/(.*)$': '<rootDir>/../../packages/$1/src',
   },
   verbose: true,
