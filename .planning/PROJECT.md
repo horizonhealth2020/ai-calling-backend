@@ -37,7 +37,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [ ] Sale cascades to payroll card for correct agent
 - [ ] Sale cascades to owner dashboard KPIs
 - [ ] Commission calculation: Core products require Compass VAB bundle for full commission, else half
-- [ ] Commission calculation: Add-on/AD&D products get half commission unless bundled with core product
+- [ ] Commission calculation: Add-on products match core product commission rate when bundled; follow threshold rules when standalone
+- [ ] Commission calculation: AD&D products get half commission unless bundled with core product
 - [ ] Commission calculation: Enrollment fee below threshold triggers half commission
 - [ ] Commission calculation: $125 enrollment fee triggers $10 bonus
 - [ ] Week-in-arrears payroll: sale date maps to following Sun-Sat pay period
@@ -61,7 +62,7 @@ This is a brownfield project with an existing monorepo containing 5 Next.js dash
 
 **Commission Rules Summary:**
 - **Core products:** Full commission rate if bundled with Compass VAB product; half commission if not bundled
-- **Add-on products:** Half commission from set rate unless bundled with a core product (then full? — needs clarification during implementation)
+- **Add-on products:** When bundled with core product, commission matches the core product's rate. When standalone, follows threshold rules (below threshold = half commission)
 - **AD&D products:** Half commission from set rate unless bundled with a core product
 - **Enrollment fee:** Below product threshold → half commission; exactly $125 → +$10 bonus
 - **Payment method:** ACH sales are paid one additional week in arrears
