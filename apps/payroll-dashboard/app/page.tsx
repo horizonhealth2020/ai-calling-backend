@@ -182,13 +182,14 @@ const NAV_ITEMS = [
 /* ── Editable Sale Row ───────────────────────────────────────── */
 
 function EditableSaleRow({
-  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove,
+  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete,
 }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
   onBonusFrontedUpdate: (entryId: string, bonus: number, fronted: number, hold: number) => Promise<void>;
   onApprove: (saleId: string) => Promise<void>;
   onUnapprove: (saleId: string) => Promise<void>;
+  onDelete: (saleId: string) => Promise<void>;
 }) {
   const [editSale, setEditSale] = useState(false);
   const [saleData, setSaleData] = useState({
@@ -396,6 +397,15 @@ function EditableSaleRow({
                 style={{ ...BTN_ICON, ...BTN_WARNING }}
               >
                 <XCircle size={12} /> Unapprove
+              </button>
+            )}
+            {entry.sale && (
+              <button
+                className="btn-hover"
+                onClick={() => onDelete(entry.sale!.id)}
+                style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+              >
+                <Trash2 size={12} />
               </button>
             )}
           </div>
@@ -725,6 +735,8 @@ export default function PayrollDashboard() {
   const [newCatName, setNewCatName] = useState("");
   const [newCatDeduction, setNewCatDeduction] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
+  const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([]);
+  const [printMenuPeriod, setPrintMenuPeriod] = useState<string | null>(null);
 
   useEffect(() => {
     captureTokenFromUrl();
@@ -733,11 +745,13 @@ export default function PayrollDashboard() {
       authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/service-agents`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/settings/service-bonus-categories`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([p, prod, sa, cats]) => {
+      authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([p, prod, sa, cats, agents]) => {
       setPeriods(p);
       setProducts(prod);
       setServiceAgents(sa);
       setBonusCategories(cats);
+      setAllAgents(agents);
       if (p.length > 0) setSvcPeriodId(p[0].id);
       setLoading(false);
     });
@@ -769,6 +783,12 @@ export default function PayrollDashboard() {
     } catch (e: any) {
       setChargebackMsg(`Error: Unable to reach API — ${e.message ?? "network error"}`);
     }
+  }
+
+  async function deleteSale(saleId: string) {
+    if (!window.confirm("Permanently delete this sale? This removes it from payroll and tracking.")) return;
+    const res = await authFetch(`${API}/api/sales/${saleId}`, { method: "DELETE" });
+    if (res.ok) await refreshPeriods();
   }
 
   async function updateSale(saleId: string, data: Record<string, unknown>) {
@@ -825,6 +845,16 @@ export default function PayrollDashboard() {
   async function markEntriesPaid(entryIds: string[], serviceEntryIds: string[], label: string) {
     if (!window.confirm(`Mark ${label} as PAID?`)) return;
     const res = await authFetch(`${API}/api/payroll/mark-paid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entryIds, serviceEntryIds }),
+    });
+    if (res.ok) await refreshPeriods();
+  }
+
+  async function markEntriesUnpaid(entryIds: string[], serviceEntryIds: string[], label: string) {
+    if (!window.confirm(`Mark ${label} as UNPAID?`)) return;
+    const res = await authFetch(`${API}/api/payroll/mark-unpaid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entryIds, serviceEntryIds }),
@@ -1268,6 +1298,10 @@ export default function PayrollDashboard() {
               if (!byAgent.has(name)) byAgent.set(name, []);
               byAgent.get(name)!.push(e);
             }
+            // Include all active agents even with 0 entries
+            for (const agent of allAgents) {
+              if (!byAgent.has(agent.name)) byAgent.set(agent.name, []);
+            }
 
             return (
               <div key={p.id} style={CARD} className="animate-fade-in-up">
@@ -1290,23 +1324,59 @@ export default function PayrollDashboard() {
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
-                    {p.entries.length > 0 && (
-                      <button
-                        className="btn-hover"
-                        onClick={ev => { ev.stopPropagation(); printAgentCards([...byAgent.entries()], p); }}
-                        style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
-                      >
-                        <Printer size={12} /> Print All
-                      </button>
-                    )}
-                    {(p.serviceEntries ?? []).length > 0 && (
-                      <button
-                        className="btn-hover"
-                        onClick={ev => { ev.stopPropagation(); printServiceCards(p.serviceEntries, p, bonusCategories); }}
-                        style={{ ...BTN_ICON, background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}
-                      >
-                        <Printer size={12} /> CS
-                      </button>
+                    {(p.entries.length > 0 || (p.serviceEntries ?? []).length > 0) && (
+                      <div style={{ position: "relative" }}>
+                        <button
+                          className="btn-hover"
+                          onClick={ev => { ev.stopPropagation(); setPrintMenuPeriod(printMenuPeriod === p.id ? null : p.id); }}
+                          style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+                        >
+                          <Printer size={12} /> Print
+                        </button>
+                        {printMenuPeriod === p.id && (
+                          <div
+                            onClick={ev => ev.stopPropagation()}
+                            style={{
+                              position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50,
+                              background: C.bgSurface, border: `1px solid ${C.borderDefault}`,
+                              borderRadius: R.lg, minWidth: 200,
+                              boxShadow: shadows.lg, overflow: "hidden",
+                            }}
+                          >
+                            <button
+                              className="btn-hover"
+                              onClick={() => {
+                                printAgentCards([...byAgent.entries()], p);
+                                printServiceCards(p.serviceEntries, p, bonusCategories);
+                                setPrintMenuPeriod(null);
+                              }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "transparent", border: "none", color: C.textPrimary, fontSize: 13, cursor: "pointer", textAlign: "left" }}
+                            >
+                              <Printer size={12} /> Print All
+                            </button>
+                            {[...byAgent.entries()].map(([agentName, agentEntries]) => (
+                              <button
+                                key={agentName}
+                                className="btn-hover"
+                                onClick={() => { printAgentCards([[agentName, agentEntries]], p); setPrintMenuPeriod(null); }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px 8px 28px", background: "transparent", border: "none", color: C.textSecondary, fontSize: 12, cursor: "pointer", textAlign: "left" }}
+                              >
+                                {agentName}
+                              </button>
+                            ))}
+                            {(p.serviceEntries ?? []).map(se => (
+                              <button
+                                key={se.id}
+                                className="btn-hover"
+                                onClick={() => { printServiceCards([se], p, bonusCategories); setPrintMenuPeriod(null); }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px 8px 28px", background: "transparent", border: "none", color: "#a78bfa", fontSize: 12, cursor: "pointer", textAlign: "left" }}
+                              >
+                                {se.serviceAgent.name} (CS)
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                     {(() => {
                       const allEntries = [...p.entries, ...(p.serviceEntries ?? [])];
@@ -1408,14 +1478,20 @@ export default function PayrollDashboard() {
                                   <Printer size={11} /> Print
                                 </button>
                                 {entries.every(e => e.status === "PAID") ? (
-                                  <Badge color={C.success} size="sm">PAID</Badge>
+                                  <button
+                                    className="btn-hover"
+                                    onClick={() => markEntriesUnpaid(entries.map(e => e.id), [], agentName)}
+                                    style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                  >
+                                    <CheckCircle size={11} /> Paid
+                                  </button>
                                 ) : (
                                   <button
                                     className="btn-hover"
                                     onClick={() => markEntriesPaid(entries.map(e => e.id), [], agentName)}
-                                    style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                    style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
                                   >
-                                    <CheckCircle size={11} /> Paid
+                                    <XCircle size={11} /> Unpaid
                                   </button>
                                 )}
                               </div>
@@ -1452,6 +1528,7 @@ export default function PayrollDashboard() {
                                       onBonusFrontedUpdate={updateBonusFronted}
                                       onApprove={id => toggleApproval(id, true)}
                                       onUnapprove={unapproveCommission}
+                                      onDelete={deleteSale}
                                     />
                                   ))}
                                   {/* Agent subtotal */}
@@ -1474,90 +1551,119 @@ export default function PayrollDashboard() {
                       });
                     })()}
 
-                    {/* Customer Service section within expanded period */}
+                    {/* Customer Service — per-agent cards */}
                     {(p.serviceEntries ?? []).length > 0 && (
-                      <div style={{
-                        background: C.bgSurfaceRaised,
-                        border: `1px solid rgba(45,212,191,0.15)`,
-                        borderRadius: R.xl,
-                        overflow: "hidden",
-                      }}>
+                      <>
+                        {/* CS section header */}
                         <div style={{
                           display: "flex", justifyContent: "space-between", alignItems: "center",
-                          padding: `${S[4]}px ${S[5]}px`,
-                          borderBottom: `1px solid rgba(45,212,191,0.1)`,
+                          padding: `${S[3]}px ${S[4]}px`,
                           background: C.infoBg,
+                          border: `1px solid rgba(45,212,191,0.15)`,
+                          borderRadius: R.lg,
                         }}>
-                          <span style={{ fontWeight: 700, fontSize: 15, color: C.info }}>Customer Service</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: S[4] }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: C.info }}>
-                              Total: <AnimatedNumber value={svcTotal} prefix="$" decimals={2} />
-                            </span>
-                            <button
-                              className="btn-hover"
-                              onClick={() => printServiceCards(p.serviceEntries, p, bonusCategories)}
-                              style={{ ...BTN_ICON, background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}
+                          <span style={{ fontWeight: 700, fontSize: 14, color: C.info }}>Customer Service</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.info }}>
+                            Total: <AnimatedNumber value={svcTotal} prefix="$" decimals={2} />
+                          </span>
+                        </div>
+
+                        {/* Individual CS agent cards */}
+                        {p.serviceEntries.map((se, seIdx) => {
+                          const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
+                          const seFronted = Number(se.frontedAmount ?? 0);
+                          const bonusTotal = bonusCategories.filter(c => !c.isDeduction).reduce((s, c) => s + (bd[c.name] ?? 0), 0);
+                          const deductionTotal = bonusCategories.filter(c => c.isDeduction).reduce((s, c) => s + (bd[c.name] ?? 0), 0);
+                          return (
+                            <div
+                              key={se.id}
+                              className={`animate-fade-in-up stagger-${Math.min(seIdx + 1, 10)}`}
+                              style={{
+                                background: C.bgSurfaceRaised,
+                                border: `1px solid rgba(45,212,191,0.15)`,
+                                borderRadius: R.xl,
+                                overflow: "hidden",
+                              }}
                             >
-                              <Printer size={11} /> Print
-                            </button>
-                          </div>
-                        </div>
-                        <div style={{ overflowX: "auto" }}>
-                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 500 }}>
-                            <thead>
-                              <tr>
-                                <th style={TH}>Name</th>
-                                <th style={TH_R}>Base Pay</th>
-                                <th style={{ ...TH_R, color: C.danger }}>Fronted</th>
-                                {bonusCategories.map(cat => (
-                                  <th key={cat.name} style={{ ...TH_C, color: cat.isDeduction ? C.danger : C.textTertiary }}>
-                                    {cat.name}
-                                  </th>
-                                ))}
-                                <th style={{ ...TH_R, color: C.info }}>Total</th>
-                                <th style={TH_C}>Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {p.serviceEntries.map(se => {
-                                const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
-                                const seFronted = Number(se.frontedAmount ?? 0);
-                                return (
-                                  <tr key={se.id} className="row-hover" style={{ borderTop: `1px solid ${C.borderSubtle}` }}>
-                                    <td style={{ ...TD, fontWeight: 600, color: C.textPrimary }}>{se.serviceAgent.name}</td>
-                                    <td style={{ ...TD_R, color: C.textSecondary }}>${Number(se.basePay).toFixed(2)}</td>
-                                    <td style={{ ...TD_R, color: seFronted > 0 ? C.danger : C.textMuted, fontWeight: seFronted > 0 ? 700 : 400 }}>
-                                      {seFronted > 0 ? `$${seFronted.toFixed(2)}` : "—"}
-                                    </td>
-                                    {bonusCategories.map(cat => {
-                                      const amt = bd[cat.name] ?? 0;
-                                      return (
-                                        <td key={cat.name} style={{ ...TD_C, color: amt > 0 ? (cat.isDeduction ? C.danger : C.success) : C.textMuted, fontWeight: amt > 0 ? 700 : 400 }}>
-                                          {amt > 0 ? `$${amt.toFixed(2)}` : "—"}
-                                        </td>
-                                      );
-                                    })}
-                                    <td style={{ ...TD_R, color: C.info, fontWeight: 700 }}>${Number(se.totalPay).toFixed(2)}</td>
-                                    <td style={TD_C}>
-                                      {se.status === "PAID" ? (
-                                        <Badge color={C.success} size="sm">PAID</Badge>
-                                      ) : (
-                                        <button
-                                          className="btn-hover"
-                                          onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
-                                          style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
-                                        >
-                                          <CheckCircle size={11} /> Paid
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+                              {/* Agent header */}
+                              <div style={{
+                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                padding: `${S[4]}px ${S[5]}px`,
+                                borderBottom: `1px solid rgba(45,212,191,0.1)`,
+                                background: C.infoBg,
+                              }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
+                                  <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{se.serviceAgent.name}</span>
+                                  <Badge color={C.info} size="sm">CS</Badge>
+                                </div>
+                                <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
+                                  <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>${Number(se.basePay).toFixed(2)}</strong></span>
+                                  <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>${Number(se.totalPay).toFixed(2)}</strong></span>
+                                  <button
+                                    className="btn-hover"
+                                    onClick={() => printServiceCards([se], p, bonusCategories)}
+                                    style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+                                  >
+                                    <Printer size={11} /> Print
+                                  </button>
+                                  {se.status === "PAID" ? (
+                                    <button
+                                      className="btn-hover"
+                                      onClick={() => markEntriesUnpaid([], [se.id], se.serviceAgent.name)}
+                                      style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                    >
+                                      <CheckCircle size={11} /> Paid
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="btn-hover"
+                                      onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
+                                      style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                                    >
+                                      <XCircle size={11} /> Unpaid
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Date range */}
+                              <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: 12, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
+                                Sunday {fmtDate(p.weekStart)} – Saturday {fmtDate(p.weekEnd)}
+                              </div>
+
+                              {/* Pay breakdown */}
+                              <div style={{ padding: `${S[4]}px ${S[5]}px` }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: S[3] }}>
+                                  <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Base Pay</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary }}>${Number(se.basePay).toFixed(2)}</div>
+                                  </div>
+                                  {seFronted > 0 && (
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Fronted</div>
+                                      <div style={{ fontSize: 15, fontWeight: 700, color: C.danger }}>${seFronted.toFixed(2)}</div>
+                                    </div>
+                                  )}
+                                  {bonusCategories.map(cat => {
+                                    const amt = bd[cat.name] ?? 0;
+                                    if (amt === 0) return null;
+                                    return (
+                                      <div key={cat.name}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{cat.name}</div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success }}>${amt.toFixed(2)}</div>
+                                      </div>
+                                    );
+                                  })}
+                                  <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Total Pay</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.info }}>${Number(se.totalPay).toFixed(2)}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
                     )}
 
                     {p.entries.length === 0 && (p.serviceEntries ?? []).length === 0 && (

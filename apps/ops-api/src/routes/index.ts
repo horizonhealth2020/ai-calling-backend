@@ -291,7 +291,9 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     memberState: z.string().max(2).optional(),
     notes: z.string().optional(),
   });
-  const parsed = schema.parse(req.body);
+  const result = schema.safeParse(req.body);
+  if (!result.success) return res.status(400).json(zodErr(result.error));
+  const parsed = result.data;
   const { addonProductIds, ...saleData } = parsed;
   const sale = await prisma.sale.create({
     data: {
@@ -345,6 +347,20 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
   res.json(sale);
 }));
 
+router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const saleId = req.params.id;
+  const sale = await prisma.sale.findUnique({ where: { id: saleId }, select: { id: true, memberName: true, agentId: true, premium: true } });
+  if (!sale) return res.status(404).json({ error: "Sale not found" });
+  await prisma.$transaction([
+    prisma.saleAddon.deleteMany({ where: { saleId } }),
+    prisma.clawback.deleteMany({ where: { saleId } }),
+    prisma.payrollEntry.deleteMany({ where: { saleId } }),
+    prisma.sale.delete({ where: { id: saleId } }),
+  ]);
+  await logAudit(req.user!.id, "DELETE", "Sale", saleId, { memberName: sale.memberName, agentId: sale.agentId, premium: Number(sale.premium) });
+  return res.status(204).end();
+}));
+
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ approved: z.boolean().default(true) });
   const parsed = schema.safeParse(req.body);
@@ -371,19 +387,36 @@ router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROL
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
-  const data = await prisma.agent.findMany({
-    where: { active: true },
-    include: {
-      sales: {
-        where: salesWhere,
-        include: { leadSource: true },
-      },
-    },
-  });
+  const callWhere: any = { agentId: { not: null }, leadSourceId: { not: null } };
+  if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
+
+  // Fetch agents with sales and their Convoso call logs in parallel
+  const [data, allLeadSources, callLogs] = await Promise.all([
+    prisma.agent.findMany({
+      where: { active: true },
+      include: { sales: { where: salesWhere } },
+    }),
+    prisma.leadSource.findMany({ select: { id: true, costPerLead: true, callBufferSeconds: true } }),
+    prisma.convosoCallLog.findMany({ where: callWhere, select: { agentId: true, leadSourceId: true, callDurationSeconds: true } }),
+  ]);
+
+  // Build lead source lookup
+  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+
+  // Aggregate lead cost per agent from Convoso call logs (applying buffer filter)
+  const agentLeadCost = new Map<string, number>();
+  for (const log of callLogs) {
+    if (!log.agentId || !log.leadSourceId) continue;
+    const ls = lsMap.get(log.leadSourceId);
+    if (!ls) continue;
+    if (ls.callBufferSeconds > 0 && (log.callDurationSeconds ?? 0) < ls.callBufferSeconds) continue;
+    agentLeadCost.set(log.agentId, (agentLeadCost.get(log.agentId) ?? 0) + ls.costPerLead);
+  }
+
   const summary = data.map((agent) => {
     const salesCount = agent.sales.length;
     const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium), 0);
-    const totalLeadCost = agent.sales.reduce((sum, s) => sum + Number(s.leadSource.costPerLead), 0);
+    const totalLeadCost = agentLeadCost.get(agent.id) ?? 0;
     return {
       agent: agent.name,
       salesCount,
@@ -439,6 +472,35 @@ router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADM
   }
 
   await logAudit(req.user!.id, "MARK_PAID", "PayrollEntry", entryIds.concat(serviceEntryIds).join(","));
+
+  res.json({ ok: true });
+}));
+
+router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const { entryIds, serviceEntryIds } = z.object({
+    entryIds: z.array(z.string()).optional().default([]),
+    serviceEntryIds: z.array(z.string()).optional().default([]),
+  }).parse(req.body);
+
+  if (entryIds.length === 0 && serviceEntryIds.length === 0) {
+    return res.status(400).json({ error: "No entry IDs provided" });
+  }
+
+  if (entryIds.length > 0) {
+    await prisma.payrollEntry.updateMany({
+      where: { id: { in: entryIds }, status: "PAID" },
+      data: { status: "READY", paidAt: null },
+    });
+  }
+
+  if (serviceEntryIds.length > 0) {
+    await prisma.servicePayrollEntry.updateMany({
+      where: { id: { in: serviceEntryIds }, status: "PAID" },
+      data: { status: "READY", paidAt: null },
+    });
+  }
+
+  await logAudit(req.user!.id, "MARK_UNPAID", "PayrollEntry", entryIds.concat(serviceEntryIds).join(","));
 
   res.json({ ok: true });
 }));
@@ -567,6 +629,7 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
     payrollPeriodId: z.string(),
     bonusAmount: z.number().min(0).default(0),
     deductionAmount: z.number().min(0).default(0),
+    frontedAmount: z.number().min(0).default(0),
     bonusBreakdown: z.record(z.string(), z.number()).optional(),
     notes: z.string().optional(),
   });
@@ -579,11 +642,10 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
 
   let bonusAmount = parsed.data.bonusAmount;
   let deductionAmount = parsed.data.deductionAmount;
-  let totalPay = basePay + bonusAmount - deductionAmount;
+  let totalPay = basePay + bonusAmount - deductionAmount - frontedAmt;
   const breakdown = parsed.data.bonusBreakdown;
 
   if (breakdown) {
-    // Load category config to know which are deductions
     const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
     const cats: { name: string; isDeduction: boolean }[] = setting ? JSON.parse(setting.value) : DEFAULT_BONUS_CATEGORIES;
     const deductionNames = new Set(cats.filter(c => c.isDeduction).map(c => c.name));
@@ -594,13 +656,13 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
     }
     bonusAmount = adds;
     deductionAmount = deductions;
-    totalPay = basePay + adds - deductions;
+    totalPay = basePay + adds - deductions - frontedAmt;
   }
 
   const entry = await prisma.servicePayrollEntry.upsert({
     where: { payrollPeriodId_serviceAgentId: { payrollPeriodId: parsed.data.payrollPeriodId, serviceAgentId: parsed.data.serviceAgentId } },
-    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount, deductionAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
-    update: { bonusAmount, deductionAmount, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
+    create: { serviceAgentId: parsed.data.serviceAgentId, payrollPeriodId: parsed.data.payrollPeriodId, basePay, bonusAmount, deductionAmount, frontedAmount: frontedAmt, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
+    update: { bonusAmount, deductionAmount, frontedAmount: frontedAmt, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes },
     include: { serviceAgent: true },
   });
   res.status(201).json(entry);
@@ -610,6 +672,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
   const schema = z.object({
     bonusAmount: z.number().min(0).optional(),
     deductionAmount: z.number().min(0).optional(),
+    frontedAmount: z.number().min(0).optional(),
     bonusBreakdown: z.record(z.string(), z.number()).optional(),
     notes: z.string().nullable().optional(),
   });
@@ -622,7 +685,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
   let bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   let deduction = parsed.data.deductionAmount ?? Number(entry.deductionAmount);
-  let totalPay = Number(entry.basePay) + bonus - deduction;
+  let totalPay = Number(entry.basePay) + bonus - deduction - fronted;
 
   if (breakdown) {
     const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "service_bonus_categories" } });
@@ -635,12 +698,12 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
     }
     bonus = adds;
     deduction = deductions;
-    totalPay = Number(entry.basePay) + adds - deductions;
+    totalPay = Number(entry.basePay) + adds - deductions - fronted;
   }
 
   const updated = await prisma.servicePayrollEntry.update({
     where: { id: req.params.id },
-    data: { bonusAmount: bonus, deductionAmount: deduction, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
+    data: { bonusAmount: bonus, deductionAmount: deduction, frontedAmount: fronted, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
     include: { serviceAgent: true },
   });
   res.json(updated);

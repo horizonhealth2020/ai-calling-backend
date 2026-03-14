@@ -67,16 +67,6 @@ async function main() {
   });
 
   await prisma.product.upsert({
-    where: { name: "Medicare Supplement" },
-    update: {},
-    create: {
-      name: "Medicare Supplement", type: "CORE",
-      premiumThreshold: 250, commissionBelow: 20, commissionAbove: 28,
-      notes: "Medigap plans",
-    },
-  });
-
-  await prisma.product.upsert({
     where: { name: "Part D Prescription" },
     update: {},
     create: {

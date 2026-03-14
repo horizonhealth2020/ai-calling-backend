@@ -46,27 +46,30 @@ const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 
 /* ── Race bar configuration ───────────────────────────────────── */
 
-const MIN_BAR_HEIGHT = 120;
-const MAX_BAR_HEIGHT = 300;
-const BAR_WIDTH = 110;
+const BAR_HEIGHT = 340;
+const BAR_MIN_W = 60;
+const BAR_MAX_W = 160;
 
-const RANK_STYLES: Record<number, { bg: string; border: string; glow: string; rankColor: string; icon: React.ReactNode }> = {
+const RANK_STYLES: Record<number, { bg: string; fill: string; border: string; glow: string; rankColor: string; icon: React.ReactNode }> = {
   0: {
-    bg: "radial-gradient(ellipse at top, rgba(251,191,36,0.25) 0%, rgba(217,119,6,0.12) 50%, transparent 100%), linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(180,83,9,0.1) 100%)",
+    bg: "linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(180,83,9,0.03) 100%)",
+    fill: "linear-gradient(to top, rgba(251,191,36,0.35) 0%, rgba(217,119,6,0.15) 60%, transparent 100%)",
     border: "rgba(251,191,36,0.45)",
     glow: `0 0 40px rgba(251,191,36,0.3), ${shadows.xl}`,
     rankColor: colors.gold,
     icon: <Trophy size={24} strokeWidth={1.5} />,
   },
   1: {
-    bg: "radial-gradient(ellipse at top, rgba(209,213,219,0.18) 0%, rgba(156,163,175,0.08) 50%, transparent 100%), linear-gradient(135deg, rgba(209,213,219,0.12) 0%, rgba(107,114,128,0.08) 100%)",
+    bg: "linear-gradient(135deg, rgba(209,213,219,0.05) 0%, rgba(107,114,128,0.03) 100%)",
+    fill: "linear-gradient(to top, rgba(209,213,219,0.3) 0%, rgba(156,163,175,0.1) 60%, transparent 100%)",
     border: "rgba(209,213,219,0.35)",
     glow: `0 0 24px rgba(209,213,219,0.2), ${shadows.lg}`,
     rankColor: colors.silver,
     icon: <Medal size={22} strokeWidth={1.5} />,
   },
   2: {
-    bg: "radial-gradient(ellipse at top, rgba(217,119,6,0.2) 0%, rgba(180,83,9,0.1) 50%, transparent 100%), linear-gradient(135deg, rgba(217,119,6,0.12) 0%, rgba(146,64,14,0.08) 100%)",
+    bg: "linear-gradient(135deg, rgba(217,119,6,0.05) 0%, rgba(146,64,14,0.03) 100%)",
+    fill: "linear-gradient(to top, rgba(217,119,6,0.3) 0%, rgba(180,83,9,0.12) 60%, transparent 100%)",
     border: "rgba(217,119,6,0.4)",
     glow: `0 0 24px rgba(217,119,6,0.25), ${shadows.lg}`,
     rankColor: colors.bronze,
@@ -74,18 +77,27 @@ const RANK_STYLES: Record<number, { bg: string; border: string; glow: string; ra
   },
 };
 
+const GHOST_STYLE = {
+  bg: "linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(100,116,139,0.02) 100%)",
+  fill: "none",
+  border: "rgba(148,163,184,0.15)",
+  glow: "none",
+  rankColor: colors.textMuted,
+  icon: null,
+};
+
 const DEFAULT_BAR_STYLE = {
-  bg: "linear-gradient(135deg, rgba(20,184,166,0.12) 0%, rgba(13,148,136,0.06) 100%)",
+  bg: "linear-gradient(135deg, rgba(20,184,166,0.06) 0%, rgba(13,148,136,0.03) 100%)",
+  fill: "linear-gradient(to top, rgba(20,184,166,0.25) 0%, rgba(13,148,136,0.08) 60%, transparent 100%)",
   border: "rgba(20,184,166,0.3)",
   glow: shadows.md,
   rankColor: colors.textSecondary,
   icon: null,
 };
 
-/** Arrange sorted items center-out: 1st→center, 2nd→left, 3rd→right, 4th→further left... */
+/** Arrange sorted items center-out: 1st->center, 2nd->left, 3rd->right, 4th->further left... */
 function buildRaceOrder(count: number): number[] {
   if (count === 0) return [];
-  // Build position array: [center, left1, right1, left2, right2, ...]
   const result = new Array<number>(count);
   const positions: number[] = [];
   const center = Math.floor(count / 2);
@@ -107,18 +119,25 @@ function RaceBar({
   name,
   count,
   premium,
-  barHeight,
+  fillPercent,
   order,
+  hasMedal,
 }: {
   rank: number;
   name: string;
   count: number;
   premium: number;
-  barHeight: number;
+  fillPercent: number;
   order: number;
+  hasMedal: boolean;
 }) {
-  const style = RANK_STYLES[rank] ?? DEFAULT_BAR_STYLE;
-  const isTop3 = rank < 3;
+  const noSales = count === 0;
+  const style = noSales
+    ? GHOST_STYLE
+    : hasMedal
+      ? (RANK_STYLES[rank] ?? DEFAULT_BAR_STYLE)
+      : DEFAULT_BAR_STYLE;
+  const isTop3 = hasMedal && rank < 3;
 
   return (
     <div
@@ -129,7 +148,9 @@ function RaceBar({
         alignItems: "center",
         justifyContent: "flex-end",
         order,
-        flexShrink: 0,
+        flex: `1 1 0`,
+        minWidth: BAR_MIN_W,
+        maxWidth: BAR_MAX_W,
       }}
     >
       {/* Medal or rank label above bar */}
@@ -149,8 +170,8 @@ function RaceBar({
             width: 24,
             height: 24,
             borderRadius: radius.full,
-            background: colors.bgSurfaceOverlay,
-            border: `1px solid ${colors.borderDefault}`,
+            background: noSales ? "transparent" : colors.bgSurfaceOverlay,
+            border: `1px solid ${noSales ? colors.borderSubtle : colors.borderDefault}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -158,78 +179,101 @@ function RaceBar({
             fontWeight: 700,
             color: colors.textMuted,
             marginBottom: 6,
+            opacity: noSales ? 0.5 : 1,
           }}
         >
           {rank + 1}
         </div>
       )}
 
-      {/* Bar column */}
+      {/* Bar column — always full height, fill grows from bottom */}
       <div
         style={{
-          width: BAR_WIDTH,
-          height: barHeight,
+          width: "100%",
+          height: BAR_HEIGHT,
           borderRadius: `${radius.xl}px ${radius.xl}px 0 0`,
           background: style.bg,
           border: `1.5px solid ${style.border}`,
           borderBottom: "none",
-          boxShadow: style.glow,
+          boxShadow: noSales ? "none" : style.glow,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          padding: `${spacing[4]}px ${spacing[2]}px`,
+          justifyContent: "flex-end",
           position: "relative",
-          backdropFilter: "blur(8px)",
+          backdropFilter: noSales ? undefined : "blur(8px)",
+          transition: "box-shadow 0.6s ease, border-color 0.6s ease",
         }}
       >
+        {/* Fill overlay — grows from bottom */}
+        {fillPercent > 0 && style.fill !== "none" && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: `${fillPercent}%`,
+              background: style.fill,
+              borderRadius: fillPercent >= 98 ? `${radius.xl}px ${radius.xl}px 0 0` : undefined,
+              transition: "height 1s cubic-bezier(0.4,0,0.2,1)",
+              pointerEvents: "none",
+            }}
+          />
+        )}
+
         {/* Top highlight */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: "10%",
-            right: "10%",
-            height: 1,
-            background: `linear-gradient(90deg, transparent, ${style.border}, transparent)`,
-            pointerEvents: "none",
-          }}
-        />
+        {!noSales && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: "10%",
+              right: "10%",
+              height: 1,
+              background: `linear-gradient(90deg, transparent, ${style.border}, transparent)`,
+              pointerEvents: "none",
+            }}
+          />
+        )}
 
-        {/* Agent name */}
-        <div
-          style={{
-            fontSize: isTop3 ? 14 : 12,
-            fontWeight: 700,
-            color: colors.textPrimary,
-            textAlign: "center",
-            lineHeight: 1.2,
-            marginBottom: spacing[1],
-            letterSpacing: "-0.01em",
-            wordBreak: "break-word",
-            maxWidth: "100%",
-          }}
-        >
-          {name}
-        </div>
+        {/* Content — always at bottom of bar */}
+        <div style={{ position: "relative", zIndex: 1, padding: `${spacing[3]}px ${spacing[1]}px ${spacing[4]}px`, textAlign: "center", width: "100%" }}>
+          {/* Agent name */}
+          <div
+            style={{
+              fontSize: isTop3 ? 13 : 11,
+              fontWeight: 700,
+              color: noSales ? colors.textMuted : colors.textPrimary,
+              lineHeight: 1.2,
+              marginBottom: spacing[1],
+              letterSpacing: "-0.01em",
+              wordBreak: "break-word",
+              opacity: noSales ? 0.6 : 1,
+            }}
+          >
+            {name}
+          </div>
 
-        {/* Sales count */}
-        <div
-          style={{
-            fontSize: isTop3 ? 28 : 22,
-            fontWeight: 800,
-            color: isTop3 ? style.rankColor : colors.textPrimary,
-            lineHeight: 1,
-            letterSpacing: "-0.03em",
-            marginBottom: 2,
-          }}
-        >
-          <AnimatedNumber value={count} />
-        </div>
+          {/* Sales count */}
+          <div
+            style={{
+              fontSize: isTop3 ? 26 : 20,
+              fontWeight: 800,
+              color: noSales ? colors.textMuted : (isTop3 ? style.rankColor : colors.textPrimary),
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+              marginBottom: 2,
+              opacity: noSales ? 0.4 : 1,
+            }}
+          >
+            <AnimatedNumber value={count} />
+          </div>
 
-        {/* Premium */}
-        <div style={{ fontSize: 11, fontWeight: 600, color: colors.textTertiary }}>
-          <AnimatedNumber value={premium} prefix="$" decimals={2} />
+          {/* Premium */}
+          <div style={{ fontSize: 10, fontWeight: 600, color: colors.textTertiary, opacity: noSales ? 0.4 : 1 }}>
+            <AnimatedNumber value={premium} prefix="$" decimals={2} />
+          </div>
         </div>
       </div>
     </div>
@@ -246,8 +290,12 @@ function DailyView({ data }: { data: DetailedData }) {
     (a, b) => (todayStats[b]?.premium ?? 0) - (todayStats[a]?.premium ?? 0)
   );
 
-  const maxPremium = Math.max(...sorted.map((a) => todayStats[a]?.premium ?? 0), 1);
+  const maxPremium = Math.max(...sorted.map((a) => todayStats[a]?.premium ?? 0), 0);
   const orders = buildRaceOrder(sorted.length);
+
+  // Only award medals when there are clear leaders with actual sales
+  const agentsWithSales = sorted.filter(a => (todayStats[a]?.count ?? 0) > 0).length;
+  const showMedals = agentsWithSales >= 1;
 
   return (
     <div className="animate-fade-in">
@@ -266,7 +314,7 @@ function DailyView({ data }: { data: DetailedData }) {
           >
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to right, transparent, ${colors.borderDefault})` }} />
             <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-              <Crown size={14} color={colors.gold} />
+              <Crown size={14} color={showMedals ? colors.gold : colors.textMuted} />
               <span
                 style={{
                   fontSize: 11,
@@ -278,12 +326,12 @@ function DailyView({ data }: { data: DetailedData }) {
               >
                 Leaderboard
               </span>
-              <Crown size={14} color={colors.gold} />
+              <Crown size={14} color={showMedals ? colors.gold : colors.textMuted} />
             </div>
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${colors.borderDefault})` }} />
           </div>
 
-          {/* Race bars container */}
+          {/* Race bars container — flex fills screen width */}
           <div
             style={{
               display: "flex",
@@ -293,13 +341,15 @@ function DailyView({ data }: { data: DetailedData }) {
               overflowX: "auto",
               paddingBottom: spacing[4],
               paddingTop: spacing[4],
+              width: "100%",
             }}
           >
             {sorted.map((agent, i) => {
               const stat = todayStats[agent];
               const premium = stat?.premium ?? 0;
               const count = stat?.count ?? 0;
-              const barHeight = MIN_BAR_HEIGHT + (premium / maxPremium) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
+              const fillPercent = maxPremium > 0 ? Math.max((premium / maxPremium) * 100, count > 0 ? 10 : 0) : 0;
+              const hasMedal = showMedals && count > 0;
 
               return (
                 <RaceBar
@@ -308,8 +358,9 @@ function DailyView({ data }: { data: DetailedData }) {
                   name={agent}
                   count={count}
                   premium={premium}
-                  barHeight={barHeight}
+                  fillPercent={fillPercent}
                   order={orders[i]}
+                  hasMedal={hasMedal}
                 />
               );
             })}

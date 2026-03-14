@@ -761,6 +761,21 @@ export default function ManagerDashboard() {
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
+  async function deleteSale(id: string) {
+    if (!window.confirm("Permanently delete this sale? This removes it from payroll and tracking.")) return;
+    try {
+      const res = await authFetch(`${API}/api/sales/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSalesList(prev => prev.filter(s => s.id !== id));
+        authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+        setMsg("Sale deleted");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) { setMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+  }
+
   async function addAgent(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
     try {
@@ -1278,8 +1293,8 @@ export default function ManagerDashboard() {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
                         <tr>
-                          {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status"].map((h, i) => (
-                            <th key={h} style={{ ...TH, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
+                          {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status", ""].map((h, i) => (
+                            <th key={h || `actions-${i}`} style={{ ...TH, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1293,6 +1308,16 @@ export default function ManagerDashboard() {
                             <td style={TD}>{s.leadSource.name}</td>
                             <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: colors.success }}>${Number(s.premium).toFixed(2)}</td>
                             <td style={{ ...TD, textAlign: "center" }}><StatusBadge status={s.status} /></td>
+                            <td style={{ ...TD, textAlign: "center" }}>
+                              <button
+                                className="btn-hover"
+                                style={{ ...DANGER_BTN, padding: "4px 6px" }}
+                                title="Delete sale"
+                                onClick={() => deleteSale(s.id)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -6,6 +6,169 @@ This repository now supports **two independent workloads in one Railway project*
 
 > ⚠️ **Railway safety rule:** Morgan is a standalone service and must stay deployable independently. Keep Morgan service settings and runtime env unchanged.
 
+## System Architecture
+
+```mermaid
+flowchart TB
+    subgraph Browser["Browser"]
+        AP["Auth Portal\n:3011"]
+        MD["Manager Dashboard\n:3019"]
+        PD["Payroll Dashboard\n:3012"]
+        SB["Sales Board\n:3013"]
+        OD["Owner Dashboard\n:3026"]
+    end
+
+    subgraph API["Backend"]
+        OPS["ops-api\n:8080\nExpress.js + Zod"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL\nPrisma ORM")]
+        AL[("Audit Log")]
+    end
+
+    subgraph Shared["Shared Packages"]
+        AUTH["@ops/auth\nJWT + Sessions"]
+        DB["@ops/db\nPrisma Client"]
+        TYPES["@ops/types\nRoles + Types"]
+        UI["@ops/ui\nPageShell + Theme"]
+        UTILS["@ops/utils\nLogging"]
+    end
+
+    subgraph External["External Services"]
+        CONVOSO["Convoso\nCall Logs + Recordings"]
+    end
+
+    subgraph Legacy["Independent Workload"]
+        MORGAN["Morgan Voice Service\nroot index.js"]
+    end
+
+    %% Auth flow
+    AP -- "1. Login credentials" --> OPS
+    OPS -- "2. JWT token via URL redirect" --> AP
+    AP -- "3. Role-based redirect\nwith session_token" --> MD & PD & OD
+
+    %% Dashboard API calls
+    MD -- "authFetch()\nBearer token" --> OPS
+    PD -- "authFetch()\nBearer token" --> OPS
+    OD -- "authFetch()\nBearer token" --> OPS
+    SB -- "fetch()\nNo auth required" --> OPS
+
+    %% API to data
+    OPS -- "CRUD" --> PG
+    OPS -- "logAudit()" --> AL
+
+    %% External
+    CONVOSO -- "Call logs sync" --> OPS
+
+    %% Shared packages used by all apps
+    AUTH -.-> AP & MD & PD & OD & OPS
+    DB -.-> OPS
+    TYPES -.-> AP & MD & PD & OD & SB & OPS
+    UI -.-> AP & MD & PD & OD & SB
+
+    %% RBAC legend
+    OPS -. "RBAC Middleware\nrequireAuth → requireRole" .-> OPS
+```
+
+### Role-Based Access
+
+| Role | Dashboards | Capabilities |
+|------|-----------|--------------|
+| `SUPER_ADMIN` | All | Full access, bypasses all role checks |
+| `MANAGER` | Manager | Sales entry, agent tracking, call audits, config |
+| `PAYROLL` | Payroll | Payroll periods, commissions, clawbacks, exports |
+| `OWNER_VIEW` | Owner | Read-only KPI and operational overview |
+| `SERVICE` | — | Customer service operations |
+| `ADMIN` | — | Administrative functions |
+
+## Data Flow — Sale Lifecycle
+
+```mermaid
+flowchart LR
+    subgraph Entry["Sale Entry"]
+        SE["Manager enters sale\n(agent, product, premium,\nlead source, member)"]
+    end
+
+    subgraph Approval["Approval"]
+        SUB["SUBMITTED"]
+        APP["APPROVED"]
+        REJ["REJECTED"]
+    end
+
+    subgraph Commission["Commission Calc"]
+        CALC["upsertPayrollEntryForSale()\nProduct rules → payout\nAddon/AD&D detection\nEnrollment fee check"]
+    end
+
+    subgraph Payroll["Payroll Period"]
+        PE["PayrollEntry created\nWeek auto-assigned\npayout + adjustment +\nbonus - fronted = net"]
+        PP["Period: OPEN"]
+        PL["Period: LOCKED"]
+        PF["Period: FINALIZED"]
+    end
+
+    subgraph Payment["Payment"]
+        READY["Entry: READY"]
+        PAID["Entry: PAID\n(per-agent)"]
+    end
+
+    subgraph Clawback["Clawback Path"]
+        CANCEL["Sale cancelled /\nmember ID matched"]
+        MATCH["Clawback: MATCHED\n(auto-detect)"]
+        DEDUCT["Clawback: DEDUCTED\n(applied to payroll)"]
+        ZERO["Entry: ZEROED_OUT"]
+    end
+
+    subgraph Audit["Call Audit Path"]
+        CL["Convoso Call Log\n(recording + duration)"]
+        TR["Transcription"]
+        AI["AI Scoring\n(score, coaching notes,\nissues, wins)"]
+        RV["Manager Review\n(final score + notes)"]
+    end
+
+    %% Main sale flow
+    SE --> SUB --> APP --> CALC --> PE
+    SUB --> REJ
+
+    %% Payroll flow
+    PE --> PP --> PL --> PF
+    PE --> READY --> PAID
+
+    %% Clawback flow
+    APP --> CANCEL --> MATCH --> DEDUCT --> ZERO
+
+    %% Audit flow (parallel)
+    SE -.-> CL --> TR --> AI --> RV
+```
+
+### Key Data Relationships
+
+```mermaid
+erDiagram
+    Agent ||--o{ Sale : sells
+    Agent ||--o{ PayrollEntry : earns
+    Agent ||--o{ Clawback : owes
+    Agent ||--o{ CallAudit : audited
+
+    Sale ||--o{ PayrollEntry : generates
+    Sale ||--o{ Clawback : triggers
+    Sale ||--o{ SaleAddon : includes
+    Sale }o--|| Product : "core product"
+    Sale }o--|| LeadSource : "lead from"
+
+    SaleAddon }o--|| Product : "addon/AD&D"
+
+    PayrollPeriod ||--o{ PayrollEntry : contains
+    PayrollPeriod ||--o{ ServicePayrollEntry : contains
+    PayrollPeriod ||--o{ Clawback : "deducted in"
+
+    ServiceAgent ||--o{ ServicePayrollEntry : earns
+
+    Product ||--o{ PayoutRule : "payout config"
+
+    ConvosoCallLog |o--o| CallAudit : "linked audit"
+```
+
 ## Monorepo layout
 
 ```text
