@@ -1145,16 +1145,17 @@ export default function ManagerDashboard() {
                                 </Badge>
                               </div>
                               {isChecked && (
-                                <div style={{ paddingLeft: 26, paddingBottom: 6 }}>
+                                <div style={{ paddingLeft: 26, paddingBottom: 10 }}>
+                                  <label style={{ ...LBL, fontSize: 11, marginBottom: 4 }}>Premium ($)</label>
                                   <input
                                     className="input-focus"
                                     type="number"
                                     step="0.01"
                                     min="0"
-                                    placeholder="Premium ($)"
+                                    placeholder="0.00"
                                     value={addonPremiums[ap.id] ?? ""}
                                     onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
-                                    style={{ ...INP, width: "100%", fontSize: 12 }}
+                                    style={{ ...INP, width: "100%", fontSize: 13 }}
                                   />
                                 </div>
                               )}
