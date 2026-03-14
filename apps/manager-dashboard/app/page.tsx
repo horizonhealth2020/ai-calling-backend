@@ -637,6 +637,7 @@ export default function ManagerDashboard() {
     paymentType: "" as "CC" | "ACH" | "", memberState: "",
   });
   const [form, setForm] = useState(blankForm());
+  const [addonPremiums, setAddonPremiums] = useState<Record<string, string>>({});
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
 
@@ -727,12 +728,17 @@ export default function ManagerDashboard() {
   function clearReceipt() {
     setReceipt("");
     setParsed(false);
+    setAddonPremiums({});
     setForm(f => ({ ...blankForm(), agentId: f.agentId, productId: f.productId, leadSourceId: f.leadSourceId }));
   }
 
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg(null); setSubmitting(true);
     try {
+      const addonPremiumsPayload = form.addonProductIds.reduce((acc, id) => {
+        if (addonPremiums[id]) acc[id] = Number(addonPremiums[id]);
+        return acc;
+      }, {} as Record<string, number>);
       const res = await authFetch(`${API}/api/sales`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -742,6 +748,7 @@ export default function ManagerDashboard() {
           enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null,
           paymentType: form.paymentType || undefined,
           memberState: form.memberState || undefined,
+          addonPremiums: addonPremiumsPayload,
         }),
       });
       if (res.ok) {
@@ -987,7 +994,63 @@ export default function ManagerDashboard() {
                   {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              <div className="animate-fade-in-up stagger-9">
+              {/* Add-on Products */}
+              {(() => {
+                const addonProducts = products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId);
+                return (
+                  <div className="animate-fade-in-up stagger-9" style={{ gridColumn: "1/-1" }}>
+                    <label style={LBL}>Add-on Products</label>
+                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[3] }}>
+                      {addonProducts.length === 0 ? (
+                        <span style={{ fontSize: 13, color: colors.textTertiary }}>No add-on products available</span>
+                      ) : (
+                        addonProducts.map(ap => {
+                          const isChecked = form.addonProductIds.includes(ap.id);
+                          return (
+                            <div key={ap.id}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  style={{ accentColor: colors.primary400 }}
+                                  onChange={e => {
+                                    if (e.target.checked) {
+                                      setForm(f => ({ ...f, addonProductIds: [...f.addonProductIds, ap.id] }));
+                                    } else {
+                                      setForm(f => ({ ...f, addonProductIds: f.addonProductIds.filter(id => id !== ap.id) }));
+                                      setAddonPremiums(prev => { const next = { ...prev }; delete next[ap.id]; return next; });
+                                    }
+                                  }}
+                                />
+                                <span style={{ fontSize: 13, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
+                                <Badge color={ap.type === "AD_D" ? colors.warning : colors.info} variant="subtle" size="sm">
+                                  {ap.type === "AD_D" ? "AD&D" : "ADDON"}
+                                </Badge>
+                              </div>
+                              {isChecked && (
+                                <div style={{ paddingLeft: 28, paddingBottom: 6 }}>
+                                  <input
+                                    className="input-focus"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="Addon premium ($)"
+                                    value={addonPremiums[ap.id] ?? ""}
+                                    onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
+                                    style={{ ...INP, width: 160 }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="animate-fade-in-up stagger-10">
                 <label style={LBL}>Lead Source</label>
                 <select className="input-focus" style={{ ...INP }} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
                   {leadSources.filter(ls => ls.active !== false).map(ls => (
@@ -995,7 +1058,7 @@ export default function ManagerDashboard() {
                   ))}
                 </select>
               </div>
-              <div className="animate-fade-in-up stagger-10">
+              <div className="animate-fade-in-up stagger-11">
                 <label style={LBL}>Enrollment Fee ($)</label>
                 <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} />
               </div>
