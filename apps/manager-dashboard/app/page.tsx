@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, useRef, FormEvent } from "react";
 import {
   PageShell,
   Badge,
@@ -625,7 +625,8 @@ export default function ManagerDashboard() {
   const [salesList, setSalesList] = useState<Sale[]>([]);
   const [salesDay, setSalesDay] = useState<string>("all");
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const msgTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [submitting, setSubmitting] = useState(false);
 
   const blankForm = () => ({
@@ -730,7 +731,7 @@ export default function ManagerDashboard() {
   }
 
   async function submitSale(e: FormEvent) {
-    e.preventDefault(); setMsg(""); setSubmitting(true);
+    e.preventDefault(); setMsg(null); setSubmitting(true);
     try {
       const res = await authFetch(`${API}/api/sales`, {
         method: "POST",
@@ -744,16 +745,18 @@ export default function ManagerDashboard() {
         }),
       });
       if (res.ok) {
-        setMsg("Sale submitted successfully");
+        setMsg({ text: "Sale submitted successfully", type: "success" });
+        clearTimeout(msgTimerRef.current);
+        msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
         clearReceipt();
         authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
         authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
       } else {
         const err = await res.json().catch(() => ({}));
-        setMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        setMsg({ text: `Failed to create sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
     } catch (e: any) {
-      setMsg(`Error: Unable to reach API server \u2014 ${e.message ?? "network error"}`);
+      setMsg({ text: `Unable to reach API server \u2014 ${e.message ?? "network error"}`, type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -782,12 +785,14 @@ export default function ManagerDashboard() {
       if (res.ok) {
         setSalesList(prev => prev.filter(s => s.id !== id));
         authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
-        setMsg("Sale deleted");
+        setMsg({ text: "Sale deleted", type: "success" });
+        clearTimeout(msgTimerRef.current);
+        msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
       } else {
         const err = await res.json().catch(() => ({}));
-        setMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        setMsg({ text: `Failed to delete sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) { setMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: any) { setMsg({ text: `Unable to reach API \u2014 ${e.message ?? "network error"}`, type: "error" }); }
   }
 
   async function addAgent(e: FormEvent) {
@@ -850,6 +855,24 @@ export default function ManagerDashboard() {
       {/* ── Sales Entry ────────────────────────────────────────────── */}
       {tab === "entry" && (
         <div className="animate-fade-in" style={{ maxWidth: 900 }}>
+          {msg && (
+            <div className="animate-fade-in-up" style={{
+              marginBottom: 16,
+              padding: "12px 16px",
+              borderRadius: radius.xl,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 14,
+              fontWeight: 600,
+              background: msg.type === "success" ? colors.successBg : colors.dangerBg,
+              border: `1px solid ${msg.type === "success" ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
+              color: msg.type === "success" ? colors.success : colors.danger,
+            }}>
+              {msg.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+              {msg.text}
+            </div>
+          )}
           <form onSubmit={submitSale}>
             {/* Top row: Agent + Receipt */}
             <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16, marginBottom: 20 }} className="stack-mobile">
@@ -1129,24 +1152,6 @@ export default function ManagerDashboard() {
                     <>Submit Sale</>
                   )}
                 </button>
-                {msg && (
-                  <div className="animate-fade-in-up" style={{
-                    marginTop: 12,
-                    padding: "12px 16px",
-                    borderRadius: radius.xl,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    background: msg.startsWith("Sale") ? colors.successBg : colors.dangerBg,
-                    border: `1px solid ${msg.startsWith("Sale") ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
-                    color: msg.startsWith("Sale") ? colors.success : colors.danger,
-                  }}>
-                    {msg.startsWith("Sale") ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                    {msg}
-                  </div>
-                )}
               </div>
             </div>
           </form>
