@@ -44,9 +44,9 @@ Declared values (must be multiples of 4). Source: `packages/ui/src/tokens.ts` `s
 | 3xl | 64px (`spacing[16]`) | Page-level spacing |
 
 Exceptions:
-- Inline edit row action buttons: `padding: "6px 8px"` (matches existing `ICON_BTN` constant).
+- Inline edit row action buttons: `padding: "6px 8px"` — inherited from existing `ICON_BTN` constant; not a Phase 5 declaration.
 - Pending approvals sub-section internal padding: `12px` (matches Phase 10 payroll dashboard amber block pattern).
-- Table cell padding: `"10px 14px"` for `TH`, `"12px 14px"` for `TD` (matches existing table constants).
+- Table cell padding: `"10px 14px"` for `TH`, `"12px 14px"` for `TD` — inherited from existing `TH`/`TD` constants; not Phase 5 declarations.
 - Touch target minimum: 44px height for all interactive buttons (accessibility minimum).
 
 ---
@@ -59,14 +59,16 @@ Source: `packages/ui/src/tokens.ts` `typography` export, confirmed against exist
 |------|------|--------|-------------|
 | Body | 14px (`typography.sizes.base.fontSize`) | 400 (`typography.weights.normal`) | 1.6 |
 | Label | 11px (`typography.sizes.xs.fontSize`) | 700 (`typography.weights.bold`) | 1.45 |
-| Heading | 18px (`typography.sizes.lg.fontSize`) | 600 (`typography.weights.semibold`) | 1.4 |
+| Heading | 18px (`typography.sizes.lg.fontSize`) | 700 (`typography.weights.bold`) | 1.4 |
 | Display | 28px (`typography.sizes["2xl"].fontSize`) | 700 (`typography.weights.bold`) | 1.2 |
+
+Note on font weights: only 2 weights are in use — 400 (normal) and 700 (bold). Weight 600 (semibold) is not declared for Phase 5; all former semibold usages are promoted to 700.
 
 Additional usage notes:
 - Table headers (`TH`): 11px, weight 700, `colors.textTertiary`, `textTransform: "uppercase"`, `letterSpacing: "0.06em"` — matches `baseLabelStyle`.
-- Table cells (`TD`): 13px, weight 400, `colors.textSecondary`.
-- Commission total figure in preview panel: 22px (`typography.sizes.xl`), weight 700, `colors.primary400` (teal accent).
-- Diff labels in edit confirmation: 13px, weight 400; diff values bolded at weight 600.
+- Table cells (`TD`): 14px, weight 400, `colors.textSecondary`.
+- Commission total figure in preview panel: 18px, weight 700, `colors.primary400` (teal accent) — teal color and bold weight provide sufficient distinction without requiring a separate size step.
+- Diff labels in edit confirmation: 14px, weight 400; diff values bolded at weight 700.
 - Section sub-labels: 11px, `colors.textTertiary`, uppercase tracking — matches `baseLabelStyle`.
 
 ---
@@ -112,12 +114,12 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 | Constant | Purpose | Base |
 |----------|---------|------|
 | `PREVIEW_PANEL` | Commission preview card at top of right column | `CARD` + `border: 1px solid rgba(20,184,166,0.15)` |
-| `PREVIEW_TOTAL` | Commission total number in preview | `fontSize: 22, fontWeight: 700, color: colors.primary400` |
-| `PREVIEW_LINE` | Breakdown line row | `fontSize: 13, color: colors.textSecondary, display: "flex", justifyContent: "space-between"` |
+| `PREVIEW_TOTAL` | Commission total number in preview | `fontSize: 18, fontWeight: 700, color: colors.primary400` |
+| `PREVIEW_LINE` | Breakdown line row | `fontSize: 14, color: colors.textSecondary, display: "flex", justifyContent: "space-between"` |
 | `PREVIEW_LABEL` | "Commission Preview" section heading | `baseLabelStyle` (11px, uppercase, textTertiary) |
 | `EDIT_ROW_EXPANSION` | Expanded inline edit area below a sale row | `background: colors.bgSurfaceRaised, borderTop: "1px solid rgba(255,255,255,0.04)", padding: "16px 14px"` |
-| `DIFF_OLD` | Old value in old-vs-new diff display | `fontSize: 13, color: colors.textMuted, textDecoration: "line-through"` |
-| `DIFF_NEW` | New value in old-vs-new diff display | `fontSize: 13, color: colors.success, fontWeight: 600` |
+| `DIFF_OLD` | Old value in old-vs-new diff display | `fontSize: 14, color: colors.textMuted, textDecoration: "line-through"` |
+| `DIFF_NEW` | New value in old-vs-new diff display | `fontSize: 14, color: colors.success, fontWeight: 700` |
 | `EDIT_BTN` | Edit icon button on sale row | `ICON_BTN` base (transparent bg, borderDefault border, 6px 8px padding) |
 | `PENDING_EDIT_BADGE` | "Edit Pending" badge inline on sale row | Amber badge: `background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: radius.sm` |
 
@@ -147,13 +149,13 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 
 **Loading state:** Commission total number stays visible with `animation: "pulse 1.5s ease-in-out infinite", opacity: 0.6`. No spinner. No layout shift. Label changes to "Calculating..." (11px, textTertiary).
 
-**Loaded state:** Total commission displayed in `PREVIEW_TOTAL` style (22px, teal, weight 700). Below it, a breakdown section shows:
-- "Bundle Qualifier: Yes / No" — 13px, textSecondary
+**Loaded state:** Total commission displayed in `PREVIEW_TOTAL` style (18px, teal, weight 700). Below it, a breakdown section shows:
+- "Bundle Qualifier: Yes / No" — 14px, textSecondary
 - Per-product line: `[Product Name] — $XX.XX` — shows full or half rate with reason label if halved
 - "Bonus: +$10.00" if enrollment fee bonus applies — shown in `colors.success`
 - "Period: Mar 22 – Mar 28" — formatted pay period for this sale
 
-**Empty state (no product selected):** Panel shows "Select a product to see commission preview." in 13px textMuted. Panel is always rendered (not conditionally mounted) to hold its layout slot.
+**Empty state (no product selected):** Panel shows "Select a product to see commission preview." in 14px textMuted. Panel is always rendered (not conditionally mounted) to hold its layout slot.
 
 **Error state:** If preview API returns non-200: "Preview unavailable" in 12px `colors.danger`. Does not block form submission.
 
@@ -165,7 +167,7 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 
 **Edit mode visual:** Row background shifts to `colors.bgSurfaceRaised`. An expansion panel slides in below the row (`.animate-slide-down`, 250ms `ease-out`) containing all editable fields in a two-column grid.
 
-**Pending sale guard:** If the sale has `hasPendingStatusChange: true` OR a pending `SaleEditRequest`, clicking Edit shows an inline message instead of the edit form: "A change is already pending for this sale. Wait for payroll to review before editing." (13px, `colors.warning`). Edit button remains visible but the expansion shows only this message.
+**Pending sale guard:** If the sale has `hasPendingStatusChange: true` OR a pending `SaleEditRequest`, clicking Edit shows an inline message instead of the edit form: "A change is already pending for this sale. Wait for payroll to review before editing." (14px, `colors.warning`). Edit button remains visible but the expansion shows only this message.
 
 **Field layout inside edit expansion:**
 - Row 1: Product (dropdown, full width)
@@ -182,7 +184,7 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 - MANAGER role: "Submit for Approval" button (`SUCCESS_BTN`). Creates `SaleEditRequest`. Row collapses. `PENDING_EDIT_BADGE` appears on the row.
 - PAYROLL / SUPER_ADMIN role: "Save Changes" button (accent gradient, matches `SUBMIT_BTN` style). Applies directly. Row collapses. Toast/alert confirms save.
 
-**Cancel:** `CANCEL_BTN` labeled "Discard". Collapses edit expansion. No state persisted.
+**Cancel:** `CANCEL_BTN` labeled "Discard Changes". Collapses edit expansion. No state persisted.
 
 **Clearing edit state on tab switch:** `editingSaleId` resets to `null` when user switches away from the "Agent Sales" tab.
 
@@ -195,10 +197,10 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 - Edit request: teal-tinted badge label "Edit Request" (`colors.accentTeal` background at 10% opacity)
 
 **Edit request row layout:** Identical DOM structure to status change request rows. Shows:
-- Member name + Member ID + Product name (13px, weight 600, `colors.textPrimary`)
-- Requested by + date (12px, `colors.textMuted`)
-- Field diff summary: each changed field on its own line, `[Field]: [old] → [new]` (12px, `colors.textSecondary`)
-- Commission diff line if commission changes: "Commission: $45.00 → $90.00" (12px, success color for increase, danger for decrease)
+- Member name + Member ID + Product name (14px, weight 700, `colors.textPrimary`)
+- Requested by + date (11px, `colors.textMuted`)
+- Field diff summary: each changed field on its own line, `[Field]: [old] → [new]` (11px, `colors.textSecondary`)
+- Commission diff line if commission changes: "Commission: $45.00 → $90.00" (11px, success color for increase, danger for decrease)
 
 **Approve / Reject buttons:** Same `BTN_ICON` style as Phase 10 status change buttons. Approve = `background: "#059669"`. Reject = `background: colors.dangerBg, border: "1px solid rgba(248,113,113,0.2)", color: colors.danger`.
 
@@ -221,7 +223,7 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 | Primary CTA (new sale) | Submit Sale |
 | Edit button label (icon only) | aria-label="Edit sale" |
 | Edit expansion heading | Edit Sale |
-| Edit cancel button | Discard |
+| Edit cancel button | Discard Changes |
 | Edit submit (manager) | Submit for Approval |
 | Edit save (payroll/admin) | Save Changes |
 | Edit pending guard message | A change is already pending. Wait for payroll to review before editing. |
@@ -229,8 +231,8 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 | Diff section heading | Changes |
 | Diff "no changes yet" | No fields changed yet. |
 | Payroll pending approvals count badge | {N} pending |
-| Approve button label | Approve |
-| Reject button label | Reject |
+| Approve button label | Approve Edit |
+| Reject button label | Reject Edit |
 | Finalized period approval confirmation | Approving this edit will create an adjustment entry in the next open period. Commission difference will be applied there. Continue? |
 | Reject confirmation | Reject this edit request? The sale will remain unchanged. |
 | Approval success alert | Edit approved and applied. |
@@ -265,7 +267,7 @@ Reduced motion: All animations respect `@media (prefers-reduced-motion: reduce)`
 - Preview panel uses `aria-live="polite"` so screen readers announce commission updates without interrupting flow.
 - Edit expansion uses `aria-expanded` on the edit button to communicate open/close state.
 - Diff "Changes" section uses `role="status"` to announce field changes.
-- Color alone is never the sole indicator: diff old values use `textDecoration: "line-through"` in addition to muted color; diff new values use weight 600 in addition to success color.
+- Color alone is never the sole indicator: diff old values use `textDecoration: "line-through"` in addition to muted color; diff new values use weight 700 in addition to success color.
 - Focus management: When edit expansion opens, first focusable field (Product dropdown) receives focus.
 - Minimum touch target: 44px height on all interactive buttons.
 
