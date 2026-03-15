@@ -146,7 +146,7 @@ Plans:
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
-| 10. Sale Status Payroll Logic | 1/4 | In Progress | - |
+| 10. Sale Status Payroll Logic | 2/4 | In Progress | - |
 
 ### Phase 10: Sale Status Payroll Logic
 
@@ -163,7 +163,7 @@ Plans:
 
 Plans:
 - [x] 10-01-PLAN.md -- Schema migration (SaleStatus enum replacement, StatusChangeRequest model) and commission gating
-- [ ] 10-02-PLAN.md -- Status change API with approval workflow, commission zeroing, and dashboard query filters
+- [x] 10-02-PLAN.md -- Status change API with approval workflow, commission zeroing, and dashboard query filters
 - [ ] 10-03-PLAN.md -- Manager dashboard status dropdown on sales form and editable status on agent sales tab
 - [ ] 10-04-PLAN.md -- Payroll dashboard pending approvals, approve/reject actions, and period total filtering
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-15T16:49:45Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-15T16:56:49Z"
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 15
-  completed_plans: 11
-  percent: 73
+  completed_plans: 12
+  percent: 80
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,23 +24,23 @@ progress:
 ## Current Position
 
 **Phase:** 10 of 10 -- Sale Status Payroll Logic -- IN PROGRESS
-**Plan:** 1 of 4 -- Schema & Commission Gate -- COMPLETE
+**Plan:** 2 of 4 -- Status Change API & Approval Workflow -- COMPLETE
 **Status:** In progress
 
 ```
-Progress: [#######...] 73%
+Progress: [########..] 80%
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [##...]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
-Phase 9 [.....] | Phase 10 [#....]
+Phase 9 [.....] | Phase 10 [##...]
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 11 |
+| Plans completed | 12 |
 | Plans total | 15+ (remaining phases TBD) |
-| Requirements done | 13/36 |
+| Requirements done | 18/36 |
 | Phases done | 3/10 |
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -56,6 +56,7 @@ Phase 9 [.....] | Phase 10 [#....]
 | 03 | 02 | 157s | 2 | 4 |
 | 04 | 01 | 100s | 2 | 2 |
 | 10 | 01 | 192s | 3 | 6 |
+| 10 | 02 | 172s | 2 | 2 |
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Phase 9 [.....] | Phase 10 [#....]
 - [Phase 10] Commission gate in upsertPayrollEntryForSale, not calculateCommission (keeps calc pure)
 - [Phase 10] POST /api/sales requires explicit status (no default) so managers must choose
 - [Phase 10] PATCH /api/sales/:id no longer accepts status (moved to dedicated endpoint in Plan 02)
+- [Phase 10] handleCommissionZeroing follows existing clawback pattern (ZEROED_OUT for OPEN, CLAWBACK_APPLIED for finalized)
+- [Phase 10] Pending change requests auto-cancelled on Ran->Dead/Declined to prevent orphans
+- [Phase 10] StatusChangeRequest cleanup added explicitly to sale delete transaction
 - [Phase 4] Carrier made optional with .optional().default("") to preserve existing DB behavior (empty string, not null)
 - [Phase 4] Product dropdown filters to CORE type only; addon picker shows ADDON first then AD_D
 - [Phase 3] Luxon America/New_York used for day-of-week only; output stays UTC midnight dates to preserve period ID format
@@ -115,9 +119,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-15T16:49:45Z
-**Stopped at:** Completed 10-01-PLAN.md
-**Next action:** Execute Phase 10 Plan 2 (Status change API with approval workflow)
+**Last session:** 2026-03-15T16:56:49Z
+**Stopped at:** Completed 10-02-PLAN.md
+**Next action:** Execute Phase 10 Plan 3 (Manager dashboard status dropdown)
 
 ---
 *State initialized: 2026-03-14*

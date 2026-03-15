@@ -66,11 +66,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **STATUS-01**: SaleStatus enum replaced with RAN/DECLINED/DEAD; existing sales migrated to RAN
 - [x] **STATUS-02**: StatusChangeRequest model exists with correct relations and migration SQL
 - [x] **STATUS-03**: Only RAN sales generate non-zero commission; DECLINED/DEAD create $0 payroll entries
-- [ ] **STATUS-04**: Dead/Declined to Ran creates a change request instead of applying immediately
-- [ ] **STATUS-05**: Ran to Dead/Declined zeroes commission immediately with finalized period handling
-- [ ] **STATUS-06**: Payroll/SuperAdmin can approve a change request, triggering commission recalculation
-- [ ] **STATUS-07**: Payroll/SuperAdmin can reject a change request, reverting to original status
-- [ ] **STATUS-08**: Sales board and owner KPIs only count RAN sales
+- [x] **STATUS-04**: Dead/Declined to Ran creates a change request instead of applying immediately
+- [x] **STATUS-05**: Ran to Dead/Declined zeroes commission immediately with finalized period handling
+- [x] **STATUS-06**: Payroll/SuperAdmin can approve a change request, triggering commission recalculation
+- [x] **STATUS-07**: Payroll/SuperAdmin can reject a change request, reverting to original status
+- [x] **STATUS-08**: Sales board and owner KPIs only count RAN sales
 - [ ] **STATUS-09**: Sales entry form has required status dropdown (blank default, Ran/Declined/Dead)
 - [ ] **STATUS-10**: Agent sales tab has editable status dropdown with approval workflow confirmation
 - [ ] **STATUS-11**: StatusBadge shows correct colors: Ran=green, Declined=red, Dead=gray, Pending Ran=amber
@@ -154,11 +154,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STATUS-01 | Phase 10 | Complete |
 | STATUS-02 | Phase 10 | Complete |
 | STATUS-03 | Phase 10 | Complete |
-| STATUS-04 | Phase 10 | Pending |
-| STATUS-05 | Phase 10 | Pending |
-| STATUS-06 | Phase 10 | Pending |
-| STATUS-07 | Phase 10 | Pending |
-| STATUS-08 | Phase 10 | Pending |
+| STATUS-04 | Phase 10 | Complete |
+| STATUS-05 | Phase 10 | Complete |
+| STATUS-06 | Phase 10 | Complete |
+| STATUS-07 | Phase 10 | Complete |
+| STATUS-08 | Phase 10 | Complete |
 | STATUS-09 | Phase 10 | Pending |
 | STATUS-10 | Phase 10 | Pending |
 | STATUS-11 | Phase 10 | Pending |
