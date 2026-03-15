@@ -998,6 +998,9 @@ export default function ManagerDashboard() {
                     </label>
                   ))}
                 </div>
+                {!form.paymentType && (
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: colors.warning }}>Please select a payment type before submitting</p>
+                )}
               </div>
 
               {/* Submit row */}
