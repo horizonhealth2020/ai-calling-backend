@@ -164,6 +164,36 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
   return Math.round((finalCommission + enrollmentBonus) * 100) / 100;
 };
 
+/**
+ * Zero out commission for a sale across all payroll entries.
+ * - OPEN periods: zero out (payoutAmount=0, netAmount=0, status=ZEROED_OUT)
+ * - Finalized/paid periods: apply clawback (negative adjustment, status=CLAWBACK_APPLIED)
+ */
+export const handleCommissionZeroing = async (saleId: string) => {
+  const entries = await prisma.payrollEntry.findMany({
+    where: { saleId },
+    include: { payrollPeriod: true },
+  });
+
+  for (const entry of entries) {
+    if (entry.payrollPeriod.status === 'OPEN') {
+      await prisma.payrollEntry.update({
+        where: { id: entry.id },
+        data: { payoutAmount: 0, netAmount: 0, status: 'ZEROED_OUT' },
+      });
+    } else {
+      // Finalized/locked/paid: apply clawback pattern (mirrors clawback logic in routes)
+      await prisma.payrollEntry.update({
+        where: { id: entry.id },
+        data: {
+          adjustmentAmount: Number(entry.adjustmentAmount) - Number(entry.netAmount),
+          status: 'CLAWBACK_APPLIED',
+        },
+      });
+    }
+  }
+};
+
 export const upsertPayrollEntryForSale = async (saleId: string) => {
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },

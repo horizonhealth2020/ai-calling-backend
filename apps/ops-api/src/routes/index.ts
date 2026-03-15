@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/auth";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upsertPayrollEntryForSale } from "../services/payroll";
+import { upsertPayrollEntryForSale, handleCommissionZeroing } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
 import { enqueueAuditJob } from "../services/auditQueue";
@@ -363,10 +363,82 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
     prisma.saleAddon.deleteMany({ where: { saleId } }),
     prisma.clawback.deleteMany({ where: { saleId } }),
     prisma.payrollEntry.deleteMany({ where: { saleId } }),
+    prisma.statusChangeRequest.deleteMany({ where: { saleId } }),
     prisma.sale.delete({ where: { id: saleId } }),
   ]);
   await logAudit(req.user!.id, "DELETE", "Sale", saleId, { memberName: sale.memberName, agentId: sale.agentId, premium: Number(sale.premium) });
   return res.status(204).end();
+}));
+
+// ── Sale Status Change ──────────────────────────────────────────
+router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ status: z.enum(["RAN", "DECLINED", "DEAD"]) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const sale = await prisma.sale.findUnique({ where: { id: req.params.id } });
+  if (!sale) return res.status(404).json({ error: "Sale not found" });
+
+  const oldStatus = sale.status;
+  const newStatus = parsed.data.status;
+
+  // No-op if same status
+  if (oldStatus === newStatus) return res.json(sale);
+
+  // Dead/Declined -> Ran: requires approval workflow
+  if ((oldStatus === "DEAD" || oldStatus === "DECLINED") && newStatus === "RAN") {
+    const result = await prisma.$transaction(async (tx) => {
+      // Check for existing PENDING change request
+      const existing = await tx.statusChangeRequest.findFirst({
+        where: { saleId: sale.id, status: "PENDING" },
+      });
+      if (existing) return { conflict: true };
+
+      const changeRequest = await tx.statusChangeRequest.create({
+        data: {
+          saleId: sale.id,
+          requestedBy: req.user!.id,
+          oldStatus,
+          newStatus,
+        },
+      });
+      return { conflict: false, changeRequest };
+    });
+
+    if (result.conflict) {
+      return res.status(409).json({ error: "A pending change request already exists for this sale" });
+    }
+
+    await logAudit(req.user!.id, "REQUEST_STATUS_CHANGE", "Sale", sale.id, { oldStatus, newStatus });
+    return res.json({ changeRequest: result.changeRequest, message: "Change request created for payroll approval" });
+  }
+
+  // Ran -> Dead/Declined: immediate with commission zeroing
+  if (oldStatus === "RAN" && (newStatus === "DEAD" || newStatus === "DECLINED")) {
+    // Cancel any pending change request to prevent orphans
+    await prisma.statusChangeRequest.updateMany({
+      where: { saleId: sale.id, status: "PENDING" },
+      data: { status: "REJECTED", reviewedBy: req.user!.id, reviewedAt: new Date() },
+    });
+
+    const updated = await prisma.sale.update({
+      where: { id: sale.id },
+      data: { status: newStatus },
+      include: { agent: true, product: true, leadSource: true },
+    });
+    await handleCommissionZeroing(sale.id);
+    await logAudit(req.user!.id, "UPDATE_STATUS", "Sale", sale.id, { oldStatus, newStatus });
+    return res.json(updated);
+  }
+
+  // Dead <-> Declined: free transition, no commission impact
+  const updated = await prisma.sale.update({
+    where: { id: sale.id },
+    data: { status: newStatus },
+    include: { agent: true, product: true, leadSource: true },
+  });
+  await logAudit(req.user!.id, "UPDATE_STATUS", "Sale", sale.id, { oldStatus, newStatus });
+  return res.json(updated);
 }));
 
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
