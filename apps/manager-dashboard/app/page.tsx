@@ -77,7 +77,7 @@ type CallAudit = {
   agent: { id: string; name: string };
 };
 type CallCount = { agentId: string; agentName: string; leadSourceId: string; leadSourceName: string; callCount: number; totalLeadCost: number };
-type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
@@ -349,15 +349,27 @@ function matchProduct(name: string, products: Product[]): Product | undefined {
 
 /* ── Status Badge ────────────────────────────────────────────── */
 
+const STATUS_DISPLAY: Record<string, string> = {
+  RAN: "Ran",
+  DECLINED: "Declined",
+  DEAD: "Dead",
+  PENDING_RAN: "Pending Ran",
+};
+
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    APPROVED: colors.success,
-    REJECTED: colors.danger,
-    CANCELLED: colors.textSecondary,
-    SUBMITTED: colors.warning,
+    RAN: "#22c55e",
+    DECLINED: "#ef4444",
+    DEAD: "#6b7280",
+    PENDING_RAN: "#f59e0b",
   };
   const c = map[status] ?? colors.warning;
-  return <Badge color={c} variant="subtle" size="sm" dot>{status}</Badge>;
+  const label = STATUS_DISPLAY[status] ?? status;
+  return (
+    <Badge color={c} variant="subtle" size="sm" dot>
+      {status === "PENDING_RAN" ? "\u23F3 " : ""}{label}
+    </Badge>
+  );
 }
 
 /* ── AgentRow component ──────────────────────────────────────── */
@@ -633,7 +645,7 @@ export default function ManagerDashboard() {
     saleDate: new Date().toISOString().slice(0, 10),
     agentId: "", memberName: "", memberId: "", carrier: "", productId: "",
     premium: "", effectiveDate: "", leadSourceId: "", enrollmentFee: "",
-    addonProductIds: [] as string[], status: "SUBMITTED", notes: "",
+    addonProductIds: [] as string[], status: "", notes: "",
     paymentType: "" as "CC" | "ACH" | "", memberState: "",
   });
   const [form, setForm] = useState(blankForm());
@@ -942,12 +954,16 @@ export default function ManagerDashboard() {
                 <input className="input-focus" style={INP} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
               </div>
               <div className="animate-fade-in-up stagger-5">
-                <label style={LBL}>Status</label>
-                <select className="input-focus" style={{ ...INP }} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                  {["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"].map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                <label style={LBL}>Status *</label>
+                <select className="input-focus" style={{ ...INP, height: 42 }} value={form.status} required onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                  <option value="" disabled>Select status...</option>
+                  <option value="RAN">Ran</option>
+                  <option value="DECLINED">Declined</option>
+                  <option value="DEAD">Dead</option>
                 </select>
+                {!form.status && (
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: colors.warning }}>Status is required</p>
+                )}
               </div>
               <div className="animate-fade-in-up stagger-6">
                 <label style={LBL}>Premium ($)</label>
@@ -1011,8 +1027,8 @@ export default function ManagerDashboard() {
                 <button
                   type="submit"
                   className="btn-hover"
-                  style={{ ...SUBMIT_BTN, opacity: (!form.paymentType || submitting) ? 0.6 : 1 }}
-                  disabled={!form.paymentType || submitting}
+                  style={{ ...SUBMIT_BTN, opacity: (!form.paymentType || !form.status || submitting) ? 0.6 : 1 }}
+                  disabled={!form.paymentType || !form.status || submitting}
                 >
                   {submitting ? (
                     <>
