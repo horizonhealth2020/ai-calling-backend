@@ -61,6 +61,23 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **UIUX-02**: Form layouts are consistent and polished across all dashboards
 - [ ] **UIUX-03**: UI/UX changes follow ui-ux-pro-max design guidance
 
+### Sale Status & Approval Workflow
+
+- [ ] **STATUS-01**: SaleStatus enum replaced with RAN/DECLINED/DEAD; existing sales migrated to RAN
+- [ ] **STATUS-02**: StatusChangeRequest model exists with correct relations and migration SQL
+- [ ] **STATUS-03**: Only RAN sales generate non-zero commission; DECLINED/DEAD create $0 payroll entries
+- [ ] **STATUS-04**: Dead/Declined to Ran creates a change request instead of applying immediately
+- [ ] **STATUS-05**: Ran to Dead/Declined zeroes commission immediately with finalized period handling
+- [ ] **STATUS-06**: Payroll/SuperAdmin can approve a change request, triggering commission recalculation
+- [ ] **STATUS-07**: Payroll/SuperAdmin can reject a change request, reverting to original status
+- [ ] **STATUS-08**: Sales board and owner KPIs only count RAN sales
+- [ ] **STATUS-09**: Sales entry form has required status dropdown (blank default, Ran/Declined/Dead)
+- [ ] **STATUS-10**: Agent sales tab has editable status dropdown with approval workflow confirmation
+- [ ] **STATUS-11**: StatusBadge shows correct colors: Ran=green, Declined=red, Dead=gray, Pending Ran=amber
+- [ ] **STATUS-12**: Payroll dashboard shows pending approval requests inside agent payroll cards
+- [ ] **STATUS-13**: Period totals exclude $0 entries from Dead/Declined sales
+- [ ] **STATUS-14**: Payroll can approve/reject change requests from within payroll cards
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -134,12 +151,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UIUX-01 | Phase 9 | Pending |
 | UIUX-02 | Phase 9 | Pending |
 | UIUX-03 | Phase 9 | Pending |
+| STATUS-01 | Phase 10 | Pending |
+| STATUS-02 | Phase 10 | Pending |
+| STATUS-03 | Phase 10 | Pending |
+| STATUS-04 | Phase 10 | Pending |
+| STATUS-05 | Phase 10 | Pending |
+| STATUS-06 | Phase 10 | Pending |
+| STATUS-07 | Phase 10 | Pending |
+| STATUS-08 | Phase 10 | Pending |
+| STATUS-09 | Phase 10 | Pending |
+| STATUS-10 | Phase 10 | Pending |
+| STATUS-11 | Phase 10 | Pending |
+| STATUS-12 | Phase 10 | Pending |
+| STATUS-13 | Phase 10 | Pending |
+| STATUS-14 | Phase 10 | Pending |
 
 **Coverage:**
-- v1 requirements: 36 total
-- Mapped to phases: 36
+- v1 requirements: 50 total
+- Mapped to phases: 50
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after roadmap creation*
+*Last updated: 2026-03-15 after Phase 10 planning*
