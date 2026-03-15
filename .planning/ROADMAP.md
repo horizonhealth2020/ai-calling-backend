@@ -59,7 +59,10 @@ Plans:
   2. An enrollment fee of exactly $125 adds a $10 bonus to the payroll entry
   3. A sale entered on a given date is assigned to the following Sun-Sat pay period (one week in arrears)
   4. An ACH sale is assigned to the pay period two weeks out instead of one
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 03-01-PLAN.md -- Verify and test enrollment fee threshold (COMM-08) and $125 bonus (COMM-09) rules
+- [ ] 03-02-PLAN.md -- Refactor period assignment to Luxon Eastern timezone, add ACH +1 week shift, enforce paymentType
 
 ### Phase 4: Multi-Product Sales Form
 **Goal**: Managers can enter a sale with multiple products, select payment type, and enter enrollment fee with threshold guidance
@@ -133,7 +136,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
 | 2. Commission Engine Core | 4/4 | Complete | 2026-03-15 |
-| 3. Commission Fees & Period Assignment | 0/? | Not started | - |
+| 3. Commission Fees & Period Assignment | 0/2 | Planning | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
 | 5. Commission Preview & Sale Editing | 0/? | Not started | - |
 | 6. Dashboard Cascade | 0/? | Not started | - |
