@@ -909,38 +909,26 @@ export default function ManagerDashboard() {
                 <label style={LBL}>Member ID</label>
                 <input className="input-focus" style={INP} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} />
               </div>
+              <div className="animate-fade-in-up stagger-2">
+                <label style={LBL}>Member State</label>
+                <input className="input-focus" style={INP} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
+              </div>
               <div className="animate-fade-in-up stagger-3">
                 <label style={LBL}>Sale Date</label>
                 <input className="input-focus" style={INP} type="date" value={form.saleDate} required onChange={e => setForm(f => ({ ...f, saleDate: e.target.value }))} />
               </div>
-              <div className="animate-fade-in-up stagger-4">
-                <label style={LBL}>Status</label>
-                <select className="input-focus" style={{ ...INP }} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                  {["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"].map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="animate-fade-in-up stagger-5">
-                <label style={LBL}>Carrier</label>
-                <input className="input-focus" style={INP} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
-              </div>
-              <div className="animate-fade-in-up stagger-6">
-                <label style={LBL}>Premium ($)</label>
-                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => setForm(f => ({ ...f, premium: e.target.value }))} />
-              </div>
-              <div className="animate-fade-in-up stagger-7">
+              <div className="animate-fade-in-up stagger-3">
                 <label style={LBL}>Effective Date</label>
                 <input className="input-focus" style={INP} type="date" value={form.effectiveDate} required onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} />
               </div>
-              <div className="animate-fade-in-up stagger-8">
+              <div className="animate-fade-in-up stagger-4">
                 <label style={LBL}>Product</label>
                 <select className="input-focus" style={{ ...INP }} value={form.productId} required onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}>
                   <option value="" disabled>Select product...</option>
                   {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              <div className="animate-fade-in-up stagger-9">
+              <div className="animate-fade-in-up stagger-4">
                 <label style={LBL}>Lead Source</label>
                 <select className="input-focus" style={{ ...INP }} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
                   <option value="" disabled>Select lead source...</option>
@@ -949,17 +937,29 @@ export default function ManagerDashboard() {
                   ))}
                 </select>
               </div>
-              <div className="animate-fade-in-up stagger-11">
+              <div className="animate-fade-in-up stagger-5">
+                <label style={LBL}>Carrier</label>
+                <input className="input-focus" style={INP} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
+              </div>
+              <div className="animate-fade-in-up stagger-5">
+                <label style={LBL}>Status</label>
+                <select className="input-focus" style={{ ...INP }} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                  {["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="animate-fade-in-up stagger-6">
+                <label style={LBL}>Premium ($)</label>
+                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => setForm(f => ({ ...f, premium: e.target.value }))} />
+              </div>
+              <div className="animate-fade-in-up stagger-6">
                 <label style={LBL}>Enrollment Fee ($)</label>
                 <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} />
               </div>
-              <div>
+              <div className="animate-fade-in-up stagger-7" style={{ gridColumn: "1/-1" }}>
                 <label style={LBL}>Notes</label>
                 <input className="input-focus" style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-              </div>
-              <div>
-                <label style={LBL}>Member State</label>
-                <input className="input-focus" style={INP} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
               </div>
 
               {/* Payment type selector */}
