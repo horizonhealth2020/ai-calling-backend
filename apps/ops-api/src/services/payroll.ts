@@ -171,7 +171,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   });
   if (!sale) throw new Error("Sale not found");
 
-  const payoutAmount = calculateCommission(sale);
+  const payoutAmount = sale.status === 'RAN' ? calculateCommission(sale) : 0;
   const shiftWeeks = sale.paymentType === 'ACH' ? 1 : 0;
   const { weekStart, weekEnd } = getSundayWeekRange(sale.saleDate, shiftWeeks);
 

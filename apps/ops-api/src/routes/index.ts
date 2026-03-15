@@ -290,7 +290,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     enrollmentFee: z.number().min(0).nullable().optional(),
     addonProductIds: z.array(z.string()).default([]),
     addonPremiums: z.record(z.string(), z.number().min(0)).default({}),
-    status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).default("SUBMITTED"),
+    status: z.enum(["RAN", "DECLINED", "DEAD"]),
     paymentType: z.enum(["CC", "ACH"]),
     memberState: z.string().max(2).optional(),
     notes: z.string().optional(),
@@ -337,7 +337,6 @@ router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), a
     carrier: z.string().min(1).optional(),
     premium: z.number().min(0).optional(),
     enrollmentFee: z.number().min(0).nullable().optional(),
-    status: z.enum(["SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"]).optional(),
     memberState: z.string().max(2).nullable().optional(),
     notes: z.string().nullable().optional(),
   });
