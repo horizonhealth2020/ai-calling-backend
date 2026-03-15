@@ -2,8 +2,8 @@
 phase: 10
 slug: sale-status-payroll-logic
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -38,23 +38,23 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| P10-01 | 01 | 1 | RAN generates normal commission | unit | `npm test -- --testPathPattern=status-commission` | ❌ W0 | ⬜ pending |
-| P10-02 | 01 | 1 | DECLINED/DEAD generate $0 entries | unit | `npm test -- --testPathPattern=status-commission` | ❌ W0 | ⬜ pending |
-| P10-03 | 02 | 1 | Dead/Declined→Ran creates change request | unit | `npm test -- --testPathPattern=status-change` | ❌ W0 | ⬜ pending |
-| P10-04 | 01 | 1 | Ran→Dead/Declined zeroes immediately | unit | `npm test -- --testPathPattern=status-commission` | ❌ W0 | ⬜ pending |
-| P10-05 | 01 | 1 | Finalized period creates negative adj | unit | `npm test -- --testPathPattern=status-commission` | ❌ W0 | ⬜ pending |
-| P10-06 | 02 | 1 | Approval recalculates commission | unit | `npm test -- --testPathPattern=status-change` | ❌ W0 | ⬜ pending |
-| P10-07 | 02 | 1 | Rejection reverts to original status | unit | `npm test -- --testPathPattern=status-change` | ❌ W0 | ⬜ pending |
-| P10-08 | 03 | 2 | Sales board filters status=RAN | unit | `npm test -- --testPathPattern=sales-board-filter` | ❌ W0 | ⬜ pending |
+| P10-01 | 01 | 1 | RAN generates normal commission | unit | `npm test -- --testPathPattern=status-commission` | W0 in 10-01 Task 0 | pending |
+| P10-02 | 01 | 1 | DECLINED/DEAD generate $0 entries | unit | `npm test -- --testPathPattern=status-commission` | W0 in 10-01 Task 0 | pending |
+| P10-03 | 02 | 2 | Dead/Declined->Ran creates change request | unit | `npm test -- --testPathPattern=status-change` | W0 in 10-01 Task 0 | pending |
+| P10-04 | 01 | 1 | Ran->Dead/Declined zeroes immediately | unit | `npm test -- --testPathPattern=status-commission` | W0 in 10-01 Task 0 | pending |
+| P10-05 | 01 | 1 | Finalized period creates negative adj | unit | `npm test -- --testPathPattern=status-commission` | W0 in 10-01 Task 0 | pending |
+| P10-06 | 02 | 2 | Approval recalculates commission | unit | `npm test -- --testPathPattern=status-change` | W0 in 10-01 Task 0 | pending |
+| P10-07 | 02 | 2 | Rejection reverts to original status | unit | `npm test -- --testPathPattern=status-change` | W0 in 10-01 Task 0 | pending |
+| P10-08 | 03 | 3 | Sales board filters status=RAN | unit | `npm test -- --testPathPattern=sales-board-filter` | W0 in 10-01 Task 0 | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `apps/ops-api/src/services/__tests__/status-commission.test.ts` — stubs for P10-01, P10-02, P10-04, P10-05
-- [ ] `apps/ops-api/src/services/__tests__/status-change.test.ts` — stubs for P10-03, P10-06, P10-07
+- [x] `apps/ops-api/src/services/__tests__/status-commission.test.ts` — stubs for P10-01, P10-02, P10-04, P10-05 (created in 10-01 Task 0)
+- [x] `apps/ops-api/src/services/__tests__/status-change.test.ts` — stubs for P10-03, P10-06, P10-07 (created in 10-01 Task 0)
 - [ ] Extend existing `commission.test.ts` with status-aware test cases
 
 ---
@@ -71,11 +71,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
