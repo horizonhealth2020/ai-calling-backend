@@ -1441,7 +1441,6 @@ export default function PayrollDashboard() {
                               background: C.bgSurfaceRaised,
                               border: `1px solid ${isTopEarner ? "rgba(20,184,166,0.25)" : C.borderSubtle}`,
                               borderRadius: R.xl,
-                              overflow: "hidden",
                             }}
                           >
                             {/* Agent header */}
@@ -1573,7 +1572,6 @@ export default function PayrollDashboard() {
                                 background: C.bgSurfaceRaised,
                                 border: `1px solid rgba(45,212,191,0.15)`,
                                 borderRadius: R.xl,
-                                overflow: "hidden",
                               }}
                             >
                               {/* Agent header */}
