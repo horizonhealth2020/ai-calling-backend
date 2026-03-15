@@ -2,7 +2,7 @@
 
 **Created:** 2026-03-14
 **Granularity:** Fine
-**Phases:** 9
+**Phases:** 10
 **Coverage:** 36/36 v1 requirements mapped
 
 ## Phases
@@ -146,6 +146,23 @@ Plans:
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
+| 10. Sale Status Payroll Logic | 0/? | Not started | - |
+
+### Phase 10: Sale Status Payroll Logic
+
+**Goal:** Sale status (Ran/Declined/Dead) drives commission calculation — only Ran earns commission, status changes from Dead/Declined to Ran require approval through payroll
+**Requirements**: TBD
+**Depends on:** Phase 2 (commission engine), Phase 4 (sales form with status field)
+**Success Criteria** (what must be TRUE):
+  1. A sale with status "Ran" generates normal commission; "Declined" and "Dead" generate $0 commission payroll entries
+  2. All three statuses (Ran, Declined, Dead) create payroll entries for reporting visibility
+  3. Changing a sale status from Dead or Declined to Ran in the agent sales tab creates a "request for change" instead of applying immediately
+  4. Payroll dashboard shows pending status change requests with an approve/reject workflow
+  5. Only after payroll approves a Dead/Declined → Ran change does commission recalculate
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10 to break down)
 
 ---
 *Roadmap created: 2026-03-14*

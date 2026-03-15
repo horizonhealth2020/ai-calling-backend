@@ -86,6 +86,9 @@ Phase 9 [.....]
 - [Phase 1] Payroll upsert errors logged via console.error, non-fatal to sale creation
 - [Phase 1] Agent dropdown kept ?all=true fetch but defaults to empty; only saleDate display needed UTC fix
 
+### Roadmap Evolution
+- Phase 10 added: Sale Status Payroll Logic — status-driven commission (Ran/Declined/Dead), change request workflow, payroll approval queue
+
 ### Research Findings Applied
 - `memberState` reference in payroll.ts causes 500 on every sale creation -- FIXED in Phase 1
 - String-matching bundle detection replaced with `isBundleQualifier` flag -- DONE in Phase 2
