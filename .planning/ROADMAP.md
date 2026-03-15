@@ -47,7 +47,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md -- Add isBundleQualifier to Product model and set up TypeScript test infrastructure
 - [x] 02-02-PLAN.md -- TDD rewrite of commission engine with bundle aggregation logic
-- [ ] 02-03-PLAN.md -- Fix payroll dashboard column misalignment (premium in enroll fee column)
+- [x] 02-03-PLAN.md -- Fix payroll dashboard column misalignment (premium in enroll fee column)
 - [ ] 02-04-PLAN.md -- Add addon product picker to manager dashboard sales entry form
 
 ### Phase 3: Commission Fees & Period Assignment
@@ -132,7 +132,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
-| 2. Commission Engine Core | 2/4 | Gap closure | - |
+| 2. Commission Engine Core | 3/4 | Gap closure | - |
 | 3. Commission Fees & Period Assignment | 0/? | Not started | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
 | 5. Commission Preview & Sale Editing | 0/? | Not started | - |

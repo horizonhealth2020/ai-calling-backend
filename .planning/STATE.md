@@ -2,29 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-14T22:41:11.616Z"
-progress:
-  total_phases: 9
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
----
-
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
 status: In progress
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-14T22:35:55Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-03-15T00:12:10Z"
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 5
-  completed_plans: 5
-  percent: 44
+  completed_plans: 6
+  percent: 50
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -37,13 +23,13 @@ progress:
 
 ## Current Position
 
-**Phase:** 2 of 9 -- Commission Engine Core -- COMPLETE
-**Plan:** 2 of 2 -- COMPLETE
-**Status:** Ready to plan
+**Phase:** 2 of 9 -- Commission Engine Core -- In Progress
+**Plan:** 3 of 4 -- COMPLETE
+**Status:** In progress
 
 ```
-Progress: [####......] 44%
-Phase 1 [#####] | Phase 2 [#####] | Phase 3 [.....] | Phase 4 [.....]
+Progress: [#####.....] 50%
+Phase 1 [#####] | Phase 2 [####.] | Phase 3 [.....] | Phase 4 [.....]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....]
 ```
@@ -52,10 +38,10 @@ Phase 9 [.....]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 5 |
-| Plans total | 5+ (remaining phases TBD) |
+| Plans completed | 6 |
+| Plans total | 6+ (remaining phases TBD) |
 | Requirements done | 9/36 |
-| Phases done | 2/9 |
+| Phases done | 1/9 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -64,6 +50,7 @@ Phase 9 [.....]
 | 01 | 03 | 33s | 2 | 1 |
 | 02 | 01 | 147s | 2 | 5 |
 | 02 | 02 | 240s | 2 | 4 |
+| 02 | 03 | ~120s | 2 | 3 |
 
 ## Accumulated Context
 
@@ -74,6 +61,8 @@ Phase 9 [.....]
 - [Phase 2] ts-node added as devDependency for Jest TypeScript config file parsing
 - [Phase 2] Jest config uses path.resolve(__dirname) for tsconfig path to avoid ts-jest relative resolution issues
 - [Phase 2] Manual migration SQL (no prisma migrate dev) continued from Phase 1 decision
+- [Phase 2] Product column shows read-only badges in edit mode (not editable inline)
+- [Phase 2] enrollmentFee sent as nullable number to PATCH /sales/:id
 - Fix sales entry 500 error before all other work (everything depends on it)
 - Commission engine split into two phases: core bundle logic (Phase 2), then fees and arrears (Phase 3)
 - Multi-product form (Phase 4) separated from commission preview/edit (Phase 5) to reduce complexity per phase
@@ -108,9 +97,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-14T22:35:55Z
-**Stopped at:** Completed 02-02-PLAN.md
-**Next action:** Plan Phase 3 (Commission Fees & Period Assignment)
+**Last session:** 2026-03-15T00:12:10Z
+**Stopped at:** Completed 02-03-PLAN.md
+**Next action:** Execute 02-04-PLAN.md (addon product picker)
 
 ---
 *State initialized: 2026-03-14*
