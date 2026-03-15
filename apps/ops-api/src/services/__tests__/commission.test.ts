@@ -388,6 +388,140 @@ describe('calculateCommission', () => {
   });
 
   // =============================================
+  // COMM-08: Enrollment fee below threshold halves commission
+  // =============================================
+  describe('COMM-08: Enrollment fee below threshold halves commission', () => {
+    it('COMM-08a: core sale + Compass VAB + enrollmentFee=80 (< $99) -> commission halved from 50 to 25', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(80),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, enrollmentFee 80 < 99 threshold -> halved = 25
+      expect(calculateCommission(sale)).toBe(25.00);
+    });
+
+    it('COMM-08b: core sale + Compass VAB + enrollmentFee=99 (== $99) -> NOT halved', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(99),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, enrollmentFee 99 >= 99 threshold -> NOT halved = 50
+      expect(calculateCommission(sale)).toBe(50.00);
+    });
+
+    it('COMM-08c: core sale + Compass VAB + enrollmentFee=50 + commissionApproved=true -> NOT halved (bypassed)', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(50),
+        commissionApproved: true,
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, enrollmentFee 50 < 99 but commissionApproved -> NOT halved = 50
+      expect(calculateCommission(sale)).toBe(50.00);
+    });
+
+    it('COMM-08d: standalone addon + enrollmentFee=40 (< $50 default) -> commission halved', () => {
+      const sale = makeSale({
+        premium: new Decimal(80),
+        enrollmentFee: new Decimal(40),
+        product: makeProduct({
+          type: 'ADDON',
+          name: 'Standalone Addon',
+          standaloneCommission: new Decimal(30),
+          premiumThreshold: null,
+          commissionAbove: null,
+          commissionBelow: null,
+        }),
+        addons: [],
+      });
+      // 80 * 30% = 24, enrollmentFee 40 < 50 default threshold -> halved = 12
+      expect(calculateCommission(sale)).toBe(12.00);
+    });
+
+    it('COMM-08e: standalone addon + enrollmentFee=40 + custom enrollFeeThreshold=30 -> NOT halved (40 >= 30)', () => {
+      const sale = makeSale({
+        premium: new Decimal(80),
+        enrollmentFee: new Decimal(40),
+        product: makeProduct({
+          type: 'ADDON',
+          name: 'Standalone Addon',
+          standaloneCommission: new Decimal(30),
+          enrollFeeThreshold: new Decimal(30),
+          premiumThreshold: null,
+          commissionAbove: null,
+          commissionBelow: null,
+        }),
+        addons: [],
+      });
+      // 80 * 30% = 24, enrollmentFee 40 >= 30 custom threshold -> NOT halved = 24
+      expect(calculateCommission(sale)).toBe(24.00);
+    });
+
+    it('COMM-08f: standalone addon + enrollmentFee=20 + custom enrollFeeThreshold=30 -> halved (20 < 30)', () => {
+      const sale = makeSale({
+        premium: new Decimal(80),
+        enrollmentFee: new Decimal(20),
+        product: makeProduct({
+          type: 'ADDON',
+          name: 'Standalone Addon',
+          standaloneCommission: new Decimal(30),
+          enrollFeeThreshold: new Decimal(30),
+          premiumThreshold: null,
+          commissionAbove: null,
+          commissionBelow: null,
+        }),
+        addons: [],
+      });
+      // 80 * 30% = 24, enrollmentFee 20 < 30 custom threshold -> halved = 12
+      expect(calculateCommission(sale)).toBe(12.00);
+    });
+
+    it('COMM-08g: core sale + enrollmentFee=null -> no effect, commission unchanged', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: null,
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, null enrollmentFee -> no fee effect = 50
+      expect(calculateCommission(sale)).toBe(50.00);
+    });
+  });
+
+  // =============================================
   // Null commission rate handling
   // =============================================
   describe('Null commission rates', () => {
