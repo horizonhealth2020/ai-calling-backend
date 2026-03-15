@@ -52,7 +52,7 @@ type StatusChangeRequest = {
   newStatus: string;
   status: string;
   requestedAt: string;
-  sale: { agentId: string; memberName: string; product: { name: string } };
+  sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
 };
 type ExportRange = "week" | "month" | "quarter";
@@ -1674,7 +1674,7 @@ export default function PayrollDashboard() {
                                       }}>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                                           <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
-                                            {req.sale.memberName} — {req.sale.product.name}
+                                            {req.sale.memberName} ({req.sale.memberId}) — {req.sale.product.name}
                                           </div>
                                           <div style={{ fontSize: 12, color: C.textMuted }}>
                                             <span style={{
