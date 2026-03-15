@@ -9,7 +9,8 @@
       "Bash(ls .planning/debug/*.md 2>/dev/null | grep -v resolved)",
       "Bash(node \"./.claude/get-shit-done/bin/gsd-tools.cjs\" frontmatter validate \".planning/phases/02-commission-engine-core/02-03-PLAN.md\" --schema plan 2>/dev/null || echo \"VALIDATE_FAILED\")",
       "Bash(node \"./.claude/get-shit-done/bin/gsd-tools.cjs\" frontmatter validate \".planning/phases/02-commission-engine-core/02-04-PLAN.md\" --schema plan 2>/dev/null || echo \"VALIDATE_FAILED\")",
-      "Skill(gsd:execute-phase)"
+      "Skill(gsd:execute-phase)",
+      "Skill(gsd:discuss-phase)"
     ]
   }
 }
