@@ -146,7 +146,7 @@ Plans:
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
-| 10. Sale Status Payroll Logic | 3/4 | In Progress | - |
+| 10. Sale Status Payroll Logic | 4/4 | Complete   | 2026-03-15 |
 
 ### Phase 10: Sale Status Payroll Logic
 
@@ -159,7 +159,7 @@ Plans:
   3. Changing a sale status from Dead or Declined to Ran in the agent sales tab creates a "request for change" instead of applying immediately
   4. Payroll dashboard shows pending status change requests with an approve/reject workflow
   5. Only after payroll approves a Dead/Declined → Ran change does commission recalculate
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 10-01-PLAN.md -- Schema migration (SaleStatus enum replacement, StatusChangeRequest model) and commission gating

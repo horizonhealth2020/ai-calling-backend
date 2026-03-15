@@ -74,9 +74,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **STATUS-09**: Sales entry form has required status dropdown (blank default, Ran/Declined/Dead)
 - [x] **STATUS-10**: Agent sales tab has editable status dropdown with approval workflow confirmation
 - [x] **STATUS-11**: StatusBadge shows correct colors: Ran=green, Declined=red, Dead=gray, Pending Ran=amber
-- [ ] **STATUS-12**: Payroll dashboard shows pending approval requests inside agent payroll cards
-- [ ] **STATUS-13**: Period totals exclude $0 entries from Dead/Declined sales
-- [ ] **STATUS-14**: Payroll can approve/reject change requests from within payroll cards
+- [x] **STATUS-12**: Payroll dashboard shows pending approval requests inside agent payroll cards
+- [x] **STATUS-13**: Period totals exclude $0 entries from Dead/Declined sales
+- [x] **STATUS-14**: Payroll can approve/reject change requests from within payroll cards
 
 ## v2 Requirements
 
@@ -162,9 +162,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STATUS-09 | Phase 10 | Complete |
 | STATUS-10 | Phase 10 | Complete |
 | STATUS-11 | Phase 10 | Complete |
-| STATUS-12 | Phase 10 | Pending |
-| STATUS-13 | Phase 10 | Pending |
-| STATUS-14 | Phase 10 | Pending |
+| STATUS-12 | Phase 10 | Complete |
+| STATUS-13 | Phase 10 | Complete |
+| STATUS-14 | Phase 10 | Complete |
 
 **Coverage:**
 - v1 requirements: 50 total
