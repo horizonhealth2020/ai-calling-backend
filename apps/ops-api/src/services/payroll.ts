@@ -1,11 +1,31 @@
 import { prisma } from "@ops/db";
 import type { Product, Sale, SaleAddon } from "@prisma/client";
+import { DateTime } from 'luxon';
 
-export const getSundayWeekRange = (date: Date) => {
-  const d = new Date(date);
-  const day = d.getUTCDay();
-  const weekStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day));
-  const weekEnd = new Date(Date.UTC(weekStart.getUTCFullYear(), weekStart.getUTCMonth(), weekStart.getUTCDate() + 6));
+const TIMEZONE = 'America/New_York';
+
+export const getSundayWeekRange = (date: Date, shiftWeeks: number = 0) => {
+  // Convert UTC date to Eastern time to determine the correct day-of-week
+  const eastern = DateTime.fromJSDate(date, { zone: TIMEZONE });
+
+  // Luxon weekday: 1=Mon...7=Sun. Calculate days since Sunday.
+  const daysSinceSunday = eastern.weekday === 7 ? 0 : eastern.weekday;
+
+  // Find the Sunday that starts the week containing this date
+  const sunday = eastern.minus({ days: daysSinceSunday }).startOf('day');
+
+  // Apply ACH shift if needed
+  const shiftedSunday = shiftWeeks > 0 ? sunday.plus({ weeks: shiftWeeks }) : sunday;
+  const saturday = shiftedSunday.plus({ days: 6 });
+
+  // Store as UTC midnight dates (preserves existing period ID format)
+  const weekStart = new Date(Date.UTC(
+    shiftedSunday.year, shiftedSunday.month - 1, shiftedSunday.day
+  ));
+  const weekEnd = new Date(Date.UTC(
+    saturday.year, saturday.month - 1, saturday.day
+  ));
+
   return { weekStart, weekEnd };
 };
 
@@ -152,7 +172,8 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   if (!sale) throw new Error("Sale not found");
 
   const payoutAmount = calculateCommission(sale);
-  const { weekStart, weekEnd } = getSundayWeekRange(sale.saleDate);
+  const shiftWeeks = sale.paymentType === 'ACH' ? 1 : 0;
+  const { weekStart, weekEnd } = getSundayWeekRange(sale.saleDate, shiftWeeks);
 
   const period = await prisma.payrollPeriod.upsert({
     where: { id: `${weekStart.toISOString()}_${weekEnd.toISOString()}` },
