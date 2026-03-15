@@ -121,7 +121,7 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 | `DIFF_OLD` | Old value in old-vs-new diff display | `fontSize: 14, color: colors.textMuted, textDecoration: "line-through"` |
 | `DIFF_NEW` | New value in old-vs-new diff display | `fontSize: 14, color: colors.success, fontWeight: 700` |
 | `EDIT_BTN` | Edit icon button on sale row | `ICON_BTN` base (transparent bg, borderDefault border, 6px 8px padding) |
-| `PENDING_EDIT_BADGE` | "Edit Pending" badge inline on sale row | Amber badge: `background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: radius.sm` |
+| `PENDING_EDIT_BADGE` | "Edit Pending" badge inline on sale row | Amber badge: `background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: radius.sm` |
 
 ### Reused Existing Constants
 
@@ -157,7 +157,7 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 
 **Empty state (no product selected):** Panel shows "Select a product to see commission preview." in 14px textMuted. Panel is always rendered (not conditionally mounted) to hold its layout slot.
 
-**Error state:** If preview API returns non-200: "Preview unavailable" in 12px `colors.danger`. Does not block form submission.
+**Error state:** If preview API returns non-200: "Preview unavailable" in 11px `colors.danger`. Does not block form submission.
 
 **Race condition guard:** Each preview call uses an `AbortController`. Previous in-flight request aborted when new trigger fires within the debounce window.
 
