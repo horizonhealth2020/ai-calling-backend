@@ -117,7 +117,7 @@ All components come from `@ops/ui` or are hand-rolled inline constants per proje
 | `PREVIEW_TOTAL` | Commission total number in preview | `fontSize: 18, fontWeight: 700, color: colors.primary400` |
 | `PREVIEW_LINE` | Breakdown line row | `fontSize: 14, color: colors.textSecondary, display: "flex", justifyContent: "space-between"` |
 | `PREVIEW_LABEL` | "Commission Preview" section heading | `baseLabelStyle` (11px, uppercase, textTertiary) |
-| `EDIT_ROW_EXPANSION` | Expanded inline edit area below a sale row | `background: colors.bgSurfaceRaised, borderTop: "1px solid rgba(255,255,255,0.04)", padding: "16px 14px"` |
+| `EDIT_ROW_EXPANSION` | Expanded inline edit area below a sale row | `background: colors.bgSurfaceRaised, borderTop: "1px solid rgba(255,255,255,0.04)", padding: "16px 16px"` |
 | `DIFF_OLD` | Old value in old-vs-new diff display | `fontSize: 14, color: colors.textMuted, textDecoration: "line-through"` |
 | `DIFF_NEW` | New value in old-vs-new diff display | `fontSize: 14, color: colors.success, fontWeight: 700` |
 | `EDIT_BTN` | Edit icon button on sale row | `ICON_BTN` base (transparent bg, borderDefault border, 6px 8px padding) |
