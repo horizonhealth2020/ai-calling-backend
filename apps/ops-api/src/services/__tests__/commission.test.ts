@@ -522,6 +522,108 @@ describe('calculateCommission', () => {
   });
 
   // =============================================
+  // COMM-09: $125 enrollment fee adds $10 bonus
+  // =============================================
+  describe('COMM-09: $125 enrollment fee adds $10 bonus', () => {
+    // Note: bonus triggers for fee >= $125 (not just exactly $125) per user decision
+
+    it('COMM-09a: core sale + Compass VAB + enrollmentFee=125 -> commission=50 + bonus=10 = 60.00', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(125),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, fee 125 >= 125 -> +$10 bonus, fee >= 99 -> no halving
+      // total = 50 + 10 = 60
+      expect(calculateCommission(sale)).toBe(60.00);
+    });
+
+    it('COMM-09b: core sale + Compass VAB + enrollmentFee=150 -> commission=50 + bonus=10 = 60.00', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(150),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, fee 150 >= 125 -> +$10 bonus, fee >= 99 -> no halving
+      // total = 50 + 10 = 60
+      expect(calculateCommission(sale)).toBe(60.00);
+    });
+
+    it('COMM-09c: core sale + Compass VAB + enrollmentFee=124 -> NO bonus, commission=50.00', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(124),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, fee 124 < 125 -> no bonus, fee >= 99 -> no halving
+      // total = 50
+      expect(calculateCommission(sale)).toBe(50.00);
+    });
+
+    it('COMM-09d: core sale + Compass VAB + enrollmentFee=80 -> halving but no bonus, commission=25.00', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        enrollmentFee: new Decimal(80),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+        ],
+      });
+      // 100 * 50% = 50, fee 80 < 99 -> halved = 25, fee < 125 -> no bonus
+      // total = 25
+      expect(calculateCommission(sale)).toBe(25.00);
+    });
+
+    it('COMM-09e: standalone addon + enrollmentFee=125 -> commission=24 + bonus=10 = 34.00', () => {
+      const sale = makeSale({
+        premium: new Decimal(80),
+        enrollmentFee: new Decimal(125),
+        product: makeProduct({
+          type: 'ADDON',
+          name: 'Standalone Addon',
+          standaloneCommission: new Decimal(30),
+          premiumThreshold: null,
+          commissionAbove: null,
+          commissionBelow: null,
+        }),
+        addons: [],
+      });
+      // 80 * 30% = 24, fee 125 >= 125 -> +$10 bonus, fee >= 50 -> no halving
+      // total = 24 + 10 = 34
+      expect(calculateCommission(sale)).toBe(34.00);
+    });
+  });
+
+  // =============================================
   // Null commission rate handling
   // =============================================
   describe('Null commission rates', () => {
