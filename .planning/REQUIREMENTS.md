@@ -25,8 +25,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **COMM-05**: Add-on products follow threshold rules when standalone (below threshold = half)
 - [x] **COMM-06**: AD&D products earn half commission from set rate when standalone
 - [x] **COMM-07**: AD&D products earn full commission when bundled with core product
-- [ ] **COMM-08**: Enrollment fee below product threshold triggers half commission
-- [ ] **COMM-09**: Enrollment fee of exactly $125 triggers $10 bonus
+- [x] **COMM-08**: Enrollment fee below product threshold triggers half commission
+- [x] **COMM-09**: Enrollment fee of exactly $125 triggers $10 bonus
 - [ ] **COMM-10**: ACH sales are assigned to pay period two weeks out (extra week arrears)
 - [x] **COMM-11**: Commission calculations use consistent rounding (2 decimal places)
 
@@ -111,8 +111,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMM-05 | Phase 2 | Complete |
 | COMM-06 | Phase 2 | Complete |
 | COMM-07 | Phase 2 | Complete |
-| COMM-08 | Phase 3 | Pending |
-| COMM-09 | Phase 3 | Pending |
+| COMM-08 | Phase 3 | Complete |
+| COMM-09 | Phase 3 | Complete |
 | COMM-10 | Phase 3 | Pending |
 | COMM-11 | Phase 2 | Complete |
 | PAYR-01 | Phase 3 | Pending |
