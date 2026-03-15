@@ -10,7 +10,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Sales Entry
 
 - [x] **SALE-01**: Sale creation completes without errors (fix 500 internal server error)
-- [ ] **SALE-02**: User can select multiple products per sale from products created in payroll
+- [x] **SALE-02**: User can select multiple products per sale from products created in payroll
 - [ ] **SALE-03**: User can select payment type (ACH/Check/Other) per sale
 - [ ] **SALE-04**: User can enter enrollment fee with product threshold displayed
 - [ ] **SALE-05**: User sees live commission preview as products are selected before submission
