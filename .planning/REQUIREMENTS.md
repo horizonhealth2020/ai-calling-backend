@@ -63,9 +63,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Sale Status & Approval Workflow
 
-- [ ] **STATUS-01**: SaleStatus enum replaced with RAN/DECLINED/DEAD; existing sales migrated to RAN
-- [ ] **STATUS-02**: StatusChangeRequest model exists with correct relations and migration SQL
-- [ ] **STATUS-03**: Only RAN sales generate non-zero commission; DECLINED/DEAD create $0 payroll entries
+- [x] **STATUS-01**: SaleStatus enum replaced with RAN/DECLINED/DEAD; existing sales migrated to RAN
+- [x] **STATUS-02**: StatusChangeRequest model exists with correct relations and migration SQL
+- [x] **STATUS-03**: Only RAN sales generate non-zero commission; DECLINED/DEAD create $0 payroll entries
 - [ ] **STATUS-04**: Dead/Declined to Ran creates a change request instead of applying immediately
 - [ ] **STATUS-05**: Ran to Dead/Declined zeroes commission immediately with finalized period handling
 - [ ] **STATUS-06**: Payroll/SuperAdmin can approve a change request, triggering commission recalculation
@@ -151,9 +151,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UIUX-01 | Phase 9 | Pending |
 | UIUX-02 | Phase 9 | Pending |
 | UIUX-03 | Phase 9 | Pending |
-| STATUS-01 | Phase 10 | Pending |
-| STATUS-02 | Phase 10 | Pending |
-| STATUS-03 | Phase 10 | Pending |
+| STATUS-01 | Phase 10 | Complete |
+| STATUS-02 | Phase 10 | Complete |
+| STATUS-03 | Phase 10 | Complete |
 | STATUS-04 | Phase 10 | Pending |
 | STATUS-05 | Phase 10 | Pending |
 | STATUS-06 | Phase 10 | Pending |
