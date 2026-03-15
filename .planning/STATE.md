@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-15T16:56:49Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-15T17:02:58Z"
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 15
-  completed_plans: 12
-  percent: 80
+  completed_plans: 13
+  percent: 87
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,23 +24,23 @@ progress:
 ## Current Position
 
 **Phase:** 10 of 10 -- Sale Status Payroll Logic -- IN PROGRESS
-**Plan:** 2 of 4 -- Status Change API & Approval Workflow -- COMPLETE
+**Plan:** 3 of 4 -- Manager Dashboard Status UI -- COMPLETE
 **Status:** In progress
 
 ```
-Progress: [########..] 80%
+Progress: [########.] 87%
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [##...]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
-Phase 9 [.....] | Phase 10 [##...]
+Phase 9 [.....] | Phase 10 [###.]
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 12 |
+| Plans completed | 13 |
 | Plans total | 15+ (remaining phases TBD) |
-| Requirements done | 18/36 |
+| Requirements done | 21/36 |
 | Phases done | 3/10 |
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -57,6 +57,7 @@ Phase 9 [.....] | Phase 10 [##...]
 | 04 | 01 | 100s | 2 | 2 |
 | 10 | 01 | 192s | 3 | 6 |
 | 10 | 02 | 172s | 2 | 2 |
+| 10 | 03 | 169s | 2 | 1 |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Phase 9 [.....] | Phase 10 [##...]
 - [Phase 10] handleCommissionZeroing follows existing clawback pattern (ZEROED_OUT for OPEN, CLAWBACK_APPLIED for finalized)
 - [Phase 10] Pending change requests auto-cancelled on Ran->Dead/Declined to prevent orphans
 - [Phase 10] StatusChangeRequest cleanup added explicitly to sale delete transaction
+- [Phase 10] window.confirm for Dead/Declined->Ran confirmation (consistent with existing delete pattern)
+- [Phase 10] Pending Ran sales show badge instead of dropdown to prevent editing while awaiting approval
 - [Phase 4] Carrier made optional with .optional().default("") to preserve existing DB behavior (empty string, not null)
 - [Phase 4] Product dropdown filters to CORE type only; addon picker shows ADDON first then AD_D
 - [Phase 3] Luxon America/New_York used for day-of-week only; output stays UTC midnight dates to preserve period ID format
@@ -119,9 +122,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-15T16:56:49Z
-**Stopped at:** Completed 10-02-PLAN.md
-**Next action:** Execute Phase 10 Plan 3 (Manager dashboard status dropdown)
+**Last session:** 2026-03-15T17:02:58Z
+**Stopped at:** Completed 10-03-PLAN.md
+**Next action:** Execute Phase 10 Plan 4 (Payroll dashboard pending approvals)
 
 ---
 *State initialized: 2026-03-14*
