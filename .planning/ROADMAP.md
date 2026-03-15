@@ -75,7 +75,7 @@ Plans:
   4. Submitting a multi-product sale creates correct payroll entries for each product
 **Plans:** 2 plans
 Plans:
-- [ ] 04-01-PLAN.md -- Dropdown defaults, product type filtering, addon sorting, carrier optional
+- [x] 04-01-PLAN.md -- Dropdown defaults, product type filtering, addon sorting, carrier optional
 - [ ] 04-02-PLAN.md -- Field reorder, stagger animations, end-to-end verification
 
 ### Phase 5: Commission Preview & Sale Editing
@@ -140,7 +140,7 @@ Plans:
 | 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
 | 2. Commission Engine Core | 4/4 | Complete | 2026-03-15 |
 | 3. Commission Fees & Period Assignment | 2/2 | Complete | 2026-03-15 |
-| 4. Multi-Product Sales Form | 0/2 | Planned | - |
+| 4. Multi-Product Sales Form | 1/2 | In Progress | - |
 | 5. Commission Preview & Sale Editing | 0/? | Not started | - |
 | 6. Dashboard Cascade | 0/? | Not started | - |
 | 7. Payroll Management | 0/? | Not started | - |
