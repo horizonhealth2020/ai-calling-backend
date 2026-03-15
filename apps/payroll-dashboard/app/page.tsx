@@ -7,7 +7,7 @@ import {
   Calendar, AlertTriangle, FileDown, Package, Users,
   ChevronDown, ChevronUp, Lock, Unlock, CheckCircle,
   XCircle, Download, Printer, Plus, Edit3, Trash2,
-  Save, X, Check, RefreshCw,
+  Save, X, Check, RefreshCw, Clock,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
@@ -45,6 +45,16 @@ type Product = {
   notes?: string;
 };
 type ServiceAgent = { id: string; name: string; basePay: number; active: boolean };
+type StatusChangeRequest = {
+  id: string;
+  saleId: string;
+  oldStatus: string;
+  newStatus: string;
+  status: string;
+  requestedAt: string;
+  sale: { agentId: string; memberName: string; product: { name: string } };
+  requester: { name: string; email: string };
+};
 type ExportRange = "week" | "month" | "quarter";
 
 /* ── Design tokens (local aliases) ─────────────────────────── */
@@ -160,6 +170,21 @@ const TYPE_COLORS: Record<ProductType, string> = {
   CORE: C.primary400, ADDON: C.accentTeal, AD_D: C.warning,
 };
 
+const SALE_STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
+  RAN:      { bg: "rgba(52,211,153,0.12)", color: "#34d399", label: "Ran" },
+  DECLINED: { bg: "rgba(248,113,113,0.12)", color: "#f87171", label: "Declined" },
+  DEAD:     { bg: "rgba(148,163,184,0.12)", color: "#94a3b8", label: "Dead" },
+};
+
+/** Returns true if the payroll entry counts toward period totals (RAN sales only) */
+function isActiveEntry(e: Entry): boolean {
+  // If the entry was ZEROED_OUT, it's for a Dead/Declined sale
+  if (e.status === "ZEROED_OUT") return false;
+  // If sale status is available, check it directly
+  if (e.sale?.status && e.sale.status !== "RAN") return false;
+  return true;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────── */
 
 function fmtDate(iso: string): string {
@@ -209,9 +234,14 @@ function EditableSaleRow({
   const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
   const isApproved = entry.sale?.commissionApproved && fee !== null && fee < 99;
   const net = Number(entry.netAmount);
+  const saleStatus = entry.sale?.status ?? "RAN";
+  const isZeroed = !isActiveEntry(entry);
+  const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
   const rowBg: React.CSSProperties = needsApproval
     ? { borderLeft: "3px solid rgba(248,113,113,0.5)" }
+    : isZeroed
+    ? { borderLeft: "3px solid rgba(148,163,184,0.3)", opacity: 0.55 }
     : { borderLeft: "3px solid transparent" };
 
   return (
@@ -220,6 +250,18 @@ function EditableSaleRow({
       style={{ borderTop: `1px solid ${C.borderSubtle}`, ...rowBg }}
     >
       <td style={TD}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "—"}</span></td>
+
+      {/* Sale status badge */}
+      <td style={TD_C}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700,
+          background: statusCfg.bg, color: statusCfg.color,
+          textTransform: "uppercase", letterSpacing: "0.04em",
+        }}>
+          {statusCfg.label}
+        </span>
+      </td>
 
       <td style={TD}>
         {editSale ? (
@@ -704,6 +746,9 @@ export default function PayrollDashboard() {
   const [exporting, setExporting] = useState(false);
 
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<StatusChangeRequest[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   const [newProduct, setNewProduct] = useState<{
     name: string; type: ProductType; notes: string;
@@ -737,12 +782,14 @@ export default function PayrollDashboard() {
       authFetch(`${API}/api/service-agents`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/settings/service-bonus-categories`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([p, prod, sa, cats, agents]) => {
+      authFetch(`${API}/api/status-change-requests?status=PENDING`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([p, prod, sa, cats, agents, scr]) => {
       setPeriods(p);
       setProducts(prod);
       setServiceAgents(sa);
       setBonusCategories(cats);
       setAllAgents(agents);
+      setPendingRequests(scr);
       if (p.length > 0) setSvcPeriodId(p[0].id);
       setLoading(false);
     });
@@ -753,6 +800,48 @@ export default function PayrollDashboard() {
       .then(r => r.ok ? r.json() : periods)
       .catch(() => periods);
     setPeriods(p);
+  }
+
+  async function refreshPendingRequests() {
+    const scr = await authFetch(`${API}/api/status-change-requests?status=PENDING`)
+      .then(r => r.ok ? r.json() : pendingRequests)
+      .catch(() => pendingRequests);
+    setPendingRequests(scr);
+  }
+
+  async function approveChangeRequest(requestId: string) {
+    setApprovingId(requestId);
+    try {
+      const res = await authFetch(`${API}/api/status-change-requests/${requestId}/approve`, { method: "POST" });
+      if (res.ok) {
+        setPendingRequests(prev => prev.filter(r => r.id !== requestId));
+        await refreshPeriods();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
+  async function rejectChangeRequest(requestId: string) {
+    setRejectingId(requestId);
+    try {
+      const res = await authFetch(`${API}/api/status-change-requests/${requestId}/reject`, { method: "POST" });
+      if (res.ok) {
+        setPendingRequests(prev => prev.filter(r => r.id !== requestId));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+    } finally {
+      setRejectingId(null);
+    }
   }
 
   async function submitChargeback(e: FormEvent) {
@@ -867,9 +956,10 @@ export default function PayrollDashboard() {
     const filtered = filterPeriodsByRange(range);
     const rows = [["Week Start", "Week End", "Quarter", "Status", "Entries", "Gross", "Net"]];
     filtered.forEach(p => {
-      const gross = p.entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
-      const net   = p.entries.reduce((s, e) => s + Number(e.netAmount), 0);
-      rows.push([p.weekStart, p.weekEnd, p.quarterLabel, p.status, String(p.entries.length), gross.toFixed(2), net.toFixed(2)]);
+      const active = p.entries.filter(isActiveEntry);
+      const gross = active.reduce((s, e) => s + Number(e.payoutAmount), 0);
+      const net   = active.reduce((s, e) => s + Number(e.netAmount), 0);
+      rows.push([p.weekStart, p.weekEnd, p.quarterLabel, p.status, String(active.length), gross.toFixed(2), net.toFixed(2)]);
     });
     const label = range === "week" ? "weekly" : range === "month" ? "monthly" : "quarterly";
     const a = Object.assign(document.createElement("a"), {
@@ -1270,11 +1360,12 @@ export default function PayrollDashboard() {
           )}
 
           {periods.map(p => {
-            const gross        = p.entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
-            const totalBonus   = p.entries.reduce((s, e) => s + Number(e.bonusAmount ?? 0), 0);
-            const totalFronted = p.entries.reduce((s, e) => s + Number(e.frontedAmount ?? 0), 0);
-            const totalHold    = p.entries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
-            const net          = p.entries.reduce((s, e) => s + Number(e.netAmount), 0);
+            const activeEntries = p.entries.filter(isActiveEntry);
+            const gross        = activeEntries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+            const totalBonus   = activeEntries.reduce((s, e) => s + Number(e.bonusAmount ?? 0), 0);
+            const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount ?? 0), 0);
+            const totalHold    = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
+            const net          = activeEntries.reduce((s, e) => s + Number(e.netAmount), 0);
             const svcTotal     = (p.serviceEntries ?? []).reduce((s, e) => s + Number(e.totalPay), 0);
             const expanded     = expandedPeriod === p.id;
             const statusCfg    = STATUS_BADGE[p.status] ?? { color: C.textSecondary, label: p.status };
@@ -1311,6 +1402,12 @@ export default function PayrollDashboard() {
                       <Badge color={C.danger}>
                         <AlertTriangle size={10} style={{ marginRight: 3 }} />
                         {needsApproval.length} need approval
+                      </Badge>
+                    )}
+                    {pendingRequests.length > 0 && (
+                      <Badge color={C.warning}>
+                        <Clock size={10} style={{ marginRight: 3 }} />
+                        {pendingRequests.length} status change{pendingRequests.length !== 1 ? "s" : ""} pending
                       </Badge>
                     )}
                   </div>
@@ -1388,7 +1485,7 @@ export default function PayrollDashboard() {
 
                 {/* Stats row */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: S[3] }} className="grid-mobile-1">
-                  <StatMini label="Entries" value={p.entries.length} prefix="" color={C.textPrimary} />
+                  <StatMini label="Entries" value={activeEntries.length} prefix="" color={C.textPrimary} />
                   <StatMini label="Commission" value={gross} />
                   <StatMini label="Bonuses" value={totalBonus} color={C.success} />
                   <StatMini label="Fronted" value={totalFronted} color={C.danger} />
@@ -1422,16 +1519,20 @@ export default function PayrollDashboard() {
                   >
                     {/* Per-agent sections */}
                     {(() => {
-                      const agentEntries = [...byAgent.entries()].map(([name, ents]) => ({
-                        name,
-                        entries: ents,
-                        net: ents.reduce((s, e) => s + Number(e.netAmount), 0),
-                        gross: ents.reduce((s, e) => s + Number(e.payoutAmount), 0),
-                      }));
+                      const agentEntries = [...byAgent.entries()].map(([name, ents]) => {
+                        const active = ents.filter(isActiveEntry);
+                        return {
+                          name,
+                          entries: ents,
+                          net: active.reduce((s, e) => s + Number(e.netAmount), 0),
+                          gross: active.reduce((s, e) => s + Number(e.payoutAmount), 0),
+                          activeCount: active.length,
+                        };
+                      });
                       const sorted = [...agentEntries].sort((a, b) => b.net - a.net);
                       const top3 = new Set(sorted.slice(0, 3).filter(a => a.net > 0).map(a => a.name));
 
-                      return agentEntries.map(({ name: agentName, entries, net: agentNet, gross: agentGross }, agentIdx) => {
+                      return agentEntries.map(({ name: agentName, entries, net: agentNet, gross: agentGross, activeCount }, agentIdx) => {
                         const isTopEarner = top3.has(agentName);
                         return (
                           <div
@@ -1454,7 +1555,8 @@ export default function PayrollDashboard() {
                                 <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{agentName}</span>
                                 {isTopEarner && <Badge color={C.primary400}>Top Earner</Badge>}
                                 <span style={{ fontSize: 12, color: C.textMuted }}>
-                                  {entries.length} sale{entries.length !== 1 ? "s" : ""}
+                                  {activeCount} sale{activeCount !== 1 ? "s" : ""}
+                                  {activeCount !== entries.length && <span style={{ color: C.textTertiary }}> ({entries.length - activeCount} zeroed)</span>}
                                 </span>
                               </div>
                               <div style={{ display: "flex", gap: S[5], fontSize: 13, alignItems: "center" }}>
@@ -1498,6 +1600,7 @@ export default function PayrollDashboard() {
                                 <thead>
                                   <tr>
                                     <th style={TH}>Agent</th>
+                                    <th style={TH_C}>Status</th>
                                     <th style={TH}>Member</th>
                                     <th style={TH}>Product</th>
                                     <th style={TH_R}>Enroll Fee</th>
@@ -1523,11 +1626,11 @@ export default function PayrollDashboard() {
                                   ))}
                                   {/* Agent subtotal */}
                                   <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
-                                    <td colSpan={4} style={{ ...TD, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
+                                    <td colSpan={5} style={{ ...TD, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
                                     <td style={{ ...TD_R, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.success }}>${entries.reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.danger }}>${entries.reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.warning }}>${entries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0).toFixed(2)}</td>
+                                    <td style={{ ...TD_R, fontWeight: 700, color: C.success }}>${entries.filter(isActiveEntry).reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
+                                    <td style={{ ...TD_R, fontWeight: 700, color: C.danger }}>${entries.filter(isActiveEntry).reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
+                                    <td style={{ ...TD_R, fontWeight: 700, color: C.warning }}>${entries.filter(isActiveEntry).reduce((s, e) => s + Number(e.holdAmount ?? 0), 0).toFixed(2)}</td>
                                     <td style={{ ...TD_R, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
                                       <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
                                     </td>
@@ -1536,6 +1639,98 @@ export default function PayrollDashboard() {
                                 </tbody>
                               </table>
                             </div>
+
+                            {/* Pending Approval Requests for this agent */}
+                            {(() => {
+                              const agentObj = allAgents.find(a => a.name === agentName);
+                              const agentPending = agentObj
+                                ? pendingRequests.filter(r => r.sale.agentId === agentObj.id)
+                                : [];
+                              if (agentPending.length === 0) return null;
+                              return (
+                                <div style={{
+                                  borderLeft: "3px solid #f59e0b",
+                                  backgroundColor: "rgba(245, 158, 11, 0.08)",
+                                  padding: "12px",
+                                  borderRadius: "8px",
+                                  margin: `${S[3]}px ${S[5]}px ${S[4]}px`,
+                                }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                                    <Clock size={14} style={{ color: "#f59e0b" }} />
+                                    <span style={{ fontWeight: 700, fontSize: 13, color: "#f59e0b" }}>
+                                      Pending Approvals ({agentPending.length})
+                                    </span>
+                                  </div>
+                                  <div style={{ display: "grid", gap: 8 }}>
+                                    {agentPending.map(req => (
+                                      <div key={req.id} style={{
+                                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                                        padding: "10px 12px",
+                                        background: "rgba(245, 158, 11, 0.06)",
+                                        border: "1px solid rgba(245, 158, 11, 0.15)",
+                                        borderRadius: 6,
+                                        flexWrap: "wrap",
+                                        gap: 8,
+                                      }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                          <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
+                                            {req.sale.memberName} — {req.sale.product.name}
+                                          </div>
+                                          <div style={{ fontSize: 12, color: C.textMuted }}>
+                                            <span style={{
+                                              display: "inline-flex", alignItems: "center", gap: 4,
+                                              padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                                              background: SALE_STATUS_COLORS[req.oldStatus]?.bg ?? "transparent",
+                                              color: SALE_STATUS_COLORS[req.oldStatus]?.color ?? C.textMuted,
+                                            }}>
+                                              {SALE_STATUS_COLORS[req.oldStatus]?.label ?? req.oldStatus}
+                                            </span>
+                                            <span style={{ margin: "0 4px", color: C.textTertiary }}>&rarr;</span>
+                                            <span style={{
+                                              display: "inline-flex", alignItems: "center", gap: 4,
+                                              padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                                              background: SALE_STATUS_COLORS[req.newStatus]?.bg ?? "transparent",
+                                              color: SALE_STATUS_COLORS[req.newStatus]?.color ?? C.textMuted,
+                                            }}>
+                                              {SALE_STATUS_COLORS[req.newStatus]?.label ?? req.newStatus}
+                                            </span>
+                                            <span style={{ marginLeft: 8 }}>
+                                              by {req.requester.name} &middot; {fmtDate(req.requestedAt)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                          <button
+                                            className="btn-hover"
+                                            disabled={approvingId === req.id}
+                                            onClick={() => approveChangeRequest(req.id)}
+                                            style={{
+                                              ...BTN_ICON,
+                                              background: "#059669", color: "#fff", border: "none",
+                                              opacity: approvingId === req.id ? 0.6 : 1,
+                                            }}
+                                          >
+                                            <CheckCircle size={11} /> {approvingId === req.id ? "..." : "Approve"}
+                                          </button>
+                                          <button
+                                            className="btn-hover"
+                                            disabled={rejectingId === req.id}
+                                            onClick={() => rejectChangeRequest(req.id)}
+                                            style={{
+                                              ...BTN_ICON,
+                                              background: "#dc2626", color: "#fff", border: "none",
+                                              opacity: rejectingId === req.id ? 0.6 : 1,
+                                            }}
+                                          >
+                                            <XCircle size={11} /> {rejectingId === req.id ? "..." : "Reject"}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       });
