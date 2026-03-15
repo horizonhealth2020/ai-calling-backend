@@ -282,7 +282,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     agentId: z.string(),
     memberName: z.string(),
     memberId: z.string().optional(),
-    carrier: z.string(),
+    carrier: z.string().optional().default(""),
     productId: z.string(),
     premium: z.number().min(0),
     effectiveDate: z.string(),
