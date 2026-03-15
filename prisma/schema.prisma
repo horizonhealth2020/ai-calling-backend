@@ -31,10 +31,15 @@ enum PayrollEntryStatus {
 }
 
 enum SaleStatus {
-  SUBMITTED
+  RAN
+  DECLINED
+  DEAD
+}
+
+enum ChangeRequestStatus {
+  PENDING
   APPROVED
   REJECTED
-  CANCELLED
 }
 
 enum ClawbackStatus {
@@ -61,8 +66,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  enteredSales Sale[]      @relation("SaleEnteredBy")
-  reviews      CallAudit[] @relation("AuditReviewer")
+  enteredSales                 Sale[]      @relation("SaleEnteredBy")
+  reviews                      CallAudit[] @relation("AuditReviewer")
+  statusChangeRequestsMade     StatusChangeRequest[] @relation("StatusChangeRequester")
+  statusChangeRequestsReviewed StatusChangeRequest[] @relation("StatusChangeReviewer")
 
   @@map("users")
 }
@@ -140,7 +147,7 @@ model Sale {
   premium         Decimal         @db.Decimal(12, 2)
   effectiveDate   DateTime        @map("effective_date")
   leadSourceId    String          @map("lead_source_id")
-  status          SaleStatus      @default(SUBMITTED)
+  status          SaleStatus      @default(RAN)
   notes           String?
   enteredByUserId String          @map("entered_by_user_id")
   payrollStatus   PayrollEntryStatus @default(PENDING) @map("payroll_status")
@@ -161,9 +168,10 @@ model Sale {
   product       Product       @relation(fields: [productId], references: [id])
   leadSource    LeadSource    @relation(fields: [leadSourceId], references: [id])
   enteredByUser User          @relation("SaleEnteredBy", fields: [enteredByUserId], references: [id])
-  payrollEntries PayrollEntry[]
-  clawbacks      Clawback[]
-  addons         SaleAddon[]
+  payrollEntries       PayrollEntry[]
+  clawbacks            Clawback[]
+  addons               SaleAddon[]
+  statusChangeRequests StatusChangeRequest[]
 
   @@index([saleDate])
   @@index([memberId])
@@ -269,6 +277,27 @@ model SaleAddon {
 
   @@unique([saleId, productId])
   @@map("sale_addons")
+}
+
+model StatusChangeRequest {
+  id          String              @id @default(cuid())
+  saleId      String              @map("sale_id")
+  requestedBy String             @map("requested_by")
+  requestedAt DateTime            @default(now()) @map("requested_at")
+  oldStatus   SaleStatus
+  newStatus   SaleStatus
+  status      ChangeRequestStatus @default(PENDING)
+  reviewedBy  String?             @map("reviewed_by")
+  reviewedAt  DateTime?           @map("reviewed_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  sale      Sale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  requester User  @relation("StatusChangeRequester", fields: [requestedBy], references: [id])
+  reviewer  User? @relation("StatusChangeReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([saleId])
+  @@index([status])
+  @@map("status_change_requests")
 }
 
 model Clawback {
