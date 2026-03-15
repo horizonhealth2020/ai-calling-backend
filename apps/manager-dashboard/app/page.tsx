@@ -798,6 +798,36 @@ export default function ManagerDashboard() {
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
+  async function handleStatusChange(saleId: string, newStatus: string, currentStatus: string) {
+    const isReactivation = (currentStatus === "DEAD" || currentStatus === "DECLINED") && newStatus === "RAN";
+    if (isReactivation) {
+      if (!window.confirm("This will create a change request for payroll approval. Continue?")) return;
+    }
+    try {
+      const res = await authFetch(`${API}/api/sales/${saleId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.changeRequest) {
+          setMsg({ text: "Change request submitted for payroll approval", type: "success" });
+          clearTimeout(msgTimerRef.current);
+          msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
+        }
+        // Refetch sales to get latest data including hasPendingStatusChange
+        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
+        authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setMsg({ text: `Failed to update status (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
+      }
+    } catch (e: any) {
+      setMsg({ text: `Unable to reach API \u2014 ${e.message ?? "network error"}`, type: "error" });
+    }
+  }
+
   async function deleteSale(id: string) {
     if (!window.confirm("Permanently delete this sale? This removes it from payroll and tracking.")) return;
     try {
@@ -1370,7 +1400,32 @@ export default function ManagerDashboard() {
                             <td style={TD}>{s.product.name}</td>
                             <td style={TD}>{s.leadSource.name}</td>
                             <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: colors.success }}>${Number(s.premium).toFixed(2)}</td>
-                            <td style={{ ...TD, textAlign: "center" }}><StatusBadge status={s.status} /></td>
+                            <td style={{ ...TD, textAlign: "center" }}>
+                              {s.hasPendingStatusChange ? (
+                                <StatusBadge status="PENDING_RAN" />
+                              ) : (
+                                <select
+                                  className="input-focus"
+                                  value={s.status}
+                                  onChange={e => handleStatusChange(s.id, e.target.value, s.status)}
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    borderRadius: radius.full,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "#fff",
+                                    background: s.status === "RAN" ? "#22c55e" : s.status === "DECLINED" ? "#ef4444" : s.status === "DEAD" ? "#6b7280" : colors.warning,
+                                    appearance: "auto" as React.CSSProperties["appearance"],
+                                  }}
+                                >
+                                  <option value="RAN">Ran</option>
+                                  <option value="DECLINED">Declined</option>
+                                  <option value="DEAD">Dead</option>
+                                </select>
+                              )}
+                            </td>
                             <td style={{ ...TD, textAlign: "center" }}>
                               <button
                                 className="btn-hover"
