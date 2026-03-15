@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: In progress
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-15T01:09:03Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-15T01:10:30Z"
 progress:
   total_phases: 9
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 60
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
+  percent: 65
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -23,13 +23,13 @@ progress:
 
 ## Current Position
 
-**Phase:** 3 of 9 -- Commission Fees & Period Assignment
-**Plan:** 1 of ? -- Enrollment Fee Threshold Tests -- COMPLETE
-**Status:** In progress
+**Phase:** 3 of 9 -- Commission Fees & Period Assignment -- COMPLETE
+**Plan:** 2 of 2 -- Period Assignment & ACH Shift -- COMPLETE
+**Status:** Ready to plan Phase 4
 
 ```
-Progress: [######....] 60%
-Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#....] | Phase 4 [.....]
+Progress: [######....] 65%
+Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [.....]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....]
 ```
@@ -38,10 +38,10 @@ Phase 9 [.....]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 8 |
-| Plans total | 8+ (remaining phases TBD) |
-| Requirements done | 11/36 |
-| Phases done | 2/9 |
+| Plans completed | 9 |
+| Plans total | 9+ (remaining phases TBD) |
+| Requirements done | 13/36 |
+| Phases done | 3/9 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -53,10 +53,14 @@ Phase 9 [.....]
 | 02 | 03 | ~120s | 2 | 3 |
 | 02 | 04 | ~180s | 3 | 2 |
 | 03 | 01 | 125s | 2 | 1 |
+| 03 | 02 | 157s | 2 | 4 |
 
 ## Accumulated Context
 
 ### Key Decisions
+- [Phase 3] Luxon America/New_York used for day-of-week only; output stays UTC midnight dates to preserve period ID format
+- [Phase 3] shiftWeeks default=0 makes ACH shift backward compatible
+- [Phase 3] Null payment_type backfilled to CC (preserves existing period assignments)
 - [Phase 3] Bonus triggers for fee >= $125 (not just exactly $125) -- kept existing behavior per user decision
 - [Phase 2] Final-only rounding (Math.round at end) avoids penny accumulation from intermediate rounding
 - [Phase 2] Console.warn for null commission rates -- ops visibility without breaking calculation
@@ -82,28 +86,27 @@ Phase 9 [.....]
 ### Research Findings Applied
 - `memberState` reference in payroll.ts causes 500 on every sale creation -- FIXED in Phase 1
 - String-matching bundle detection replaced with `isBundleQualifier` flag -- DONE in Phase 2
-- Week-in-arrears logic not implemented (`getSundayWeekRange` maps to current week) -- Phase 3
+- Week-in-arrears logic implemented: getSundayWeekRange uses Luxon Eastern timezone with ACH +1 week shift -- DONE in Phase 3
 - Socket.IO currently only emits audit events, needs sale/payroll/KPI events -- Phase 6
-- Luxon already installed but underused; should be used for arrears period logic -- Phase 3
+- Luxon now used for Eastern timezone period assignment in getSundayWeekRange -- DONE in Phase 3
 
 ### Open Questions
 - SaleAddon premium model resolved: per-addon premium field added as Decimal(12,2) optional
 - CSV vs Excel export format (resolve before Phase 7)
-- Luxon timezone convention: UTC vs local (resolve before Phase 3)
+- Luxon timezone convention resolved: America/New_York for day-of-week, UTC midnight for storage/period IDs
 - Commission preview endpoint design: separate `/api/sales/preview` vs dry-run mode (resolve before Phase 5)
 
 ### Blockers
 None currently.
 
 ### TODOs
-- Execute remaining Phase 3 plans
-- Resolve Luxon timezone convention (UTC vs local) before arrears logic
+- Plan Phase 4 (Multi-Product Sales Form)
 
 ## Session Continuity
 
-**Last session:** 2026-03-15T01:09:03Z
-**Stopped at:** Completed 03-01-PLAN.md
-**Next action:** Execute next Phase 3 plan
+**Last session:** 2026-03-15T01:10:30Z
+**Stopped at:** Completed 03-02-PLAN.md (Phase 3 complete)
+**Next action:** Plan Phase 4 (Multi-Product Sales Form)
 
 ---
 *State initialized: 2026-03-14*
