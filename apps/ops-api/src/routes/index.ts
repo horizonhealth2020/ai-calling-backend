@@ -324,10 +324,17 @@ router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
   const where = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
   const sales = await prisma.sale.findMany({
     where,
-    include: { agent: true, product: true, leadSource: true },
+    include: {
+      agent: true, product: true, leadSource: true,
+      _count: { select: { statusChangeRequests: { where: { status: 'PENDING' } } } },
+    },
     orderBy: { saleDate: "desc" },
   });
-  res.json(sales);
+  const result = sales.map(({ _count, ...sale }) => ({
+    ...sale,
+    hasPendingStatusChange: _count.statusChangeRequests > 0,
+  }));
+  res.json(result);
 }));
 
 router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -791,7 +798,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
-  const saleWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
+  const saleWhere = dr ? { status: 'RAN' as const, saleDate: { gte: dr.gte, lt: dr.lt } } : { status: 'RAN' as const };
   const clawbackWhere = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
   const [salesCount, premiumAgg, clawbacks, openPayrollPeriods] = await Promise.all([
     prisma.sale.count({ where: saleWhere }),
@@ -806,8 +813,8 @@ router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
   const agentMap = new Map(agents.map((a) => [a.id, a.name]));
   const [daily, weekly] = await Promise.all([
-    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { saleDate: { gte: new Date(Date.now() - 86400000) } } }),
-    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { saleDate: { gte: new Date(Date.now() - 7 * 86400000) } } }),
+    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { status: 'RAN', saleDate: { gte: new Date(Date.now() - 86400000) } } }),
+    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { status: 'RAN', saleDate: { gte: new Date(Date.now() - 7 * 86400000) } } }),
   ]);
   const fmt = (rows: typeof daily) =>
     rows
@@ -834,9 +841,9 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
   const todayEnd = new Date(todayStart);
   todayEnd.setDate(todayStart.getDate() + 1);
 
-  // Fetch all sales for the current week
+  // Fetch all RAN sales for the current week
   const sales = await prisma.sale.findMany({
-    where: { saleDate: { gte: monday, lt: sunday } },
+    where: { status: 'RAN', saleDate: { gte: monday, lt: sunday } },
     select: { agentId: true, saleDate: true, premium: true },
   });
 
@@ -1156,6 +1163,65 @@ router.put("/settings/audit-duration", requireAuth, requireRole("MANAGER", "SUPE
   ]);
   await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "audit_duration_filter");
   res.json(parsed.data);
+}));
+
+// ── Status Change Requests (approval workflow) ─────────────────
+router.get("/status-change-requests", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const status = (req.query.status as string) || "PENDING";
+  const requests = await prisma.statusChangeRequest.findMany({
+    where: { status: status as any },
+    include: {
+      sale: { include: { agent: true, product: true } },
+      requester: { select: { name: true, email: true } },
+    },
+    orderBy: { requestedAt: "asc" },
+  });
+  res.json(requests);
+}));
+
+router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const changeRequest = await prisma.statusChangeRequest.findUnique({ where: { id: req.params.id } });
+  if (!changeRequest) return res.status(404).json({ error: "Change request not found" });
+  if (changeRequest.status !== "PENDING") return res.status(400).json({ error: "Change request is not pending" });
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const cr = await tx.statusChangeRequest.update({
+      where: { id: changeRequest.id },
+      data: { status: "APPROVED", reviewedBy: req.user!.id, reviewedAt: new Date() },
+    });
+    await tx.sale.update({
+      where: { id: changeRequest.saleId },
+      data: { status: changeRequest.newStatus },
+    });
+    return cr;
+  });
+
+  await upsertPayrollEntryForSale(changeRequest.saleId);
+  await logAudit(req.user!.id, "APPROVE_STATUS_CHANGE", "StatusChangeRequest", changeRequest.id, {
+    saleId: changeRequest.saleId, oldStatus: changeRequest.oldStatus, newStatus: changeRequest.newStatus,
+  });
+
+  const result = await prisma.statusChangeRequest.findUnique({
+    where: { id: updated.id },
+    include: { sale: { include: { agent: true, product: true } } },
+  });
+  res.json(result);
+}));
+
+router.post("/status-change-requests/:id/reject", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const changeRequest = await prisma.statusChangeRequest.findUnique({ where: { id: req.params.id } });
+  if (!changeRequest) return res.status(404).json({ error: "Change request not found" });
+  if (changeRequest.status !== "PENDING") return res.status(400).json({ error: "Change request is not pending" });
+
+  const updated = await prisma.statusChangeRequest.update({
+    where: { id: changeRequest.id },
+    data: { status: "REJECTED", reviewedBy: req.user!.id, reviewedAt: new Date() },
+  });
+
+  await logAudit(req.user!.id, "REJECT_STATUS_CHANGE", "StatusChangeRequest", changeRequest.id, {
+    saleId: changeRequest.saleId,
+  });
+  res.json(updated);
 }));
 
 export default router;
