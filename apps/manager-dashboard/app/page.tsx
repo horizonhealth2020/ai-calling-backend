@@ -672,7 +672,7 @@ export default function ManagerDashboard() {
       authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).catch(() => []),
     ]).then(([a, p, ls, tr, sl]) => {
       setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr); setSalesList(sl);
-      setForm(f => ({ ...f, agentId: "", productId: p[0]?.id ?? "", leadSourceId: ls[0]?.id ?? "" }));
+      setForm(f => ({ ...f, agentId: "", productId: "", leadSourceId: "" }));
       setLoading(false);
     });
   }, []);
@@ -746,6 +746,7 @@ export default function ManagerDashboard() {
           ...form,
           premium: Number(form.premium),
           enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null,
+          carrier: form.carrier || undefined,
           paymentType: form.paymentType || undefined,
           memberState: form.memberState || undefined,
           addonPremiums: addonPremiumsPayload,
@@ -922,7 +923,7 @@ export default function ManagerDashboard() {
               </div>
               <div className="animate-fade-in-up stagger-5">
                 <label style={LBL}>Carrier</label>
-                <input className="input-focus" style={INP} value={form.carrier} required onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
+                <input className="input-focus" style={INP} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
               </div>
               <div className="animate-fade-in-up stagger-6">
                 <label style={LBL}>Premium ($)</label>
@@ -934,13 +935,15 @@ export default function ManagerDashboard() {
               </div>
               <div className="animate-fade-in-up stagger-8">
                 <label style={LBL}>Product</label>
-                <select className="input-focus" style={{ ...INP }} value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}>
-                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <select className="input-focus" style={{ ...INP }} value={form.productId} required onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}>
+                  <option value="" disabled>Select product...</option>
+                  {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
               <div className="animate-fade-in-up stagger-9">
                 <label style={LBL}>Lead Source</label>
-                <select className="input-focus" style={{ ...INP }} value={form.leadSourceId} onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
+                <select className="input-focus" style={{ ...INP }} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
+                  <option value="" disabled>Select lead source...</option>
                   {leadSources.filter(ls => ls.active !== false).map(ls => (
                     <option key={ls.id} value={ls.id}>{ls.name}</option>
                   ))}
@@ -1114,7 +1117,12 @@ export default function ManagerDashboard() {
 
               {/* Add-on Products */}
               {(() => {
-                const addonProducts = products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId);
+                const addonProducts = products
+                  .filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId)
+                  .sort((a, b) => {
+                    if (a.type !== b.type) return a.type === "ADDON" ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                  });
                 return (
                   <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5] }}>
                     <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
