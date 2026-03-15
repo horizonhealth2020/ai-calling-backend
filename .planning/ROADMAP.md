@@ -8,7 +8,7 @@
 ## Phases
 
 - [x] **Phase 1: Sales Entry Fix** - Unblock the platform by fixing the 500 error on sale creation
-- [ ] **Phase 2: Commission Engine Core** - Product type bundle logic calculates correct commission rates
+- [x] **Phase 2: Commission Engine Core** - Product type bundle logic calculates correct commission rates
 - [ ] **Phase 3: Commission Fees & Period Assignment** - Enrollment fee rules and week-in-arrears period mapping
 - [ ] **Phase 4: Multi-Product Sales Form** - Manager dashboard supports multiple products, payment type, and enrollment fee per sale
 - [ ] **Phase 5: Commission Preview & Sale Editing** - Live commission preview before submit and full recalculation on edit
@@ -48,7 +48,7 @@ Plans:
 - [x] 02-01-PLAN.md -- Add isBundleQualifier to Product model and set up TypeScript test infrastructure
 - [x] 02-02-PLAN.md -- TDD rewrite of commission engine with bundle aggregation logic
 - [x] 02-03-PLAN.md -- Fix payroll dashboard column misalignment (premium in enroll fee column)
-- [ ] 02-04-PLAN.md -- Add addon product picker to manager dashboard sales entry form
+- [x] 02-04-PLAN.md -- Add addon product picker to manager dashboard sales entry form
 
 ### Phase 3: Commission Fees & Period Assignment
 **Goal**: Enrollment fee rules apply correctly and sales land in the right pay period based on arrears logic
@@ -132,7 +132,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Sales Entry Fix | 3/3 | Complete | 2026-03-14 |
-| 2. Commission Engine Core | 3/4 | Gap closure | - |
+| 2. Commission Engine Core | 4/4 | Complete | 2026-03-15 |
 | 3. Commission Fees & Period Assignment | 0/? | Not started | - |
 | 4. Multi-Product Sales Form | 0/? | Not started | - |
 | 5. Commission Preview & Sale Editing | 0/? | Not started | - |

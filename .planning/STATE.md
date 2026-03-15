@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: In progress
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-03-15T00:12:10Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-03-15T01:00:00Z"
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 6
-  percent: 50
+  total_plans: 7
+  completed_plans: 7
+  percent: 58
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -23,13 +23,13 @@ progress:
 
 ## Current Position
 
-**Phase:** 2 of 9 -- Commission Engine Core -- In Progress
-**Plan:** 3 of 4 -- COMPLETE
-**Status:** In progress
+**Phase:** 2 of 9 -- Commission Engine Core -- COMPLETE
+**Plan:** 4 of 4 -- COMPLETE
+**Status:** Ready to plan Phase 3
 
 ```
-Progress: [#####.....] 50%
-Phase 1 [#####] | Phase 2 [####.] | Phase 3 [.....] | Phase 4 [.....]
+Progress: [######....] 58%
+Phase 1 [#####] | Phase 2 [#####] | Phase 3 [.....] | Phase 4 [.....]
 Phase 5 [.....] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....]
 ```
@@ -38,10 +38,10 @@ Phase 9 [.....]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 6 |
-| Plans total | 6+ (remaining phases TBD) |
+| Plans completed | 7 |
+| Plans total | 7+ (remaining phases TBD) |
 | Requirements done | 9/36 |
-| Phases done | 1/9 |
+| Phases done | 2/9 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -51,6 +51,7 @@ Phase 9 [.....]
 | 02 | 01 | 147s | 2 | 5 |
 | 02 | 02 | 240s | 2 | 4 |
 | 02 | 03 | ~120s | 2 | 3 |
+| 02 | 04 | ~180s | 3 | 2 |
 
 ## Accumulated Context
 
@@ -63,6 +64,7 @@ Phase 9 [.....]
 - [Phase 2] Manual migration SQL (no prisma migrate dev) continued from Phase 1 decision
 - [Phase 2] Product column shows read-only badges in edit mode (not editable inline)
 - [Phase 2] enrollmentFee sent as nullable number to PATCH /sales/:id
+- [Phase 2] Addon premiums tracked as separate React state, sent as Record<productId, number> to API
 - Fix sales entry 500 error before all other work (everything depends on it)
 - Commission engine split into two phases: core bundle logic (Phase 2), then fees and arrears (Phase 3)
 - Multi-product form (Phase 4) separated from commission preview/edit (Phase 5) to reduce complexity per phase
@@ -97,10 +99,10 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-15T00:12:10Z
-**Stopped at:** Completed 02-03-PLAN.md
-**Next action:** Execute 02-04-PLAN.md (addon product picker)
+**Last session:** 2026-03-15T01:00:00Z
+**Stopped at:** Completed 02-04-PLAN.md
+**Next action:** Plan Phase 3 (Commission Fees & Period Assignment)
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-15*
