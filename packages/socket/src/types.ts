@@ -1,3 +1,5 @@
+import type React from "react";
+
 export type SaleChangedType = "created" | "updated" | "status_changed" | "deleted";
 
 export interface SaleChangedPayload {

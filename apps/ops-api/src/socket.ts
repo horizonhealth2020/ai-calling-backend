@@ -21,3 +21,39 @@ export function emitAuditComplete(audit: any) {
 export function emitAuditFailed(data: { callLogId: string; error: string }) {
   io?.emit("processing_failed", data);
 }
+
+export type SaleChangedType = "created" | "updated" | "status_changed" | "deleted";
+
+export interface SaleChangedPayload {
+  type: SaleChangedType;
+  sale: {
+    id: string;
+    saleDate: string;
+    memberName: string;
+    memberId?: string;
+    carrier: string;
+    premium: number;
+    enrollmentFee: number | null;
+    status: string;
+    agent: { id: string; name: string };
+    product: { id: string; name: string; type: string };
+    addons?: { product: { id: string; name: string; type: string } }[];
+  };
+  payrollEntries: {
+    id: string;
+    payoutAmount: number;
+    adjustmentAmount: number;
+    bonusAmount: number;
+    frontedAmount: number;
+    holdAmount: number;
+    netAmount: number;
+    status: string;
+    periodId: string;
+    periodWeekStart: string;
+    periodWeekEnd: string;
+  }[];
+}
+
+export function emitSaleChanged(payload: SaleChangedPayload) {
+  io?.emit("sale:changed", payload);
+}

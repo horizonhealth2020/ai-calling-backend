@@ -8,6 +8,7 @@ import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission
 import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
 import { enqueueAuditJob } from "../services/auditQueue";
+import { emitSaleChanged } from "../socket";
 
 const router = Router();
 
@@ -315,6 +316,54 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     await upsertPayrollEntryForSale(sale.id);
   } catch (err) {
     console.error("Payroll entry failed for sale", sale.id, err);
+  }
+  // Emit real-time sale:changed event to all connected dashboards
+  try {
+    const fullSale = await prisma.sale.findUnique({
+      where: { id: sale.id },
+      include: {
+        agent: { select: { id: true, name: true } },
+        product: { select: { id: true, name: true, type: true } },
+        addons: { include: { product: { select: { id: true, name: true, type: true } } } },
+      },
+    });
+    const payrollEntries = await prisma.payrollEntry.findMany({
+      where: { saleId: sale.id },
+      include: { period: { select: { id: true, weekStart: true, weekEnd: true } } },
+    });
+    if (fullSale) {
+      emitSaleChanged({
+        type: "created",
+        sale: {
+          id: fullSale.id,
+          saleDate: fullSale.saleDate.toISOString(),
+          memberName: fullSale.memberName,
+          memberId: fullSale.memberId ?? undefined,
+          carrier: fullSale.carrier,
+          premium: Number(fullSale.premium),
+          enrollmentFee: fullSale.enrollmentFee != null ? Number(fullSale.enrollmentFee) : null,
+          status: fullSale.status,
+          agent: { id: fullSale.agent.id, name: fullSale.agent.name },
+          product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
+          addons: fullSale.addons?.map((a: any) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
+        },
+        payrollEntries: payrollEntries.map((e: any) => ({
+          id: e.id,
+          payoutAmount: Number(e.payoutAmount),
+          adjustmentAmount: Number(e.adjustmentAmount),
+          bonusAmount: Number(e.bonusAmount),
+          frontedAmount: Number(e.frontedAmount),
+          holdAmount: Number(e.holdAmount),
+          netAmount: Number(e.netAmount),
+          status: e.status,
+          periodId: e.period.id,
+          periodWeekStart: e.period.weekStart.toISOString(),
+          periodWeekEnd: e.period.weekEnd.toISOString(),
+        })),
+      });
+    }
+  } catch (emitErr) {
+    console.error("Socket emit failed for sale", sale.id, emitErr);
   }
   res.status(201).json(sale);
 }));
@@ -1422,6 +1471,57 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
   await logAudit(req.user!.id, "APPROVE_STATUS_CHANGE", "StatusChangeRequest", changeRequest.id, {
     saleId: changeRequest.saleId, oldStatus: changeRequest.oldStatus, newStatus: changeRequest.newStatus,
   });
+
+  // Emit sale:changed for Dead/Declined -> Ran transitions (appears as new sale on boards)
+  if (changeRequest.newStatus === "RAN" && changeRequest.oldStatus !== "RAN") {
+    try {
+      const fullSale = await prisma.sale.findUnique({
+        where: { id: changeRequest.saleId },
+        include: {
+          agent: { select: { id: true, name: true } },
+          product: { select: { id: true, name: true, type: true } },
+          addons: { include: { product: { select: { id: true, name: true, type: true } } } },
+        },
+      });
+      const payrollEntries = await prisma.payrollEntry.findMany({
+        where: { saleId: changeRequest.saleId },
+        include: { period: { select: { id: true, weekStart: true, weekEnd: true } } },
+      });
+      if (fullSale) {
+        emitSaleChanged({
+          type: "status_changed",
+          sale: {
+            id: fullSale.id,
+            saleDate: fullSale.saleDate.toISOString(),
+            memberName: fullSale.memberName,
+            memberId: fullSale.memberId ?? undefined,
+            carrier: fullSale.carrier,
+            premium: Number(fullSale.premium),
+            enrollmentFee: fullSale.enrollmentFee != null ? Number(fullSale.enrollmentFee) : null,
+            status: fullSale.status,
+            agent: { id: fullSale.agent.id, name: fullSale.agent.name },
+            product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
+            addons: fullSale.addons?.map((a: any) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
+          },
+          payrollEntries: payrollEntries.map((e: any) => ({
+            id: e.id,
+            payoutAmount: Number(e.payoutAmount),
+            adjustmentAmount: Number(e.adjustmentAmount),
+            bonusAmount: Number(e.bonusAmount),
+            frontedAmount: Number(e.frontedAmount),
+            holdAmount: Number(e.holdAmount),
+            netAmount: Number(e.netAmount),
+            status: e.status,
+            periodId: e.period.id,
+            periodWeekStart: e.period.weekStart.toISOString(),
+            periodWeekEnd: e.period.weekEnd.toISOString(),
+          })),
+        });
+      }
+    } catch (emitErr) {
+      console.error("Socket emit failed for status change", changeRequest.id, emitErr);
+    }
+  }
 
   const result = await prisma.statusChangeRequest.findUnique({
     where: { id: updated.id },
