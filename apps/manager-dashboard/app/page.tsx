@@ -1,5 +1,7 @@
 "use client";
-import React, { useState, useEffect, useRef, FormEvent } from "react";
+import React, { useState, useEffect, useRef, useCallback, FormEvent } from "react";
+import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
+import type { SaleChangedPayload } from "@ops/socket";
 import {
   PageShell,
   Badge,
@@ -760,6 +762,78 @@ export default function ManagerDashboard() {
     addons: { name: string; matched: boolean; productName?: string; productId?: string }[];
   }>({ addons: [], parsedProducts: [] });
 
+  /* ── Real-time highlight state ── */
+  const [highlightedSaleIds, setHighlightedSaleIds] = useState<Set<string>>(new Set());
+  const [highlightedAgentNames, setHighlightedAgentNames] = useState<Set<string>>(new Set());
+
+  const highlightSale = useCallback((id: string, agentName?: string) => {
+    setHighlightedSaleIds(prev => new Set(prev).add(id));
+    setTimeout(() => {
+      setHighlightedSaleIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    }, 100); // Short delay -- CSS transition handles the 1.5s fade
+    if (agentName) {
+      setHighlightedAgentNames(prev => new Set(prev).add(agentName));
+      setTimeout(() => {
+        setHighlightedAgentNames(prev => { const next = new Set(prev); next.delete(agentName); return next; });
+      }, 100);
+    }
+  }, []);
+
+  /* ── Real-time sale:changed handler ── */
+  const handleSaleChanged = useCallback((payload: SaleChangedPayload) => {
+    // Only cascade on created / status_changed (per CONTEXT.md scope)
+    if (payload.type !== "created" && payload.type !== "status_changed") return;
+
+    highlightSale(payload.sale.id, payload.sale.agent.name);
+
+    // Patch tracker state: find agent by name, increment salesCount & premiumTotal
+    setTracker(prev => {
+      const agentName = payload.sale.agent.name;
+      const exists = prev.some(t => t.agent === agentName);
+      if (exists) {
+        return prev.map(t =>
+          t.agent === agentName
+            ? { ...t, salesCount: t.salesCount + 1, premiumTotal: t.premiumTotal + payload.sale.premium }
+            : t
+        );
+      }
+      // Agent not in tracker yet -- add new entry
+      return [...prev, { agent: agentName, salesCount: 1, premiumTotal: payload.sale.premium, totalLeadCost: 0, costPerSale: 0 }];
+    });
+
+    // Patch salesList: insert new sale at top
+    setSalesList(prev => {
+      const newSale: Sale = {
+        id: payload.sale.id,
+        saleDate: payload.sale.saleDate,
+        memberName: payload.sale.memberName,
+        memberId: payload.sale.memberId,
+        carrier: payload.sale.carrier,
+        premium: payload.sale.premium,
+        status: payload.sale.status,
+        notes: undefined,
+        agent: payload.sale.agent,
+        product: payload.sale.product,
+        leadSource: { id: "", name: "" },
+      };
+      return [newSale, ...prev.filter(s => s.id !== newSale.id)];
+    });
+  }, [highlightSale]);
+
+  /* ── Reconnect handler: full data refetch ── */
+  const handleReconnect = useCallback(() => {
+    Promise.all([
+      authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([tr, sl]) => {
+      setTracker(tr);
+      setSalesList(sl);
+    });
+  }, []);
+
+  /* ── Socket.IO real-time connection ── */
+  const { disconnected } = useSocket(API, handleSaleChanged, handleReconnect);
+
   useEffect(() => {
     captureTokenFromUrl();
     // Decode JWT to extract user roles for role-based UI
@@ -1165,6 +1239,7 @@ export default function ManagerDashboard() {
       activeNav={tab}
       onNavChange={k => { setTab(k as Tab); setEditingSaleId(null); setEditForm({}); }}
     >
+      {disconnected && <div style={DISCONNECT_BANNER}>Connection lost. Reconnecting...</div>}
 
       {/* ── Sales Entry ────────────────────────────────────────────── */}
       {tab === "entry" && (
@@ -1581,6 +1656,8 @@ export default function ManagerDashboard() {
                         style={{
                           borderLeft: PODIUM_BORDERS[i] ?? "3px solid transparent",
                           background: isTop ? `rgba(${i === 0 ? "251,191,36" : i === 1 ? "148,163,184" : "205,127,50"},0.03)` : "transparent",
+                          transition: "box-shadow 1.5s ease-out",
+                          ...(highlightedAgentNames.has(row.agent) ? HIGHLIGHT_GLOW : {}),
                         }}
                       >
                         <td style={{ ...TD, fontWeight: 700 }}>
@@ -1712,7 +1789,7 @@ export default function ManagerDashboard() {
                       <tbody>
                         {sales.map(s => (
                           <React.Fragment key={s.id}>
-                          <tr className="row-hover">
+                          <tr className="row-hover" style={{ transition: "box-shadow 1.5s ease-out", ...(highlightedSaleIds.has(s.id) ? HIGHLIGHT_GLOW : {}) }}>
                             <td style={TD}>{new Date(s.saleDate).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
                             <td style={{ ...TD, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
                             <td style={TD}>{s.carrier}</td>
