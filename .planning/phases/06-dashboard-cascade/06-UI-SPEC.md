@@ -43,22 +43,22 @@ Declared values (inherited from `packages/ui/src/tokens.ts`):
 | 12 | 48px | Major section breaks |
 | 16 | 64px | Page-level spacing |
 
-Exceptions: none
+**Exception — 12px and 20px:** These values fall outside the standard set {4, 8, 16, 24, 32, 48, 64} but are inherited production tokens defined in `packages/ui/src/tokens.ts` (lines 56, 58) as `spacing[3] = 12` and `spacing[5] = 20`. They are used across all existing dashboards via `baseButtonStyle` (padding `10px 20px`), nav gaps, and section padding. Changing them would break visual consistency with the established design system. Phase 6 does not introduce these values -- it inherits them.
 
 ---
 
 ## Typography
 
-Inherited from `packages/ui/src/tokens.ts`. Phase 6 introduces two new text elements (disconnection banner, no new headings or display text):
+Inherited from `packages/ui/src/tokens.ts`. Phase 6 introduces one new text element (disconnection banner, no new headings or display text). This phase uses exactly 2 font weights:
 
 | Role | Size | Weight | Line Height | Phase 6 Usage |
 |------|------|--------|-------------|---------------|
 | Body | 14px | 400 | 1.6 | Not new -- existing dashboard body text |
 | Label | 11px | 700 | 1.45 | Not new -- existing label style |
-| Banner text | 13px | 600 | 1.5 | Disconnection banner message |
+| Banner text | 13px | 700 | 1.5 | Disconnection banner message |
 | Heading | 18px | 700 | 1.4 | Not new -- existing page titles |
 
-**Banner text** uses `typography.sizes.sm` (13px) at `typography.weights.semibold` (600) -- matching the existing `@ops/ui` Button component's medium size text style.
+**Declared weights for this phase:** 400 (regular) and 700 (bold). Banner text uses `typography.weights.bold` (700) to match the existing label and heading weight, providing high-urgency visual emphasis appropriate for a disconnection warning. The `baseButtonStyle` in tokens.ts uses weight 600 for buttons, but Phase 6 introduces no new buttons -- the banner is the only new text element and uses 700.
 
 ---
 
@@ -126,7 +126,7 @@ Fixed-position banner at top of viewport. Appears after 10 seconds of Socket.IO 
 | Background | `rgba(239, 68, 68, 0.9)` |
 | Text color | `#ffffff` |
 | Font size | 13px (`typography.sizes.sm`) |
-| Font weight | 600 (`typography.weights.semibold`) |
+| Font weight | 700 (`typography.weights.bold`) |
 | Text align | center |
 | Backdrop filter | `blur(8px)` |
 | Copy | "Connection lost. Reconnecting..." |
@@ -231,7 +231,7 @@ const DISCONNECT_BANNER: React.CSSProperties = {
   color: "#fff",
   textAlign: "center",
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 700,
   zIndex: 9999,
   backdropFilter: "blur(8px)",
 };
