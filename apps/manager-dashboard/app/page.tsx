@@ -8,6 +8,8 @@ import {
   AnimatedNumber,
   EmptyState,
   ProgressRing,
+  ToastProvider,
+  useToast,
   colors,
   spacing,
   radius,
@@ -718,7 +720,8 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 
 /* ── Main page ───────────────────────────────────────────────── */
 
-export default function ManagerDashboard() {
+function ManagerDashboardInner() {
+  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("entry");
   const [agents, setAgents] = useState<Agent[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -730,6 +733,7 @@ export default function ManagerDashboard() {
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const msgTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const blankForm = () => ({
     saleDate: new Date().toISOString().slice(0, 10),
@@ -953,7 +957,7 @@ export default function ManagerDashboard() {
     setEditingSaleId(null);
     try {
       const res = await authFetch(`${API}/api/sales/${saleId}`);
-      if (!res.ok) { alert(`Error loading sale details (${res.status})`); return; }
+      if (!res.ok) { toast("error", `Error loading sale details (${res.status})`); return; }
       const sale = await res.json();
 
       if (sale.hasPendingStatusChange || sale.hasPendingEditRequest) {
@@ -985,7 +989,7 @@ export default function ManagerDashboard() {
       setEditingSaleId(saleId);
       setEditPreview(null);
     } catch (e: any) {
-      alert(`Error: ${e.message ?? "network error"}`);
+      toast("error", `Error: ${e.message ?? "network error"}`);
     }
   }
 
@@ -1032,7 +1036,7 @@ export default function ManagerDashboard() {
       }
     }
     if (Object.keys(changes).length === 0) {
-      alert("No fields changed yet.");
+      toast("info", "No fields changed yet.");
       setEditSaving(false);
       return;
     }
@@ -1046,19 +1050,19 @@ export default function ManagerDashboard() {
       if (res.ok) {
         const data = await res.json();
         if (data.editRequest) {
-          alert("Edit request submitted for payroll approval.");
+          toast("success", "Edit request submitted for payroll approval.");
         } else {
-          alert("Sale updated successfully.");
+          toast("success", "Sale updated successfully.");
         }
         setEditingSaleId(null);
         setEditForm({});
         authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: any) {
-      alert(`Error: ${e.message ?? "network error"}`);
+      toast("error", `Error: ${e.message ?? "network error"}`);
     } finally {
       setEditSaving(false);
     }
@@ -1120,7 +1124,17 @@ export default function ManagerDashboard() {
   }
 
   async function submitSale(e: FormEvent) {
-    e.preventDefault(); setMsg(null); setSubmitting(true);
+    e.preventDefault(); setMsg(null);
+    const errors: Record<string, string> = {};
+    if (!form.agentId) errors.agentId = "Select an agent";
+    if (!form.productId) errors.productId = "Select a product";
+    if (!form.saleDate) errors.saleDate = "Enter a sale date";
+    if (!form.status) errors.status = "Select a status";
+    if (!form.memberName.trim()) errors.memberName = "Enter member name";
+    if (form.premium !== undefined && form.premium !== null && form.premium !== "" && Number(form.premium) < 0) errors.premium = "Premium cannot be negative";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setSubmitting(true);
     try {
       const addonPremiumsPayload = form.addonProductIds.reduce((acc, id) => {
         if (addonPremiums[id]) acc[id] = Number(addonPremiums[id]);
@@ -1140,6 +1154,7 @@ export default function ManagerDashboard() {
         }),
       });
       if (res.ok) {
+        setFieldErrors({});
         setMsg({ text: "Sale submitted successfully", type: "success" });
         clearTimeout(msgTimerRef.current);
         msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
@@ -2723,5 +2738,13 @@ export default function ManagerDashboard() {
       )}
 
     </PageShell>
+  );
+}
+
+export default function ManagerDashboard() {
+  return (
+    <ToastProvider>
+      <ManagerDashboardInner />
+    </ToastProvider>
   );
 }
