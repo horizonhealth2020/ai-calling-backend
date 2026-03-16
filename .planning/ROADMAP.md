@@ -88,7 +88,7 @@ Plans:
   3. Commission preview matches the actual commission recorded after submission (server-authoritative calculation)
 **Plans:** 3 plans
 Plans:
-- [ ] 05-01-PLAN.md -- SaleEditRequest schema, preview endpoint, extended PATCH with role-based approval, sale-edit-request CRUD
+- [x] 05-01-PLAN.md -- SaleEditRequest schema, preview endpoint, extended PATCH with role-based approval, sale-edit-request CRUD
 - [ ] 05-02-PLAN.md -- Manager dashboard commission preview panel and inline sale editing with live diff
 - [x] 05-03-PLAN.md -- Payroll dashboard pending edit request approvals with field diff display
 

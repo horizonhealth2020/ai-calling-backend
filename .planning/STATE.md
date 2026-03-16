@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-03-15T23:59:00.000Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-16T00:02:00.000Z"
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -23,13 +23,13 @@ progress:
 ## Current Position
 
 **Phase:** 5 of 10 -- Commission Preview & Sale Editing
-**Plan:** 3 of 3 -- Payroll Edit Request Approvals -- COMPLETE
-**Status:** Executing
+**Plan:** 1 of 3 -- Commission Preview & Sale Edit Backend -- COMPLETE
+**Status:** Executing (05-02 remaining)
 
 ```
-Progress: [██████████] ~89%
+Progress: [█████████░] ~94%
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [#####]
-Phase 5 [###..] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
+Phase 5 [##...] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....] | Phase 10 [####]
 ```
 
@@ -37,9 +37,9 @@ Phase 9 [.....] | Phase 10 [####]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 16 |
+| Plans completed | 17 |
 | Plans total | 18+ (remaining phases TBD) |
-| Requirements done | 26/36 |
+| Requirements done | 27/36 |
 | Phases done | 5/10 |
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -59,11 +59,17 @@ Phase 9 [.....] | Phase 10 [####]
 | 10 | 03 | 169s | 2 | 1 |
 | 10 | 04 | 300s | 2 | 1 |
 | 04 | 02 | 60s | 2 | 0 |
+| 05 | 01 | 207s | 2 | 4 |
 | 05 | 03 | 118s | 1 | 1 |
 
 ## Accumulated Context
 
 ### Key Decisions
+- [Phase 5] SaleEditRequest mirrors StatusChangeRequest pattern with JSON changes field for arbitrary field diffs
+- [Phase 5] MANAGER PATCH creates edit request; PAYROLL/SUPER_ADMIN applies directly in transaction
+- [Phase 5] 409 conflict returned when pending StatusChangeRequest or SaleEditRequest exists on MANAGER edit
+- [Phase 5] Preview endpoint builds mock SaleWithProduct and calls calculateCommission directly (no DB writes)
+- [Phase 5] handleSaleEditApproval handles finalized period adjustments with CLAWBACK_APPLIED pattern
 - [Phase 10] All existing sales migrate to RAN (not REJECTED->DEAD) per user decision
 - [Phase 10] Commission gate in upsertPayrollEntryForSale, not calculateCommission (keeps calc pure)
 - [Phase 10] POST /api/sales requires explicit status (no default) so managers must choose
@@ -117,7 +123,7 @@ Phase 9 [.....] | Phase 10 [####]
 - SaleAddon premium model resolved: per-addon premium field added as Decimal(12,2) optional
 - CSV vs Excel export format (resolve before Phase 7)
 - Luxon timezone convention resolved: America/New_York for day-of-week, UTC midnight for storage/period IDs
-- Commission preview endpoint design: separate `/api/sales/preview` vs dry-run mode (resolve before Phase 5)
+- Commission preview endpoint design: resolved -- separate `/api/sales/preview` endpoint chosen (Phase 5 Plan 1)
 
 ### Blockers
 None currently.
@@ -127,9 +133,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-15T23:59:00.000Z
-**Stopped at:** Completed 05-03-PLAN.md
-**Next action:** Continue Phase 5 execution (Plans 05-01 and 05-02 still pending).
+**Last session:** 2026-03-16T00:02:00.000Z
+**Stopped at:** Completed 05-01-PLAN.md
+**Next action:** Execute 05-02-PLAN.md (Commission Preview Panel for manager-dashboard).
 
 ---
 *State initialized: 2026-03-14*
