@@ -16,9 +16,12 @@ import {
   shadows,
   typography,
   motion,
+  Select,
   baseCardStyle,
   baseInputStyle,
   baseLabelStyle,
+  baseThStyle,
+  baseTdStyle,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
@@ -87,30 +90,6 @@ const RANK_LABELS = ["Gold", "Silver", "Bronze"] as const;
 const CARD: React.CSSProperties = {
   ...baseCardStyle,
   borderRadius: radius["2xl"],
-};
-
-const TH: React.CSSProperties = {
-  padding: "12px 16px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: colors.textTertiary,
-  textTransform: "uppercase",
-  letterSpacing: typography.tracking.caps,
-  borderBottom: `1px solid ${colors.borderSubtle}`,
-  textAlign: "left",
-  whiteSpace: "nowrap",
-};
-
-const TD: React.CSSProperties = {
-  padding: "13px 16px",
-  borderBottom: `1px solid ${colors.borderSubtle}`,
-  fontSize: 14,
-  verticalAlign: "middle",
-};
-
-const INP: React.CSSProperties = {
-  ...baseInputStyle,
-  boxSizing: "border-box",
 };
 
 const LBL: React.CSSProperties = {
@@ -236,7 +215,7 @@ function UserRow({
   if (confirmDelete) {
     return (
       <tr>
-        <td colSpan={5} style={{ ...TD, padding: "10px 16px" }}>
+        <td colSpan={5} style={{ ...baseTdStyle, padding: "10px 16px" }}>
           <DeleteConfirm
             name={user.name}
             onConfirm={async () => {
@@ -256,9 +235,9 @@ function UserRow({
   if (!edit) {
     return (
       <tr className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
-        <td style={{ ...TD, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{user.name}</td>
-        <td style={{ ...TD, color: colors.textSecondary, fontSize: 13 }}>{user.email}</td>
-        <td style={TD}>
+        <td style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{user.name}</td>
+        <td style={{ ...baseTdStyle, color: colors.textSecondary, fontSize: 13 }}>{user.email}</td>
+        <td style={baseTdStyle}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {user.roles.map((r) => (
               <Badge key={r} color={ROLE_COLORS[r] ?? colors.textTertiary} size="sm">
@@ -267,7 +246,7 @@ function UserRow({
             ))}
           </div>
         </td>
-        <td style={TD}>
+        <td style={baseTdStyle}>
           <Badge
             color={user.active ? colors.success : colors.textMuted}
             dot
@@ -276,7 +255,7 @@ function UserRow({
             {user.active ? "Active" : "Inactive"}
           </Badge>
         </td>
-        <td style={{ ...TD, textAlign: "right" }}>
+        <td style={{ ...baseTdStyle, textAlign: "right" }}>
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
             <button
               title="Edit user"
@@ -335,17 +314,17 @@ function UserRow({
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div>
             <label style={LBL}>Name</label>
-            <input className="input-focus" style={INP} value={d.name} onChange={(e) => setD((x) => ({ ...x, name: e.target.value }))} />
+            <input className="input-focus" style={{ ...baseInputStyle, boxSizing: "border-box" }} value={d.name} onChange={(e) => setD((x) => ({ ...x, name: e.target.value }))} />
           </div>
           <div>
             <label style={LBL}>Email</label>
-            <input className="input-focus" style={INP} value={d.email} onChange={(e) => setD((x) => ({ ...x, email: e.target.value }))} />
+            <input className="input-focus" style={{ ...baseInputStyle, boxSizing: "border-box" }} value={d.email} onChange={(e) => setD((x) => ({ ...x, email: e.target.value }))} />
           </div>
           <div>
             <label style={LBL}>New Password</label>
             <input
               className="input-focus"
-              style={INP}
+              style={{ ...baseInputStyle, boxSizing: "border-box" }}
               type="password"
               placeholder="Leave blank to keep"
               value={d.password}
@@ -358,16 +337,15 @@ function UserRow({
           <RoleCheckboxes selected={d.roles} onChange={(roles) => setD((x) => ({ ...x, roles }))} />
         </div>
         <div style={{ marginBottom: 16 }}>
-          <label style={LBL}>Status</label>
-          <select
-            className="input-focus"
-            style={{ ...INP, width: "auto" }}
+          <Select
+            label="Status"
+            style={{ width: "auto" }}
             value={String(d.active)}
             onChange={(e) => setD((x) => ({ ...x, active: e.target.value === "true" }))}
           >
             <option value="true">Active</option>
             <option value="false">Inactive</option>
-          </select>
+          </Select>
         </div>
         {err && (
           <div
@@ -558,13 +536,13 @@ function DashboardSection({
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: colors.bgSurfaceInset }}>
-                <th style={TH}>Rank</th>
-                <th style={TH}>Agent</th>
-                <th style={{ ...TH, textAlign: "right" }}>Sales</th>
-                <th style={{ ...TH, textAlign: "right" }}>Premium</th>
-                <th style={{ ...TH, textAlign: "right" }}>Avg / Sale</th>
-                <th style={{ ...TH, textAlign: "right" }}>Cost / Sale</th>
-                <th style={{ ...TH, textAlign: "right" }}>Commission</th>
+                <th style={baseThStyle}>Rank</th>
+                <th style={baseThStyle}>Agent</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Avg / Sale</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Cost / Sale</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
               </tr>
             </thead>
             <tbody>
@@ -591,7 +569,7 @@ function DashboardSection({
                       transition: `background ${motion.duration.fast} ${motion.easing.out}`,
                     }}
                   >
-                    <td style={{ ...TD, paddingLeft: isTop3 ? 13 : 16 }}>
+                    <td style={{ ...baseTdStyle, paddingLeft: isTop3 ? 13 : 16 }}>
                       {isTop3 ? (
                         <Badge color={rankColor} variant="subtle" size="sm">
                           #{i + 1} {RANK_LABELS[i]}
@@ -602,13 +580,13 @@ function DashboardSection({
                         </span>
                       )}
                     </td>
-                    <td style={{ ...TD, fontWeight: isTop3 ? typography.weights.bold : typography.weights.semibold, color: isTop3 ? colors.textPrimary : colors.textSecondary }}>
+                    <td style={{ ...baseTdStyle, fontWeight: isTop3 ? typography.weights.bold : typography.weights.semibold, color: isTop3 ? colors.textPrimary : colors.textSecondary }}>
                       {row.agent}
                     </td>
-                    <td style={{ ...TD, textAlign: "right", fontWeight: typography.weights.bold, color: colors.textSecondary }}>
+                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold, color: colors.textSecondary }}>
                       <AnimatedNumber value={row.salesCount} />
                     </td>
-                    <td style={{ ...TD, textAlign: "right", fontWeight: typography.weights.extrabold }}>
+                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.extrabold }}>
                       {i === 0 ? (
                         <span
                           style={{
@@ -626,13 +604,13 @@ function DashboardSection({
                         </span>
                       )}
                     </td>
-                    <td style={{ ...TD, textAlign: "right", color: colors.textTertiary }}>
+                    <td style={{ ...baseTdStyle, textAlign: "right", color: colors.textTertiary }}>
                       {row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "—"}
                     </td>
-                    <td style={{ ...TD, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
+                    <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
                       {row.costPerSale > 0 ? fmt.format(row.costPerSale) : "—"}
                     </td>
-                    <td style={{ ...TD, textAlign: "right", fontWeight: typography.weights.bold, color: colors.accentTeal }}>
+                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold, color: colors.accentTeal }}>
                       {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
                     </td>
                   </tr>
@@ -674,11 +652,11 @@ function DashboardSection({
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: colors.bgSurfaceInset }}>
-                <th style={TH}>Period</th>
-                <th style={{ ...TH, textAlign: "right" }}>Sales</th>
-                <th style={{ ...TH, textAlign: "right" }}>Premium</th>
-                <th style={{ ...TH, textAlign: "right" }}>Commission</th>
-                {periodView === "weekly" && <th style={TH}>Status</th>}
+                <th style={baseThStyle}>Period</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
+                {periodView === "weekly" && <th style={baseThStyle}>Status</th>}
               </tr>
             </thead>
             <tbody>
@@ -687,11 +665,11 @@ function DashboardSection({
               )}
               {periods.map(p => (
                 <tr key={p.period} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
-                  <td style={TD}>{p.period}</td>
-                  <td style={{ ...TD, textAlign: "right", fontWeight: typography.weights.bold }}>{p.salesCount}</td>
-                  <td style={{ ...TD, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
-                  <td style={{ ...TD, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
-                  {periodView === "weekly" && <td style={TD}><Badge color={p.periodStatus === "OPEN" ? colors.success : colors.textMuted} variant="subtle" size="sm">{p.periodStatus}</Badge></td>}
+                  <td style={baseTdStyle}>{p.period}</td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold }}>{p.salesCount}</td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
+                  {periodView === "weekly" && <td style={baseTdStyle}><Badge color={p.periodStatus === "OPEN" ? colors.success : colors.textMuted} variant="subtle" size="sm">{p.periodStatus}</Badge></td>}
                 </tr>
               ))}
             </tbody>
@@ -903,7 +881,7 @@ function ConfigSection({
             <label style={LBL}>Min Seconds</label>
             <input
               className="input-focus"
-              style={{ ...INP, width: 140 }}
+              style={{ ...baseInputStyle, boxSizing: "border-box", width: 140 }}
               type="number"
               min="0"
               value={auditMinSec}
@@ -915,7 +893,7 @@ function ConfigSection({
             <label style={LBL}>Max Seconds</label>
             <input
               className="input-focus"
-              style={{ ...INP, width: 140 }}
+              style={{ ...baseInputStyle, boxSizing: "border-box", width: 140 }}
               type="number"
               min="0"
               value={auditMaxSec}
@@ -1051,7 +1029,7 @@ function UsersSection({
                 <label style={LBL}>Full Name</label>
                 <input
                   className="input-focus"
-                  style={INP}
+                  style={{ ...baseInputStyle, boxSizing: "border-box" }}
                   required
                   placeholder="Jane Smith"
                   value={newUser.name}
@@ -1062,7 +1040,7 @@ function UsersSection({
                 <label style={LBL}>Email Address</label>
                 <input
                   className="input-focus"
-                  style={INP}
+                  style={{ ...baseInputStyle, boxSizing: "border-box" }}
                   type="email"
                   required
                   placeholder="jane@company.com"
@@ -1074,7 +1052,7 @@ function UsersSection({
                 <label style={LBL}>Password (min 8)</label>
                 <input
                   className="input-focus"
-                  style={INP}
+                  style={{ ...baseInputStyle, boxSizing: "border-box" }}
                   type="password"
                   required
                   minLength={8}
@@ -1124,11 +1102,11 @@ function UsersSection({
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: colors.bgSurfaceInset }}>
-                  <th style={TH}>Name</th>
-                  <th style={TH}>Email</th>
-                  <th style={TH}>Roles</th>
-                  <th style={TH}>Status</th>
-                  <th style={{ ...TH, textAlign: "right" }}>Actions</th>
+                  <th style={baseThStyle}>Name</th>
+                  <th style={baseThStyle}>Email</th>
+                  <th style={baseThStyle}>Roles</th>
+                  <th style={baseThStyle}>Status</th>
+                  <th style={{ ...baseThStyle, textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
