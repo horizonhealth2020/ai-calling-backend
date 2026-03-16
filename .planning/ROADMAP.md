@@ -145,7 +145,11 @@ Plans:
   1. All forms across all dashboards show clear validation errors when inputs are invalid (no silent failures)
   2. Form layouts are visually consistent across manager, payroll, and owner dashboards (same spacing, input styles, button placement)
   3. UI changes follow the dark glassmorphism theme with inline CSSProperties per the ui-ux-pro-max design guidance
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 09-01-PLAN.md -- Create Select component, table tokens, migrate auth-portal and owner dashboard
+- [ ] 09-02-PLAN.md -- Manager dashboard form validation, alert-to-toast, component migration
+- [ ] 09-03-PLAN.md -- Payroll dashboard button/table/card migration, alert-to-toast, EmptyState
 
 ## Progress
 
@@ -159,7 +163,7 @@ Plans:
 | 6. Dashboard Cascade | 3/3 | Complete | 2026-03-16 |
 | 7. Payroll Management | 2/2 | Complete | 2026-03-16 |
 | 8. Reporting | 2/2 | Complete | 2026-03-16 |
-| 9. UI/UX Polish | 0/? | Not started | - |
+| 9. UI/UX Polish | 0/3 | Planning | - |
 | 10. Sale Status Payroll Logic | 6/6 | Complete    | 2026-03-16 |
 
 ### Phase 10: Sale Status Payroll Logic
