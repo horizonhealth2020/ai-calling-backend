@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   PageShell,
   StatCard,
@@ -21,6 +21,8 @@ import {
   baseLabelStyle,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
+import type { SaleChangedPayload } from "@ops/socket";
 import {
   BarChart3,
   DollarSign,
@@ -459,11 +461,13 @@ function DashboardSection({
   tracker,
   range,
   onRangeChange,
+  highlightedCards,
 }: {
   summary: Summary | null;
   tracker: TrackerEntry[];
   range: Range;
   onRangeChange: (r: Range) => void;
+  highlightedCards: Set<string>;
 }) {
   const sortedTracker = [...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal);
 
@@ -489,7 +493,7 @@ function DashboardSection({
           icon={<BarChart3 size={18} />}
           accent={colors.accentTeal}
           className="stagger-1"
-          style={{ borderTop: `3px solid ${colors.accentTeal}` }}
+          style={{ borderTop: `3px solid ${colors.accentTeal}`, transition: "box-shadow 1.5s ease-out", ...(highlightedCards.has("salesCount") ? HIGHLIGHT_GLOW : {}) }}
         />
         <StatCard
           label="Premium Total"
@@ -497,7 +501,7 @@ function DashboardSection({
           icon={<DollarSign size={18} />}
           accent={colors.success}
           className="stagger-2"
-          style={{ borderTop: `3px solid ${colors.success}` }}
+          style={{ borderTop: `3px solid ${colors.success}`, transition: "box-shadow 1.5s ease-out", ...(highlightedCards.has("premiumTotal") ? HIGHLIGHT_GLOW : {}) }}
         />
         <StatCard
           label="Chargebacks"
@@ -1137,6 +1141,59 @@ function OwnerDashboardInner() {
 
   useEffect(() => { fetchData(range); }, [range, fetchData]);
 
+  // Socket.IO: real-time KPI patching
+  const [highlightedCards, setHighlightedCards] = useState<Set<string>>(new Set());
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
+
+  const highlightCard = (cardKey: string) => {
+    setHighlightedCards(prev => new Set(prev).add(cardKey));
+    setTimeout(() => {
+      setHighlightedCards(prev => { const next = new Set(prev); next.delete(cardKey); return next; });
+    }, 100);
+  };
+
+  const handleSaleChanged = useCallback((payload: SaleChangedPayload) => {
+    // Only RAN sales affect KPIs
+    if (payload.sale.status !== "RAN") return;
+    // Only cascade on created / status_changed
+    if (payload.type !== "created" && payload.type !== "status_changed") return;
+
+    // Highlight the KPI cards that will change
+    highlightCard("salesCount");
+    highlightCard("premiumTotal");
+
+    // Patch summary state directly -- NO API refetch
+    setSummary(prev => prev ? {
+      ...prev,
+      salesCount: (prev.salesCount || 0) + 1,
+      premiumTotal: (prev.premiumTotal || 0) + payload.sale.premium,
+    } : prev);
+
+    // Also patch the tracker if the agent is in the current view
+    setTracker(prev => {
+      const agentName = payload.sale.agent.name;
+      const existing = prev.find(t => t.agent === agentName);
+      if (existing) {
+        return prev.map(t => t.agent === agentName ? {
+          ...t,
+          salesCount: t.salesCount + 1,
+          premiumTotal: t.premiumTotal + payload.sale.premium,
+        } : t);
+      }
+      // New agent -- add to tracker
+      return [...prev, {
+        agent: agentName,
+        salesCount: 1,
+        premiumTotal: payload.sale.premium,
+        totalLeadCost: 0,
+        costPerSale: 0,
+      }];
+    });
+  }, []);
+
+  const { disconnected } = useSocket(API, handleSaleChanged, () => fetchData(rangeRef.current));
+
   useEffect(() => {
     if (activeSection === "config" && !agentsLoaded) {
       authFetch(`${API}/api/agents`).then((r) => r.ok ? r.json() : []).then(setAgents).catch(() => {});
@@ -1208,6 +1265,8 @@ function OwnerDashboardInner() {
       activeNav={activeSection}
       onNavChange={(key) => setActiveSection(key as ActiveSection)}
     >
+      {disconnected && <div style={DISCONNECT_BANNER}>Connection lost. Reconnecting...</div>}
+
       {activeSection === "dashboard" && (
         <div className="animate-fade-in">
           {loading ? (
@@ -1218,6 +1277,7 @@ function OwnerDashboardInner() {
               tracker={tracker}
               range={range}
               onRangeChange={(r) => setRange(r)}
+              highlightedCards={highlightedCards}
             />
           )}
         </div>
