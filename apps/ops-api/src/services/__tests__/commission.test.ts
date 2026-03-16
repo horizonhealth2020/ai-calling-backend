@@ -52,7 +52,7 @@ const makeSale = (overrides: Partial<SaleWithProduct> = {}): SaleWithProduct => 
   premium: new Decimal(100),
   effectiveDate: new Date('2026-03-15T12:00:00Z'),
   leadSourceId: 'lead-1',
-  status: 'SUBMITTED',
+  status: 'RAN',
   notes: null,
   enteredByUserId: 'user-1',
   payrollStatus: 'PENDING',
