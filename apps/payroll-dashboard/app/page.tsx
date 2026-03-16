@@ -817,6 +817,11 @@ function AgentPayCard({
   const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
   const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
 
+  const [showAllEntries, setShowAllEntries] = useState(false);
+  const COLLAPSED_LIMIT = 5;
+  const visibleEntries = showAllEntries ? entries : entries.slice(0, COLLAPSED_LIMIT);
+  const hiddenCount = entries.length - COLLAPSED_LIMIT;
+
   const [headerBonus, setHeaderBonus] = useState(String(totalBonus.toFixed(2)));
   const [headerFronted, setHeaderFronted] = useState(String(totalFronted.toFixed(2)));
   const [headerHold, setHeaderHold] = useState(String(totalHold.toFixed(2)));
@@ -993,7 +998,7 @@ function AgentPayCard({
             </tr>
           </thead>
           <tbody>
-            {entries.map(e => (
+            {visibleEntries.map(e => (
               <EditableSaleRow
                 key={e.id}
                 entry={e}
@@ -1021,6 +1026,37 @@ function AgentPayCard({
           </tbody>
         </table>
       </div>
+
+      {/* Show more / Show less toggle */}
+      {entries.length > COLLAPSED_LIMIT && (
+        <button
+          onClick={() => setShowAllEntries(prev => !prev)}
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: `1px solid ${C.borderDefault}`,
+            borderRadius: R.md,
+            padding: `${S[2]}px ${S[4]}px`,
+            fontSize: 14,
+            fontWeight: 400,
+            color: C.textSecondary,
+            cursor: "pointer",
+            width: "calc(100% - 40px)",
+            textAlign: "center" as const,
+            margin: `${S[2]}px ${S[5]}px`,
+            transition: "all 150ms ease-out",
+          }}
+          onMouseEnter={e => {
+            (e.target as HTMLElement).style.background = C.bgSurfaceRaised;
+            (e.target as HTMLElement).style.color = C.textPrimary;
+          }}
+          onMouseLeave={e => {
+            (e.target as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+            (e.target as HTMLElement).style.color = C.textSecondary;
+          }}
+        >
+          {showAllEntries ? "Show less" : `Show ${hiddenCount} more`}
+        </button>
+      )}
 
       {/* Pending Approval Requests for this agent */}
       {totalPending > 0 && (
