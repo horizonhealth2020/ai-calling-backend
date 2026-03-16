@@ -108,16 +108,19 @@ Plans:
 - [x] 06-03-PLAN.md -- Payroll dashboard and owner dashboard Socket.IO integration with real-time state patching and highlight
 
 ### Phase 7: Payroll Management
-**Goal**: Payroll staff can manage pay periods through their full lifecycle, view agent cards, and export finalized payroll
+**Goal**: Payroll staff can manage pay periods through their full lifecycle, view agent cards with collapsible entries, enforce paid-agent guards on edits, and export payroll data as CSV
 **Depends on**: Phase 3 (period assignment must be correct), Phase 6 (cascade must update payroll cards)
 **Requirements**: PAYR-02, PAYR-03, PAYR-04, PAYR-05, PAYR-06, PAYR-07
 **Success Criteria** (what must be TRUE):
-  1. Payroll cards display per-agent per-period data with correct commission totals using the formula: payout + adjustment + bonus - fronted
-  2. Payroll cards scroll when content exceeds the viewport (no clipping or overflow)
-  3. Payroll periods can be transitioned through Pending, Ready, and Finalized statuses
-  4. A finalized period rejects any new entries or modifications (API returns error, UI prevents action)
-  5. Finalized payroll data can be exported as a CSV file
-**Plans**: TBD
+  1. Payroll cards display per-agent per-period data with correct commission totals using the formula: payout + adjustment + bonus - fronted - hold
+  2. Payroll cards collapse to 5 entries by default with "Show N more" expansion (no clipping or overflow)
+  3. Per-agent paid status can be toggled (OPEN/PAID), with paid cards showing disabled inputs and hidden actions
+  4. A paid agent's entries reject modifications via API (returns 400) and UI (inputs disabled)
+  5. Payroll data can be exported as CSV for both open and paid periods
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- API paid-agent guard on entry edits with TDD test suite (PAYR-04, PAYR-05, PAYR-07)
+- [ ] 07-02-PLAN.md -- Collapsible entries, paid-card lockdown, late-entry indicator in AgentPayCard (PAYR-02, PAYR-03, PAYR-06)
 
 ### Phase 8: Reporting
 **Goal**: Managers and owners can see agent performance metrics, period summaries, and trend data for decision-making
@@ -151,14 +154,14 @@ Plans:
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
 | 6. Dashboard Cascade | 3/3 | Complete | 2026-03-16 |
-| 7. Payroll Management | 0/? | Not started | - |
+| 7. Payroll Management | 0/2 | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
 | 10. Sale Status Payroll Logic | 6/6 | Complete | 2026-03-16 |
 
 ### Phase 10: Sale Status Payroll Logic
 
-**Goal:** Sale status (Ran/Declined/Dead) drives commission calculation — only Ran earns commission, status changes from Dead/Declined to Ran require approval through payroll
+**Goal:** Sale status (Ran/Declined/Dead) drives commission calculation -- only Ran earns commission, status changes from Dead/Declined to Ran require approval through payroll
 **Requirements**: STATUS-01, STATUS-02, STATUS-03, STATUS-04, STATUS-05, STATUS-06, STATUS-07, STATUS-08, STATUS-09, STATUS-10, STATUS-11, STATUS-12, STATUS-13, STATUS-14
 **Depends on:** Phase 2 (commission engine), Phase 4 (sales form with status field)
 **Success Criteria** (what must be TRUE):
@@ -166,7 +169,7 @@ Plans:
   2. All three statuses (Ran, Declined, Dead) create payroll entries for reporting visibility
   3. Changing a sale status from Dead or Declined to Ran in the agent sales tab creates a "request for change" instead of applying immediately
   4. Payroll dashboard shows pending status change requests with an approve/reject workflow
-  5. Only after payroll approves a Dead/Declined → Ran change does commission recalculate
+  5. Only after payroll approves a Dead/Declined -> Ran change does commission recalculate
 **Plans:** 6 plans
 
 Plans:
