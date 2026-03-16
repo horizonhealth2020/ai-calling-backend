@@ -119,7 +119,7 @@ Plans:
   5. Payroll data can be exported as CSV for both open and paid periods
 **Plans:** 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- API paid-agent guard on entry edits with TDD test suite (PAYR-04, PAYR-05, PAYR-07)
+- [x] 07-01-PLAN.md -- API paid-agent guard on entry edits with TDD test suite (PAYR-04, PAYR-05, PAYR-07)
 - [ ] 07-02-PLAN.md -- Collapsible entries, paid-card lockdown, late-entry indicator in AgentPayCard (PAYR-02, PAYR-03, PAYR-06)
 
 ### Phase 8: Reporting
@@ -154,7 +154,7 @@ Plans:
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
 | 6. Dashboard Cascade | 3/3 | Complete | 2026-03-16 |
-| 7. Payroll Management | 0/2 | Not started | - |
+| 7. Payroll Management | 1/2 | In progress | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
 | 10. Sale Status Payroll Logic | 6/6 | Complete | 2026-03-16 |

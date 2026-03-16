@@ -35,10 +35,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **PAYR-01**: Sales are assigned to the following Sun-Sat pay period (one week in arrears)
 - [ ] **PAYR-02**: Payroll cards display per agent per period with correct commission totals
 - [ ] **PAYR-03**: Payroll cards are scrollable when content exceeds viewport
-- [ ] **PAYR-04**: Payroll periods follow status workflow: Pending -> Ready -> Finalized
-- [ ] **PAYR-05**: Finalized periods reject new writes (entries or modifications)
+- [x] **PAYR-04**: Payroll periods follow status workflow: Pending -> Ready -> Finalized
+- [x] **PAYR-05**: Finalized periods reject new writes (entries or modifications)
 - [ ] **PAYR-06**: Payroll data can be exported as CSV
-- [ ] **PAYR-07**: Net amount formula is consistent: payout + adjustment + bonus - fronted
+- [x] **PAYR-07**: Net amount formula is consistent: payout + adjustment + bonus - fronted
 
 ### Dashboard Cascade
 
@@ -135,10 +135,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAYR-01 | Phase 3 | Complete |
 | PAYR-02 | Phase 7 | Pending |
 | PAYR-03 | Phase 7 | Pending |
-| PAYR-04 | Phase 7 | Pending |
-| PAYR-05 | Phase 7 | Pending |
+| PAYR-04 | Phase 7 | Complete |
+| PAYR-05 | Phase 7 | Complete |
 | PAYR-06 | Phase 7 | Pending |
-| PAYR-07 | Phase 7 | Pending |
+| PAYR-07 | Phase 7 | Complete |
 | CASC-01 | Phase 6 | Complete |
 | CASC-02 | Phase 6 | Complete |
 | CASC-03 | Phase 6 | Complete |
