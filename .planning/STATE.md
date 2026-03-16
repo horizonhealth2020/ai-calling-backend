@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 6 UI-SPEC approved
-last_updated: "2026-03-16T14:19:27.818Z"
+stopped_at: Completed 06-01 (Socket Foundation)
+last_updated: "2026-03-16T14:48:18.000Z"
 progress:
   total_phases: 10
   completed_phases: 6
@@ -32,18 +32,18 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 10 complete. Next: Phase 6 (Dashboard Cascade) or other remaining phases.
+**Current Focus:** Phase 6 (Dashboard Cascade) in progress. Plan 01 complete, Plans 02-03 remain.
 
 ## Current Position
 
-**Phase:** 10 of 10 -- Sale Status Payroll Logic -- COMPLETE
-**Plan:** 6 of 6 -- All complete
-**Status:** Phase 10 done. Phases 6-9 remain.
+**Phase:** 6 of 10 -- Dashboard Cascade -- IN PROGRESS
+**Plan:** 1 of 3 -- Socket Foundation complete
+**Status:** Phase 6 Plan 01 done. Plans 02-03 remain.
 
 ```
 Progress: [████████████████████████] 100% (Plans)
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [#####]
-Phase 5 [#####] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
+Phase 5 [#####] | Phase 6 [##...] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....] | Phase 10 [#####]
 ```
 
@@ -78,6 +78,7 @@ Phase 9 [.....] | Phase 10 [#####]
 | 05 | 03 | 118s | 1 | 1 |
 | 10 | 05 | 125s | 2 | 3 |
 | 10 | 06 | ~300s | 3 | 1 |
+| 06 | 01 | 248s | 2 | 14 |
 
 ## Accumulated Context
 
@@ -141,7 +142,9 @@ Phase 9 [.....] | Phase 10 [#####]
 - `memberState` reference in payroll.ts causes 500 on every sale creation -- FIXED in Phase 1
 - String-matching bundle detection replaced with `isBundleQualifier` flag -- DONE in Phase 2
 - Week-in-arrears logic implemented: getSundayWeekRange uses Luxon Eastern timezone with ACH +1 week shift -- DONE in Phase 3
-- Socket.IO currently only emits audit events, needs sale/payroll/KPI events -- Phase 6
+- Socket.IO now emits sale:changed events via emitSaleChanged after sale creation and Dead/Declined->Ran approval -- Phase 6 Plan 01
+- [Phase 6] Server-side SaleChangedPayload duplicated in socket.ts to avoid React peer dependency on server
+- [Phase 6] workspace:* protocol replaced with * for npm workspace compatibility
 - Luxon now used for Eastern timezone period assignment in getSundayWeekRange -- DONE in Phase 3
 
 ### Open Questions
@@ -158,9 +161,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T14:19:27.814Z
-**Stopped at:** Phase 6 UI-SPEC approved
-**Next action:** Proceed to Phase 6 (Dashboard Cascade) or next priority phase.
+**Last session:** 2026-03-16T14:48:18.000Z
+**Stopped at:** Completed 06-01 (Socket Foundation)
+**Next action:** Execute Phase 6 Plan 02 (Manager dashboard and sales board Socket.IO integration).
 
 ---
 *State initialized: 2026-03-14*

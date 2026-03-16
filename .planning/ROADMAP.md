@@ -103,7 +103,7 @@ Plans:
   4. After submitting a sale, the owner dashboard KPI metrics update without refresh
 **Plans:** 3 plans
 Plans:
-- [ ] 06-01-PLAN.md -- Create @ops/socket shared package, server-side emitSaleChanged helper, and wire emits into sale creation and status-change approval routes
+- [x] 06-01-PLAN.md -- Create @ops/socket shared package, server-side emitSaleChanged helper, and wire emits into sale creation and status-change approval routes
 - [ ] 06-02-PLAN.md -- Manager dashboard and sales board Socket.IO integration with real-time state patching and highlight
 - [ ] 06-03-PLAN.md -- Payroll dashboard and owner dashboard Socket.IO integration with real-time state patching and highlight
 
@@ -150,7 +150,7 @@ Plans:
 | 3. Commission Fees & Period Assignment | 2/2 | Complete | 2026-03-15 |
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
-| 6. Dashboard Cascade | 0/3 | Planning complete | - |
+| 6. Dashboard Cascade | 1/3 | In progress | - |
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
