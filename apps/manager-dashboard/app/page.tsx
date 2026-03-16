@@ -16,7 +16,7 @@ import {
   baseLabelStyle,
   baseButtonStyle,
 } from "@ops/ui";
-import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { captureTokenFromUrl, authFetch, getToken } from "@ops/auth/client";
 import {
   FileText,
   Users,
@@ -77,7 +77,7 @@ type CallAudit = {
   agent: { id: string; name: string };
 };
 type CallCount = { agentId: string; agentName: string; leadSourceId: string; leadSourceName: string; callCount: number; totalLeadCost: number };
-type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
@@ -183,6 +183,38 @@ const PREVIEW_LABEL: React.CSSProperties = {
   textTransform: "uppercase" as const,
   letterSpacing: "0.06em",
   marginBottom: spacing[2],
+};
+
+const EDIT_ROW_EXPANSION: React.CSSProperties = {
+  background: colors.bgSurfaceRaised,
+  borderTop: "1px solid rgba(255,255,255,0.04)",
+  padding: "16px 16px",
+};
+
+const DIFF_OLD: React.CSSProperties = {
+  fontSize: 14,
+  color: colors.textMuted,
+  textDecoration: "line-through",
+};
+
+const DIFF_NEW: React.CSSProperties = {
+  fontSize: 14,
+  color: colors.success,
+  fontWeight: 700,
+};
+
+const EDIT_BTN: React.CSSProperties = {
+  ...ICON_BTN,
+};
+
+const PENDING_EDIT_BADGE: React.CSSProperties = {
+  background: "rgba(245,158,11,0.12)",
+  color: "#f59e0b",
+  fontSize: 11,
+  fontWeight: 700,
+  padding: "4px 8px",
+  borderRadius: radius.sm,
+  display: "inline-block",
 };
 
 const SUBMIT_BTN: React.CSSProperties = {
@@ -711,6 +743,17 @@ export default function ManagerDashboard() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(false);
 
+  /* ── Inline sale editing state ── */
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const [editOriginal, setEditOriginal] = useState<Record<string, any>>({});
+  const [editPreview, setEditPreview] = useState<{ commission: number; periodStart: string; periodEnd: string } | null>(null);
+  const [editPreviewLoading, setEditPreviewLoading] = useState(false);
+  const editPreviewTimer = useRef<ReturnType<typeof setTimeout>>();
+  const editPreviewAbort = useRef<AbortController>();
+  const [editSaving, setEditSaving] = useState(false);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+
   const [parsedInfo, setParsedInfo] = useState<{
     enrollmentFee?: string; premium?: string; coreProduct?: string;
     parsedProducts: ParsedProduct[];
@@ -719,6 +762,14 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     captureTokenFromUrl();
+    // Decode JWT to extract user roles for role-based UI
+    try {
+      const token = getToken();
+      if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.roles) setUserRoles(payload.roles);
+      }
+    } catch { /* ignore decode errors */ }
     Promise.all([
       authFetch(`${API}/api/agents?all=true`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
@@ -781,8 +832,126 @@ export default function ManagerDashboard() {
     return () => {
       clearTimeout(previewTimer.current);
       if (previewAbort.current) previewAbort.current.abort();
+      clearTimeout(editPreviewTimer.current);
+      if (editPreviewAbort.current) editPreviewAbort.current.abort();
     };
   }, []);
+
+  /* ── Inline sale editing functions ── */
+  async function startEdit(saleId: string) {
+    setEditingSaleId(null);
+    try {
+      const res = await authFetch(`${API}/api/sales/${saleId}`);
+      if (!res.ok) { alert(`Error loading sale details (${res.status})`); return; }
+      const sale = await res.json();
+
+      if (sale.hasPendingStatusChange || sale.hasPendingEditRequest) {
+        setEditingSaleId(saleId);
+        setEditForm({});
+        setEditOriginal({ _blocked: true });
+        return;
+      }
+
+      const original: Record<string, any> = {
+        productId: sale.productId,
+        premium: Number(sale.premium),
+        enrollmentFee: sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
+        paymentType: sale.paymentType,
+        agentId: sale.agentId,
+        addonProductIds: sale.addons ? sale.addons.map((a: any) => a.product.id) : [],
+        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: any) => [a.product.id, Number(a.premium ?? 0)])) : {},
+        carrier: sale.carrier,
+        memberName: sale.memberName,
+        memberId: sale.memberId || "",
+        memberState: sale.memberState || "",
+        saleDate: sale.saleDate ? sale.saleDate.slice(0, 10) : "",
+        effectiveDate: sale.effectiveDate ? sale.effectiveDate.slice(0, 10) : "",
+        leadSourceId: sale.leadSourceId,
+        notes: sale.notes || "",
+      };
+      setEditOriginal(original);
+      setEditForm({ ...original });
+      setEditingSaleId(saleId);
+      setEditPreview(null);
+    } catch (e: any) {
+      alert(`Error: ${e.message ?? "network error"}`);
+    }
+  }
+
+  function triggerEditPreview(immediate = false) {
+    clearTimeout(editPreviewTimer.current);
+    const delay = immediate ? 0 : 500;
+    editPreviewTimer.current = setTimeout(async () => {
+      if (!editForm.productId || !editForm.premium) return;
+      if (editPreviewAbort.current) editPreviewAbort.current.abort();
+      editPreviewAbort.current = new AbortController();
+      setEditPreviewLoading(true);
+      try {
+        const res = await authFetch(`${API}/api/sales/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: editForm.productId,
+            premium: Number(editForm.premium),
+            enrollmentFee: editForm.enrollmentFee !== null && editForm.enrollmentFee !== "" ? Number(editForm.enrollmentFee) : null,
+            addonProductIds: editForm.addonProductIds || [],
+            addonPremiums: editForm.addonPremiums || {},
+            paymentType: editForm.paymentType || "CC",
+            saleDate: editForm.saleDate || undefined,
+          }),
+          signal: editPreviewAbort.current.signal,
+        });
+        if (res.ok) setEditPreview(await res.json());
+      } catch (e: any) {
+        if (e.name !== "AbortError") console.warn("Edit preview failed", e);
+      } finally {
+        setEditPreviewLoading(false);
+      }
+    }, delay);
+  }
+
+  async function saveEdit() {
+    if (!editingSaleId) return;
+    setEditSaving(true);
+
+    const changes: Record<string, any> = {};
+    for (const key of Object.keys(editForm)) {
+      if (JSON.stringify(editForm[key]) !== JSON.stringify(editOriginal[key])) {
+        changes[key] = editForm[key];
+      }
+    }
+    if (Object.keys(changes).length === 0) {
+      alert("No fields changed yet.");
+      setEditSaving(false);
+      return;
+    }
+
+    try {
+      const res = await authFetch(`${API}/api/sales/${editingSaleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.editRequest) {
+          alert("Edit request submitted for payroll approval.");
+        } else {
+          alert("Sale updated successfully.");
+        }
+        setEditingSaleId(null);
+        setEditForm({});
+        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message ?? "network error"}`);
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (tab === "audits" && !auditsLoaded) {
@@ -994,7 +1163,7 @@ export default function ManagerDashboard() {
       subtitle="Sales operations and team management"
       navItems={NAV_ITEMS}
       activeNav={tab}
-      onNavChange={k => setTab(k as Tab)}
+      onNavChange={k => { setTab(k as Tab); setEditingSaleId(null); setEditForm({}); }}
     >
 
       {/* ── Sales Entry ────────────────────────────────────────────── */}
@@ -1535,14 +1704,15 @@ export default function ManagerDashboard() {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
                         <tr>
-                          {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status", ""].map((h, i) => (
-                            <th key={h || `actions-${i}`} style={{ ...TH, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
+                          {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status", "", ""].map((h, i) => (
+                            <th key={h || `col-${i}`} style={{ ...TH, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {sales.map(s => (
-                          <tr key={s.id} className="row-hover">
+                          <React.Fragment key={s.id}>
+                          <tr className="row-hover">
                             <td style={TD}>{new Date(s.saleDate).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
                             <td style={{ ...TD, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
                             <td style={TD}>{s.carrier}</td>
@@ -1576,6 +1746,21 @@ export default function ManagerDashboard() {
                               )}
                             </td>
                             <td style={{ ...TD, textAlign: "center" }}>
+                              {s.hasPendingEditRequest ? (
+                                <span style={PENDING_EDIT_BADGE}>Edit Pending</span>
+                              ) : (
+                                <button
+                                  className="btn-hover"
+                                  style={EDIT_BTN}
+                                  onClick={() => startEdit(s.id)}
+                                  aria-label="Edit sale"
+                                  aria-expanded={editingSaleId === s.id}
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+                              )}
+                            </td>
+                            <td style={{ ...TD, textAlign: "center" }}>
                               <button
                                 className="btn-hover"
                                 style={{ ...DANGER_BTN, padding: "4px 6px" }}
@@ -1586,6 +1771,187 @@ export default function ManagerDashboard() {
                               </button>
                             </td>
                           </tr>
+                          {editingSaleId === s.id && (
+                            <tr>
+                              <td colSpan={9} style={{ padding: 0 }}>
+                                <div style={EDIT_ROW_EXPANSION} className="animate-slide-down">
+                                  {editOriginal._blocked ? (
+                                    <div style={{ fontSize: 14, color: "#f59e0b", padding: spacing[4] }}>
+                                      A change is already pending. Wait for payroll to review before editing.
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div style={{ ...PREVIEW_LABEL, marginBottom: spacing[4] }}>Edit Sale</div>
+                                      {/* Two-column grid of editable fields */}
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[4] }}>
+                                        {/* Row 1: Product dropdown (full width) */}
+                                        <div style={{ gridColumn: "1 / -1" }}>
+                                          <label style={LBL}>Product</label>
+                                          <select autoFocus className="input-focus" style={{ ...INP, height: 42 }} value={editForm.productId || ""}
+                                            onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, productId: e.target.value })); triggerEditPreview(true); }}>
+                                            <option value="" disabled>Select product...</option>
+                                            {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                          </select>
+                                        </div>
+
+                                        {/* Row 2: Premium | Enrollment Fee */}
+                                        <div>
+                                          <label style={LBL}>Premium</label>
+                                          <input className="input-focus" style={INP} type="number" step="0.01" value={editForm.premium ?? ""}
+                                            onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, premium: e.target.value })); triggerEditPreview(false); }} />
+                                        </div>
+                                        <div>
+                                          <label style={LBL}>Enrollment Fee</label>
+                                          <input className="input-focus" style={INP} type="number" step="0.01" value={editForm.enrollmentFee ?? ""}
+                                            onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, enrollmentFee: e.target.value })); triggerEditPreview(false); }} />
+                                        </div>
+
+                                        {/* Row 3: Payment Type | Agent */}
+                                        <div>
+                                          <label style={LBL}>Payment Type</label>
+                                          <select className="input-focus" style={{ ...INP, height: 42 }} value={editForm.paymentType || ""}
+                                            onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, paymentType: e.target.value })); triggerEditPreview(true); }}>
+                                            <option value="CC">CC</option>
+                                            <option value="ACH">ACH</option>
+                                          </select>
+                                        </div>
+                                        <div>
+                                          <label style={LBL}>Agent</label>
+                                          <select className="input-focus" style={{ ...INP, height: 42 }} value={editForm.agentId || ""}
+                                            onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, agentId: e.target.value }))}>
+                                            <option value="" disabled>Select agent...</option>
+                                            {agents.filter(a => a.active !== false).map(a => (
+                                              <option key={a.id} value={a.id}>{a.name}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Row 4: Addons (full width) */}
+                                        <div style={{ gridColumn: "1 / -1" }}>
+                                          <label style={LBL}>Add-on Products</label>
+                                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                            {products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D")).map(ap => {
+                                              const isChecked = (editForm.addonProductIds || []).includes(ap.id);
+                                              return (
+                                                <label key={ap.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: colors.textPrimary, cursor: "pointer" }}>
+                                                  <input type="checkbox" checked={isChecked} style={{ accentColor: colors.primary400 }}
+                                                    onChange={e => {
+                                                      if (e.target.checked) {
+                                                        setEditForm((f: Record<string, any>) => ({ ...f, addonProductIds: [...(f.addonProductIds || []), ap.id] }));
+                                                      } else {
+                                                        setEditForm((f: Record<string, any>) => ({
+                                                          ...f,
+                                                          addonProductIds: (f.addonProductIds || []).filter((id: string) => id !== ap.id),
+                                                          addonPremiums: Object.fromEntries(Object.entries(f.addonPremiums || {}).filter(([k]) => k !== ap.id)),
+                                                        }));
+                                                      }
+                                                      triggerEditPreview(true);
+                                                    }} />
+                                                  {ap.name}
+                                                </label>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+
+                                        {/* Row 5: Carrier | Member Name | Member State (3 cols) */}
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
+                                          <div>
+                                            <label style={LBL}>Carrier</label>
+                                            <input className="input-focus" style={INP} value={editForm.carrier ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, carrier: e.target.value }))} />
+                                          </div>
+                                          <div>
+                                            <label style={LBL}>Member Name</label>
+                                            <input className="input-focus" style={INP} value={editForm.memberName ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberName: e.target.value }))} />
+                                          </div>
+                                          <div>
+                                            <label style={LBL}>Member State</label>
+                                            <input className="input-focus" style={INP} maxLength={2} value={editForm.memberState ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberState: e.target.value }))} />
+                                          </div>
+                                        </div>
+
+                                        {/* Row 6: Sale Date | Effective Date | Lead Source (3 cols) */}
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
+                                          <div>
+                                            <label style={LBL}>Sale Date</label>
+                                            <input className="input-focus" style={INP} type="date" value={editForm.saleDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, saleDate: e.target.value }))} />
+                                          </div>
+                                          <div>
+                                            <label style={LBL}>Effective Date</label>
+                                            <input className="input-focus" style={INP} type="date" value={editForm.effectiveDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, effectiveDate: e.target.value }))} />
+                                          </div>
+                                          <div>
+                                            <label style={LBL}>Lead Source</label>
+                                            <select className="input-focus" style={{ ...INP, height: 42 }} value={editForm.leadSourceId || ""}
+                                              onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, leadSourceId: e.target.value }))}>
+                                              <option value="" disabled>Select lead source...</option>
+                                              {leadSources.filter(ls => ls.active !== false).map(ls => (
+                                                <option key={ls.id} value={ls.id}>{ls.name}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        </div>
+
+                                        {/* Row 7: Notes (full width) */}
+                                        <div style={{ gridColumn: "1 / -1" }}>
+                                          <label style={LBL}>Notes</label>
+                                          <textarea className="input-focus" style={{ ...INP, minHeight: 60 } as React.CSSProperties} value={editForm.notes ?? ""}
+                                            onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, notes: e.target.value }))} />
+                                        </div>
+                                      </div>
+
+                                      {/* Changes diff section */}
+                                      <div style={{ marginTop: spacing[4] }} role="status">
+                                        <div style={PREVIEW_LABEL}>Changes</div>
+                                        {(() => {
+                                          const changedKeys = Object.keys(editForm).filter(k =>
+                                            JSON.stringify(editForm[k]) !== JSON.stringify(editOriginal[k])
+                                          );
+                                          if (changedKeys.length === 0) return (
+                                            <div style={{ fontSize: 14, color: colors.textMuted }}>No fields changed yet.</div>
+                                          );
+                                          return (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: spacing[1] }} className="animate-fade-in-up">
+                                              {changedKeys.map(k => (
+                                                <div key={k} style={{ display: "flex", gap: spacing[2], alignItems: "center" }}>
+                                                  <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 120 }}>{k}:</span>
+                                                  <span style={DIFF_OLD}>{String(editOriginal[k])}</span>
+                                                  <span style={{ color: colors.textMuted }}>&rarr;</span>
+                                                  <span style={DIFF_NEW}>{String(editForm[k])}</span>
+                                                </div>
+                                              ))}
+                                              {editPreview && (
+                                                <div style={{ display: "flex", gap: spacing[2], alignItems: "center" }}>
+                                                  <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 120 }}>Commission:</span>
+                                                  <span style={DIFF_NEW}>${editPreview.commission.toFixed(2)}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+
+                                      {/* Action buttons */}
+                                      <div style={{ marginTop: spacing[4], display: "flex", gap: spacing[3], justifyContent: "flex-end" }}>
+                                        <button className="btn-hover" style={CANCEL_BTN} onClick={() => { setEditingSaleId(null); setEditForm({}); }}>
+                                          Discard Changes
+                                        </button>
+                                        <button
+                                          className="btn-hover"
+                                          style={SUCCESS_BTN}
+                                          onClick={saveEdit}
+                                          disabled={editSaving}
+                                        >
+                                          {editSaving ? "Saving..." : (userRoles.includes("PAYROLL") || userRoles.includes("SUPER_ADMIN") ? "Save Changes" : "Submit for Approval")}
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
