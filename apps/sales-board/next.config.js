@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@ops/ui"],
+  transpilePackages: ["@ops/ui", "@ops/socket"],
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   output: process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined,
