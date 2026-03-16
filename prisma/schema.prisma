@@ -70,6 +70,8 @@ model User {
   reviews                      CallAudit[] @relation("AuditReviewer")
   statusChangeRequestsMade     StatusChangeRequest[] @relation("StatusChangeRequester")
   statusChangeRequestsReviewed StatusChangeRequest[] @relation("StatusChangeReviewer")
+  saleEditRequestsMade         SaleEditRequest[] @relation("SaleEditRequester")
+  saleEditRequestsReviewed     SaleEditRequest[] @relation("SaleEditReviewer")
 
   @@map("users")
 }
@@ -172,6 +174,7 @@ model Sale {
   clawbacks            Clawback[]
   addons               SaleAddon[]
   statusChangeRequests StatusChangeRequest[]
+  saleEditRequests     SaleEditRequest[]
 
   @@index([saleDate])
   @@index([memberId])
@@ -298,6 +301,26 @@ model StatusChangeRequest {
   @@index([saleId])
   @@index([status])
   @@map("status_change_requests")
+}
+
+model SaleEditRequest {
+  id          String              @id @default(cuid())
+  saleId      String              @map("sale_id")
+  requestedBy String              @map("requested_by")
+  requestedAt DateTime            @default(now()) @map("requested_at")
+  changes     Json                // { field: { old: value, new: value } }
+  status      ChangeRequestStatus @default(PENDING)
+  reviewedBy  String?             @map("reviewed_by")
+  reviewedAt  DateTime?           @map("reviewed_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  sale      Sale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  requester User  @relation("SaleEditRequester", fields: [requestedBy], references: [id])
+  reviewer  User? @relation("SaleEditReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([saleId])
+  @@index([status])
+  @@map("sale_edit_requests")
 }
 
 model Clawback {

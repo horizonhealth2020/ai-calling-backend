@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/auth";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upsertPayrollEntryForSale, handleCommissionZeroing } from "../services/payroll";
+import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, handleSaleEditApproval } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
 import { enqueueAuditJob } from "../services/auditQueue";
@@ -317,6 +317,65 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     console.error("Payroll entry failed for sale", sale.id, err);
   }
   res.status(201).json(sale);
+}));
+
+// ── Commission Preview ────────────────────────────────────────
+router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const previewSchema = z.object({
+    productId: z.string(),
+    premium: z.number().min(0),
+    enrollmentFee: z.number().min(0).nullable().optional(),
+    addonProductIds: z.array(z.string()).default([]),
+    addonPremiums: z.record(z.string(), z.number().min(0)).default({}),
+    paymentType: z.enum(["CC", "ACH"]),
+    status: z.enum(["RAN", "DECLINED", "DEAD"]).optional().default("RAN"),
+    commissionApproved: z.boolean().optional().default(false),
+    saleDate: z.string().optional(),
+  });
+  const parsed = previewSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const product = await prisma.product.findUnique({ where: { id: parsed.data.productId } });
+  if (!product) return res.status(404).json({ error: "Product not found" });
+
+  const uniqueAddonIds = [...new Set(parsed.data.addonProductIds)];
+  const addonProducts = uniqueAddonIds.length > 0
+    ? await prisma.product.findMany({ where: { id: { in: uniqueAddonIds } } })
+    : [];
+
+  const mockSale = {
+    premium: parsed.data.premium,
+    enrollmentFee: parsed.data.enrollmentFee ?? null,
+    commissionApproved: parsed.data.commissionApproved,
+    status: parsed.data.status,
+    product,
+    addons: addonProducts.map(p => ({
+      product: p,
+      premium: parsed.data.addonPremiums[p.id] ?? 0,
+    })),
+  } as any;
+
+  const commission = calculateCommission(mockSale);
+
+  const saleDate = parsed.data.saleDate ? new Date(parsed.data.saleDate + "T12:00:00") : new Date();
+  const shiftWeeks = parsed.data.paymentType === "ACH" ? 1 : 0;
+  const { weekStart, weekEnd } = getSundayWeekRange(saleDate, shiftWeeks);
+
+  const hasBundleQualifier = [product, ...addonProducts].some(p => p.isBundleQualifier);
+  const hasCore = product.type === "CORE" || addonProducts.some(p => p.type === "CORE");
+
+  res.json({
+    commission,
+    periodStart: weekStart,
+    periodEnd: weekEnd,
+    breakdown: {
+      hasBundleQualifier,
+      hasCore,
+      enrollmentFee: parsed.data.enrollmentFee ?? null,
+      paymentType: parsed.data.paymentType,
+      status: parsed.data.status,
+    },
+  });
 }));
 
 router.get("/sales", requireAuth, asyncHandler(async (req, res) => {

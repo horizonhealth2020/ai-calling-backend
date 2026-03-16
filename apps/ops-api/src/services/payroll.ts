@@ -239,3 +239,56 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
     update: { payoutAmount, netAmount },
   });
 };
+
+export const handleSaleEditApproval = async (saleId: string, changes: Record<string, { old: any; new: any }>, oldAgentId?: string) => {
+  // If agent changed, delete old payroll entries under old agent
+  if (oldAgentId && changes.agentId) {
+    await prisma.payrollEntry.deleteMany({ where: { saleId, agentId: oldAgentId } });
+  }
+
+  // Check if the sale's current payroll entry is in a finalized period
+  const existingEntries = await prisma.payrollEntry.findMany({
+    where: { saleId },
+    include: { payrollPeriod: true },
+  });
+
+  const finalizedEntry = existingEntries.find(e =>
+    e.payrollPeriod.status === 'FINALIZED' || e.payrollPeriod.status === 'LOCKED'
+  );
+
+  if (finalizedEntry) {
+    // Calculate old commission from the finalized entry
+    const oldPayout = Number(finalizedEntry.payoutAmount);
+
+    // Recalculate with new values to get new commission
+    await upsertPayrollEntryForSale(saleId);
+
+    // The upsert may have created a new entry in a different period (if date/payment changed)
+    const newEntries = await prisma.payrollEntry.findMany({ where: { saleId } });
+    const newEntry = newEntries.find(e => e.id !== finalizedEntry.id) || newEntries[0];
+
+    if (newEntry && newEntry.id !== finalizedEntry.id) {
+      // Different period -- new entry already correct, mark old as CLAWBACK_APPLIED
+      await prisma.payrollEntry.update({
+        where: { id: finalizedEntry.id },
+        data: {
+          adjustmentAmount: Number(finalizedEntry.adjustmentAmount) - oldPayout,
+          status: 'CLAWBACK_APPLIED',
+        },
+      });
+    } else {
+      // Same period but finalized -- create adjustment in next open period
+      await prisma.payrollEntry.update({
+        where: { id: finalizedEntry.id },
+        data: {
+          adjustmentAmount: Number(finalizedEntry.adjustmentAmount) - oldPayout,
+          status: 'CLAWBACK_APPLIED',
+        },
+      });
+      // upsertPayrollEntryForSale already created new entry in correct period
+    }
+  } else {
+    // No finalized period -- just recalculate normally
+    await upsertPayrollEntryForSale(saleId);
+  }
+};
