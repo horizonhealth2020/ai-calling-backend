@@ -29,20 +29,19 @@ Source: `packages/ui/src/tokens.ts` and `packages/ui/src/theme.css` define all t
 
 ## Spacing Scale
 
-Declared values from `packages/ui/src/tokens.ts` spacing object (already established):
+Declared values from `packages/ui/src/tokens.ts` spacing object and `packages/ui/src/theme.css` CSS custom properties (already established project tokens):
 
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | S[1] | 4px | Icon gaps within buttons (Paid/Unpaid toggle icon-to-text gap) |
-| S[2] | 8px | Compact gaps between inline elements (badge spacing, button groups) |
-| S[3] | 12px | Entry row internal padding, gap between agent name and badge |
-| S[4] | 16px | Card header vertical padding, entry row vertical padding |
-| S[5] | 20px | Card header horizontal padding, financial summary strip padding |
+| S[2] | 8px | Compact gaps between inline elements (badge spacing, button groups), "Show N more" button vertical padding |
+| S[3] | 12px | Entry row internal padding, gap between agent name and badge. Approved exception: defined in project tokens (--space-3, spacing[3]) though outside standard 8-point set. |
+| S[4] | 16px | Card header vertical padding, entry row vertical padding, "Show N more" button horizontal padding |
 | S[6] | 24px | Section breaks between cards, card body padding |
 | S[8] | 32px | Gap between period selector and card stack |
 | S[12] | 48px | Not used in this phase |
 
-Exceptions: "Show N more" button uses 10px vertical / 16px horizontal padding (non-token value, matching existing BTN_ICON pattern).
+Exceptions: S[3] (12px) is defined in `packages/ui/src/tokens.ts` as `spacing[3]` and in `packages/ui/src/theme.css` as `--space-3: 12px`. It is a valid project token used extensively across existing components (PageShell nav items, sidebar gaps, tab padding). Approved for use in this phase.
 
 ---
 
@@ -52,14 +51,10 @@ All values from `packages/ui/src/tokens.ts` typography object. This phase uses 4
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body | 14px | 400 (normal) | 1.6 | Entry row content (member name, product, amounts) |
-| Label | 11px | 700 (bold) | 1.45 | Financial summary strip labels (COMMISSION, BONUS, FRONTED, HOLD, NET), column headers |
+| Body | 14px | 400 (normal) | 1.6 | Entry row content (member name, product, amounts), button labels (Mark Paid, Print, Show N more), muted metadata (sale count, zeroed count) |
+| Label | 11px | 700 (bold) | 1.45 | Financial summary strip labels (COMMISSION, BONUS, FRONTED, HOLD, NET), column headers, "Arrived after paid" indicator text |
 | Subheading | 15px | 700 (bold) | 1.4 | Agent name in card header |
 | Metric | 16px | 700 (bold) | 1.5 | Financial summary values (commission total, net total) |
-
-Additional text styles already in use:
-- 12px / 400 for muted metadata (sale count, zeroed count)
-- 13px / 600 for button labels (Mark Paid, Print, Show N more)
 
 ---
 
@@ -101,6 +96,12 @@ All colors reference CSS custom properties from `packages/ui/src/theme.css`. Dar
 
 ---
 
+## Focal Point
+
+Primary focal point: the financial summary strip NET total value -- rendered at 16px/700 (Metric role), it carries the largest semantic weight in the AgentPayCard and is the first number a payroll operator scans to confirm correctness before marking paid.
+
+---
+
 ## Copywriting Contract
 
 | Element | Copy |
@@ -137,9 +138,9 @@ Changes:
 background: var(--bg-surface-overlay)
 border: 1px solid var(--border-default)
 borderRadius: 6px (radius.md)
-padding: 10px 16px
-fontSize: 13px
-fontWeight: 600
+padding: 8px 16px
+fontSize: 14px
+fontWeight: 400
 color: var(--text-secondary)
 cursor: pointer
 width: 100%
