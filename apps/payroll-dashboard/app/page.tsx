@@ -768,6 +768,371 @@ function LoadingSkeleton() {
   );
 }
 
+/* ── Agent Pay Card ──────────────────────────────────────────── */
+
+function AgentPayCard({
+  agentName, entries, agentGross, agentNet, activeCount, isTopEarner,
+  period, products, allAgents, pendingRequests, pendingEditRequests,
+  approvingId, rejectingId, approvingEditId, rejectingEditId,
+  onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete,
+  onPrint, onMarkPaid, onMarkUnpaid,
+  onApproveChangeRequest, onRejectChangeRequest,
+  onApproveEditRequest, onRejectEditRequest,
+}: {
+  agentName: string;
+  entries: Entry[];
+  agentGross: number;
+  agentNet: number;
+  activeCount: number;
+  isTopEarner: boolean;
+  period: Period;
+  products: Product[];
+  allAgents: { id: string; name: string }[];
+  pendingRequests: StatusChangeRequest[];
+  pendingEditRequests: SaleEditRequest[];
+  approvingId: string | null;
+  rejectingId: string | null;
+  approvingEditId: string | null;
+  rejectingEditId: string | null;
+  onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
+  onBonusFrontedUpdate: (entryId: string, bonus: number, fronted: number, hold: number) => Promise<void>;
+  onApprove: (saleId: string) => Promise<void>;
+  onUnapprove: (saleId: string) => Promise<void>;
+  onDelete: (saleId: string) => Promise<void>;
+  onPrint: () => void;
+  onMarkPaid: () => void;
+  onMarkUnpaid: () => void;
+  onApproveChangeRequest: (id: string) => Promise<void>;
+  onRejectChangeRequest: (id: string) => Promise<void>;
+  onApproveEditRequest: (id: string) => Promise<void>;
+  onRejectEditRequest: (id: string) => Promise<void>;
+}) {
+  const activeEntries = entries.filter(isActiveEntry);
+  const totalBonus = activeEntries.reduce((s, e) => s + Number(e.bonusAmount), 0);
+  const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
+  const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
+
+  const [headerBonus, setHeaderBonus] = useState(String(totalBonus.toFixed(2)));
+  const [headerFronted, setHeaderFronted] = useState(String(totalFronted.toFixed(2)));
+  const [headerHold, setHeaderHold] = useState(String(totalHold.toFixed(2)));
+
+  // Sync header values when entries change externally
+  useEffect(() => {
+    setHeaderBonus(totalBonus.toFixed(2));
+    setHeaderFronted(totalFronted.toFixed(2));
+    setHeaderHold(totalHold.toFixed(2));
+  }, [totalBonus, totalFronted, totalHold]);
+
+  const handleHeaderBlur = async (field: "bonus" | "fronted" | "hold", rawValue: string) => {
+    const newTotal = Number(rawValue) || 0;
+    let currentTotal: number;
+    if (field === "bonus") currentTotal = totalBonus;
+    else if (field === "fronted") currentTotal = totalFronted;
+    else currentTotal = totalHold;
+
+    if (Math.abs(newTotal - currentTotal) < 0.005) return;
+
+    const delta = newTotal - currentTotal;
+    const firstActive = activeEntries[0] ?? entries[0];
+    if (!firstActive) return;
+
+    const newBonus = field === "bonus" ? Number(firstActive.bonusAmount) + delta : Number(firstActive.bonusAmount);
+    const newFronted = field === "fronted" ? Number(firstActive.frontedAmount) + delta : Number(firstActive.frontedAmount);
+    const newHold = field === "hold" ? Number(firstActive.holdAmount ?? 0) + delta : Number(firstActive.holdAmount ?? 0);
+    await onBonusFrontedUpdate(firstActive.id, newBonus, newFronted, newHold);
+  };
+
+  const HEADER_LBL: React.CSSProperties = {
+    fontSize: 11, color: C.textMuted, textTransform: "uppercase",
+    letterSpacing: "0.06em", fontWeight: 700, marginBottom: 2,
+  };
+
+  // Pending approvals for this agent
+  const agentObj = allAgents.find(a => a.name === agentName);
+  const agentPending = agentObj ? pendingRequests.filter(r => r.sale.agentId === agentObj.id) : [];
+  const agentEditPending = agentObj ? pendingEditRequests.filter(r => r.sale.agentId === agentObj.id) : [];
+  const totalPending = agentPending.length + agentEditPending.length;
+
+  return (
+    <div style={{
+      background: C.bgSurfaceRaised,
+      border: `1px solid ${isTopEarner ? "rgba(20,184,166,0.25)" : C.borderSubtle}`,
+      borderRadius: R.xl,
+    }}>
+      {/* Agent header */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: `${S[4]}px ${S[5]}px`,
+        borderBottom: `1px solid ${C.borderSubtle}`,
+        background: isTopEarner ? "rgba(20,184,166,0.04)" : "transparent",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{agentName}</span>
+          {isTopEarner && <Badge color={C.primary400}>Top Earner</Badge>}
+          <span style={{ fontSize: 12, color: C.textMuted }}>
+            {activeCount} sale{activeCount !== 1 ? "s" : ""}
+            {activeCount !== entries.length && <span style={{ color: C.textTertiary }}> ({entries.length - activeCount} zeroed)</span>}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
+          <button
+            className="btn-hover"
+            onClick={onPrint}
+            style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+          >
+            <Printer size={11} /> Print
+          </button>
+          {entries.every(e => e.status === "PAID") ? (
+            <button className="btn-hover" onClick={onMarkUnpaid}
+              style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}>
+              <CheckCircle size={11} /> Paid
+            </button>
+          ) : (
+            <button className="btn-hover" onClick={onMarkPaid}
+              style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+              <XCircle size={11} /> Unpaid
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Financial summary strip */}
+      <div style={{
+        display: "flex", gap: 16, alignItems: "center",
+        padding: "10px 20px",
+        background: "rgba(255,255,255,0.02)",
+        borderBottom: `1px solid ${C.borderSubtle}`,
+        flexWrap: "wrap",
+      }}>
+        <div>
+          <div style={HEADER_LBL}>Commission</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</div>
+        </div>
+        <div>
+          <div style={HEADER_LBL}>Bonus</div>
+          <input
+            className="input-focus"
+            style={{
+              ...SMALL_INP, width: 90,
+              background: Number(headerBonus) > 0 ? "rgba(52,211,153,0.10)" : SMALL_INP.background,
+              color: Number(headerBonus) > 0 ? C.success : C.textPrimary,
+              fontWeight: 700,
+            }}
+            type="number" step="0.01"
+            value={headerBonus}
+            onChange={e => setHeaderBonus(e.target.value)}
+            onBlur={() => handleHeaderBlur("bonus", headerBonus)}
+          />
+        </div>
+        <div>
+          <div style={HEADER_LBL}>Fronted</div>
+          <input
+            className="input-focus"
+            style={{
+              ...SMALL_INP, width: 90,
+              background: Number(headerFronted) > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
+              color: Number(headerFronted) > 0 ? C.danger : C.textPrimary,
+              fontWeight: 700,
+            }}
+            type="number" step="0.01"
+            value={headerFronted}
+            onChange={e => setHeaderFronted(e.target.value)}
+            onBlur={() => handleHeaderBlur("fronted", headerFronted)}
+          />
+        </div>
+        <div>
+          <div style={HEADER_LBL}>Hold</div>
+          <input
+            className="input-focus"
+            style={{
+              ...SMALL_INP, width: 90,
+              background: Number(headerHold) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
+              color: Number(headerHold) > 0 ? C.warning : C.textPrimary,
+              fontWeight: 700,
+            }}
+            type="number" step="0.01"
+            value={headerHold}
+            onChange={e => setHeaderHold(e.target.value)}
+            onBlur={() => handleHeaderBlur("hold", headerHold)}
+          />
+        </div>
+        <div style={{ marginLeft: "auto" }}>
+          <div style={HEADER_LBL}>Net</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
+            <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
+          </div>
+        </div>
+      </div>
+
+      {/* Date range */}
+      <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: 12, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
+        Sunday {fmtDate(period.weekStart)} – Saturday {fmtDate(period.weekEnd)}
+      </div>
+
+      {/* Commission table */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
+          <thead>
+            <tr>
+              <th style={TH}>Agent</th>
+              <th style={TH_C}>Status</th>
+              <th style={TH}>Member</th>
+              <th style={TH}>Product</th>
+              <th style={TH_R}>Enroll Fee</th>
+              <th style={TH_R}>Commission</th>
+              <th style={TH_R}>Bonus</th>
+              <th style={TH_R}>Fronted</th>
+              <th style={TH_R}>Hold</th>
+              <th style={TH_R}>Net</th>
+              <th style={TH_C}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(e => (
+              <EditableSaleRow
+                key={e.id}
+                entry={e}
+                products={products}
+                onSaleUpdate={onSaleUpdate}
+                onBonusFrontedUpdate={onBonusFrontedUpdate}
+                onApprove={onApprove}
+                onUnapprove={onUnapprove}
+                onDelete={onDelete}
+              />
+            ))}
+            {/* Agent subtotal */}
+            <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
+              <td colSpan={5} style={{ ...TD, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
+              <td style={{ ...TD_R, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</td>
+              <td style={{ ...TD_R, fontWeight: 700, color: C.success }}>${totalBonus.toFixed(2)}</td>
+              <td style={{ ...TD_R, fontWeight: 700, color: C.danger }}>${totalFronted.toFixed(2)}</td>
+              <td style={{ ...TD_R, fontWeight: 700, color: C.warning }}>${totalHold.toFixed(2)}</td>
+              <td style={{ ...TD_R, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
+                <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
+              </td>
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pending Approval Requests for this agent */}
+      {totalPending > 0 && (
+        <div style={{
+          borderLeft: "3px solid #f59e0b",
+          backgroundColor: "rgba(245, 158, 11, 0.08)",
+          padding: "12px",
+          borderRadius: "8px",
+          margin: `${S[3]}px ${S[5]}px ${S[4]}px`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <Clock size={14} style={{ color: "#f59e0b" }} />
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#f59e0b" }}>
+              Pending Approvals ({totalPending} pending)
+            </span>
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {agentPending.map(req => (
+              <div key={req.id} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 12px",
+                background: "rgba(245, 158, 11, 0.06)",
+                border: "1px solid rgba(245, 158, 11, 0.15)",
+                borderRadius: 6, flexWrap: "wrap", gap: 8,
+              }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
+                    <span style={{
+                      background: "rgba(96,165,250,0.1)", color: "#60a5fa",
+                      fontSize: 11, fontWeight: 700, padding: "2px 6px",
+                      borderRadius: R.sm, marginRight: S[2],
+                    }}>Status Change</span>
+                    {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} — {req.sale.product.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                      background: SALE_STATUS_COLORS[req.oldStatus]?.bg ?? "transparent",
+                      color: SALE_STATUS_COLORS[req.oldStatus]?.color ?? C.textMuted,
+                    }}>
+                      {SALE_STATUS_COLORS[req.oldStatus]?.label ?? req.oldStatus}
+                    </span>
+                    <span style={{ margin: "0 4px", color: C.textTertiary }}>&rarr;</span>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                      background: SALE_STATUS_COLORS[req.newStatus]?.bg ?? "transparent",
+                      color: SALE_STATUS_COLORS[req.newStatus]?.color ?? C.textMuted,
+                    }}>
+                      {SALE_STATUS_COLORS[req.newStatus]?.label ?? req.newStatus}
+                    </span>
+                    <span style={{ marginLeft: 8 }}>by {req.requester.name} &middot; {fmtDate(req.requestedAt)}</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button className="btn-hover" disabled={approvingId === req.id}
+                    onClick={() => onApproveChangeRequest(req.id)}
+                    style={{ ...BTN_ICON, background: "#059669", color: "#fff", border: "none", opacity: approvingId === req.id ? 0.6 : 1 }}>
+                    <CheckCircle size={11} /> {approvingId === req.id ? "..." : "Approve"}
+                  </button>
+                  <button className="btn-hover" disabled={rejectingId === req.id}
+                    onClick={() => onRejectChangeRequest(req.id)}
+                    style={{ ...BTN_ICON, background: "#dc2626", color: "#fff", border: "none", opacity: rejectingId === req.id ? 0.6 : 1 }}>
+                    <XCircle size={11} /> {rejectingId === req.id ? "..." : "Reject"}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {agentEditPending.map(req => (
+              <div key={req.id} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 12px",
+                background: "rgba(245, 158, 11, 0.06)",
+                border: "1px solid rgba(245, 158, 11, 0.15)",
+                borderRadius: 6, flexWrap: "wrap", gap: 8,
+              }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
+                    <span style={{
+                      background: "rgba(168,85,247,0.1)", color: "#a855f7",
+                      fontSize: 11, fontWeight: 700, padding: "2px 6px",
+                      borderRadius: R.sm, marginRight: S[2],
+                    }}>Edit Request</span>
+                    {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} — {req.sale.product.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>
+                    {Object.entries(req.changes).map(([field, val]) => (
+                      <span key={field} style={{ marginRight: 8 }}>
+                        <strong style={{ color: C.textSecondary }}>{field}:</strong>{" "}
+                        <span style={{ textDecoration: "line-through", opacity: 0.6 }}>{String(val.old)}</span>{" "}
+                        &rarr; {String(val.new)}
+                      </span>
+                    ))}
+                    <span style={{ marginLeft: 8 }}>by {req.requester.name} &middot; {fmtDate(req.requestedAt)}</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button className="btn-hover" disabled={approvingEditId === req.id}
+                    onClick={() => onApproveEditRequest(req.id)}
+                    style={{ ...BTN_ICON, background: "#059669", color: "#fff", border: "none", opacity: approvingEditId === req.id ? 0.6 : 1 }}>
+                    <CheckCircle size={11} /> {approvingEditId === req.id ? "..." : "Approve"}
+                  </button>
+                  <button className="btn-hover" disabled={rejectingEditId === req.id}
+                    onClick={() => onRejectEditRequest(req.id)}
+                    style={{ ...BTN_ICON, background: "#dc2626", color: "#fff", border: "none", opacity: rejectingEditId === req.id ? 0.6 : 1 }}>
+                    <XCircle size={11} /> {rejectingEditId === req.id ? "..." : "Reject"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Page ───────────────────────────────────────────────── */
 
 export default function PayrollDashboard() {
@@ -1630,290 +1995,36 @@ export default function PayrollDashboard() {
                           <div
                             key={agentName}
                             className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`}
-                            style={{
-                              background: C.bgSurfaceRaised,
-                              border: `1px solid ${isTopEarner ? "rgba(20,184,166,0.25)" : C.borderSubtle}`,
-                              borderRadius: R.xl,
-                            }}
                           >
-                            {/* Agent header */}
-                            <div style={{
-                              display: "flex", justifyContent: "space-between", alignItems: "center",
-                              padding: `${S[4]}px ${S[5]}px`,
-                              borderBottom: `1px solid ${C.borderSubtle}`,
-                              background: isTopEarner ? "rgba(20,184,166,0.04)" : "transparent",
-                            }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
-                                <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{agentName}</span>
-                                {isTopEarner && <Badge color={C.primary400}>Top Earner</Badge>}
-                                <span style={{ fontSize: 12, color: C.textMuted }}>
-                                  {activeCount} sale{activeCount !== 1 ? "s" : ""}
-                                  {activeCount !== entries.length && <span style={{ color: C.textTertiary }}> ({entries.length - activeCount} zeroed)</span>}
-                                </span>
-                              </div>
-                              <div style={{ display: "flex", gap: S[5], fontSize: 13, alignItems: "center" }}>
-                                <span style={{ color: C.textMuted }}>Commission: <strong style={{ color: C.textPrimary }}>${agentGross.toFixed(2)}</strong></span>
-                                <span style={{ color: C.textMuted }}>Net: <strong style={{ color: agentNet >= 0 ? C.success : C.danger }}>${agentNet.toFixed(2)}</strong></span>
-                                <button
-                                  className="btn-hover"
-                                  onClick={() => printAgentCards([[agentName, entries]], p)}
-                                  style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
-                                >
-                                  <Printer size={11} /> Print
-                                </button>
-                                {entries.every(e => e.status === "PAID") ? (
-                                  <button
-                                    className="btn-hover"
-                                    onClick={() => markEntriesUnpaid(entries.map(e => e.id), [], agentName)}
-                                    style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
-                                  >
-                                    <CheckCircle size={11} /> Paid
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="btn-hover"
-                                    onClick={() => markEntriesPaid(entries.map(e => e.id), [], agentName)}
-                                    style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
-                                  >
-                                    <XCircle size={11} /> Unpaid
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Date range */}
-                            <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: 12, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
-                              Sunday {fmtDate(p.weekStart)} – Saturday {fmtDate(p.weekEnd)}
-                            </div>
-
-                            {/* Commission table */}
-                            <div style={{ overflowX: "auto" }}>
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
-                                <thead>
-                                  <tr>
-                                    <th style={TH}>Agent</th>
-                                    <th style={TH_C}>Status</th>
-                                    <th style={TH}>Member</th>
-                                    <th style={TH}>Product</th>
-                                    <th style={TH_R}>Enroll Fee</th>
-                                    <th style={TH_R}>Commission</th>
-                                    <th style={TH_R}>Bonus</th>
-                                    <th style={TH_R}>Fronted</th>
-                                    <th style={TH_R}>Hold</th>
-                                    <th style={TH_R}>Net</th>
-                                    <th style={TH_C}>Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {entries.map(e => (
-                                    <EditableSaleRow
-                                      key={e.id}
-                                      entry={e}
-                                      products={products}
-                                      onSaleUpdate={updateSale}
-                                      onBonusFrontedUpdate={updateBonusFronted}
-                                      onApprove={id => toggleApproval(id, true)}
-                                      onUnapprove={unapproveCommission}
-                                      onDelete={deleteSale}
-                                    />
-                                  ))}
-                                  {/* Agent subtotal */}
-                                  <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
-                                    <td colSpan={5} style={{ ...TD, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.success }}>${entries.filter(isActiveEntry).reduce((s, e) => s + Number(e.bonusAmount), 0).toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.danger }}>${entries.filter(isActiveEntry).reduce((s, e) => s + Number(e.frontedAmount), 0).toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: C.warning }}>${entries.filter(isActiveEntry).reduce((s, e) => s + Number(e.holdAmount ?? 0), 0).toFixed(2)}</td>
-                                    <td style={{ ...TD_R, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
-                                      <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
-                                    </td>
-                                    <td />
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-
-                            {/* Pending Approval Requests for this agent */}
-                            {(() => {
-                              const agentObj = allAgents.find(a => a.name === agentName);
-                              const agentPending = agentObj
-                                ? pendingRequests.filter(r => r.sale.agentId === agentObj.id)
-                                : [];
-                              const agentEditPending = agentObj
-                                ? pendingEditRequests.filter(r => r.sale.agentId === agentObj.id)
-                                : [];
-                              const totalPending = agentPending.length + agentEditPending.length;
-                              if (totalPending === 0) return null;
-                              return (
-                                <div style={{
-                                  borderLeft: "3px solid #f59e0b",
-                                  backgroundColor: "rgba(245, 158, 11, 0.08)",
-                                  padding: "12px",
-                                  borderRadius: "8px",
-                                  margin: `${S[3]}px ${S[5]}px ${S[4]}px`,
-                                }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                                    <Clock size={14} style={{ color: "#f59e0b" }} />
-                                    <span style={{ fontWeight: 700, fontSize: 13, color: "#f59e0b" }}>
-                                      Pending Approvals ({totalPending} pending)
-                                    </span>
-                                  </div>
-                                  <div style={{ display: "grid", gap: 8 }}>
-                                    {/* Status Change Requests */}
-                                    {agentPending.map(req => (
-                                      <div key={req.id} style={{
-                                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                                        padding: "10px 12px",
-                                        background: "rgba(245, 158, 11, 0.06)",
-                                        border: "1px solid rgba(245, 158, 11, 0.15)",
-                                        borderRadius: 6,
-                                        flexWrap: "wrap",
-                                        gap: 8,
-                                      }}>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                                          <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
-                                            <span style={{
-                                              background: "rgba(96,165,250,0.1)",
-                                              color: "#60a5fa",
-                                              fontSize: 11,
-                                              fontWeight: 700,
-                                              padding: "2px 6px",
-                                              borderRadius: R.sm,
-                                              marginRight: S[2],
-                                            }}>Status Change</span>
-                                            {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} — {req.sale.product.name}
-                                          </div>
-                                          <div style={{ fontSize: 12, color: C.textMuted }}>
-                                            <span style={{
-                                              display: "inline-flex", alignItems: "center", gap: 4,
-                                              padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
-                                              background: SALE_STATUS_COLORS[req.oldStatus]?.bg ?? "transparent",
-                                              color: SALE_STATUS_COLORS[req.oldStatus]?.color ?? C.textMuted,
-                                            }}>
-                                              {SALE_STATUS_COLORS[req.oldStatus]?.label ?? req.oldStatus}
-                                            </span>
-                                            <span style={{ margin: "0 4px", color: C.textTertiary }}>&rarr;</span>
-                                            <span style={{
-                                              display: "inline-flex", alignItems: "center", gap: 4,
-                                              padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
-                                              background: SALE_STATUS_COLORS[req.newStatus]?.bg ?? "transparent",
-                                              color: SALE_STATUS_COLORS[req.newStatus]?.color ?? C.textMuted,
-                                            }}>
-                                              {SALE_STATUS_COLORS[req.newStatus]?.label ?? req.newStatus}
-                                            </span>
-                                            <span style={{ marginLeft: 8 }}>
-                                              by {req.requester.name} &middot; {fmtDate(req.requestedAt)}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                                          <button
-                                            className="btn-hover"
-                                            disabled={approvingId === req.id}
-                                            onClick={() => approveChangeRequest(req.id)}
-                                            style={{
-                                              ...BTN_ICON,
-                                              background: "#059669", color: "#fff", border: "none",
-                                              opacity: approvingId === req.id ? 0.6 : 1,
-                                            }}
-                                          >
-                                            <CheckCircle size={11} /> {approvingId === req.id ? "..." : "Approve"}
-                                          </button>
-                                          <button
-                                            className="btn-hover"
-                                            disabled={rejectingId === req.id}
-                                            onClick={() => rejectChangeRequest(req.id)}
-                                            style={{
-                                              ...BTN_ICON,
-                                              background: "#dc2626", color: "#fff", border: "none",
-                                              opacity: rejectingId === req.id ? 0.6 : 1,
-                                            }}
-                                          >
-                                            <XCircle size={11} /> {rejectingId === req.id ? "..." : "Reject"}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ))}
-
-                                    {/* Sale Edit Requests */}
-                                    {agentEditPending.map(req => (
-                                      <div key={req.id} className="animate-fade-in" style={{
-                                        padding: "10px 12px",
-                                        background: "rgba(245, 158, 11, 0.06)",
-                                        border: "1px solid rgba(245, 158, 11, 0.15)",
-                                        borderRadius: 6,
-                                      }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
-                                            <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary }}>
-                                              <span style={{
-                                                background: "rgba(20,184,166,0.1)",
-                                                color: C.primary400,
-                                                fontSize: 11,
-                                                fontWeight: 700,
-                                                padding: "2px 6px",
-                                                borderRadius: R.sm,
-                                                marginRight: S[2],
-                                              }}>Edit Request</span>
-                                              {req.sale.memberName}
-                                              {req.sale.memberId && <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 4 }}>({req.sale.memberId})</span>}
-                                              {" — "}
-                                              {req.sale.product.name}
-                                            </div>
-                                            <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>
-                                              Requested by {req.requester.name} on {new Date(req.requestedAt).toLocaleDateString()}
-                                            </div>
-
-                                            {/* Field diffs */}
-                                            <div style={{ marginTop: S[2], display: "flex", flexDirection: "column", gap: 2 }}>
-                                              {Object.entries(req.changes).map(([field, diff]) => (
-                                                <div key={field} style={{ fontSize: 11, color: C.textSecondary }}>
-                                                  <span style={{ fontWeight: 700 }}>{field}:</span>{" "}
-                                                  <span style={{ textDecoration: "line-through", color: C.textMuted }}>{String((diff as any).old)}</span>
-                                                  {" \u2192 "}
-                                                  <span style={{ fontWeight: 700, color: field === "commission" ? (Number((diff as any).new) > Number((diff as any).old) ? C.success : C.danger) : C.textPrimary }}>
-                                                    {String((diff as any).new)}
-                                                  </span>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-
-                                          {/* Approve / Reject buttons */}
-                                          <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
-                                            <button
-                                              className="btn-hover"
-                                              style={{
-                                                background: "#059669", color: "#fff", fontSize: 11, fontWeight: 700,
-                                                padding: "6px 10px", borderRadius: R.sm, border: "none", cursor: "pointer",
-                                                opacity: approvingEditId === req.id ? 0.6 : 1,
-                                              }}
-                                              onClick={() => approveEditRequest(req.id)}
-                                              disabled={approvingEditId === req.id}
-                                            >
-                                              {approvingEditId === req.id ? "Approving..." : "Approve Edit"}
-                                            </button>
-                                            <button
-                                              className="btn-hover"
-                                              style={{
-                                                background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)",
-                                                color: C.danger, fontSize: 11, fontWeight: 700,
-                                                padding: "6px 10px", borderRadius: R.sm, cursor: "pointer",
-                                                opacity: rejectingEditId === req.id ? 0.6 : 1,
-                                              }}
-                                              onClick={() => rejectEditRequest(req.id)}
-                                              disabled={rejectingEditId === req.id}
-                                            >
-                                              {rejectingEditId === req.id ? "Rejecting..." : "Reject Edit"}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })()}
+                            <AgentPayCard
+                              agentName={agentName}
+                              entries={entries}
+                              agentGross={agentGross}
+                              agentNet={agentNet}
+                              activeCount={activeCount}
+                              isTopEarner={isTopEarner}
+                              period={p}
+                              products={products}
+                              allAgents={allAgents}
+                              pendingRequests={pendingRequests}
+                              pendingEditRequests={pendingEditRequests}
+                              approvingId={approvingId}
+                              rejectingId={rejectingId}
+                              approvingEditId={approvingEditId}
+                              rejectingEditId={rejectingEditId}
+                              onSaleUpdate={updateSale}
+                              onBonusFrontedUpdate={updateBonusFronted}
+                              onApprove={id => toggleApproval(id, true)}
+                              onUnapprove={unapproveCommission}
+                              onDelete={deleteSale}
+                              onPrint={() => printAgentCards([[agentName, entries]], p)}
+                              onMarkPaid={() => markEntriesPaid(entries.map(e => e.id), [], agentName)}
+                              onMarkUnpaid={() => markEntriesUnpaid(entries.map(e => e.id), [], agentName)}
+                              onApproveChangeRequest={approveChangeRequest}
+                              onRejectChangeRequest={rejectChangeRequest}
+                              onApproveEditRequest={approveEditRequest}
+                              onRejectEditRequest={rejectEditRequest}
+                            />
                           </div>
                         );
                       });
