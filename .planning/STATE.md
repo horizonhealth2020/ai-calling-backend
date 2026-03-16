@@ -46,18 +46,18 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 7 (Payroll Management) Plan 1 COMPLETE. Next: Phase 7 Plan 2.
+**Current Focus:** Phase 7 (Payroll Management) COMPLETE. All 2 plans done. Next: Phase 8+.
 
 ## Current Position
 
-**Phase:** 7 of 10 -- Payroll Management -- IN PROGRESS
-**Plan:** 1 of 2 -- Complete
-**Status:** Executing
+**Phase:** 7 of 10 -- Payroll Management -- COMPLETE
+**Plan:** 2 of 2 -- All complete
+**Status:** Ready to plan
 
 ```
 Progress: [████████████████████████] 100% (Plans)
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [#####]
-Phase 5 [#####] | Phase 6 [#####] | Phase 7 [.....] | Phase 8 [.....]
+Phase 5 [#####] | Phase 6 [#####] | Phase 7 [#####] | Phase 8 [.....]
 Phase 9 [.....] | Phase 10 [#####]
 ```
 
@@ -65,10 +65,10 @@ Phase 9 [.....] | Phase 10 [#####]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 25 |
-| Plans total | 25+ (remaining phases TBD) |
+| Plans completed | 26 |
+| Plans total | 26+ (remaining phases TBD) |
 | Requirements done | 36/36 |
-| Phases done | 7/10 |
+| Phases done | 8/10 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -95,6 +95,7 @@ Phase 9 [.....] | Phase 10 [#####]
 | 06 | 01 | 248s | 2 | 14 |
 | 06 | 03 | 394s | 2 | 2 |
 | 06 | 02 | 519s | 2 | 2 |
+| 07 | 02 | 271s | 2 | 1 |
 | 07 | 01 | 193s | 2 | 3 |
 
 ## Accumulated Context
@@ -179,18 +180,21 @@ Phase 9 [.....] | Phase 10 [#####]
 - CSV vs Excel export format (resolve before Phase 7)
 - Luxon timezone convention resolved: America/New_York for day-of-week, UTC midnight for storage/period IDs
 - Commission preview endpoint design: resolved -- separate `/api/sales/preview` endpoint chosen (Phase 5 Plan 1)
+- [Phase 7] Late entry label placed below status badge for compact display
+- [Phase 7] isPaid hides entire actions cell content for cleaner lockdown
+- [Phase 7] allPaid includes ZEROED_OUT and CLAWBACK_APPLIED statuses alongside PAID
 
 ### Blockers
 None currently.
 
 ### TODOs
-- Phases 7-9 remain: Payroll Management, Reporting, UI/UX Polish
+- Phases 8-9 remain: Reporting, UI/UX Polish
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T17:51:33Z
-**Stopped at:** Completed 07-01 (Paid-Agent Guard)
-**Next action:** Execute Phase 7 Plan 2 (Collapsible entries, paid-card lockdown, late-entry indicator).
+**Last session:** 2026-03-16T17:53:28Z
+**Stopped at:** Completed 07-02 (Card Display and Lockdown)
+**Next action:** Phase 7 complete. Proceed to Phase 8 (Reporting) or Phase 9 (UI/UX Polish).
 
 ---
 *State initialized: 2026-03-14*
