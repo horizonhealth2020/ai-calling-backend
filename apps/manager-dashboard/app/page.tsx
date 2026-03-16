@@ -10,6 +10,11 @@ import {
   ProgressRing,
   ToastProvider,
   useToast,
+  Button,
+  Card,
+  Input,
+  Select,
+  SkeletonCard,
   colors,
   spacing,
   radius,
@@ -19,6 +24,8 @@ import {
   baseInputStyle,
   baseLabelStyle,
   baseButtonStyle,
+  baseThStyle,
+  baseTdStyle,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch, getToken } from "@ops/auth/client";
 import {
@@ -128,64 +135,12 @@ const PODIUM_BORDERS = [
   `3px solid ${colors.bronze}`,
 ];
 
-const INP: React.CSSProperties = {
-  ...baseInputStyle,
-  boxSizing: "border-box",
-};
-
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
-const CARD: React.CSSProperties = {
-  background: colors.bgSurface,
-  border: `1px solid ${colors.borderDefault}`,
-  borderRadius: radius.xl,
-  padding: spacing[6],
-};
-
-const ICON_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  padding: "6px 8px",
-  background: "transparent",
-  border: `1px solid ${colors.borderDefault}`,
-  color: colors.textSecondary,
-  borderRadius: radius.md,
-  fontSize: 12,
-};
-
-const DANGER_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  padding: "6px 8px",
-  background: colors.dangerBg,
-  border: `1px solid rgba(248,113,113,0.2)`,
-  color: colors.danger,
-  borderRadius: radius.md,
-  fontSize: 12,
-};
-
-const SUCCESS_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  padding: "8px 16px",
-  background: "rgba(52,211,153,0.1)",
-  border: `1px solid rgba(52,211,153,0.2)`,
-  color: colors.success,
-  borderRadius: radius.md,
-  fontSize: 13,
-  fontWeight: 600,
-};
-
-const CANCEL_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  padding: "8px 16px",
-  background: "rgba(30,41,59,0.5)",
-  border: `1px solid ${colors.borderDefault}`,
-  color: colors.textSecondary,
-  borderRadius: radius.md,
-  fontSize: 13,
-};
-
 const PREVIEW_PANEL: React.CSSProperties = {
-  ...CARD,
+  background: colors.bgSurface,
   border: "1px solid rgba(20,184,166,0.15)",
+  borderRadius: radius.xl,
   padding: spacing[6],
   marginBottom: spacing[4],
 };
@@ -232,10 +187,6 @@ const DIFF_NEW: React.CSSProperties = {
   fontWeight: 700,
 };
 
-const EDIT_BTN: React.CSSProperties = {
-  ...ICON_BTN,
-};
-
 const PENDING_EDIT_BADGE: React.CSSProperties = {
   background: "rgba(245,158,11,0.12)",
   color: "#f59e0b",
@@ -244,39 +195,6 @@ const PENDING_EDIT_BADGE: React.CSSProperties = {
   padding: "4px 8px",
   borderRadius: radius.sm,
   display: "inline-block",
-};
-
-const SUBMIT_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  padding: "14px 32px",
-  background: colors.accentGradient,
-  color: "#fff",
-  borderRadius: radius.xl,
-  fontWeight: 700,
-  fontSize: 15,
-  minHeight: 48,
-  boxShadow: `${shadows.glowPrimary}, 0 4px 20px rgba(20,184,166,0.3)`,
-  letterSpacing: "0.02em",
-  width: "100%",
-};
-
-const TH: React.CSSProperties = {
-  padding: "10px 14px",
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 700,
-  color: colors.textTertiary,
-  textTransform: "uppercase",
-  letterSpacing: typography.tracking.caps,
-  borderBottom: `1px solid ${colors.borderSubtle}`,
-  whiteSpace: "nowrap",
-};
-
-const TD: React.CSSProperties = {
-  padding: "12px 14px",
-  fontSize: 13,
-  color: colors.textSecondary,
-  borderBottom: `1px solid ${colors.borderSubtle}`,
 };
 
 const OUTCOME_COLORS: Record<string, { bg: string; color: string }> = {
@@ -479,18 +397,18 @@ function AgentRow({ agent, onSave, onDelete }: {
   if (edit) {
     return (
       <div className="animate-fade-in" style={{ padding: "14px 0", borderBottom: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}>
-        <input className="input-focus" style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
-        <input className="input-focus" style={INP} value={d.email} placeholder="CRM User ID" onChange={e => setD(x => ({ ...x, email: e.target.value }))} />
-        <input className="input-focus" style={INP} value={d.extension} placeholder="Tracking Extension" onChange={e => setD(x => ({ ...x, extension: e.target.value }))} />
+        <input className="input-focus" style={baseInputStyle} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
+        <input className="input-focus" style={baseInputStyle} value={d.email} placeholder="CRM User ID" onChange={e => setD(x => ({ ...x, email: e.target.value }))} />
+        <input className="input-focus" style={baseInputStyle} value={d.extension} placeholder="Tracking Extension" onChange={e => setD(x => ({ ...x, extension: e.target.value }))} />
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn-hover" disabled={saving} style={SUCCESS_BTN} onClick={async () => {
+          <Button variant="success" size="sm" disabled={saving} onClick={async () => {
             setSaving(true); await onSave(agent.id, d); setEdit(false); setSaving(false);
           }}>
             <Save size={14} />{saving ? "Saving..." : "Save"}
-          </button>
-          <button className="btn-hover" style={CANCEL_BTN} onClick={() => setEdit(false)}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setEdit(false)}>
             <X size={14} />Cancel
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -503,9 +421,9 @@ function AgentRow({ agent, onSave, onDelete }: {
           <div style={{ fontWeight: 600, fontSize: 14, color: colors.textMuted, textDecoration: "line-through" }}>{agent.name}</div>
           <div style={{ fontSize: 11, color: colors.textMuted }}>Inactive</div>
         </div>
-        <button className="btn-hover" style={SUCCESS_BTN} onClick={() => onSave(agent.id, { active: true })} title="Reactivate agent">
+        <Button variant="success" size="sm" onClick={() => onSave(agent.id, { active: true })} title="Reactivate agent">
           Reactivate
-        </button>
+        </Button>
       </div>
     );
   }
@@ -524,17 +442,17 @@ function AgentRow({ agent, onSave, onDelete }: {
         {confirmDelete ? (
           <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove agent?</span>
-            <button className="btn-hover" style={{ ...DANGER_BTN, padding: "4px 10px" }} onClick={() => { onDelete(agent.id); setConfirmDelete(false); }}>Yes</button>
-            <button className="btn-hover" style={{ ...CANCEL_BTN, padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</button>
+            <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id); setConfirmDelete(false); }}>Yes</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</Button>
           </div>
         ) : (
           <>
-            <button className="btn-hover" style={ICON_BTN} onClick={() => setEdit(true)} title="Edit agent">
+            <Button variant="ghost" size="sm" onClick={() => setEdit(true)} title="Edit agent">
               <Edit3 size={13} />
-            </button>
-            <button className="btn-hover" style={DANGER_BTN} onClick={() => setConfirmDelete(true)} title="Delete agent">
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)} title="Delete agent">
               <Trash2 size={13} />
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -557,23 +475,23 @@ function LeadSourceRow({ ls, onSave, onDelete }: {
   if (edit) {
     return (
       <div className="animate-fade-in" style={{ padding: "14px 0", borderBottom: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}>
-        <input className="input-focus" style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
-        <input className="input-focus" style={INP} value={d.listId} placeholder="CRM List ID" onChange={e => setD(x => ({ ...x, listId: e.target.value }))} />
+        <input className="input-focus" style={baseInputStyle} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
+        <input className="input-focus" style={baseInputStyle} value={d.listId} placeholder="CRM List ID" onChange={e => setD(x => ({ ...x, listId: e.target.value }))} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <input className="input-focus" style={INP} type="number" step="0.01" value={d.costPerLead} placeholder="Cost per lead" onChange={e => setD(x => ({ ...x, costPerLead: e.target.value }))} />
-          <input className="input-focus" style={INP} type="number" min="0" value={d.callBufferSeconds} placeholder="Call buffer (s)" onChange={e => setD(x => ({ ...x, callBufferSeconds: e.target.value }))} />
+          <input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.costPerLead} placeholder="Cost per lead" onChange={e => setD(x => ({ ...x, costPerLead: e.target.value }))} />
+          <input className="input-focus" style={baseInputStyle} type="number" min="0" value={d.callBufferSeconds} placeholder="Call buffer (s)" onChange={e => setD(x => ({ ...x, callBufferSeconds: e.target.value }))} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn-hover" disabled={saving} style={SUCCESS_BTN} onClick={async () => {
+          <Button variant="success" size="sm" disabled={saving} onClick={async () => {
             setSaving(true);
             await onSave(ls.id, { ...d, costPerLead: Number(d.costPerLead), callBufferSeconds: Number(d.callBufferSeconds) });
             setEdit(false); setSaving(false);
           }}>
             <Save size={14} />{saving ? "Saving..." : "Save"}
-          </button>
-          <button className="btn-hover" style={CANCEL_BTN} onClick={() => setEdit(false)}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setEdit(false)}>
             <X size={14} />Cancel
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -591,17 +509,17 @@ function LeadSourceRow({ ls, onSave, onDelete }: {
         {confirmDelete ? (
           <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove source?</span>
-            <button className="btn-hover" style={{ ...DANGER_BTN, padding: "4px 10px" }} onClick={() => { onDelete(ls.id); setConfirmDelete(false); }}>Yes</button>
-            <button className="btn-hover" style={{ ...CANCEL_BTN, padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</button>
+            <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(ls.id); setConfirmDelete(false); }}>Yes</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</Button>
           </div>
         ) : (
           <>
-            <button className="btn-hover" style={ICON_BTN} onClick={() => setEdit(true)} title="Edit lead source">
+            <Button variant="ghost" size="sm" onClick={() => setEdit(true)} title="Edit lead source">
               <Edit3 size={13} />
-            </button>
-            <button className="btn-hover" style={DANGER_BTN} onClick={() => setConfirmDelete(true)} title="Delete lead source">
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)} title="Delete lead source">
               <Trash2 size={13} />
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -647,18 +565,18 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
           {product.notes && <span style={{ marginLeft: 8, fontStyle: "italic", color: colors.textMuted }}>{product.notes}</span>}
         </div>
       </div>
-      <button className="btn-hover" style={{ ...ICON_BTN, flexShrink: 0, marginLeft: 12 }} onClick={() => setEdit(true)}>
+      <Button variant="ghost" size="sm" style={{ flexShrink: 0, marginLeft: 12 }} onClick={() => setEdit(true)}>
         <Edit3 size={13} />
-      </button>
+      </Button>
     </div>
   );
 
   return (
     <div className="animate-fade-in" style={{ padding: "16px 0", borderBottom: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 10 }}>
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "end" }}>
-        <div><label style={LBL}>Name</label><input className="input-focus" style={INP} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} /></div>
+        <div><label style={LBL}>Name</label><input className="input-focus" style={baseInputStyle} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} /></div>
         <div><label style={LBL}>Type</label>
-          <select className="input-focus" style={{ ...INP, height: 42 }} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as Product["type"] }))}>
+          <select className="input-focus" style={{ ...baseInputStyle, height: 42 }} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as Product["type"] }))}>
             <option value="CORE">Core</option><option value="ADDON">Add-on</option><option value="AD_D">AD&D</option>
           </select>
         </div>
@@ -668,20 +586,20 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
       </div>
       {isCore ? (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.premiumThreshold} placeholder="e.g. 300" onChange={e => setD(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
-          <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.commissionBelow} placeholder="e.g. 25" onChange={e => setD(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
-          <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
+          <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.premiumThreshold} placeholder="e.g. 300" onChange={e => setD(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
+          <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.commissionBelow} placeholder="e.g. 25" onChange={e => setD(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
+          <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <div><label style={LBL}>Bundled Commission (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
-          <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
-          <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
+          <div><label style={LBL}>Bundled Commission (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
+          <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+          <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
         </div>
       )}
-      <div><label style={LBL}>Notes</label><input className="input-focus" style={INP} value={d.notes} placeholder="Optional notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
+      <div><label style={LBL}>Notes</label><input className="input-focus" style={baseInputStyle} value={d.notes} placeholder="Optional notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn-hover" disabled={saving} style={SUCCESS_BTN} onClick={async () => {
+        <Button variant="success" size="sm" disabled={saving} onClick={async () => {
           setSaving(true);
           await onSave(product.id, {
             name: d.name, type: d.type, active: d.active, notes: d.notes || null,
@@ -695,10 +613,10 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
           setEdit(false); setSaving(false);
         }}>
           <Save size={14} />{saving ? "Saving..." : "Save"}
-        </button>
-        <button className="btn-hover" style={CANCEL_BTN} onClick={() => setEdit(false)}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setEdit(false)}>
           <X size={14} />Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -1273,9 +1191,7 @@ function ManagerDashboardInner() {
     return (
       <PageShell title="Manager Dashboard" navItems={NAV_ITEMS} activeNav={tab} onNavChange={k => setTab(k as Tab)}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} style={{ height: 64, borderRadius: radius.xl, background: colors.bgSurfaceRaised, animation: "pulse 1.5s ease-in-out infinite", opacity: 0.6 }} />
-          ))}
+          {[1, 2, 3].map(i => <SkeletonCard key={i} height={64} />)}
         </div>
       </PageShell>
     );
@@ -1321,49 +1237,45 @@ function ManagerDashboardInner() {
             {/* ── LEFT COLUMN: Form fields ── */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="grid-mobile-1">
               <div className="animate-fade-in-up stagger-1">
-                <label style={LBL}>Agent</label>
-                <select
-                  className="input-focus"
-                  style={{ ...INP, height: 42 }}
+                <Select
+                  label="Agent"
+                  error={fieldErrors.agentId}
                   value={form.agentId}
-                  onChange={e => setForm(f => ({ ...f, agentId: e.target.value }))}
+                  onChange={e => { setForm(f => ({ ...f, agentId: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.agentId; return n; }); }}
                 >
                   <option value="" disabled>Select agent...</option>
                   {agents.filter(a => a.active !== false).map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="animate-fade-in-up stagger-1">
-                <label style={LBL}>Member Name</label>
-                <input className="input-focus" style={INP} value={form.memberName} required onChange={e => setForm(f => ({ ...f, memberName: e.target.value }))} />
+                <Input label="Member Name" error={fieldErrors.memberName} value={form.memberName} required onChange={e => { setForm(f => ({ ...f, memberName: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.memberName; return n; }); }} />
               </div>
               <div className="animate-fade-in-up stagger-2">
                 <label style={LBL}>Member ID</label>
-                <input className="input-focus" style={INP} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} />
               </div>
               <div className="animate-fade-in-up stagger-2">
                 <label style={LBL}>Member State</label>
-                <input className="input-focus" style={INP} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
+                <input className="input-focus" style={baseInputStyle} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
               </div>
               <div className="animate-fade-in-up stagger-3">
-                <label style={LBL}>Sale Date</label>
-                <input className="input-focus" style={INP} type="date" value={form.saleDate} required onChange={e => setForm(f => ({ ...f, saleDate: e.target.value }))} />
+                <Input label="Sale Date" error={fieldErrors.saleDate} type="date" value={form.saleDate} required onChange={e => { setForm(f => ({ ...f, saleDate: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.saleDate; return n; }); }} />
               </div>
               <div className="animate-fade-in-up stagger-3">
                 <label style={LBL}>Effective Date</label>
-                <input className="input-focus" style={INP} type="date" value={form.effectiveDate} required onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} type="date" value={form.effectiveDate} required onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} />
               </div>
               <div className="animate-fade-in-up stagger-4">
-                <label style={LBL}>Product</label>
-                <select className="input-focus" style={{ ...INP }} value={form.productId} required onChange={e => { setForm(f => ({ ...f, productId: e.target.value })); triggerPreview(true); }}>
+                <Select label="Product" error={fieldErrors.productId} value={form.productId} required onChange={e => { setForm(f => ({ ...f, productId: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.productId; return n; }); triggerPreview(true); }}>
                   <option value="" disabled>Select product...</option>
                   {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                </Select>
               </div>
               <div className="animate-fade-in-up stagger-4">
                 <label style={LBL}>Lead Source</label>
-                <select className="input-focus" style={{ ...INP }} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
+                <select className="input-focus" style={baseInputStyle} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
                   <option value="" disabled>Select lead source...</option>
                   {leadSources.filter(ls => ls.active !== false).map(ls => (
                     <option key={ls.id} value={ls.id}>{ls.name}</option>
@@ -1372,31 +1284,26 @@ function ManagerDashboardInner() {
               </div>
               <div className="animate-fade-in-up stagger-5">
                 <label style={LBL}>Carrier</label>
-                <input className="input-focus" style={INP} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
               </div>
               <div className="animate-fade-in-up stagger-5">
-                <label style={LBL}>Status *</label>
-                <select className="input-focus" style={{ ...INP, height: 42 }} value={form.status} required onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                <Select label="Status *" error={fieldErrors.status} value={form.status} required onChange={e => { setForm(f => ({ ...f, status: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.status; return n; }); }}>
                   <option value="" disabled>Select status...</option>
                   <option value="RAN">Ran</option>
                   <option value="DECLINED">Declined</option>
                   <option value="DEAD">Dead</option>
-                </select>
-                {!form.status && (
-                  <p style={{ margin: "6px 0 0", fontSize: 12, color: colors.warning }}>Status is required</p>
-                )}
+                </Select>
               </div>
               <div className="animate-fade-in-up stagger-6">
-                <label style={LBL}>Premium ($)</label>
-                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => { setForm(f => ({ ...f, premium: e.target.value })); triggerPreview(false); }} />
+                <Input label="Premium ($)" error={fieldErrors.premium} type="number" step="0.01" min="0" value={form.premium} required onChange={e => { setForm(f => ({ ...f, premium: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.premium; return n; }); triggerPreview(false); }} />
               </div>
               <div className="animate-fade-in-up stagger-6">
                 <label style={LBL}>Enrollment Fee ($)</label>
-                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => { setForm(f => ({ ...f, enrollmentFee: e.target.value })); triggerPreview(false); }} />
+                <input className="input-focus" style={baseInputStyle} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => { setForm(f => ({ ...f, enrollmentFee: e.target.value })); triggerPreview(false); }} />
               </div>
               <div className="animate-fade-in-up stagger-7" style={{ gridColumn: "1/-1" }}>
                 <label style={LBL}>Notes</label>
-                <input className="input-focus" style={INP} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
 
               {/* Payment type selector */}
@@ -1445,21 +1352,24 @@ function ManagerDashboardInner() {
 
               {/* Submit row */}
               <div style={{ gridColumn: "1/-1", paddingTop: 8 }}>
-                <button
+                <Button
                   type="submit"
-                  className="btn-hover"
-                  style={{ ...SUBMIT_BTN, opacity: (!form.paymentType || !form.status || submitting) ? 0.6 : 1 }}
+                  variant="primary"
+                  fullWidth
+                  loading={submitting}
                   disabled={!form.paymentType || !form.status || submitting}
+                  style={{
+                    padding: "14px 32px",
+                    borderRadius: radius.xl,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    minHeight: 48,
+                    boxShadow: `${shadows.glowPrimary}, 0 4px 20px rgba(20,184,166,0.3)`,
+                    letterSpacing: "0.02em",
+                  }}
                 >
-                  {submitting ? (
-                    <>
-                      <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>Submit Sale</>
-                  )}
-                </button>
+                  {submitting ? "Submitting..." : "Submit Sale"}
+                </Button>
               </div>
             </div>
             {/* ── END LEFT COLUMN ── */}
@@ -1528,7 +1438,7 @@ function ManagerDashboardInner() {
                   <textarea
                     className="input-focus"
                     style={{
-                      ...INP,
+                      ...baseInputStyle,
                       height: 120,
                       resize: "vertical",
                       fontFamily: typography.fontMono,
@@ -1550,13 +1460,13 @@ function ManagerDashboardInner() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button type="button" className="btn-hover" onClick={handleParse} style={{ ...SUCCESS_BTN, fontSize: 12, padding: "6px 14px" }}>
+                  <Button type="button" variant="success" size="sm" onClick={handleParse}>
                     <Upload size={13} />Parse Receipt
-                  </button>
+                  </Button>
                   {receipt && (
-                    <button type="button" className="btn-hover" style={{ ...CANCEL_BTN, fontSize: 12, padding: "6px 14px" }} onClick={clearReceipt}>
+                    <Button type="button" variant="secondary" size="sm" onClick={clearReceipt}>
                       <X size={13} />Clear
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {parsed && (
@@ -1657,7 +1567,7 @@ function ManagerDashboardInner() {
                                     placeholder="0.00"
                                     value={addonPremiums[ap.id] ?? ""}
                                     onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
-                                    style={{ ...INP, width: "100%", fontSize: 13 }}
+                                    style={{ ...baseInputStyle, width: "100%", fontSize: 13 }}
                                   />
                                 </div>
                               )}
@@ -1686,7 +1596,7 @@ function ManagerDashboardInner() {
         const sorted = [...tracker].sort((a, b) => b.salesCount - a.salesCount);
         return (
           <>
-          <div className="animate-fade-in" style={{ ...CARD }}>
+          <Card className="animate-fade-in">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing[5] }}>
               <SectionHeader icon={<Trophy size={18} />} title="Agent Performance" count={sorted.length} />
               <button
@@ -1705,7 +1615,7 @@ function ManagerDashboardInner() {
                 <thead>
                   <tr>
                     {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Cost / Sale", "Commission"].map((h, i) => (
-                      <th key={h} style={{ ...TH, textAlign: i >= 2 ? "right" : "left" }}>{h}</th>
+                      <th key={h} style={{ ...baseThStyle, textAlign: i >= 2 ? "right" : "left" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1725,7 +1635,7 @@ function ManagerDashboardInner() {
                           ...(highlightedAgentNames.has(row.agent) ? HIGHLIGHT_GLOW : {}),
                         }}
                       >
-                        <td style={{ ...TD, fontWeight: 700 }}>
+                        <td style={{ ...baseTdStyle, fontWeight: 700 }}>
                           {rankIcon ? (
                             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               {rankIcon}
@@ -1743,26 +1653,26 @@ function ManagerDashboardInner() {
                             <span style={{ color: colors.textMuted }}>#{i + 1}</span>
                           )}
                         </td>
-                        <td style={{ ...TD, fontWeight: isTop ? 700 : 500, color: isTop ? colors.textPrimary : colors.textSecondary, fontSize: isTop ? 14 : 13 }}>
+                        <td style={{ ...baseTdStyle, fontWeight: isTop ? 700 : 500, color: isTop ? colors.textPrimary : colors.textSecondary, fontSize: isTop ? 14 : 13 }}>
                           {row.agent}
                         </td>
-                        <td style={{ ...TD, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
+                        <td style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
                           {agentCalls ? <AnimatedNumber value={agentCalls} /> : <span style={{ color: colors.textMuted }}>\u2014</span>}
                         </td>
-                        <td style={{ ...TD, textAlign: "right", fontWeight: isTop ? 700 : 400, color: colors.textPrimary }}>
+                        <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: isTop ? 700 : 400, color: colors.textPrimary }}>
                           <AnimatedNumber value={row.salesCount} />
                         </td>
-                        <td style={{ ...TD, textAlign: "right" }}>
+                        <td style={{ ...baseTdStyle, textAlign: "right" }}>
                           <span style={{ fontWeight: 800, fontSize: isTop ? 16 : 14, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
                             <AnimatedNumber value={Number(row.premiumTotal)} prefix="$" decimals={2} />
                           </span>
                         </td>
-                        <td style={{ ...TD, textAlign: "right", color: colors.warning, fontWeight: 600 }}>
+                        <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: 600 }}>
                           {row.costPerSale > 0
                             ? <AnimatedNumber value={Number(row.costPerSale)} prefix="$" decimals={2} />
                             : <span style={{ color: colors.textMuted }}>\u2014</span>}
                         </td>
-                        <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: colors.accentTeal }}>
+                        <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.accentTeal }}>
                           {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
                         </td>
                       </tr>
@@ -1778,10 +1688,10 @@ function ManagerDashboardInner() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
 
           {/* Period Summary */}
-          <div style={{ ...CARD, padding: 0, overflow: "hidden", marginTop: 24 }}>
+          <Card style={{ padding: 0, overflow: "hidden", marginTop: 24 }}>
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Clock size={18} color={colors.accentTeal} />
@@ -1811,30 +1721,30 @@ function ManagerDashboardInner() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: colors.bgSurfaceInset }}>
-                    <th style={TH}>Period</th>
-                    <th style={{ ...TH, textAlign: "right" }}>Sales</th>
-                    <th style={{ ...TH, textAlign: "right" }}>Premium</th>
-                    <th style={{ ...TH, textAlign: "right" }}>Commission</th>
-                    {periodView === "weekly" && <th style={TH}>Status</th>}
+                    <th style={baseThStyle}>Period</th>
+                    <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
+                    <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
+                    <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
+                    {periodView === "weekly" && <th style={baseThStyle}>Status</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {periods.length === 0 && (
-                    <tr><td colSpan={periodView === "weekly" ? 5 : 4} style={{ ...TD, textAlign: "center", color: colors.textMuted, padding: 32 }}>No period data available</td></tr>
+                    <tr><td colSpan={periodView === "weekly" ? 5 : 4} style={{ ...baseTdStyle, textAlign: "center", color: colors.textMuted, padding: 32 }}>No period data available</td></tr>
                   )}
                   {periods.map(p => (
-                    <tr key={p.period}>
-                      <td style={TD}>{p.period}</td>
-                      <td style={{ ...TD, textAlign: "right", fontWeight: 700 }}>{p.salesCount}</td>
-                      <td style={{ ...TD, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
-                      <td style={{ ...TD, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
-                      {periodView === "weekly" && <td style={TD}>{p.periodStatus}</td>}
+                    <tr key={p.period} className="row-hover">
+                      <td style={baseTdStyle}>{p.period}</td>
+                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700 }}>{p.salesCount}</td>
+                      <td style={{ ...baseTdStyle, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
+                      <td style={{ ...baseTdStyle, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
+                      {periodView === "weekly" && <td style={baseTdStyle}>{p.periodStatus}</td>}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
           </>
         );
       })()}
@@ -1884,15 +1794,15 @@ function ManagerDashboardInner() {
             </div>
 
             {byAgent.size === 0 && (
-              <div style={CARD}>
+              <Card>
                 <EmptyState icon={<BarChart3 size={32} />} title="No sales for this period" description="Try selecting a different day or check that sales have been submitted." />
-              </div>
+              </Card>
             )}
 
             {[...byAgent.entries()].map(([agentName, sales], agentIdx) => {
               const premiumTotal = sales.reduce((s, x) => s + Number(x.premium), 0);
               return (
-                <div key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ ...CARD, marginBottom: 14 }}>
+                <Card key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${colors.borderSubtle}`, flexWrap: "wrap", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: colors.textPrimary }}>{agentName}</h3>
@@ -1907,7 +1817,7 @@ function ManagerDashboardInner() {
                       <thead>
                         <tr>
                           {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status", "", ""].map((h, i) => (
-                            <th key={h || `col-${i}`} style={{ ...TH, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
+                            <th key={h || `col-${i}`} style={{ ...baseThStyle, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1915,13 +1825,13 @@ function ManagerDashboardInner() {
                         {sales.map(s => (
                           <React.Fragment key={s.id}>
                           <tr className="row-hover" style={{ transition: "box-shadow 1.5s ease-out", ...(highlightedSaleIds.has(s.id) ? HIGHLIGHT_GLOW : {}) }}>
-                            <td style={TD}>{new Date(s.saleDate).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
-                            <td style={{ ...TD, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
-                            <td style={TD}>{s.carrier}</td>
-                            <td style={TD}>{s.product.name}</td>
-                            <td style={TD}>{s.leadSource.name}</td>
-                            <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: colors.success }}>${Number(s.premium).toFixed(2)}</td>
-                            <td style={{ ...TD, textAlign: "center" }}>
+                            <td style={baseTdStyle}>{new Date(s.saleDate).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
+                            <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
+                            <td style={baseTdStyle}>{s.carrier}</td>
+                            <td style={baseTdStyle}>{s.product.name}</td>
+                            <td style={baseTdStyle}>{s.leadSource.name}</td>
+                            <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>${Number(s.premium).toFixed(2)}</td>
+                            <td style={{ ...baseTdStyle, textAlign: "center" }}>
                               {s.hasPendingStatusChange ? (
                                 <StatusBadge status="PENDING_RAN" />
                               ) : (
@@ -1947,30 +1857,31 @@ function ManagerDashboardInner() {
                                 </select>
                               )}
                             </td>
-                            <td style={{ ...TD, textAlign: "center" }}>
+                            <td style={{ ...baseTdStyle, textAlign: "center" }}>
                               {s.hasPendingEditRequest ? (
                                 <span style={PENDING_EDIT_BADGE}>Edit Pending</span>
                               ) : (
-                                <button
-                                  className="btn-hover"
-                                  style={EDIT_BTN}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => startEdit(s.id)}
                                   aria-label="Edit sale"
                                   aria-expanded={editingSaleId === s.id}
                                 >
                                   <Edit3 size={14} />
-                                </button>
+                                </Button>
                               )}
                             </td>
-                            <td style={{ ...TD, textAlign: "center" }}>
-                              <button
-                                className="btn-hover"
-                                style={{ ...DANGER_BTN, padding: "4px 6px" }}
+                            <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                style={{ padding: "4px 6px" }}
                                 title="Delete sale"
                                 onClick={() => deleteSale(s.id)}
                               >
                                 <Trash2 size={14} />
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                           {editingSaleId === s.id && (
@@ -1989,7 +1900,7 @@ function ManagerDashboardInner() {
                                         {/* Row 1: Product dropdown (full width) */}
                                         <div style={{ gridColumn: "1 / -1" }}>
                                           <label style={LBL}>Product</label>
-                                          <select autoFocus className="input-focus" style={{ ...INP, height: 42 }} value={editForm.productId || ""}
+                                          <select autoFocus className="input-focus" style={{ ...baseInputStyle, height: 42 }} value={editForm.productId || ""}
                                             onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, productId: e.target.value })); triggerEditPreview(true); }}>
                                             <option value="" disabled>Select product...</option>
                                             {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1999,19 +1910,19 @@ function ManagerDashboardInner() {
                                         {/* Row 2: Premium | Enrollment Fee */}
                                         <div>
                                           <label style={LBL}>Premium</label>
-                                          <input className="input-focus" style={INP} type="number" step="0.01" value={editForm.premium ?? ""}
+                                          <input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={editForm.premium ?? ""}
                                             onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, premium: e.target.value })); triggerEditPreview(false); }} />
                                         </div>
                                         <div>
                                           <label style={LBL}>Enrollment Fee</label>
-                                          <input className="input-focus" style={INP} type="number" step="0.01" value={editForm.enrollmentFee ?? ""}
+                                          <input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={editForm.enrollmentFee ?? ""}
                                             onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, enrollmentFee: e.target.value })); triggerEditPreview(false); }} />
                                         </div>
 
                                         {/* Row 3: Payment Type | Agent */}
                                         <div>
                                           <label style={LBL}>Payment Type</label>
-                                          <select className="input-focus" style={{ ...INP, height: 42 }} value={editForm.paymentType || ""}
+                                          <select className="input-focus" style={{ ...baseInputStyle, height: 42 }} value={editForm.paymentType || ""}
                                             onChange={e => { setEditForm((f: Record<string, any>) => ({ ...f, paymentType: e.target.value })); triggerEditPreview(true); }}>
                                             <option value="CC">CC</option>
                                             <option value="ACH">ACH</option>
@@ -2019,7 +1930,7 @@ function ManagerDashboardInner() {
                                         </div>
                                         <div>
                                           <label style={LBL}>Agent</label>
-                                          <select className="input-focus" style={{ ...INP, height: 42 }} value={editForm.agentId || ""}
+                                          <select className="input-focus" style={{ ...baseInputStyle, height: 42 }} value={editForm.agentId || ""}
                                             onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, agentId: e.target.value }))}>
                                             <option value="" disabled>Select agent...</option>
                                             {agents.filter(a => a.active !== false).map(a => (
@@ -2060,15 +1971,15 @@ function ManagerDashboardInner() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
                                           <div>
                                             <label style={LBL}>Carrier</label>
-                                            <input className="input-focus" style={INP} value={editForm.carrier ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, carrier: e.target.value }))} />
+                                            <input className="input-focus" style={baseInputStyle} value={editForm.carrier ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, carrier: e.target.value }))} />
                                           </div>
                                           <div>
                                             <label style={LBL}>Member Name</label>
-                                            <input className="input-focus" style={INP} value={editForm.memberName ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberName: e.target.value }))} />
+                                            <input className="input-focus" style={baseInputStyle} value={editForm.memberName ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberName: e.target.value }))} />
                                           </div>
                                           <div>
                                             <label style={LBL}>Member State</label>
-                                            <input className="input-focus" style={INP} maxLength={2} value={editForm.memberState ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberState: e.target.value }))} />
+                                            <input className="input-focus" style={baseInputStyle} maxLength={2} value={editForm.memberState ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberState: e.target.value }))} />
                                           </div>
                                         </div>
 
@@ -2076,15 +1987,15 @@ function ManagerDashboardInner() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
                                           <div>
                                             <label style={LBL}>Sale Date</label>
-                                            <input className="input-focus" style={INP} type="date" value={editForm.saleDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, saleDate: e.target.value }))} />
+                                            <input className="input-focus" style={baseInputStyle} type="date" value={editForm.saleDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, saleDate: e.target.value }))} />
                                           </div>
                                           <div>
                                             <label style={LBL}>Effective Date</label>
-                                            <input className="input-focus" style={INP} type="date" value={editForm.effectiveDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, effectiveDate: e.target.value }))} />
+                                            <input className="input-focus" style={baseInputStyle} type="date" value={editForm.effectiveDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, effectiveDate: e.target.value }))} />
                                           </div>
                                           <div>
                                             <label style={LBL}>Lead Source</label>
-                                            <select className="input-focus" style={{ ...INP, height: 42 }} value={editForm.leadSourceId || ""}
+                                            <select className="input-focus" style={{ ...baseInputStyle, height: 42 }} value={editForm.leadSourceId || ""}
                                               onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, leadSourceId: e.target.value }))}>
                                               <option value="" disabled>Select lead source...</option>
                                               {leadSources.filter(ls => ls.active !== false).map(ls => (
@@ -2097,7 +2008,7 @@ function ManagerDashboardInner() {
                                         {/* Row 7: Notes (full width) */}
                                         <div style={{ gridColumn: "1 / -1" }}>
                                           <label style={LBL}>Notes</label>
-                                          <textarea className="input-focus" style={{ ...INP, minHeight: 60 } as React.CSSProperties} value={editForm.notes ?? ""}
+                                          <textarea className="input-focus" style={{ ...baseInputStyle, minHeight: 60 } as React.CSSProperties} value={editForm.notes ?? ""}
                                             onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, notes: e.target.value }))} />
                                         </div>
                                       </div>
@@ -2135,17 +2046,17 @@ function ManagerDashboardInner() {
 
                                       {/* Action buttons */}
                                       <div style={{ marginTop: spacing[4], display: "flex", gap: spacing[3], justifyContent: "flex-end" }}>
-                                        <button className="btn-hover" style={CANCEL_BTN} onClick={() => { setEditingSaleId(null); setEditForm({}); }}>
+                                        <Button variant="secondary" size="sm" onClick={() => { setEditingSaleId(null); setEditForm({}); }}>
                                           Discard Changes
-                                        </button>
-                                        <button
-                                          className="btn-hover"
-                                          style={SUCCESS_BTN}
+                                        </Button>
+                                        <Button
+                                          variant="success"
+                                          size="sm"
                                           onClick={saveEdit}
                                           disabled={editSaving}
                                         >
                                           {editSaving ? "Saving..." : (userRoles.includes("PAYROLL") || userRoles.includes("SUPER_ADMIN") ? "Save Changes" : "Submit for Approval")}
-                                        </button>
+                                        </Button>
                                       </div>
                                     </>
                                   )}
@@ -2158,7 +2069,7 @@ function ManagerDashboardInner() {
                       </tbody>
                     </table>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -2167,18 +2078,18 @@ function ManagerDashboardInner() {
 
       {/* ── Call Audits ───────────────────────────────────────────── */}
       {tab === "audits" && (
-        <div className="animate-fade-in" style={CARD}>
+        <Card className="animate-fade-in">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <SectionHeader icon={<Headphones size={18} />} title="Call Audits" count={audits.length} />
-            <button
-              className="btn-hover"
-              style={ICON_BTN}
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => {});
               }}
             >
               <RefreshCw size={14} />Refresh
-            </button>
+            </Button>
           </div>
 
           {/* Processing indicator */}
@@ -2234,7 +2145,7 @@ function ManagerDashboardInner() {
                 <thead>
                   <tr>
                     {["Date", "Agent", "Outcome", "Score", "Summary", "Actions"].map((h, i) => (
-                      <th key={h} style={{ ...TH, textAlign: i === 3 ? "center" : "left" }}>{h}</th>
+                      <th key={h} style={{ ...baseThStyle, textAlign: i === 3 ? "center" : "left" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -2252,9 +2163,9 @@ function ManagerDashboardInner() {
                           style={{ cursor: "pointer" }}
                           onClick={() => setExpandedAudit(isExpanded ? null : a.id)}
                         >
-                          <td style={TD}>{new Date(a.callDate).toLocaleDateString()}</td>
-                          <td style={{ ...TD, color: colors.textPrimary, fontWeight: 500 }}>{a.agent.name}</td>
-                          <td style={TD}>
+                          <td style={baseTdStyle}>{new Date(a.callDate).toLocaleDateString()}</td>
+                          <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{a.agent.name}</td>
+                          <td style={baseTdStyle}>
                             {outcomeStyle ? (
                               <span style={{
                                 display: "inline-block",
@@ -2273,20 +2184,20 @@ function ManagerDashboardInner() {
                               <span style={{ color: colors.textMuted }}>&mdash;</span>
                             )}
                           </td>
-                          <td style={{ ...TD, textAlign: "center" }}>
+                          <td style={{ ...baseTdStyle, textAlign: "center" }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                               <ProgressRing progress={a.score} size={32} strokeWidth={3} color={scoreColor} />
                               <span style={{ fontSize: 13, fontWeight: 700, color: scoreColor }}>{a.score}</span>
                             </div>
                           </td>
-                          <td style={{ ...TD, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <td style={{ ...baseTdStyle, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {summaryText ?? <span style={{ color: colors.textMuted }}>&mdash;</span>}
                           </td>
-                          <td style={TD}>
+                          <td style={baseTdStyle}>
                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              <button
-                                className="btn-hover"
-                                style={{ ...ICON_BTN, fontSize: 12 }}
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={e => {
                                   e.stopPropagation();
                                   setEditingAudit(isEditing ? null : a.id);
@@ -2300,7 +2211,7 @@ function ManagerDashboardInner() {
                                 }}
                               >
                                 <Edit3 size={12} />Edit
-                              </button>
+                              </Button>
                               <span style={{ color: colors.textMuted, fontSize: 12 }}>
                                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               </span>
@@ -2498,22 +2409,18 @@ function ManagerDashboardInner() {
                                 {/* Transcript — collapsible */}
                                 {a.transcription && (
                                   <div style={{ marginBottom: 20 }}>
-                                    <button
-                                      className="btn-hover"
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       style={{
-                                        ...ICON_BTN,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 6,
                                         marginBottom: 8,
-                                        padding: "6px 12px",
                                       }}
                                       onClick={() => setTranscriptOpen(transcriptOpen === a.id ? null : a.id)}
                                     >
                                       <MessageSquare size={13} />
                                       {transcriptOpen === a.id ? "Hide" : "Show"} Transcript
                                       {transcriptOpen === a.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                    </button>
+                                    </Button>
                                     {transcriptOpen === a.id && (
                                       <div className="animate-slide-down" style={{
                                         color: colors.textSecondary,
@@ -2544,7 +2451,7 @@ function ManagerDashboardInner() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="btn-hover"
-                                        style={{ ...ICON_BTN, display: "inline-flex", textDecoration: "none", padding: "8px 14px" }}
+                                        style={{ ...baseButtonStyle, padding: "6px 12px", background: "transparent", border: `1px solid ${colors.borderDefault}`, color: colors.textSecondary, borderRadius: radius.md, fontSize: 12, display: "inline-flex", textDecoration: "none" }}
                                       >
                                         <Mic size={14} />Listen to Recording
                                       </a>
@@ -2571,7 +2478,7 @@ function ManagerDashboardInner() {
                                       type="number"
                                       min={0}
                                       max={100}
-                                      style={{ ...INP, width: 80 }}
+                                      style={{ ...baseInputStyle, width: 80 }}
                                       value={auditEdit.score}
                                       onChange={e => setAuditEdit(x => ({ ...x, score: Number(e.target.value) }))}
                                     />
@@ -2580,7 +2487,7 @@ function ManagerDashboardInner() {
                                     <label style={LBL}>Status</label>
                                     <input
                                       className="input-focus"
-                                      style={{ ...INP, width: 140 }}
+                                      style={{ ...baseInputStyle, width: 140 }}
                                       value={auditEdit.status}
                                       onChange={e => setAuditEdit(x => ({ ...x, status: e.target.value }))}
                                     />
@@ -2589,7 +2496,7 @@ function ManagerDashboardInner() {
                                     <label style={LBL}>Outcome</label>
                                     <select
                                       className="input-focus"
-                                      style={{ ...INP, width: 160 }}
+                                      style={{ ...baseInputStyle, width: 160 }}
                                       value={auditEdit.callOutcome}
                                       onChange={e => setAuditEdit(x => ({ ...x, callOutcome: e.target.value }))}
                                     >
@@ -2605,7 +2512,7 @@ function ManagerDashboardInner() {
                                     <label style={LBL}>Coaching Notes</label>
                                     <input
                                       className="input-focus"
-                                      style={INP}
+                                      style={baseInputStyle}
                                       value={auditEdit.coachingNotes}
                                       onChange={e => setAuditEdit(x => ({ ...x, coachingNotes: e.target.value }))}
                                     />
@@ -2614,15 +2521,15 @@ function ManagerDashboardInner() {
                                     <label style={LBL}>Manager Summary</label>
                                     <input
                                       className="input-focus"
-                                      style={INP}
+                                      style={baseInputStyle}
                                       placeholder="Override AI summary with your own notes..."
                                       value={auditEdit.managerSummary}
                                       onChange={e => setAuditEdit(x => ({ ...x, managerSummary: e.target.value }))}
                                     />
                                   </div>
-                                  <button
-                                    className="btn-hover"
-                                    style={SUCCESS_BTN}
+                                  <Button
+                                    variant="success"
+                                    size="sm"
                                     onClick={async () => {
                                       try {
                                         const res = await authFetch(`${API}/api/call-audits/${a.id}`, {
@@ -2645,10 +2552,10 @@ function ManagerDashboardInner() {
                                     }}
                                   >
                                     <Save size={14} />Save
-                                  </button>
-                                  <button className="btn-hover" style={CANCEL_BTN} onClick={() => setEditingAudit(null)}>
+                                  </Button>
+                                  <Button variant="secondary" size="sm" onClick={() => setEditingAudit(null)}>
                                     <X size={14} />Cancel
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                             </td>
@@ -2661,7 +2568,7 @@ function ManagerDashboardInner() {
               </table>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ── Config ────────────────────────────────────────────────── */}
@@ -2670,7 +2577,7 @@ function ManagerDashboardInner() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="grid-mobile-1">
 
             {/* Agents card */}
-            <div style={CARD}>
+            <Card>
               <SectionHeader icon={<Users size={18} />} title="Agents" count={agents.length} />
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {agents.map(a => (
@@ -2682,17 +2589,17 @@ function ManagerDashboardInner() {
                 style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Agent</div>
-                <input className="input-focus" style={INP} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
-                <input className="input-focus" style={INP} value={newAgent.email} placeholder="CRM User ID" onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
-                <input className="input-focus" style={INP} value={newAgent.extension} placeholder="Tracking Extension" onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
-                <button type="submit" className="btn-hover" style={{ ...SUCCESS_BTN, justifyContent: "center" }}>
+                <input className="input-focus" style={baseInputStyle} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} value={newAgent.email} placeholder="CRM User ID" onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} value={newAgent.extension} placeholder="Tracking Extension" onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
+                <Button type="submit" variant="success" size="sm" fullWidth>
                   <Plus size={14} />Add Agent
-                </button>
+                </Button>
               </form>
-            </div>
+            </Card>
 
             {/* Lead Sources card */}
-            <div style={CARD}>
+            <Card>
               <SectionHeader icon={<Filter size={18} />} title="Lead Sources" count={leadSources.length} />
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {leadSources.map(ls => (
@@ -2704,14 +2611,14 @@ function ManagerDashboardInner() {
                 style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Lead Source</div>
-                <input className="input-focus" style={INP} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />
-                <input className="input-focus" style={INP} value={newLS.listId} placeholder="CRM List ID" onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
-                <input className="input-focus" style={{ ...INP }} type="number" step="0.01" value={newLS.costPerLead} placeholder="Cost per lead ($)" onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />
-                <button type="submit" className="btn-hover" style={{ ...SUCCESS_BTN, justifyContent: "center" }}>
+                <input className="input-focus" style={baseInputStyle} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} value={newLS.listId} placeholder="CRM List ID" onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
+                <input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={newLS.costPerLead} placeholder="Cost per lead ($)" onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />
+                <Button type="submit" variant="success" size="sm" fullWidth>
                   <Plus size={14} />Add Lead Source
-                </button>
+                </Button>
               </form>
-            </div>
+            </Card>
 
           </div>
 
