@@ -240,6 +240,17 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   });
 };
 
+export const isAgentPaidInPeriod = async (agentId: string, payrollPeriodId: string): Promise<boolean> => {
+  const paidEntries = await prisma.payrollEntry.findMany({
+    where: {
+      payrollPeriodId,
+      agentId,
+      status: "PAID",
+    },
+  });
+  return paidEntries.length > 0;
+};
+
 export const handleSaleEditApproval = async (saleId: string, changes: Record<string, { old: any; new: any }>, oldAgentId?: string) => {
   // If agent changed, delete old payroll entries under old agent
   if (oldAgentId && changes.agentId) {
