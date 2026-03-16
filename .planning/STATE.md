@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-16T00:02:00.000Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-16T00:05:00.000Z"
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -18,18 +18,18 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 5 -- Commission Preview & Sale Editing (in progress)
+**Current Focus:** Phase 5 -- Commission Preview & Sale Editing -- COMPLETE
 
 ## Current Position
 
-**Phase:** 5 of 10 -- Commission Preview & Sale Editing
-**Plan:** 1 of 3 -- Commission Preview & Sale Edit Backend -- COMPLETE
-**Status:** Executing (05-02 remaining)
+**Phase:** 5 of 10 -- Commission Preview & Sale Editing -- COMPLETE
+**Plan:** 3 of 3 -- All plans complete
+**Status:** Phase 5 complete. Ready for Phase 6.
 
 ```
-Progress: [█████████░] ~94%
+Progress: [██████████] 100%
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [#####]
-Phase 5 [##...] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
+Phase 5 [#####] | Phase 6 [.....] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....] | Phase 10 [####]
 ```
 
@@ -37,10 +37,10 @@ Phase 9 [.....] | Phase 10 [####]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 17 |
+| Plans completed | 18 |
 | Plans total | 18+ (remaining phases TBD) |
-| Requirements done | 27/36 |
-| Phases done | 5/10 |
+| Requirements done | 29/36 |
+| Phases done | 6/10 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -60,6 +60,7 @@ Phase 9 [.....] | Phase 10 [####]
 | 10 | 04 | 300s | 2 | 1 |
 | 04 | 02 | 60s | 2 | 0 |
 | 05 | 01 | 207s | 2 | 4 |
+| 05 | 02 | 342s | 2 | 1 |
 | 05 | 03 | 118s | 1 | 1 |
 
 ## Accumulated Context
@@ -70,6 +71,10 @@ Phase 9 [.....] | Phase 10 [####]
 - [Phase 5] 409 conflict returned when pending StatusChangeRequest or SaleEditRequest exists on MANAGER edit
 - [Phase 5] Preview endpoint builds mock SaleWithProduct and calls calculateCommission directly (no DB writes)
 - [Phase 5] handleSaleEditApproval handles finalized period adjustments with CLAWBACK_APPLIED pattern
+- [Phase 5] Commission preview fires on productId, premium, enrollmentFee, paymentType, addonProductIds only (not memberName, notes, etc.)
+- [Phase 5] Preview panel always rendered (not conditionally mounted) to hold layout slot
+- [Phase 5] JWT decoded client-side via atob for role-based UI (Submit for Approval vs Save Changes)
+- [Phase 5] Edit expansion uses pending guard when hasPendingStatusChange or hasPendingEditRequest is true
 - [Phase 10] All existing sales migrate to RAN (not REJECTED->DEAD) per user decision
 - [Phase 10] Commission gate in upsertPayrollEntryForSale, not calculateCommission (keeps calc pure)
 - [Phase 10] POST /api/sales requires explicit status (no default) so managers must choose
@@ -133,10 +138,10 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T00:02:00.000Z
-**Stopped at:** Completed 05-01-PLAN.md
-**Next action:** Execute 05-02-PLAN.md (Commission Preview Panel for manager-dashboard).
+**Last session:** 2026-03-16T00:05:00.000Z
+**Stopped at:** Completed 05-02-PLAN.md (Phase 5 complete)
+**Next action:** Phase 5 complete. Proceed to Phase 6 or next priority.
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-15*
+*Last updated: 2026-03-16*

@@ -13,8 +13,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **SALE-02**: User can select multiple products per sale from products created in payroll
 - [x] **SALE-03**: User can select payment type (CC/ACH) per sale (Check/Other deferred — user decision)
 - [x] **SALE-04**: User can enter enrollment fee per sale (threshold display deferred to Phase 5 commission preview)
-- [ ] **SALE-05**: User sees live commission preview as products are selected before submission
-- [ ] **SALE-06**: User can edit a submitted sale with full commission and period recalculation
+- [x] **SALE-05**: User sees live commission preview as products are selected before submission
+- [x] **SALE-06**: User can edit a submitted sale with full commission and period recalculation
 
 ### Commission Engine
 
@@ -119,8 +119,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SALE-02 | Phase 4 | Pending |
 | SALE-03 | Phase 4 | Pending |
 | SALE-04 | Phase 4 | Pending |
-| SALE-05 | Phase 5 | Pending |
-| SALE-06 | Phase 5 | Pending |
+| SALE-05 | Phase 5 | Complete |
+| SALE-06 | Phase 5 | Complete |
 | COMM-01 | Phase 2 | Complete |
 | COMM-02 | Phase 2 | Complete |
 | COMM-03 | Phase 2 | Complete |

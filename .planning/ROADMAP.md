@@ -11,7 +11,7 @@
 - [x] **Phase 2: Commission Engine Core** - Product type bundle logic calculates correct commission rates
 - [x] **Phase 3: Commission Fees & Period Assignment** - Enrollment fee rules and week-in-arrears period mapping
 - [x] **Phase 4: Multi-Product Sales Form** - Manager dashboard supports multiple products, payment type, and enrollment fee per sale
-- [ ] **Phase 5: Commission Preview & Sale Editing** - Live commission preview before submit and full recalculation on edit
+- [x] **Phase 5: Commission Preview & Sale Editing** - Live commission preview before submit and full recalculation on edit
 - [ ] **Phase 6: Dashboard Cascade** - Sale creation updates all dashboards in real-time via Socket.IO
 - [ ] **Phase 7: Payroll Management** - Period workflow, scrollable cards, finalization guards, and CSV export
 - [ ] **Phase 8: Reporting** - Agent performance metrics, period summaries, trend KPIs, and export-ready reports
@@ -89,7 +89,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 05-01-PLAN.md -- SaleEditRequest schema, preview endpoint, extended PATCH with role-based approval, sale-edit-request CRUD
-- [ ] 05-02-PLAN.md -- Manager dashboard commission preview panel and inline sale editing with live diff
+- [x] 05-02-PLAN.md -- Manager dashboard commission preview panel and inline sale editing with live diff
 - [x] 05-03-PLAN.md -- Payroll dashboard pending edit request approvals with field diff display
 
 ### Phase 6: Dashboard Cascade
