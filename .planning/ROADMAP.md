@@ -101,7 +101,11 @@ Plans:
   2. After submitting a sale, the sales board leaderboard reflects the new sale without refresh
   3. After submitting a sale, the correct agent's payroll card in the payroll dashboard updates without refresh
   4. After submitting a sale, the owner dashboard KPI metrics update without refresh
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 06-01-PLAN.md -- Create @ops/socket shared package, server-side emitSaleChanged helper, and wire emits into sale creation and status-change approval routes
+- [ ] 06-02-PLAN.md -- Manager dashboard and sales board Socket.IO integration with real-time state patching and highlight
+- [ ] 06-03-PLAN.md -- Payroll dashboard and owner dashboard Socket.IO integration with real-time state patching and highlight
 
 ### Phase 7: Payroll Management
 **Goal**: Payroll staff can manage pay periods through their full lifecycle, view agent cards, and export finalized payroll
@@ -146,11 +150,11 @@ Plans:
 | 3. Commission Fees & Period Assignment | 2/2 | Complete | 2026-03-15 |
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
-| 6. Dashboard Cascade | 0/? | Not started | - |
+| 6. Dashboard Cascade | 0/3 | Planning complete | - |
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
-| 10. Sale Status Payroll Logic | 5/6 | In Progress | - |
+| 10. Sale Status Payroll Logic | 6/6 | Complete | 2026-03-16 |
 
 ### Phase 10: Sale Status Payroll Logic
 
@@ -171,7 +175,7 @@ Plans:
 - [x] 10-03-PLAN.md -- Manager dashboard status dropdown on sales form and editable status on agent sales tab
 - [x] 10-04-PLAN.md -- Payroll dashboard pending approvals, approve/reject actions, and period total filtering
 - [x] 10-05-PLAN.md -- Fix stale test helper and implement status-commission and status-change test suites
-- [ ] 10-06-PLAN.md -- Payroll UX: card header financial summary, row status shading, editable product/premium
+- [x] 10-06-PLAN.md -- Payroll UX: card header financial summary, row status shading, editable product/premium
 
 ---
 *Roadmap created: 2026-03-14*
