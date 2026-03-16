@@ -55,6 +55,15 @@ type StatusChangeRequest = {
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
 };
+type SaleEditRequest = {
+  id: string;
+  saleId: string;
+  changes: Record<string, { old: any; new: any }>;
+  status: string;
+  requestedAt: string;
+  sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
+  requester: { name: string; email: string };
+};
 type ExportRange = "week" | "month" | "quarter";
 
 /* ── Design tokens (local aliases) ─────────────────────────── */
@@ -749,6 +758,9 @@ export default function PayrollDashboard() {
   const [pendingRequests, setPendingRequests] = useState<StatusChangeRequest[]>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [pendingEditRequests, setPendingEditRequests] = useState<SaleEditRequest[]>([]);
+  const [approvingEditId, setApprovingEditId] = useState<string | null>(null);
+  const [rejectingEditId, setRejectingEditId] = useState<string | null>(null);
 
   const [newProduct, setNewProduct] = useState<{
     name: string; type: ProductType; notes: string;
@@ -783,13 +795,15 @@ export default function PayrollDashboard() {
       authFetch(`${API}/api/settings/service-bonus-categories`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/status-change-requests?status=PENDING`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([p, prod, sa, cats, agents, scr]) => {
+      authFetch(`${API}/api/sale-edit-requests?status=PENDING`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([p, prod, sa, cats, agents, scr, editReqs]) => {
       setPeriods(p);
       setProducts(prod);
       setServiceAgents(sa);
       setBonusCategories(cats);
       setAllAgents(agents);
       setPendingRequests(scr);
+      setPendingEditRequests(editReqs);
       if (p.length > 0) setSvcPeriodId(p[0].id);
       setLoading(false);
     });
@@ -807,6 +821,13 @@ export default function PayrollDashboard() {
       .then(r => r.ok ? r.json() : pendingRequests)
       .catch(() => pendingRequests);
     setPendingRequests(scr);
+  }
+
+  async function refreshPendingEditRequests() {
+    const editReqs = await authFetch(`${API}/api/sale-edit-requests?status=PENDING`)
+      .then(r => r.ok ? r.json() : pendingEditRequests)
+      .catch(() => pendingEditRequests);
+    setPendingEditRequests(editReqs);
   }
 
   async function approveChangeRequest(requestId: string) {
@@ -841,6 +862,48 @@ export default function PayrollDashboard() {
       alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
     } finally {
       setRejectingId(null);
+    }
+  }
+
+  async function approveEditRequest(requestId: string, saleInFinalized?: boolean) {
+    if (saleInFinalized) {
+      const confirmed = window.confirm(
+        "Approving this edit will create an adjustment entry in the next open period. Commission difference will be applied there. Continue?"
+      );
+      if (!confirmed) return;
+    }
+    setApprovingEditId(requestId);
+    try {
+      const res = await authFetch(`${API}/api/sale-edit-requests/${requestId}/approve`, { method: "POST" });
+      if (res.ok) {
+        setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
+        await refreshPeriods();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+    } finally {
+      setApprovingEditId(null);
+    }
+  }
+
+  async function rejectEditRequest(requestId: string) {
+    if (!window.confirm("Reject this edit request? The sale will remain unchanged.")) return;
+    setRejectingEditId(requestId);
+    try {
+      const res = await authFetch(`${API}/api/sale-edit-requests/${requestId}/reject`, { method: "POST" });
+      if (res.ok) {
+        setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+    } finally {
+      setRejectingEditId(null);
     }
   }
 
@@ -1646,7 +1709,11 @@ export default function PayrollDashboard() {
                               const agentPending = agentObj
                                 ? pendingRequests.filter(r => r.sale.agentId === agentObj.id)
                                 : [];
-                              if (agentPending.length === 0) return null;
+                              const agentEditPending = agentObj
+                                ? pendingEditRequests.filter(r => r.sale.agentId === agentObj.id)
+                                : [];
+                              const totalPending = agentPending.length + agentEditPending.length;
+                              if (totalPending === 0) return null;
                               return (
                                 <div style={{
                                   borderLeft: "3px solid #f59e0b",
@@ -1658,10 +1725,11 @@ export default function PayrollDashboard() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                                     <Clock size={14} style={{ color: "#f59e0b" }} />
                                     <span style={{ fontWeight: 700, fontSize: 13, color: "#f59e0b" }}>
-                                      Pending Approvals ({agentPending.length})
+                                      Pending Approvals ({totalPending} pending)
                                     </span>
                                   </div>
                                   <div style={{ display: "grid", gap: 8 }}>
+                                    {/* Status Change Requests */}
                                     {agentPending.map(req => (
                                       <div key={req.id} style={{
                                         display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -1674,7 +1742,16 @@ export default function PayrollDashboard() {
                                       }}>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                                           <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
-                                            {req.sale.memberName} ({req.sale.memberId}) — {req.sale.product.name}
+                                            <span style={{
+                                              background: "rgba(96,165,250,0.1)",
+                                              color: "#60a5fa",
+                                              fontSize: 11,
+                                              fontWeight: 700,
+                                              padding: "2px 6px",
+                                              borderRadius: R.sm,
+                                              marginRight: S[2],
+                                            }}>Status Change</span>
+                                            {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} — {req.sale.product.name}
                                           </div>
                                           <div style={{ fontSize: 12, color: C.textMuted }}>
                                             <span style={{
@@ -1724,6 +1801,82 @@ export default function PayrollDashboard() {
                                           >
                                             <XCircle size={11} /> {rejectingId === req.id ? "..." : "Reject"}
                                           </button>
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    {/* Sale Edit Requests */}
+                                    {agentEditPending.map(req => (
+                                      <div key={req.id} className="animate-fade-in" style={{
+                                        padding: "10px 12px",
+                                        background: "rgba(245, 158, 11, 0.06)",
+                                        border: "1px solid rgba(245, 158, 11, 0.15)",
+                                        borderRadius: 6,
+                                      }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary }}>
+                                              <span style={{
+                                                background: "rgba(20,184,166,0.1)",
+                                                color: C.primary400,
+                                                fontSize: 11,
+                                                fontWeight: 700,
+                                                padding: "2px 6px",
+                                                borderRadius: R.sm,
+                                                marginRight: S[2],
+                                              }}>Edit Request</span>
+                                              {req.sale.memberName}
+                                              {req.sale.memberId && <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 4 }}>({req.sale.memberId})</span>}
+                                              {" — "}
+                                              {req.sale.product.name}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>
+                                              Requested by {req.requester.name} on {new Date(req.requestedAt).toLocaleDateString()}
+                                            </div>
+
+                                            {/* Field diffs */}
+                                            <div style={{ marginTop: S[2], display: "flex", flexDirection: "column", gap: 2 }}>
+                                              {Object.entries(req.changes).map(([field, diff]) => (
+                                                <div key={field} style={{ fontSize: 11, color: C.textSecondary }}>
+                                                  <span style={{ fontWeight: 700 }}>{field}:</span>{" "}
+                                                  <span style={{ textDecoration: "line-through", color: C.textMuted }}>{String((diff as any).old)}</span>
+                                                  {" \u2192 "}
+                                                  <span style={{ fontWeight: 700, color: field === "commission" ? (Number((diff as any).new) > Number((diff as any).old) ? C.success : C.danger) : C.textPrimary }}>
+                                                    {String((diff as any).new)}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+
+                                          {/* Approve / Reject buttons */}
+                                          <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
+                                            <button
+                                              className="btn-hover"
+                                              style={{
+                                                background: "#059669", color: "#fff", fontSize: 11, fontWeight: 700,
+                                                padding: "6px 10px", borderRadius: R.sm, border: "none", cursor: "pointer",
+                                                opacity: approvingEditId === req.id ? 0.6 : 1,
+                                              }}
+                                              onClick={() => approveEditRequest(req.id)}
+                                              disabled={approvingEditId === req.id}
+                                            >
+                                              {approvingEditId === req.id ? "Approving..." : "Approve Edit"}
+                                            </button>
+                                            <button
+                                              className="btn-hover"
+                                              style={{
+                                                background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)",
+                                                color: C.danger, fontSize: 11, fontWeight: 700,
+                                                padding: "6px 10px", borderRadius: R.sm, cursor: "pointer",
+                                                opacity: rejectingEditId === req.id ? 0.6 : 1,
+                                              }}
+                                              onClick={() => rejectEditRequest(req.id)}
+                                              disabled={rejectingEditId === req.id}
+                                            >
+                                              {rejectingEditId === req.id ? "Rejecting..." : "Reject Edit"}
+                                            </button>
+                                          </div>
                                         </div>
                                       </div>
                                     ))}
