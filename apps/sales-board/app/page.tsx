@@ -1,5 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
+import type { SaleChangedPayload } from "@ops/socket";
 import {
   Trophy,
   Medal,
@@ -16,7 +18,6 @@ import {
   AnimatedNumber,
   Badge,
   TabNav,
-  ProgressRing,
   EmptyState,
   SkeletonCard,
   SkeletonLine,
@@ -26,7 +27,6 @@ import {
 import { colors, spacing, radius, shadows, baseCardStyle } from "@ops/ui";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
-const INTERVAL = 30_000;
 
 type AgentStat = { count: number; premium: number };
 type DayRow = { label: string; agents: Record<string, AgentStat>; totalSales: number; totalPremium: number };
@@ -122,6 +122,7 @@ function RaceBar({
   fillPercent,
   order,
   hasMedal,
+  highlighted,
 }: {
   rank: number;
   name: string;
@@ -130,6 +131,7 @@ function RaceBar({
   fillPercent: number;
   order: number;
   hasMedal: boolean;
+  highlighted?: boolean;
 }) {
   const noSales = count === 0;
   const style = noSales
@@ -202,7 +204,8 @@ function RaceBar({
           justifyContent: "flex-end",
           position: "relative",
           backdropFilter: noSales ? undefined : "blur(8px)",
-          transition: "box-shadow 0.6s ease, border-color 0.6s ease",
+          transition: "box-shadow 1.5s ease-out, border-color 0.6s ease",
+          ...(highlighted ? HIGHLIGHT_GLOW : {}),
         }}
       >
         {/* Fill overlay — grows from bottom */}
@@ -282,7 +285,7 @@ function RaceBar({
 
 /* ── DailyView ────────────────────────────────────────────────── */
 
-function DailyView({ data }: { data: DetailedData }) {
+function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highlightedAgentNames: Set<string> }) {
   const { agents, todayStats } = data;
 
   // Sort all agents by premium (descending) for the race
@@ -361,6 +364,7 @@ function DailyView({ data }: { data: DetailedData }) {
                   fillPercent={fillPercent}
                   order={orders[i]}
                   hasMedal={hasMedal}
+                  highlighted={highlightedAgentNames.has(agent)}
                 />
               );
             })}
@@ -388,7 +392,7 @@ function DailyView({ data }: { data: DetailedData }) {
 
 /* ── WeeklyView ───────────────────────────────────────────────── */
 
-function WeeklyView({ data }: { data: DetailedData }) {
+function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highlightedAgentNames: Set<string> }) {
   const { agents, weeklyDays, weeklyTotals, grandTotalSales, grandTotalPremium } = data;
   const dayMap: Record<string, DayRow> = {};
   for (const d of weeklyDays) dayMap[d.label] = d;
@@ -456,6 +460,8 @@ function WeeklyView({ data }: { data: DetailedData }) {
                     : i % 2 === 0
                     ? `rgba(12,16,33,0.4)`
                     : "transparent",
+                  transition: "box-shadow 1.5s ease-out",
+                  ...(highlightedAgentNames.has(agent) ? HIGHLIGHT_GLOW : {}),
                 }}
               >
                 {/* Agent name cell */}
@@ -692,7 +698,14 @@ export default function SalesBoard() {
   const [view, setView] = useState<"daily" | "weekly">("daily");
   const [data, setData] = useState<DetailedData | null>(null);
   const [lastUpdated, setLastUpdated] = useState("\u2014");
-  const [tick, setTick] = useState(INTERVAL / 1000);
+  const [highlightedAgentNames, setHighlightedAgentNames] = useState<Set<string>>(new Set());
+
+  const highlightAgent = useCallback((name: string) => {
+    setHighlightedAgentNames(prev => new Set(prev).add(name));
+    setTimeout(() => {
+      setHighlightedAgentNames(prev => { const next = new Set(prev); next.delete(name); return next; });
+    }, 100);
+  }, []);
 
   async function refresh() {
     const res = await fetch(`${API}/api/sales-board/detailed`).catch(() => null);
@@ -700,17 +713,69 @@ export default function SalesBoard() {
       setData(await res.json());
       setLastUpdated(new Date().toLocaleTimeString());
     }
-    setTick(INTERVAL / 1000);
   }
+
+  /* ── Real-time sale:changed handler -- incremental state patching ── */
+  const handleSaleChanged = useCallback((payload: SaleChangedPayload) => {
+    // Only RAN sales appear on the board
+    if (payload.sale.status !== "RAN") return;
+    // Only cascade on created / status_changed (per CONTEXT.md scope)
+    if (payload.type !== "created" && payload.type !== "status_changed") return;
+
+    const agentName = payload.sale.agent.name;
+    highlightAgent(agentName);
+    setLastUpdated(new Date().toLocaleTimeString());
+
+    // Patch leaderboard state directly from payload -- NO API refetch
+    setData(prev => {
+      if (!prev) return prev;
+
+      const premium = payload.sale.premium;
+
+      // Patch todayStats
+      const todayStats = { ...prev.todayStats };
+      const existing = todayStats[agentName] ?? { count: 0, premium: 0 };
+      todayStats[agentName] = { count: existing.count + 1, premium: existing.premium + premium };
+
+      // Patch weeklyTotals
+      const weeklyTotals = { ...prev.weeklyTotals };
+      const wt = weeklyTotals[agentName] ?? { count: 0, premium: 0 };
+      weeklyTotals[agentName] = { count: wt.count + 1, premium: wt.premium + premium };
+
+      // Patch weeklyDays: find today's day label and increment
+      const saleDate = new Date(payload.sale.saleDate + "T12:00:00");
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const todayLabel = dayNames[saleDate.getDay()];
+      const weeklyDays = prev.weeklyDays.map(day => {
+        if (day.label !== todayLabel) return day;
+        const agents = { ...day.agents };
+        const ds = agents[agentName] ?? { count: 0, premium: 0 };
+        agents[agentName] = { count: ds.count + 1, premium: ds.premium + premium };
+        return { ...day, agents, totalSales: day.totalSales + 1, totalPremium: day.totalPremium + premium };
+      });
+
+      // Add agent to list if not present
+      const agents = prev.agents.includes(agentName) ? prev.agents : [...prev.agents, agentName];
+
+      // Re-sort agents by weekly premium descending
+      agents.sort((a, b) => (weeklyTotals[b]?.premium ?? 0) - (weeklyTotals[a]?.premium ?? 0));
+
+      return {
+        ...prev,
+        agents,
+        todayStats,
+        weeklyTotals,
+        weeklyDays,
+        grandTotalSales: prev.grandTotalSales + 1,
+        grandTotalPremium: prev.grandTotalPremium + premium,
+      };
+    });
+  }, [highlightAgent]);
+
+  const { disconnected } = useSocket(API, handleSaleChanged, refresh);
 
   useEffect(() => {
     refresh();
-    const poll = setInterval(refresh, INTERVAL);
-    const cd = setInterval(() => setTick((t) => Math.max(0, t - 1)), 1000);
-    return () => {
-      clearInterval(poll);
-      clearInterval(cd);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -721,9 +786,6 @@ export default function SalesBoard() {
   const totalPremToday = data
     ? Object.values(data.todayStats).reduce((s, v) => s + v.premium, 0)
     : 0;
-
-  /* Progress ring: tick out of 30s */
-  const ringProgress = (tick / (INTERVAL / 1000)) * 100;
 
   return (
     <main
@@ -744,6 +806,7 @@ export default function SalesBoard() {
           marginBottom: 0,
         }}
       />
+      {disconnected && <div style={DISCONNECT_BANNER}>Connection lost. Reconnecting...</div>}
 
       {/* ── Hero Header ─────────────────────────────────────────── */}
       <div
@@ -818,34 +881,10 @@ export default function SalesBoard() {
               </Badge>
             </div>
 
-            {/* Countdown ring */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: spacing[2],
-              }}
-            >
-              <ProgressRing
-                progress={ringProgress}
-                size={28}
-                strokeWidth={2.5}
-                color="#22c55e"
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  color: colors.textMuted,
-                  fontWeight: 600,
-                  minWidth: 48,
-                }}
-              >
-                {tick}s
-              </span>
-              <span style={{ fontSize: 11, color: colors.textMuted }}>
-                Updated {lastUpdated}
-              </span>
-            </div>
+            {/* Real-time status */}
+            <span style={{ fontSize: 11, color: colors.textMuted }}>
+              Updated {lastUpdated}
+            </span>
           </div>
         </div>
 
@@ -1094,9 +1133,9 @@ export default function SalesBoard() {
           />
         </div>
       ) : view === "weekly" ? (
-        <WeeklyView key="weekly" data={data} />
+        <WeeklyView key="weekly" data={data} highlightedAgentNames={highlightedAgentNames} />
       ) : (
-        <DailyView key="daily" data={data} />
+        <DailyView key="daily" data={data} highlightedAgentNames={highlightedAgentNames} />
       )}
     </main>
   );
