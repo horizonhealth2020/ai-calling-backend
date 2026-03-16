@@ -44,10 +44,21 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type ActiveSection = "dashboard" | "config" | "users";
 type Range = "today" | "week" | "month";
-type Summary = { salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number };
+type Summary = {
+  salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number;
+  trends: { salesCount: { priorWeek: number; priorMonth: number }; premiumTotal: { priorWeek: number; priorMonth: number }; clawbacks: { priorWeek: number; priorMonth: number } } | null;
+};
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
+type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; periodStatus?: string };
 type User = { id: string; name: string; email: string; roles: string[]; active: boolean; createdAt: string };
 type AgentInfo = { id: string; name: string; email?: string; active?: boolean; auditEnabled?: boolean };
+
+function computeTrend(current: number, prior: number): { value: number; direction: "up" | "down" | "flat" } {
+  if (prior === 0) return current > 0 ? { value: 100, direction: "up" } : { value: 0, direction: "flat" };
+  const pct = Math.round(((current - prior) / prior) * 100);
+  if (pct === 0) return { value: 0, direction: "flat" };
+  return { value: Math.abs(pct), direction: pct > 0 ? "up" : "down" };
+}
 
 const ROLES = ["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"] as const;
 
@@ -462,12 +473,18 @@ function DashboardSection({
   range,
   onRangeChange,
   highlightedCards,
+  periods,
+  periodView,
+  onPeriodViewChange,
 }: {
   summary: Summary | null;
   tracker: TrackerEntry[];
   range: Range;
   onRangeChange: (r: Range) => void;
   highlightedCards: Set<string>;
+  periods: PeriodSummary[];
+  periodView: "weekly" | "monthly";
+  onPeriodViewChange: (v: "weekly" | "monthly") => void;
 }) {
   const sortedTracker = [...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal);
 
@@ -494,6 +511,7 @@ function DashboardSection({
           accent={colors.accentTeal}
           className="stagger-1"
           style={{ borderTop: `3px solid ${colors.accentTeal}`, transition: "box-shadow 1.5s ease-out", ...(highlightedCards.has("salesCount") ? HIGHLIGHT_GLOW : {}) }}
+          trend={summary?.trends ? computeTrend(summary.salesCount, summary.trends.salesCount.priorWeek) : undefined}
         />
         <StatCard
           label="Premium Total"
@@ -502,6 +520,7 @@ function DashboardSection({
           accent={colors.success}
           className="stagger-2"
           style={{ borderTop: `3px solid ${colors.success}`, transition: "box-shadow 1.5s ease-out", ...(highlightedCards.has("premiumTotal") ? HIGHLIGHT_GLOW : {}) }}
+          trend={summary?.trends ? computeTrend(Number(summary.premiumTotal), summary.trends.premiumTotal.priorWeek) : undefined}
         />
         <StatCard
           label="Chargebacks"
@@ -510,6 +529,7 @@ function DashboardSection({
           accent={colors.danger}
           className="stagger-3"
           style={{ borderTop: `3px solid ${colors.danger}` }}
+          trend={summary?.trends ? computeTrend(summary.clawbacks, summary.trends.clawbacks.priorWeek) : undefined}
         />
         <StatCard
           label="Open Payroll"
@@ -544,12 +564,13 @@ function DashboardSection({
                 <th style={{ ...TH, textAlign: "right" }}>Premium</th>
                 <th style={{ ...TH, textAlign: "right" }}>Avg / Sale</th>
                 <th style={{ ...TH, textAlign: "right" }}>Cost / Sale</th>
+                <th style={{ ...TH, textAlign: "right" }}>Commission</th>
               </tr>
             </thead>
             <tbody>
               {sortedTracker.length === 0 && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <EmptyState
                       icon={<BarChart3 size={32} />}
                       title="No agent data yet"
@@ -611,9 +632,68 @@ function DashboardSection({
                     <td style={{ ...TD, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
                       {row.costPerSale > 0 ? fmt.format(row.costPerSale) : "—"}
                     </td>
+                    <td style={{ ...TD, textAlign: "right", fontWeight: typography.weights.bold, color: colors.accentTeal }}>
+                      {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
+                    </td>
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Period Summary */}
+      <div className="animate-fade-in-up stagger-6" style={{ ...CARD, padding: 0, overflow: "hidden", marginTop: 24 }}>
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Clock size={18} color={colors.accentTeal} />
+            <div>
+              <h3 style={SECTION_TITLE}>Period Summary</h3>
+              <p style={SECTION_SUBTITLE}>Aggregate totals by pay period</p>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["weekly", "monthly"] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => onPeriodViewChange(v)}
+                style={{
+                  padding: "6px 14px", borderRadius: radius.md, border: "none", cursor: "pointer",
+                  fontSize: 12, fontWeight: 600, textTransform: "capitalize",
+                  background: periodView === v ? colors.primary500 : colors.bgSurfaceInset,
+                  color: periodView === v ? "#fff" : colors.textSecondary,
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: colors.bgSurfaceInset }}>
+                <th style={TH}>Period</th>
+                <th style={{ ...TH, textAlign: "right" }}>Sales</th>
+                <th style={{ ...TH, textAlign: "right" }}>Premium</th>
+                <th style={{ ...TH, textAlign: "right" }}>Commission</th>
+                {periodView === "weekly" && <th style={TH}>Status</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {periods.length === 0 && (
+                <tr><td colSpan={periodView === "weekly" ? 5 : 4}><EmptyState icon={<Clock size={32} />} title="No period data" description="Period summaries appear once sales are entered." /></td></tr>
+              )}
+              {periods.map(p => (
+                <tr key={p.period} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
+                  <td style={TD}>{p.period}</td>
+                  <td style={{ ...TD, textAlign: "right", fontWeight: typography.weights.bold }}>{p.salesCount}</td>
+                  <td style={{ ...TD, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
+                  <td style={{ ...TD, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
+                  {periodView === "weekly" && <td style={TD}><Badge color={p.periodStatus === "OPEN" ? colors.success : colors.textMuted} variant="subtle" size="sm">{p.periodStatus}</Badge></td>}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -1103,6 +1183,10 @@ function OwnerDashboardInner() {
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
 
+  // Period summary state
+  const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
+  const [periods, setPeriods] = useState<PeriodSummary[]>([]);
+
   // AI Prompts state
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
@@ -1131,15 +1215,24 @@ function OwnerDashboardInner() {
       authFetch(`${API}/api/owner/summary?range=${r}`).then((res) => res.ok ? res.json() : null).catch(() => null),
       authFetch(`${API}/api/tracker/summary?range=${r}`).then((res) => res.ok ? res.json() : []).catch(() => []),
       authFetch(`${API}/api/session/me`).then((res) => res.ok ? res.json() : null).catch(() => null),
-    ]).then(([s, t, me]) => {
+      authFetch(`${API}/api/reporting/periods?view=${periodView}`).then(res => res.ok ? res.json() : { periods: [] }).catch(() => ({ periods: [] })),
+    ]).then(([s, t, me, periodData]) => {
       setSummary(s);
       setTracker(t);
+      setPeriods(periodData.periods ?? []);
       if (me?.roles?.includes("SUPER_ADMIN")) setIsSuperAdmin(true);
       setLoading(false);
     });
-  }, []);
+  }, [periodView]);
 
   useEffect(() => { fetchData(range); }, [range, fetchData]);
+
+  useEffect(() => {
+    authFetch(`${API}/api/reporting/periods?view=${periodView}`)
+      .then(res => res.ok ? res.json() : { periods: [] })
+      .then(data => setPeriods(data.periods ?? []))
+      .catch(() => {});
+  }, [periodView]);
 
   // Socket.IO: real-time KPI patching
   const [highlightedCards, setHighlightedCards] = useState<Set<string>>(new Set());
@@ -1188,6 +1281,7 @@ function OwnerDashboardInner() {
         premiumTotal: payload.sale.premium,
         totalLeadCost: 0,
         costPerSale: 0,
+        commissionTotal: 0,
       }];
     });
   }, []);
@@ -1278,6 +1372,9 @@ function OwnerDashboardInner() {
               range={range}
               onRangeChange={(r) => setRange(r)}
               highlightedCards={highlightedCards}
+              periods={periods}
+              periodView={periodView}
+              onPeriodViewChange={setPeriodView}
             />
           )}
         </div>
