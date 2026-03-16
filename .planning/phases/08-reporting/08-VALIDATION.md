@@ -40,8 +40,8 @@ created: 2026-03-16
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 08-01-01 | 01 | 1 | REPT-01, REPT-02 | integration | `npm test -- --testPathPattern=reporting` | ❌ W0 | ⬜ pending |
 | 08-01-02 | 01 | 1 | REPT-03 | integration | `npm test -- --testPathPattern=reporting` | ❌ W0 | ⬜ pending |
-| 08-02-01 | 02 | 1 | REPT-05 | integration | `npm test -- --testPathPattern=reporting` | ❌ W0 | ⬜ pending |
-| 08-02-02 | 02 | 1 | REPT-04 | manual | Browser CSV download | N/A | ⬜ pending |
+| 08-02-01 | 02 | 2 | REPT-05 | typecheck | `cd apps/owner-dashboard && npx tsc --noEmit` | N/A | ⬜ pending |
+| 08-02-02 | 02 | 2 | REPT-03, REPT-04 | typecheck + manual | `cd apps/manager-dashboard && npx tsc --noEmit` + browser CSV download | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,7 +49,7 @@ created: 2026-03-16
 
 ## Wave 0 Requirements
 
-- [ ] `__tests__/reporting.test.js` — stubs for REPT-01, REPT-02, REPT-03, REPT-05
+- [ ] `apps/ops-api/src/services/__tests__/reporting.test.ts` — stubs for REPT-01, REPT-02, REPT-03, REPT-05
 - [ ] Test fixtures for agent/sale/payroll entry test data
 
 *Existing jest infrastructure covers framework needs.*
@@ -62,6 +62,7 @@ created: 2026-03-16
 |----------|-------------|------------|-------------------|
 | CSV downloads correctly in browser | REPT-04 | Requires browser download API | Click export button, verify CSV opens with correct columns |
 | StatCard trend arrows render correctly | REPT-05 | Visual rendering | Check owner dashboard StatCards show colored arrows with percentages |
+| Period summary displays on both dashboards | REPT-03 | Visual rendering | Check both owner and manager dashboards show period summary table with weekly/monthly toggle |
 
 ---
 
