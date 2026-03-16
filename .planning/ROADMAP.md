@@ -90,7 +90,7 @@ Plans:
 Plans:
 - [ ] 05-01-PLAN.md -- SaleEditRequest schema, preview endpoint, extended PATCH with role-based approval, sale-edit-request CRUD
 - [ ] 05-02-PLAN.md -- Manager dashboard commission preview panel and inline sale editing with live diff
-- [ ] 05-03-PLAN.md -- Payroll dashboard pending edit request approvals with field diff display
+- [x] 05-03-PLAN.md -- Payroll dashboard pending edit request approvals with field diff display
 
 ### Phase 6: Dashboard Cascade
 **Goal**: A sale entered on the manager dashboard appears on all other dashboards in real-time without page refresh
@@ -145,7 +145,7 @@ Plans:
 | 2. Commission Engine Core | 4/4 | Complete | 2026-03-15 |
 | 3. Commission Fees & Period Assignment | 2/2 | Complete | 2026-03-15 |
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
-| 5. Commission Preview & Sale Editing | 0/3 | Planning | - |
+| 5. Commission Preview & Sale Editing | 1/3 | In Progress | - |
 | 6. Dashboard Cascade | 0/? | Not started | - |
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
