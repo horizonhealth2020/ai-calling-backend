@@ -1,6 +1,7 @@
 export { Card } from "./Card";
 export { Button } from "./Button";
 export { Input } from "./Input";
+export { Select } from "./Select";
 export { Badge } from "./Badge";
 export { TabNav } from "./TabNav";
 export { SkeletonLine, SkeletonCard, SkeletonTable } from "./Skeleton";

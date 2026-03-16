@@ -162,6 +162,25 @@ export const baseLabelStyle: React.CSSProperties = {
   display: "block",
 };
 
+export const baseThStyle: React.CSSProperties = {
+  padding: "10px 14px",
+  textAlign: "left",
+  fontSize: 11,
+  fontWeight: 700,
+  color: colors.textTertiary,
+  textTransform: "uppercase",
+  letterSpacing: typography.tracking.caps,
+  borderBottom: `1px solid ${colors.borderSubtle}`,
+  whiteSpace: "nowrap",
+};
+
+export const baseTdStyle: React.CSSProperties = {
+  padding: "12px 14px",
+  fontSize: 13,
+  color: colors.textSecondary,
+  borderBottom: `1px solid ${colors.borderSubtle}`,
+};
+
 export const baseButtonStyle: React.CSSProperties = {
   padding: "10px 20px",
   border: "none",
