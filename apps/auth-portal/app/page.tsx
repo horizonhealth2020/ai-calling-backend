@@ -1,6 +1,7 @@
 "use client";
 import { useState, FormEvent } from "react";
 import { Mail, Lock, Eye, EyeOff, KeyRound, LogIn, ArrowLeft } from "lucide-react";
+import { Input, Button, Card } from "@ops/ui";
 import {
   colors,
   spacing,
@@ -8,9 +9,7 @@ import {
   shadows,
   typography,
   motion,
-  baseInputStyle,
   baseLabelStyle,
-  baseButtonStyle,
 } from "@ops/ui";
 
 /* ── Static style constants ─────────────────────────────────── */
@@ -81,14 +80,6 @@ const SUBTITLE: React.CSSProperties = {
   fontWeight: typography.weights.medium,
 };
 
-const FORM_CARD: React.CSSProperties = {
-  background: colors.bgSurface,
-  border: `1px solid ${colors.borderDefault}`,
-  borderRadius: radius["2xl"],
-  padding: `${spacing[8]}px ${spacing[6]}px`,
-  boxShadow: shadows.xl,
-};
-
 const FIELD: React.CSSProperties = {
   marginBottom: spacing[5],
   textAlign: "left",
@@ -109,15 +100,20 @@ const INPUT_ICON: React.CSSProperties = {
   alignItems: "center",
 };
 
-const INPUT: React.CSSProperties = {
-  ...baseInputStyle,
-  paddingLeft: 38,
-  boxSizing: "border-box",
-};
-
 const INPUT_PASSWORD: React.CSSProperties = {
-  ...INPUT,
+  padding: "10px 14px",
+  background: colors.bgSurfaceInset,
+  border: `1px solid ${colors.borderDefault}`,
+  borderRadius: radius.md,
+  color: colors.textPrimary,
+  fontSize: 14,
+  lineHeight: "1.6",
+  outline: "none",
+  transition: `border-color ${motion.duration.fast} ${motion.easing.out}, box-shadow ${motion.duration.fast} ${motion.easing.out}`,
+  width: "100%",
+  paddingLeft: 38,
   paddingRight: 42,
+  boxSizing: "border-box",
 };
 
 const EYE_BTN: React.CSSProperties = {
@@ -133,27 +129,6 @@ const EYE_BTN: React.CSSProperties = {
   borderRadius: radius.sm,
   lineHeight: 0,
   transition: `color ${motion.duration.fast} ${motion.easing.out}`,
-};
-
-const SUBMIT_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  width: "100%",
-  minHeight: 44,
-  background: colors.accentGradient,
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: typography.weights.semibold,
-  borderRadius: radius.lg,
-  boxSizing: "border-box",
-  letterSpacing: "0.01em",
-  gap: spacing[2],
-};
-
-const SUBMIT_BTN_DISABLED: React.CSSProperties = {
-  ...SUBMIT_BTN,
-  background: colors.bgSurfaceRaised,
-  color: colors.textMuted,
-  cursor: "not-allowed",
 };
 
 const ERROR_BOX: React.CSSProperties = {
@@ -180,17 +155,6 @@ const SUCCESS_BOX: React.CSSProperties = {
   textAlign: "center",
 };
 
-const GHOST_BTN: React.CSSProperties = {
-  ...baseButtonStyle,
-  background: "none",
-  border: `1px solid ${colors.borderDefault}`,
-  color: colors.textTertiary,
-  fontSize: 13,
-  marginTop: spacing[4],
-  width: "100%",
-  borderRadius: radius.lg,
-};
-
 const FOOTER_TEXT: React.CSSProperties = {
   marginTop: spacing[5],
   textAlign: "center",
@@ -200,25 +164,6 @@ const FOOTER_TEXT: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
-/* ── Spinner ─────────────────────────────────────────────────── */
-
-function Spinner() {
-  return (
-    <span
-      className="animate-spin"
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: "50%",
-        border: `2px solid rgba(255,255,255,0.25)`,
-        borderTopColor: "#fff",
-        display: "inline-block",
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
 /* ── Password input with show/hide toggle ───────────────────── */
 
 function PasswordInput({
@@ -227,41 +172,49 @@ function PasswordInput({
   placeholder,
   autoComplete,
   minLength,
+  error,
 }: {
   id: string;
   name: string;
   placeholder?: string;
   autoComplete?: string;
   minLength?: number;
+  error?: string;
 }) {
   const [visible, setVisible] = useState(false);
 
   return (
-    <div style={INPUT_WRAP}>
-      <span style={INPUT_ICON}>
-        <Lock size={15} />
-      </span>
-      <input
-        id={id}
-        name={name}
-        type={visible ? "text" : "password"}
-        required
-        minLength={minLength}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        style={INPUT_PASSWORD}
-        className="input-focus"
-      />
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label={visible ? "Hide password" : "Show password"}
-        onClick={() => setVisible((v) => !v)}
-        style={EYE_BTN}
-      >
-        {visible ? <EyeOff size={15} /> : <Eye size={15} />}
-      </button>
-    </div>
+    <>
+      <div style={INPUT_WRAP}>
+        <span style={INPUT_ICON}>
+          <Lock size={15} />
+        </span>
+        <input
+          id={id}
+          name={name}
+          type={visible ? "text" : "password"}
+          required
+          minLength={minLength}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          style={{
+            ...INPUT_PASSWORD,
+            borderColor: error ? colors.danger : undefined,
+          }}
+          className="input-focus"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={visible ? "Hide password" : "Show password"}
+          onClick={() => setVisible((v) => !v)}
+          style={EYE_BTN}
+        >
+          {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      </div>
+      {error && <span style={{ fontSize: 12, color: colors.danger, marginTop: 4, display: "block" }}>{error}</span>}
+    </>
   );
 }
 
@@ -272,6 +225,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -281,6 +235,12 @@ export default function LoginPage() {
     const form = new FormData(e.currentTarget);
     const email = (form.get("email") as string).trim();
     const password = form.get("password") as string;
+
+    const errors: Record<string, string> = {};
+    if (!email) errors.email = "Enter your email";
+    if (!password) errors.password = "Enter your password";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) { setLoading(false); return; }
 
     let res: Response;
     try {
@@ -304,6 +264,7 @@ export default function LoginPage() {
 
     const data = await res.json();
     if (data.redirect) {
+      setFieldErrors({});
       window.location.href = data.redirect;
     }
   }
@@ -320,11 +281,15 @@ export default function LoginPage() {
     const newPassword = form.get("newPassword") as string;
     const confirmPassword = form.get("confirmPassword") as string;
 
-    if (newPassword !== confirmPassword) {
-      setError("New passwords do not match.");
-      setLoading(false);
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!email) errors.email = "Enter your email";
+    if (!currentPassword) errors.currentPassword = "Enter your current password";
+    if (!newPassword) errors.newPassword = "Enter a new password";
+    else if (newPassword.length < 8) errors.newPassword = "Password must be at least 8 characters";
+    if (!confirmPassword) errors.confirmPassword = "Confirm your new password";
+    else if (newPassword !== confirmPassword) errors.confirmPassword = "Passwords do not match";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) { setLoading(false); return; }
 
     let res: Response;
     try {
@@ -359,6 +324,7 @@ export default function LoginPage() {
     setMode(mode === "login" ? "change-password" : "login");
     setError("");
     setSuccess("");
+    setFieldErrors({});
   }
 
   const isLogin = mode === "login";
@@ -387,29 +353,21 @@ export default function LoginPage() {
         </div>
 
         {/* Form card */}
-        <div style={FORM_CARD} className="animate-fade-in-up stagger-2">
+        <Card style={{ padding: `${spacing[8]}px ${spacing[6]}px`, boxShadow: shadows.xl, borderRadius: radius["2xl"] }} className="animate-fade-in-up stagger-2">
           {isLogin ? (
             <form onSubmit={handleLogin} noValidate>
               {/* Email field */}
               <div style={FIELD} className="animate-fade-in-up stagger-3">
-                <label htmlFor="email" style={baseLabelStyle}>
-                  Email
-                </label>
-                <div style={INPUT_WRAP}>
-                  <span style={INPUT_ICON}>
-                    <Mail size={15} />
-                  </span>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    placeholder="you@company.com"
-                    style={INPUT}
-                    className="input-focus"
-                  />
-                </div>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@company.com"
+                  label="Email"
+                  icon={<Mail size={15} />}
+                  error={fieldErrors.email}
+                />
               </div>
 
               {/* Password field */}
@@ -426,6 +384,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   minLength={8}
+                  error={fieldErrors.password}
                 />
               </div>
 
@@ -437,47 +396,24 @@ export default function LoginPage() {
               )}
 
               {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                style={loading ? SUBMIT_BTN_DISABLED : SUBMIT_BTN}
-                className={loading ? "" : "btn-hover"}
-              >
-                {loading ? (
-                  <>
-                    <Spinner />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <LogIn size={16} />
-                    Sign In
-                  </>
-                )}
-              </button>
+              <Button type="submit" variant="primary" fullWidth loading={loading} icon={<LogIn size={16} />}>
+                Sign In
+              </Button>
             </form>
           ) : (
             <form onSubmit={handleChangePassword} noValidate className="animate-slide-down">
               {/* Email */}
               <div style={FIELD} className="animate-fade-in-up stagger-1">
-                <label htmlFor="cp-email" style={baseLabelStyle}>
-                  Email
-                </label>
-                <div style={INPUT_WRAP}>
-                  <span style={INPUT_ICON}>
-                    <Mail size={15} />
-                  </span>
-                  <input
-                    id="cp-email"
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    placeholder="you@company.com"
-                    style={INPUT}
-                    className="input-focus"
-                  />
-                </div>
+                <Input
+                  id="cp-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@company.com"
+                  label="Email"
+                  icon={<Mail size={15} />}
+                  error={fieldErrors.email}
+                />
               </div>
 
               {/* Current password */}
@@ -491,6 +427,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   minLength={8}
+                  error={fieldErrors.currentPassword}
                 />
               </div>
 
@@ -505,6 +442,7 @@ export default function LoginPage() {
                   autoComplete="new-password"
                   placeholder="Min. 8 characters"
                   minLength={8}
+                  error={fieldErrors.newPassword}
                 />
               </div>
 
@@ -522,6 +460,7 @@ export default function LoginPage() {
                   autoComplete="new-password"
                   placeholder="Repeat new password"
                   minLength={8}
+                  error={fieldErrors.confirmPassword}
                 />
               </div>
 
@@ -538,42 +477,23 @@ export default function LoginPage() {
               )}
 
               {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                style={loading ? SUBMIT_BTN_DISABLED : SUBMIT_BTN}
-                className={loading ? "" : "btn-hover"}
-              >
-                {loading ? (
-                  <>
-                    <Spinner />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <KeyRound size={16} />
-                    Change Password
-                  </>
-                )}
-              </button>
+              <Button type="submit" variant="primary" fullWidth loading={loading} icon={<KeyRound size={16} />}>
+                Change Password
+              </Button>
             </form>
           )}
-        </div>
+        </Card>
 
         {/* Toggle mode */}
-        <button onClick={switchMode} style={GHOST_BTN} className="btn-hover">
-          {isLogin ? (
-            <>
-              <KeyRound size={14} />
-              Change Password
-            </>
-          ) : (
-            <>
-              <ArrowLeft size={14} />
-              Back to Sign In
-            </>
-          )}
-        </button>
+        <Button
+          variant="ghost"
+          fullWidth
+          onClick={switchMode}
+          style={{ marginTop: spacing[4], border: `1px solid ${colors.borderDefault}`, borderRadius: radius.lg }}
+          icon={isLogin ? <KeyRound size={14} /> : <ArrowLeft size={14} />}
+        >
+          {isLogin ? "Change Password" : "Back to Sign In"}
+        </Button>
 
         <p style={FOOTER_TEXT}>Horizon Health Operations</p>
       </div>
