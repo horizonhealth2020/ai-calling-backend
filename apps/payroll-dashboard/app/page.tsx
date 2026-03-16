@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
-import { PageShell, Badge, AnimatedNumber, SkeletonCard } from "@ops/ui";
-import { colors, spacing, radius, shadows, motion, baseCardStyle, baseInputStyle, baseLabelStyle, baseButtonStyle } from "@ops/ui";
+import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, ToastProvider, useToast } from "@ops/ui";
+import { colors, spacing, radius, shadows, motion, baseCardStyle, baseInputStyle, baseLabelStyle } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
@@ -104,44 +104,6 @@ const SMALL_INP: React.CSSProperties = {
 
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
-const BTN_PRIMARY: React.CSSProperties = {
-  ...baseButtonStyle,
-  background: C.primary600,
-  color: "#fff",
-};
-
-const BTN_SUCCESS: React.CSSProperties = {
-  ...baseButtonStyle,
-  background: "#059669",
-  color: "#fff",
-};
-
-const BTN_DANGER: React.CSSProperties = {
-  ...baseButtonStyle,
-  background: "#dc2626",
-  color: "#fff",
-};
-
-const BTN_GHOST: React.CSSProperties = {
-  ...baseButtonStyle,
-  background: "transparent",
-  border: `1px solid ${C.borderDefault}`,
-  color: C.textSecondary,
-};
-
-const BTN_WARNING: React.CSSProperties = {
-  ...baseButtonStyle,
-  background: "rgba(251,191,36,0.12)",
-  border: "1px solid rgba(251,191,36,0.25)",
-  color: C.warning,
-};
-
-const BTN_ICON: React.CSSProperties = {
-  ...baseButtonStyle,
-  padding: "6px 10px",
-  fontSize: 12,
-  gap: 4,
-};
 
 const TH: React.CSSProperties = {
   padding: "10px 10px",
@@ -441,8 +403,9 @@ function EditableSaleRow({
       <td style={TD_C}>
         {isPaid ? null : editSale ? (
           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-            <button
-              className="btn-hover"
+            <Button
+              variant="success"
+              size="sm"
               disabled={saving}
               onClick={async () => {
                 setSaving(true);
@@ -456,53 +419,54 @@ function EditableSaleRow({
                 });
                 setEditSale(false); setSaving(false);
               }}
-              style={{ ...BTN_ICON, background: "#059669", color: "#fff", border: "none" }}
             >
               <Save size={12} /> Save
-            </button>
-            <button
-              className="btn-hover"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setEditSale(false)}
-              style={{ ...BTN_ICON, ...BTN_GHOST }}
             >
               <X size={12} />
-            </button>
+            </Button>
           </div>
         ) : (
           <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center" }}>
-            <button
-              className="btn-hover"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setEditSale(true)}
-              style={{ ...BTN_ICON, ...BTN_GHOST }}
             >
               <Edit3 size={12} /> Edit
-            </button>
+            </Button>
             {needsApproval && (
-              <button
-                className="btn-hover"
+              <Button
+                variant="success"
+                size="sm"
                 onClick={() => onApprove(entry.sale!.id)}
-                style={{ ...BTN_ICON, background: "#059669", color: "#fff", border: "none" }}
               >
                 <CheckCircle size={12} /> Approve
-              </button>
+              </Button>
             )}
             {isApproved && (
-              <button
-                className="btn-hover"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => onUnapprove(entry.sale!.id)}
-                style={{ ...BTN_ICON, ...BTN_WARNING }}
+                style={{ background: "rgba(251,191,36,0.12)", color: C.warning, border: "1px solid rgba(251,191,36,0.25)" }}
               >
                 <XCircle size={12} /> Unapprove
-              </button>
+              </Button>
             )}
             {entry.sale && (
-              <button
-                className="btn-hover"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => onDelete(entry.sale!.id)}
-                style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
               >
                 <Trash2 size={12} />
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -583,20 +547,21 @@ function ProductCard({
                 </span>
               </div>
               <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
-                <button
-                  className="btn-hover"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setEdit(true)}
-                  style={{ ...BTN_ICON, ...BTN_GHOST }}
                 >
                   <Edit3 size={12} /> Edit
-                </button>
-                <button
-                  className="btn-hover"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
-                  style={{ ...BTN_ICON, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: C.danger }}
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: C.danger }}
                 >
                   <Trash2 size={12} />
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -633,20 +598,20 @@ function ProductCard({
                   Delete &ldquo;{product.name}&rdquo;? This will deactivate it.
                 </span>
                 <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
-                  <button
-                    className="btn-hover"
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => { onDelete(product.id); setShowDeleteConfirm(false); }}
-                    style={{ ...BTN_ICON, background: "#dc2626", color: "#fff", border: "none" }}
                   >
                     <Trash2 size={11} /> Delete
-                  </button>
-                  <button
-                    className="btn-hover"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setShowDeleteConfirm(false)}
-                    style={{ ...BTN_ICON, ...BTN_GHOST }}
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -692,10 +657,10 @@ function ProductCard({
             </div>
 
             <div style={{ display: "flex", gap: S[2] }}>
-              <button className="btn-hover" style={BTN_SUCCESS} disabled={saving} onClick={handleSave}>
-                <Save size={14} /> {saving ? "Saving…" : "Save"}
-              </button>
-              <button className="btn-hover" style={BTN_GHOST} onClick={() => setEdit(false)}>Cancel</button>
+              <Button variant="success" disabled={saving} onClick={handleSave}>
+                <Save size={14} /> {saving ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" onClick={() => setEdit(false)}>Cancel</Button>
             </div>
           </div>
         )}
@@ -730,18 +695,17 @@ function ServiceAgentCard({
               {!agent.active && <span style={{ marginLeft: 6, color: C.textMuted }}> · Inactive</span>}
             </div>
           </div>
-          <button className="btn-hover" onClick={() => setEdit(true)} style={{ ...BTN_ICON, ...BTN_GHOST, flexShrink: 0 }}>
+          <Button variant="ghost" size="sm" onClick={() => setEdit(true)} style={{ flexShrink: 0 }}>
             <Edit3 size={12} /> Edit
-          </button>
+          </Button>
         </>
       ) : (
         <div style={{ display: "grid", gap: S[2], width: "100%" }}>
           <input className="input-focus" style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
           <input className="input-focus" style={INP} type="number" step="0.01" value={d.basePay} placeholder="Base Pay ($)" onChange={e => setD(x => ({ ...x, basePay: e.target.value }))} />
           <div style={{ display: "flex", gap: S[2] }}>
-            <button
-              className="btn-hover"
-              style={BTN_SUCCESS}
+            <Button
+              variant="success"
               disabled={saving}
               onClick={async () => {
                 setSaving(true);
@@ -749,9 +713,9 @@ function ServiceAgentCard({
                 setEdit(false); setSaving(false);
               }}
             >
-              <Save size={13} /> {saving ? "Saving…" : "Save"}
-            </button>
-            <button className="btn-hover" style={BTN_GHOST} onClick={() => setEdit(false)}>Cancel</button>
+              <Save size={13} /> {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="ghost" onClick={() => setEdit(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -913,23 +877,24 @@ function AgentPayCard({
           </span>
         </div>
         <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
-          <button
-            className="btn-hover"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onPrint}
-            style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+            style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
           >
             <Printer size={11} /> Print
-          </button>
+          </Button>
           {entries.every(e => e.status === "PAID") ? (
-            <button className="btn-hover" onClick={onMarkUnpaid}
-              style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}>
+            <Button variant="ghost" size="sm" onClick={onMarkUnpaid}
+              style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}>
               <CheckCircle size={11} /> Paid
-            </button>
+            </Button>
           ) : (
-            <button className="btn-hover" onClick={onMarkPaid}
-              style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+            <Button variant="ghost" size="sm" onClick={onMarkPaid}
+              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
               <XCircle size={11} /> Unpaid
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -1149,16 +1114,14 @@ function AgentPayCard({
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button className="btn-hover" disabled={approvingId === req.id}
-                    onClick={() => onApproveChangeRequest(req.id)}
-                    style={{ ...BTN_ICON, background: "#059669", color: "#fff", border: "none", opacity: approvingId === req.id ? 0.6 : 1 }}>
+                  <Button variant="success" size="sm" disabled={approvingId === req.id}
+                    onClick={() => onApproveChangeRequest(req.id)}>
                     <CheckCircle size={11} /> {approvingId === req.id ? "..." : "Approve"}
-                  </button>
-                  <button className="btn-hover" disabled={rejectingId === req.id}
-                    onClick={() => onRejectChangeRequest(req.id)}
-                    style={{ ...BTN_ICON, background: "#dc2626", color: "#fff", border: "none", opacity: rejectingId === req.id ? 0.6 : 1 }}>
+                  </Button>
+                  <Button variant="danger" size="sm" disabled={rejectingId === req.id}
+                    onClick={() => onRejectChangeRequest(req.id)}>
                     <XCircle size={11} /> {rejectingId === req.id ? "..." : "Reject"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -1191,16 +1154,14 @@ function AgentPayCard({
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button className="btn-hover" disabled={approvingEditId === req.id}
-                    onClick={() => onApproveEditRequest(req.id)}
-                    style={{ ...BTN_ICON, background: "#059669", color: "#fff", border: "none", opacity: approvingEditId === req.id ? 0.6 : 1 }}>
+                  <Button variant="success" size="sm" disabled={approvingEditId === req.id}
+                    onClick={() => onApproveEditRequest(req.id)}>
                     <CheckCircle size={11} /> {approvingEditId === req.id ? "..." : "Approve"}
-                  </button>
-                  <button className="btn-hover" disabled={rejectingEditId === req.id}
-                    onClick={() => onRejectEditRequest(req.id)}
-                    style={{ ...BTN_ICON, background: "#dc2626", color: "#fff", border: "none", opacity: rejectingEditId === req.id ? 0.6 : 1 }}>
+                  </Button>
+                  <Button variant="danger" size="sm" disabled={rejectingEditId === req.id}
+                    onClick={() => onRejectEditRequest(req.id)}>
                     <XCircle size={11} /> {rejectingEditId === req.id ? "..." : "Reject"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -1214,6 +1175,15 @@ function AgentPayCard({
 /* ── Main Page ───────────────────────────────────────────────── */
 
 export default function PayrollDashboard() {
+  return (
+    <ToastProvider>
+      <PayrollDashboardInner />
+    </ToastProvider>
+  );
+}
+
+function PayrollDashboardInner() {
+  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("periods");
   const [periods, setPeriods] = useState<Period[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -1378,10 +1348,10 @@ export default function PayrollDashboard() {
         await refreshPeriods();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: any) {
-      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+      toast("error", `Error: Unable to reach API — ${e.message ?? "network error"}`);
     } finally {
       setApprovingId(null);
     }
@@ -1395,10 +1365,10 @@ export default function PayrollDashboard() {
         setPendingRequests(prev => prev.filter(r => r.id !== requestId));
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: any) {
-      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+      toast("error", `Error: Unable to reach API — ${e.message ?? "network error"}`);
     } finally {
       setRejectingId(null);
     }
@@ -1419,10 +1389,10 @@ export default function PayrollDashboard() {
         await refreshPeriods();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: any) {
-      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+      toast("error", `Error: Unable to reach API — ${e.message ?? "network error"}`);
     } finally {
       setApprovingEditId(null);
     }
@@ -1437,10 +1407,10 @@ export default function PayrollDashboard() {
         setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: any) {
-      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+      toast("error", `Error: Unable to reach API — ${e.message ?? "network error"}`);
     } finally {
       setRejectingEditId(null);
     }
@@ -1484,10 +1454,10 @@ export default function PayrollDashboard() {
         await refreshPeriods();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: any) {
-      alert(`Error: Unable to reach API — ${e.message ?? "network error"}`);
+      toast("error", `Error: Unable to reach API — ${e.message ?? "network error"}`);
     }
   }
 
@@ -2018,13 +1988,14 @@ export default function PayrollDashboard() {
                   <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
                     {(p.entries.length > 0 || (p.serviceEntries ?? []).length > 0) && (
                       <div style={{ position: "relative" }}>
-                        <button
-                          className="btn-hover"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={ev => { ev.stopPropagation(); setPrintMenuPeriod(printMenuPeriod === p.id ? null : p.id); }}
-                          style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+                          style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
                         >
                           <Printer size={12} /> Print
-                        </button>
+                        </Button>
                         {printMenuPeriod === p.id && (
                           <div
                             onClick={ev => ev.stopPropagation()}
@@ -2225,29 +2196,32 @@ export default function PayrollDashboard() {
                                 <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
                                   <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>${Number(se.basePay).toFixed(2)}</strong></span>
                                   <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>${Number(se.totalPay).toFixed(2)}</strong></span>
-                                  <button
-                                    className="btn-hover"
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => printServiceCards([se], p, bonusCategories)}
-                                    style={{ ...BTN_ICON, background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+                                    style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
                                   >
                                     <Printer size={11} /> Print
-                                  </button>
+                                  </Button>
                                   {se.status === "PAID" ? (
-                                    <button
-                                      className="btn-hover"
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       onClick={() => markEntriesUnpaid([], [se.id], se.serviceAgent.name)}
-                                      style={{ ...BTN_ICON, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                      style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
                                     >
                                       <CheckCircle size={11} /> Paid
-                                    </button>
+                                    </Button>
                                   ) : (
-                                    <button
-                                      className="btn-hover"
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
-                                      style={{ ...BTN_ICON, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                                      style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
                                     >
                                       <XCircle size={11} /> Unpaid
-                                    </button>
+                                    </Button>
                                   )}
                                 </div>
                               </div>
@@ -2345,9 +2319,9 @@ export default function PayrollDashboard() {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: S[4], flexWrap: "wrap" }}>
-                <button className="btn-hover" type="submit" style={BTN_DANGER}>
+                <Button variant="danger" type="submit">
                   <XCircle size={15} /> Process Chargeback
-                </button>
+                </Button>
                 {chargebackMsg && (
                   <div style={{
                     display: "flex", alignItems: "center", gap: S[2],
@@ -2415,13 +2389,13 @@ export default function PayrollDashboard() {
                   <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary, marginBottom: 4 }}>Summary CSV</div>
                   <div style={{ fontSize: 12, color: C.textMuted }}>Week range, status, entries count, gross and net per period</div>
                 </div>
-                <button
-                  className="btn-hover"
+                <Button
+                  variant="ghost"
                   onClick={() => { setExporting(true); exportCSV(exportRange); setTimeout(() => setExporting(false), 800); }}
-                  style={{ ...BTN_GHOST, flexShrink: 0 }}
+                  style={{ flexShrink: 0 }}
                 >
                   <Download size={14} /> Export
-                </button>
+                </Button>
               </div>
 
               {/* Detailed CSV */}
@@ -2433,13 +2407,13 @@ export default function PayrollDashboard() {
                   <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary, marginBottom: 4 }}>Detailed CSV</div>
                   <div style={{ fontSize: 12, color: C.textMuted }}>Per-entry rows — agent, member, products, fees, commission, bonus, fronted, net</div>
                 </div>
-                <button
-                  className="btn-hover"
+                <Button
+                  variant="primary"
                   onClick={() => { setExporting(true); exportDetailedCSV(exportRange); setTimeout(() => setExporting(false), 800); }}
-                  style={{ ...BTN_PRIMARY, flexShrink: 0 }}
+                  style={{ flexShrink: 0 }}
                 >
                   <Download size={14} /> Export
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -2455,13 +2429,12 @@ export default function PayrollDashboard() {
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.textPrimary }}>Products & Commission</h2>
               <p style={{ color: C.textMuted, fontSize: 13, margin: "4px 0 0" }}>Configure product types and commission rates</p>
             </div>
-            <button
-              className="btn-hover"
+            <Button
+              variant="primary"
               onClick={() => setShowAddProduct(v => !v)}
-              style={{ ...BTN_PRIMARY }}
             >
               <Plus size={14} /> Add Product
-            </button>
+            </Button>
           </div>
 
           {/* Add product form */}
@@ -2499,10 +2472,10 @@ export default function PayrollDashboard() {
                 )}
                 <input className="input-focus" style={INP} value={newProduct.notes} placeholder="Notes (optional)" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} />
                 <div style={{ display: "flex", gap: S[2], alignItems: "center", flexWrap: "wrap" }}>
-                  <button className="btn-hover" type="submit" style={BTN_SUCCESS}>
+                  <Button variant="success" type="submit">
                     <Plus size={14} /> Add Product
-                  </button>
-                  <button className="btn-hover" type="button" onClick={() => setShowAddProduct(false)} style={BTN_GHOST}>Cancel</button>
+                  </Button>
+                  <Button variant="ghost" type="button" onClick={() => setShowAddProduct(false)}>Cancel</Button>
                   {cfgMsg && (
                     <span style={{ color: cfgMsg.startsWith("Error") ? C.danger : C.success, fontWeight: 600, fontSize: 13 }}>
                       {cfgMsg}
@@ -2579,9 +2552,9 @@ export default function PayrollDashboard() {
                 </div>
                 <input className="input-focus" style={INP} value={newServiceAgent.name} placeholder="Full name *" required onChange={e => setNewServiceAgent(x => ({ ...x, name: e.target.value }))} />
                 <input className="input-focus" style={INP} type="number" step="0.01" value={newServiceAgent.basePay} placeholder="Base Pay ($) *" required onChange={e => setNewServiceAgent(x => ({ ...x, basePay: e.target.value }))} />
-                <button className="btn-hover" type="submit" style={BTN_SUCCESS}>
+                <Button variant="success" type="submit">
                   <Plus size={13} /> Add Agent
-                </button>
+                </Button>
               </form>
             </div>
 
@@ -2613,13 +2586,14 @@ export default function PayrollDashboard() {
                     <Badge color={cat.isDeduction ? C.danger : C.success} dot>
                       {cat.isDeduction ? "Deduction" : "Bonus"}
                     </Badge>
-                    <button
-                      className="btn-hover"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => saveBonusCategories(bonusCategories.filter((_, j) => j !== i))}
-                      style={{ ...BTN_ICON, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)", color: C.danger, padding: "4px 8px" }}
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)", color: C.danger, padding: "4px 8px" }}
                     >
                       <Trash2 size={11} />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -2644,18 +2618,17 @@ export default function PayrollDashboard() {
                     <input type="checkbox" checked={newCatDeduction} onChange={e => setNewCatDeduction(e.target.checked)} />
                     Deduction
                   </label>
-                  <button
-                    className="btn-hover"
+                  <Button
+                    variant="success"
                     type="button"
                     onClick={() => {
                       if (!newCatName.trim()) return;
                       saveBonusCategories([...bonusCategories, { name: newCatName.trim(), isDeduction: newCatDeduction }]);
                       setNewCatName(""); setNewCatDeduction(false);
                     }}
-                    style={BTN_SUCCESS}
                   >
                     <Plus size={13} /> Add
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -2768,14 +2741,14 @@ export default function PayrollDashboard() {
                             <AnimatedNumber value={total} prefix="$" decimals={2} />
                           </td>
                           <td style={TD_C}>
-                            <button
-                              className="btn-hover"
+                            <Button
+                              variant="primary"
+                              size="sm"
                               type="button"
                               onClick={() => submitServiceBonus(agent.id)}
-                              style={{ ...BTN_ICON, ...BTN_PRIMARY }}
                             >
                               <Save size={12} /> Save
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
