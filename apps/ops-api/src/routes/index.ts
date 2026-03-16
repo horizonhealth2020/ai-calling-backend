@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/auth";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, handleSaleEditApproval } from "../services/payroll";
+import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, handleSaleEditApproval, isAgentPaidInPeriod } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
 import { enqueueAuditJob } from "../services/auditQueue";
@@ -906,6 +906,11 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.payrollEntry.findUnique({ where: { id: req.params.id } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
+  // Guard: reject edits if agent is already marked paid in this period
+  const agentPaid = await isAgentPaidInPeriod(entry.agentId, entry.payrollPeriodId);
+  if (agentPaid) {
+    return res.status(400).json({ error: "Agent already marked paid for this period" });
+  }
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
   const hold = parsed.data.holdAmount ?? Number(entry.holdAmount);
