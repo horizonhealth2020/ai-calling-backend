@@ -218,7 +218,7 @@ const NAV_ITEMS = [
 /* ── Editable Sale Row ───────────────────────────────────────── */
 
 function EditableSaleRow({
-  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete, products, highlighted,
+  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete, products, highlighted, isPaid, isLate,
 }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
@@ -228,6 +228,8 @@ function EditableSaleRow({
   onDelete: (saleId: string) => Promise<void>;
   products: Product[];
   highlighted?: boolean;
+  isPaid?: boolean;
+  isLate?: boolean;
 }) {
   const [editSale, setEditSale] = useState(false);
   const [saleData, setSaleData] = useState({
@@ -263,7 +265,13 @@ function EditableSaleRow({
   return (
     <tr
       className="row-hover"
-      style={{ borderTop: `1px solid ${C.borderSubtle}`, ...rowBg, transition: "box-shadow 1.5s ease-out", ...(highlighted ? HIGHLIGHT_GLOW : {}) }}
+      style={{
+        borderTop: `1px solid ${C.borderSubtle}`,
+        ...rowBg,
+        transition: "box-shadow 1.5s ease-out",
+        ...(highlighted ? HIGHLIGHT_GLOW : {}),
+        ...(isLate ? { borderLeft: "3px solid #fbbf24", background: "rgba(251,191,36,0.04)" } : {}),
+      }}
     >
       <td style={TD}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "—"}</span></td>
 
@@ -277,6 +285,14 @@ function EditableSaleRow({
         }}>
           {statusCfg.label}
         </span>
+        {isLate && (
+          <span style={{
+            display: "block", fontSize: 11, color: "#fbbf24",
+            fontWeight: 700, marginTop: 2,
+          }}>
+            Arrived after paid
+          </span>
+        )}
       </td>
 
       <td style={TD}>
@@ -367,10 +383,12 @@ function EditableSaleRow({
       <td style={{ ...TD_R, padding: "8px 6px" }}>
         <input
           className="input-focus"
+          disabled={isPaid}
           style={{
             ...SMALL_INP, width: 78,
             background: Number(bonus) > 0 ? "rgba(52,211,153,0.10)" : SMALL_INP.background,
             color: Number(bonus) > 0 ? C.success : C.textPrimary,
+            ...(isPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
           }}
           type="number" step="0.01" value={bonus}
           onChange={e => setBonus(e.target.value)}
@@ -382,10 +400,12 @@ function EditableSaleRow({
       <td style={{ ...TD_R, padding: "8px 6px" }}>
         <input
           className="input-focus"
+          disabled={isPaid}
           style={{
             ...SMALL_INP, width: 78,
             background: Number(fronted) > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
             color: Number(fronted) > 0 ? C.danger : C.textPrimary,
+            ...(isPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
           }}
           type="number" step="0.01" value={fronted}
           onChange={e => setFronted(e.target.value)}
@@ -397,10 +417,12 @@ function EditableSaleRow({
       <td style={{ ...TD_R, padding: "8px 6px" }}>
         <input
           className="input-focus"
+          disabled={isPaid}
           style={{
             ...SMALL_INP, width: 78,
             background: Number(hold) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
             color: Number(hold) > 0 ? C.warning : C.textPrimary,
+            ...(isPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
           }}
           type="number" step="0.01" value={hold}
           onChange={e => setHold(e.target.value)}
@@ -417,7 +439,7 @@ function EditableSaleRow({
 
       {/* Actions */}
       <td style={TD_C}>
-        {editSale ? (
+        {isPaid ? null : editSale ? (
           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
             <button
               className="btn-hover"
@@ -822,6 +844,10 @@ function AgentPayCard({
   const visibleEntries = showAllEntries ? entries : entries.slice(0, COLLAPSED_LIMIT);
   const hiddenCount = entries.length - COLLAPSED_LIMIT;
 
+  const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED");
+  const hasPaidSiblings = entries.some(e => e.status === "PAID");
+  const isLateEntry = (e: Entry) => e.status === "PENDING" && hasPaidSiblings;
+
   const [headerBonus, setHeaderBonus] = useState(String(totalBonus.toFixed(2)));
   const [headerFronted, setHeaderFronted] = useState(String(totalFronted.toFixed(2)));
   const [headerHold, setHeaderHold] = useState(String(totalHold.toFixed(2)));
@@ -868,6 +894,8 @@ function AgentPayCard({
       background: C.bgSurfaceRaised,
       border: `1px solid ${isTopEarner ? "rgba(20,184,166,0.25)" : C.borderSubtle}`,
       borderRadius: R.xl,
+      opacity: allPaid ? 0.7 : 1,
+      transition: "opacity 150ms ease-out",
     }}>
       {/* Agent header */}
       <div style={{
@@ -922,11 +950,13 @@ function AgentPayCard({
           <div style={HEADER_LBL}>Bonus</div>
           <input
             className="input-focus"
+            disabled={allPaid}
             style={{
               ...SMALL_INP, width: 90,
               background: Number(headerBonus) > 0 ? "rgba(52,211,153,0.10)" : SMALL_INP.background,
               color: Number(headerBonus) > 0 ? C.success : C.textPrimary,
               fontWeight: 700,
+              ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
             }}
             type="number" step="0.01"
             value={headerBonus}
@@ -938,11 +968,13 @@ function AgentPayCard({
           <div style={HEADER_LBL}>Fronted</div>
           <input
             className="input-focus"
+            disabled={allPaid}
             style={{
               ...SMALL_INP, width: 90,
               background: Number(headerFronted) > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
               color: Number(headerFronted) > 0 ? C.danger : C.textPrimary,
               fontWeight: 700,
+              ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
             }}
             type="number" step="0.01"
             value={headerFronted}
@@ -954,11 +986,13 @@ function AgentPayCard({
           <div style={HEADER_LBL}>Hold</div>
           <input
             className="input-focus"
+            disabled={allPaid}
             style={{
               ...SMALL_INP, width: 90,
               background: Number(headerHold) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
               color: Number(headerHold) > 0 ? C.warning : C.textPrimary,
               fontWeight: 700,
+              ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
             }}
             type="number" step="0.01"
             value={headerHold}
@@ -1009,6 +1043,8 @@ function AgentPayCard({
                 onUnapprove={onUnapprove}
                 onDelete={onDelete}
                 highlighted={highlightedEntryIds.has(e.id)}
+                isPaid={allPaid}
+                isLate={isLateEntry(e)}
               />
             ))}
             {/* Agent subtotal */}
