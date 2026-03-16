@@ -216,7 +216,7 @@ const NAV_ITEMS = [
 /* ── Editable Sale Row ───────────────────────────────────────── */
 
 function EditableSaleRow({
-  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete,
+  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete, products,
 }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
@@ -224,6 +224,7 @@ function EditableSaleRow({
   onApprove: (saleId: string) => Promise<void>;
   onUnapprove: (saleId: string) => Promise<void>;
   onDelete: (saleId: string) => Promise<void>;
+  products: Product[];
 }) {
   const [editSale, setEditSale] = useState(false);
   const [saleData, setSaleData] = useState({
@@ -233,6 +234,7 @@ function EditableSaleRow({
     premium: String(entry.sale?.premium ?? ""),
     enrollmentFee: String(entry.sale?.enrollmentFee ?? ""),
     notes: entry.sale?.notes ?? "",
+    productId: entry.sale?.product?.id ?? "",
   });
   const [bonus, setBonus] = useState(String(entry.bonusAmount ?? 0));
   const [fronted, setFronted] = useState(String(entry.frontedAmount ?? 0));
@@ -247,10 +249,12 @@ function EditableSaleRow({
   const isZeroed = !isActiveEntry(entry);
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
-  const rowBg: React.CSSProperties = needsApproval
+  const rowBg: React.CSSProperties = entry.status === "CLAWBACK_APPLIED"
+    ? { backgroundColor: "rgba(239,68,68,0.08)", borderLeft: "3px solid rgba(239,68,68,0.4)" }
+    : (saleStatus === "DECLINED" || saleStatus === "DEAD")
+    ? { backgroundColor: "rgba(251,191,36,0.08)", borderLeft: "3px solid rgba(251,191,36,0.4)" }
+    : needsApproval
     ? { borderLeft: "3px solid rgba(248,113,113,0.5)" }
-    : isZeroed
-    ? { borderLeft: "3px solid rgba(148,163,184,0.3)", opacity: 0.55 }
     : { borderLeft: "3px solid transparent" };
 
   return (
@@ -289,26 +293,49 @@ function EditableSaleRow({
       </td>
 
       <td style={TD}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {/* Core product */}
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
-            {entry.sale?.premium != null && (
-              <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>${Number(entry.sale.premium).toFixed(2)}</span>
-            )}
+        {editSale ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <select
+              className="input-focus"
+              style={{ ...SMALL_INP, width: 140, textAlign: "left" }}
+              value={saleData.productId}
+              onChange={e => setSaleData(d => ({ ...d, productId: e.target.value }))}
+            >
+              <option value="">— Select —</option>
+              {products.filter(p => p.active).map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <input
+              className="input-focus"
+              style={{ ...SMALL_INP, width: 90 }}
+              type="number" step="0.01" placeholder="Premium"
+              value={saleData.premium}
+              onChange={e => setSaleData(d => ({ ...d, premium: e.target.value }))}
+            />
           </div>
-          {/* Addon & AD&D products side by side */}
-          {entry.sale?.addons?.map((addon: { product: { id: string; name: string; type: string } }) => (
-            <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
-              <Badge
-                color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
-                size="sm"
-              >
-                {addon.product.name}
-              </Badge>
+        ) : (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {/* Core product */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
+              {entry.sale?.premium != null && (
+                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>${Number(entry.sale.premium).toFixed(2)}</span>
+              )}
             </div>
-          ))}
-        </div>
+            {/* Addon & AD&D products side by side */}
+            {entry.sale?.addons?.map((addon: { product: { id: string; name: string; type: string } }) => (
+              <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
+                <Badge
+                  color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
+                  size="sm"
+                >
+                  {addon.product.name}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </td>
 
       <td style={TD_R}>
@@ -399,6 +426,8 @@ function EditableSaleRow({
                   memberId: saleData.memberId || null,
                   enrollmentFee: saleData.enrollmentFee ? Number(saleData.enrollmentFee) : null,
                   notes: saleData.notes || null,
+                  productId: saleData.productId || undefined,
+                  premium: saleData.premium ? Number(saleData.premium) : undefined,
                 });
                 setEditSale(false); setSaving(false);
               }}
@@ -1680,6 +1709,7 @@ export default function PayrollDashboard() {
                                     <EditableSaleRow
                                       key={e.id}
                                       entry={e}
+                                      products={products}
                                       onSaleUpdate={updateSale}
                                       onBonusFrontedUpdate={updateBonusFronted}
                                       onApprove={id => toggleApproval(id, true)}
