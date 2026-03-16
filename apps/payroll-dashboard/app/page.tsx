@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
-import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, ToastProvider, useToast } from "@ops/ui";
-import { colors, spacing, radius, shadows, motion, baseCardStyle, baseInputStyle, baseLabelStyle } from "@ops/ui";
+import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, ToastProvider, useToast, Card, EmptyState } from "@ops/ui";
+import { colors, spacing, radius, shadows, motion, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
@@ -76,19 +76,7 @@ const R = radius;
 
 /* ── Style constants ─────────────────────────────────────────── */
 
-const CARD: React.CSSProperties = {
-  ...baseCardStyle,
-  borderRadius: R["2xl"],
-};
-
-const CARD_SM: React.CSSProperties = {
-  background: C.bgSurface,
-  border: `1px solid ${C.borderDefault}`,
-  borderRadius: R.xl,
-  padding: S[5],
-};
-
-const INP: React.CSSProperties = {
+const inputStyle: React.CSSProperties = {
   ...baseInputStyle,
   boxSizing: "border-box",
 };
@@ -105,27 +93,19 @@ const SMALL_INP: React.CSSProperties = {
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 
-const TH: React.CSSProperties = {
-  padding: "10px 10px",
-  textAlign: "left",
-  fontSize: 10,
-  fontWeight: 700,
-  color: C.textTertiary,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  borderBottom: `1px solid ${C.borderDefault}`,
-  whiteSpace: "nowrap",
+const thStyle: React.CSSProperties = {
+  ...baseThStyle,
   background: C.bgSurface,
   position: "sticky",
   top: 0,
 };
 
-const TH_R: React.CSSProperties = { ...TH, textAlign: "right" };
-const TH_C: React.CSSProperties = { ...TH, textAlign: "center" };
+const thRight: React.CSSProperties = { ...thStyle, textAlign: "right" };
+const thCenter: React.CSSProperties = { ...thStyle, textAlign: "center" };
 
-const TD: React.CSSProperties = { padding: "10px 10px", fontSize: 13 };
-const TD_R: React.CSSProperties = { ...TD, textAlign: "right" };
-const TD_C: React.CSSProperties = { ...TD, textAlign: "center" };
+const tdStyle: React.CSSProperties = { ...baseTdStyle, borderBottom: "none" };
+const tdRight: React.CSSProperties = { ...tdStyle, textAlign: "right" };
+const tdCenter: React.CSSProperties = { ...tdStyle, textAlign: "center" };
 
 /* ── Status config ───────────────────────────────────────────── */
 
@@ -235,10 +215,10 @@ function EditableSaleRow({
         ...(isLate ? { borderLeft: "3px solid #fbbf24", background: "rgba(251,191,36,0.04)" } : {}),
       }}
     >
-      <td style={TD}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "—"}</span></td>
+      <td style={tdStyle}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "—"}</span></td>
 
       {/* Sale status badge */}
-      <td style={TD_C}>
+      <td style={tdCenter}>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 4,
           padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700,
@@ -257,7 +237,7 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={TD}>
+      <td style={tdStyle}>
         {editSale ? (
           <input
             className="input-focus"
@@ -273,7 +253,7 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={TD}>
+      <td style={tdStyle}>
         {editSale ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <select
@@ -319,7 +299,7 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={TD_R}>
+      <td style={tdRight}>
         {editSale ? (
           <input
             className="input-focus"
@@ -335,14 +315,14 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={TD_R}>
+      <td style={tdRight}>
         <span style={{ color: C.textPrimary, fontWeight: 700 }}>
           ${Number(entry.payoutAmount).toFixed(2)}
         </span>
       </td>
 
       {/* Bonus — green bg when > 0 */}
-      <td style={{ ...TD_R, padding: "8px 6px" }}>
+      <td style={{ ...tdRight, padding: "8px 6px" }}>
         <input
           className="input-focus"
           disabled={isPaid}
@@ -359,7 +339,7 @@ function EditableSaleRow({
       </td>
 
       {/* Fronted — red bg when > 0 */}
-      <td style={{ ...TD_R, padding: "8px 6px" }}>
+      <td style={{ ...tdRight, padding: "8px 6px" }}>
         <input
           className="input-focus"
           disabled={isPaid}
@@ -376,7 +356,7 @@ function EditableSaleRow({
       </td>
 
       {/* Hold — amber bg when > 0 */}
-      <td style={{ ...TD_R, padding: "8px 6px" }}>
+      <td style={{ ...tdRight, padding: "8px 6px" }}>
         <input
           className="input-focus"
           disabled={isPaid}
@@ -393,14 +373,14 @@ function EditableSaleRow({
       </td>
 
       {/* Net — animated, color by sign */}
-      <td style={TD_R}>
+      <td style={tdRight}>
         <span style={{ fontWeight: 700, color: net >= 0 ? C.success : C.danger }}>
           <AnimatedNumber value={net} prefix="$" decimals={2} />
         </span>
       </td>
 
       {/* Actions */}
-      <td style={TD_C}>
+      <td style={tdCenter}>
         {isPaid ? null : editSale ? (
           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
             <Button
@@ -621,11 +601,11 @@ function ProductCard({
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: S[2] }}>
               <div>
                 <label style={LBL}>Name</label>
-                <input className="input-focus" style={INP} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
+                <input className="input-focus" style={inputStyle} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
               </div>
               <div>
                 <label style={LBL}>Type</label>
-                <select className="input-focus" style={{ ...INP, height: 42 }} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as ProductType }))}>
+                <select className="input-focus" style={{ ...inputStyle, height: 42 }} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as ProductType }))}>
                   <option value="CORE">Core Product</option>
                   <option value="ADDON">Add-on</option>
                   <option value="AD_D">AD&D</option>
@@ -635,22 +615,22 @@ function ProductCard({
 
             {d.type === "CORE" && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: S[2] }}>
-                <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.premiumThreshold} placeholder="e.g. 250" onChange={e => setD(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
-                <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.commissionBelow} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
-                <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 40" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
+                <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.premiumThreshold} placeholder="e.g. 250" onChange={e => setD(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
+                <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.commissionBelow} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
+                <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 40" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
               </div>
             )}
 
             {(d.type === "ADDON" || d.type === "AD_D") && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: S[2] }}>
-                <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " — blank = match core" : ""}</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
-                <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
-                <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={INP} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
+                <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " — blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
+                <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+                <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
               </div>
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: S[2], alignItems: "end" }}>
-              <div><label style={LBL}>Notes</label><input className="input-focus" style={INP} value={d.notes} placeholder="Notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
+              <div><label style={LBL}>Notes</label><input className="input-focus" style={inputStyle} value={d.notes} placeholder="Notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
               <label style={{ display: "flex", alignItems: "center", gap: S[2], fontSize: 13, paddingBottom: 6, color: C.textSecondary, cursor: "pointer" }}>
                 <input type="checkbox" checked={d.active} onChange={e => setD(x => ({ ...x, active: e.target.checked }))} /> Active
               </label>
@@ -682,9 +662,10 @@ function ServiceAgentCard({
   const [saving, setSaving] = useState(false);
 
   return (
-    <div
+    <Card
       className="hover-lift interactive-card"
-      style={{ ...CARD_SM, display: "flex", justifyContent: "space-between", alignItems: edit ? "flex-start" : "center", gap: S[3] }}
+      padding="sm"
+      style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: edit ? "flex-start" : "center", gap: S[3] }}
     >
       {!edit ? (
         <>
@@ -701,8 +682,8 @@ function ServiceAgentCard({
         </>
       ) : (
         <div style={{ display: "grid", gap: S[2], width: "100%" }}>
-          <input className="input-focus" style={INP} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
-          <input className="input-focus" style={INP} type="number" step="0.01" value={d.basePay} placeholder="Base Pay ($)" onChange={e => setD(x => ({ ...x, basePay: e.target.value }))} />
+          <input className="input-focus" style={inputStyle} value={d.name} placeholder="Name" onChange={e => setD(x => ({ ...x, name: e.target.value }))} />
+          <input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.basePay} placeholder="Base Pay ($)" onChange={e => setD(x => ({ ...x, basePay: e.target.value }))} />
           <div style={{ display: "flex", gap: S[2] }}>
             <Button
               variant="success"
@@ -719,7 +700,7 @@ function ServiceAgentCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -983,17 +964,17 @@ function AgentPayCard({
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
           <thead>
             <tr>
-              <th style={TH}>Agent</th>
-              <th style={TH_C}>Status</th>
-              <th style={TH}>Member</th>
-              <th style={TH}>Product</th>
-              <th style={TH_R}>Enroll Fee</th>
-              <th style={TH_R}>Commission</th>
-              <th style={TH_R}>Bonus</th>
-              <th style={TH_R}>Fronted</th>
-              <th style={TH_R}>Hold</th>
-              <th style={TH_R}>Net</th>
-              <th style={TH_C}>Actions</th>
+              <th style={thStyle}>Agent</th>
+              <th style={thCenter}>Status</th>
+              <th style={thStyle}>Member</th>
+              <th style={thStyle}>Product</th>
+              <th style={thRight}>Enroll Fee</th>
+              <th style={thRight}>Commission</th>
+              <th style={thRight}>Bonus</th>
+              <th style={thRight}>Fronted</th>
+              <th style={thRight}>Hold</th>
+              <th style={thRight}>Net</th>
+              <th style={thCenter}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1014,12 +995,12 @@ function AgentPayCard({
             ))}
             {/* Agent subtotal */}
             <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
-              <td colSpan={5} style={{ ...TD, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
-              <td style={{ ...TD_R, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</td>
-              <td style={{ ...TD_R, fontWeight: 700, color: C.success }}>${totalBonus.toFixed(2)}</td>
-              <td style={{ ...TD_R, fontWeight: 700, color: C.danger }}>${totalFronted.toFixed(2)}</td>
-              <td style={{ ...TD_R, fontWeight: 700, color: C.warning }}>${totalHold.toFixed(2)}</td>
-              <td style={{ ...TD_R, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
+              <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.success }}>${totalBonus.toFixed(2)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.danger }}>${totalFronted.toFixed(2)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.warning }}>${totalHold.toFixed(2)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
                 <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
               </td>
               <td />
@@ -1928,9 +1909,13 @@ function PayrollDashboardInner() {
       {tab === "periods" && (
         <div className="animate-fade-in" style={{ display: "grid", gap: S[4] }}>
           {periods.length === 0 && (
-            <div style={{ ...CARD, textAlign: "center", padding: "48px 24px", color: C.textMuted }}>
-              No payroll periods found
-            </div>
+            <Card style={{ borderRadius: R["2xl"] }}>
+              <EmptyState
+                icon={<Calendar size={32} />}
+                title="No payroll periods found"
+                description="Periods will appear here when sales are entered."
+              />
+            </Card>
           )}
 
           {periods.map(p => {
@@ -1960,7 +1945,7 @@ function PayrollDashboardInner() {
             }
 
             return (
-              <div key={p.id} style={CARD} className="animate-fade-in-up">
+              <Card key={p.id} style={{ borderRadius: R["2xl"] }} className="animate-fade-in-up">
                 {/* Period header — clickable to collapse/expand */}
                 <div
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: S[5] }}
@@ -2267,13 +2252,15 @@ function PayrollDashboardInner() {
                     )}
 
                     {p.entries.length === 0 && (p.serviceEntries ?? []).length === 0 && (
-                      <div style={{ padding: "32px 0", textAlign: "center", color: C.textMuted, fontSize: 14 }}>
-                        No entries for this period
-                      </div>
+                      <EmptyState
+                        icon={<Users size={32} />}
+                        title="No entries for this period"
+                        description="Entries will appear here when sales are entered for this period."
+                      />
                     )}
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -2286,13 +2273,13 @@ function PayrollDashboardInner() {
             Match by Member ID (preferred) or Member Name to process a chargeback. A deduction entry will be applied to the current week.
           </p>
 
-          <div style={CARD}>
+          <Card style={{ borderRadius: R["2xl"] }}>
             <form onSubmit={submitChargeback} style={{ display: "grid", gap: S[5] }}>
               <div>
                 <label style={LBL}>Member ID <span style={{ color: C.textMuted, fontWeight: 400, textTransform: "none", fontSize: 11 }}>(preferred)</span></label>
                 <input
                   className="input-focus"
-                  style={INP}
+                  style={inputStyle}
                   value={chargebackForm.memberId}
                   placeholder="e.g. M-12345"
                   onChange={e => setChargebackForm(f => ({ ...f, memberId: e.target.value }))}
@@ -2302,7 +2289,7 @@ function PayrollDashboardInner() {
                 <label style={LBL}>Member Name <span style={{ color: C.textMuted, fontWeight: 400, textTransform: "none", fontSize: 11 }}>(if no ID)</span></label>
                 <input
                   className="input-focus"
-                  style={INP}
+                  style={inputStyle}
                   value={chargebackForm.memberName}
                   placeholder="e.g. John Doe"
                   onChange={e => setChargebackForm(f => ({ ...f, memberName: e.target.value }))}
@@ -2312,7 +2299,7 @@ function PayrollDashboardInner() {
                 <label style={LBL}>Notes</label>
                 <textarea
                   className="input-focus"
-                  style={{ ...INP, height: 88, resize: "vertical" } as React.CSSProperties}
+                  style={{ ...inputStyle, height: 88, resize: "vertical" } as React.CSSProperties}
                   value={chargebackForm.notes}
                   onChange={e => setChargebackForm(f => ({ ...f, notes: e.target.value }))}
                 />
@@ -2336,7 +2323,7 @@ function PayrollDashboardInner() {
                 )}
               </div>
             </form>
-          </div>
+          </Card>
         </div>
       )}
 
@@ -2347,7 +2334,7 @@ function PayrollDashboardInner() {
             Download payroll period data as a CSV file. Choose a time range and export format.
           </p>
 
-          <div style={CARD}>
+          <Card style={{ borderRadius: R["2xl"] }}>
             {/* Range selector */}
             <div style={{ marginBottom: S[6] }}>
               <label style={LBL}>Time Range</label>
@@ -2381,10 +2368,7 @@ function PayrollDashboardInner() {
             {/* Export actions */}
             <div style={{ display: "grid", gap: S[3] }}>
               {/* Summary CSV */}
-              <div style={{
-                ...CARD_SM,
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-              }}>
+              <Card padding="sm" style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary, marginBottom: 4 }}>Summary CSV</div>
                   <div style={{ fontSize: 12, color: C.textMuted }}>Week range, status, entries count, gross and net per period</div>
@@ -2396,13 +2380,10 @@ function PayrollDashboardInner() {
                 >
                   <Download size={14} /> Export
                 </Button>
-              </div>
+              </Card>
 
               {/* Detailed CSV */}
-              <div style={{
-                ...CARD_SM,
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-              }}>
+              <Card padding="sm" style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary, marginBottom: 4 }}>Detailed CSV</div>
                   <div style={{ fontSize: 12, color: C.textMuted }}>Per-entry rows — agent, member, products, fees, commission, bonus, fronted, net</div>
@@ -2414,9 +2395,9 @@ function PayrollDashboardInner() {
                 >
                   <Download size={14} /> Export
                 </Button>
-              </div>
+              </Card>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
@@ -2439,17 +2420,17 @@ function PayrollDashboardInner() {
 
           {/* Add product form */}
           {showAddProduct && (
-            <div className="animate-slide-down" style={{ ...CARD, marginBottom: S[5] }}>
+            <Card className="animate-slide-down" style={{ borderRadius: R["2xl"], marginBottom: S[5] }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary, marginBottom: S[4] }}>New Product</div>
               <form onSubmit={addProduct} style={{ display: "grid", gap: S[3] }}>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: S[2] }}>
                   <div>
                     <label style={LBL}>Name</label>
-                    <input className="input-focus" style={INP} value={newProduct.name} placeholder="Product name *" required onChange={e => setNewProduct(x => ({ ...x, name: e.target.value }))} />
+                    <input className="input-focus" style={inputStyle} value={newProduct.name} placeholder="Product name *" required onChange={e => setNewProduct(x => ({ ...x, name: e.target.value }))} />
                   </div>
                   <div>
                     <label style={LBL}>Type</label>
-                    <select className="input-focus" style={{ ...INP, height: 42 }} value={newProduct.type} onChange={e => setNewProduct(x => ({ ...x, type: e.target.value as ProductType }))}>
+                    <select className="input-focus" style={{ ...inputStyle, height: 42 }} value={newProduct.type} onChange={e => setNewProduct(x => ({ ...x, type: e.target.value as ProductType }))}>
                       <option value="CORE">Core Product</option>
                       <option value="ADDON">Add-on</option>
                       <option value="AD_D">AD&D</option>
@@ -2458,19 +2439,19 @@ function PayrollDashboardInner() {
                 </div>
                 {newProduct.type === "CORE" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: S[2] }}>
-                    <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={INP} type="number" step="0.01" value={newProduct.premiumThreshold} placeholder="e.g. 250" onChange={e => setNewProduct(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
-                    <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={newProduct.commissionBelow} placeholder="e.g. 30" onChange={e => setNewProduct(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
-                    <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={newProduct.commissionAbove} placeholder="e.g. 40" onChange={e => setNewProduct(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
+                    <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.premiumThreshold} placeholder="e.g. 250" onChange={e => setNewProduct(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
+                    <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.commissionBelow} placeholder="e.g. 30" onChange={e => setNewProduct(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
+                    <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.commissionAbove} placeholder="e.g. 40" onChange={e => setNewProduct(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
                   </div>
                 )}
                 {(newProduct.type === "ADDON" || newProduct.type === "AD_D") && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: S[2] }}>
-                    <div><label style={LBL}>Bundled Commission (%){newProduct.type === "ADDON" ? " — blank = match core" : ""}</label><input className="input-focus" style={INP} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
-                    <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={INP} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
-                    <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={INP} type="number" step="0.01" value={newProduct.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setNewProduct(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
+                    <div><label style={LBL}>Bundled Commission (%){newProduct.type === "ADDON" ? " — blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
+                    <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+                    <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setNewProduct(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
                   </div>
                 )}
-                <input className="input-focus" style={INP} value={newProduct.notes} placeholder="Notes (optional)" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} />
+                <input className="input-focus" style={inputStyle} value={newProduct.notes} placeholder="Notes (optional)" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} />
                 <div style={{ display: "flex", gap: S[2], alignItems: "center", flexWrap: "wrap" }}>
                   <Button variant="success" type="submit">
                     <Plus size={14} /> Add Product
@@ -2483,14 +2464,18 @@ function PayrollDashboardInner() {
                   )}
                 </div>
               </form>
-            </div>
+            </Card>
           )}
 
           {/* Product grid */}
           {products.length === 0 ? (
-            <div style={{ ...CARD, textAlign: "center", color: C.textMuted, padding: "40px 24px" }}>
-              No products configured yet. Add your first product above.
-            </div>
+            <Card style={{ borderRadius: R["2xl"] }}>
+              <EmptyState
+                icon={<Package size={32} />}
+                title="No products configured yet"
+                description="Add your first product above."
+              />
+            </Card>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[4] }} className="grid-mobile-1">
               {products.map((p, i) => (
@@ -2528,7 +2513,7 @@ function PayrollDashboardInner() {
           {/* Top two-column config */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[5] }} className="stack-mobile">
             {/* Service Agents */}
-            <div style={CARD}>
+            <Card style={{ borderRadius: R["2xl"] }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S[4] }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>Service Agents</h3>
@@ -2538,7 +2523,11 @@ function PayrollDashboardInner() {
 
               <div style={{ display: "grid", gap: S[2], marginBottom: S[4] }}>
                 {serviceAgents.length === 0 && (
-                  <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>No service agents yet.</p>
+                  <EmptyState
+                    icon={<Users size={28} />}
+                    title="No service agents yet"
+                    description="Add your first service agent below."
+                  />
                 )}
                 {serviceAgents.map(a => (
                   <ServiceAgentCard key={a.id} agent={a} onSave={saveServiceAgent} />
@@ -2550,16 +2539,16 @@ function PayrollDashboardInner() {
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: S[1] }}>
                   Add Agent
                 </div>
-                <input className="input-focus" style={INP} value={newServiceAgent.name} placeholder="Full name *" required onChange={e => setNewServiceAgent(x => ({ ...x, name: e.target.value }))} />
-                <input className="input-focus" style={INP} type="number" step="0.01" value={newServiceAgent.basePay} placeholder="Base Pay ($) *" required onChange={e => setNewServiceAgent(x => ({ ...x, basePay: e.target.value }))} />
+                <input className="input-focus" style={inputStyle} value={newServiceAgent.name} placeholder="Full name *" required onChange={e => setNewServiceAgent(x => ({ ...x, name: e.target.value }))} />
+                <input className="input-focus" style={inputStyle} type="number" step="0.01" value={newServiceAgent.basePay} placeholder="Base Pay ($) *" required onChange={e => setNewServiceAgent(x => ({ ...x, basePay: e.target.value }))} />
                 <Button variant="success" type="submit">
                   <Plus size={13} /> Add Agent
                 </Button>
               </form>
-            </div>
+            </Card>
 
             {/* Bonus Categories */}
-            <div style={CARD}>
+            <Card style={{ borderRadius: R["2xl"] }}>
               <div style={{ marginBottom: S[4] }}>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>Bonus Categories</h3>
                 <p style={{ color: C.textMuted, fontSize: 13, margin: "4px 0 0" }}>Configure bonus/deduction columns</p>
@@ -2608,7 +2597,7 @@ function PayrollDashboardInner() {
                     <label style={LBL}>Name</label>
                     <input
                       className="input-focus"
-                      style={INP}
+                      style={inputStyle}
                       value={newCatName}
                       placeholder="e.g. Flips"
                       onChange={e => setNewCatName(e.target.value)}
@@ -2631,11 +2620,11 @@ function PayrollDashboardInner() {
                   </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Weekly Payroll input table */}
-          <div style={CARD}>
+          <Card style={{ borderRadius: R["2xl"] }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S[5] }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>Weekly Payroll Entry</h3>
@@ -2645,7 +2634,7 @@ function PayrollDashboardInner() {
                 <label style={LBL}>Payroll Period</label>
                 <select
                   className="input-focus"
-                  style={{ ...INP, height: 40 }}
+                  style={{ ...inputStyle, height: 40 }}
                   value={svcPeriodId}
                   onChange={e => setSvcPeriodId(e.target.value)}
                 >
@@ -2663,16 +2652,16 @@ function PayrollDashboardInner() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
                   <thead>
                     <tr>
-                      <th style={TH}>Agent</th>
-                      <th style={TH_R}>Base Pay</th>
-                      <th style={{ ...TH_C, color: C.danger }}>Fronted</th>
+                      <th style={thStyle}>Agent</th>
+                      <th style={thRight}>Base Pay</th>
+                      <th style={{ ...thCenter, color: C.danger }}>Fronted</th>
                       {bonusCategories.map(cat => (
-                        <th key={cat.name} style={{ ...TH_C, color: cat.isDeduction ? C.danger : C.textTertiary }}>
+                        <th key={cat.name} style={{ ...thCenter, color: cat.isDeduction ? C.danger : C.textTertiary }}>
                           {cat.name}
                         </th>
                       ))}
-                      <th style={{ ...TH_R, color: C.info }}>Total</th>
-                      <th style={TH_C}></th>
+                      <th style={{ ...thRight, color: C.info }}>Total</th>
+                      <th style={thCenter}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2698,7 +2687,7 @@ function PayrollDashboardInner() {
                           className="row-hover"
                           style={{ borderTop: `1px solid ${C.borderSubtle}` }}
                         >
-                          <td style={{ ...TD, fontWeight: 600, color: C.textPrimary }}>
+                          <td style={{ ...tdStyle, fontWeight: 600, color: C.textPrimary }}>
                             {agent.name}
                             {existingEntry && (
                               <span style={{ fontSize: 10, color: C.info, marginLeft: 6, fontWeight: 500 }}>
@@ -2706,10 +2695,10 @@ function PayrollDashboardInner() {
                               </span>
                             )}
                           </td>
-                          <td style={{ ...TD_R, color: C.textSecondary, fontWeight: 600 }}>
+                          <td style={{ ...tdRight, color: C.textSecondary, fontWeight: 600 }}>
                             ${basePay.toFixed(2)}
                           </td>
-                          <td style={{ ...TD_C, padding: "6px 4px" }}>
+                          <td style={{ ...tdCenter, padding: "6px 4px" }}>
                             <input
                               className="input-focus"
                               style={{
@@ -2723,7 +2712,7 @@ function PayrollDashboardInner() {
                             />
                           </td>
                           {bonusCategories.map(cat => (
-                            <td key={cat.name} style={{ ...TD_C, padding: "6px 4px" }}>
+                            <td key={cat.name} style={{ ...tdCenter, padding: "6px 4px" }}>
                               <input
                                 className="input-focus"
                                 style={{
@@ -2737,10 +2726,10 @@ function PayrollDashboardInner() {
                               />
                             </td>
                           ))}
-                          <td style={{ ...TD_R, fontWeight: 800, fontSize: 15, color: C.info }}>
+                          <td style={{ ...tdRight, fontWeight: 800, fontSize: 15, color: C.info }}>
                             <AnimatedNumber value={total} prefix="$" decimals={2} />
                           </td>
-                          <td style={TD_C}>
+                          <td style={tdCenter}>
                             <Button
                               variant="primary"
                               size="sm"
@@ -2757,7 +2746,7 @@ function PayrollDashboardInner() {
                 </table>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Service status message */}
           {svcMsg && (
