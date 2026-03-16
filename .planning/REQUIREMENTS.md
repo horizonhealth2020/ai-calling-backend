@@ -49,11 +49,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Reporting
 
-- [ ] **REPT-01**: Per-agent sales count and total commission earned are visible
-- [ ] **REPT-02**: Per-agent cost-per-sale is tracked and displayed
-- [ ] **REPT-03**: Weekly and monthly period summary totals are available
+- [x] **REPT-01**: Per-agent sales count and total commission earned are visible
+- [x] **REPT-02**: Per-agent cost-per-sale is tracked and displayed
+- [x] **REPT-03**: Weekly and monthly period summary totals are available
 - [ ] **REPT-04**: Export-ready payroll reports can be generated
-- [ ] **REPT-05**: Owner dashboard shows trend KPIs (vs prior week/month)
+- [x] **REPT-05**: Owner dashboard shows trend KPIs (vs prior week/month)
 
 ### UI/UX
 
@@ -143,11 +143,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CASC-02 | Phase 6 | Complete |
 | CASC-03 | Phase 6 | Complete |
 | CASC-04 | Phase 6 | Complete |
-| REPT-01 | Phase 8 | Pending |
-| REPT-02 | Phase 8 | Pending |
-| REPT-03 | Phase 8 | Pending |
+| REPT-01 | Phase 8 | Complete |
+| REPT-02 | Phase 8 | Complete |
+| REPT-03 | Phase 8 | Complete |
 | REPT-04 | Phase 8 | Pending |
-| REPT-05 | Phase 8 | Pending |
+| REPT-05 | Phase 8 | Complete |
 | UIUX-01 | Phase 9 | Pending |
 | UIUX-02 | Phase 9 | Pending |
 | UIUX-03 | Phase 9 | Pending |

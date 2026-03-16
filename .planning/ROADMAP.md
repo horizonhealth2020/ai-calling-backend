@@ -134,7 +134,7 @@ Plans:
   5. Owner dashboard displays trend KPIs comparing current period to prior week and prior month
 **Plans:** 2 plans
 Plans:
-- [ ] 08-01-PLAN.md -- Reporting pure functions, extend /tracker/summary with commission, /owner/summary with trends, new /reporting/periods endpoint
+- [x] 08-01-PLAN.md -- Reporting pure functions, extend /tracker/summary with commission, /owner/summary with trends, new /reporting/periods endpoint
 - [ ] 08-02-PLAN.md -- Owner dashboard trend KPIs + period summary section, manager dashboard commission column + agent performance CSV export
 
 ### Phase 9: UI/UX Polish
@@ -158,7 +158,7 @@ Plans:
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
 | 6. Dashboard Cascade | 3/3 | Complete | 2026-03-16 |
 | 7. Payroll Management | 2/2 | Complete | 2026-03-16 |
-| 8. Reporting | 0/2 | Not started | - |
+| 8. Reporting | 1/2 | In progress | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
 | 10. Sale Status Payroll Logic | 6/6 | Complete    | 2026-03-16 |
 
