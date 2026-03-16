@@ -154,6 +154,37 @@ const CANCEL_BTN: React.CSSProperties = {
   fontSize: 13,
 };
 
+const PREVIEW_PANEL: React.CSSProperties = {
+  ...CARD,
+  border: "1px solid rgba(20,184,166,0.15)",
+  padding: spacing[6],
+  marginBottom: spacing[4],
+};
+
+const PREVIEW_TOTAL: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 700,
+  color: colors.primary400,
+  lineHeight: 1.4,
+};
+
+const PREVIEW_LINE: React.CSSProperties = {
+  fontSize: 14,
+  color: colors.textSecondary,
+  display: "flex",
+  justifyContent: "space-between",
+  padding: `${spacing[1]}px 0`,
+};
+
+const PREVIEW_LABEL: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: colors.textTertiary,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.06em",
+  marginBottom: spacing[2],
+};
+
 const SUBMIT_BTN: React.CSSProperties = {
   ...baseButtonStyle,
   padding: "14px 32px",
@@ -668,6 +699,18 @@ export default function ManagerDashboard() {
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [callCountsLoaded, setCallCountsLoaded] = useState(false);
 
+  /* ── Commission preview state ── */
+  const previewTimer = useRef<ReturnType<typeof setTimeout>>();
+  const previewAbort = useRef<AbortController>();
+  const [previewData, setPreviewData] = useState<{
+    commission: number;
+    periodStart: string;
+    periodEnd: string;
+    breakdown: { hasBundleQualifier: boolean; hasCore: boolean; enrollmentFee: number | null; paymentType: string };
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+
   const [parsedInfo, setParsedInfo] = useState<{
     enrollmentFee?: string; premium?: string; coreProduct?: string;
     parsedProducts: ParsedProduct[];
@@ -687,6 +730,58 @@ export default function ManagerDashboard() {
       setForm(f => ({ ...f, agentId: "", productId: "", leadSourceId: "" }));
       setLoading(false);
     });
+  }, []);
+
+  /* ── Commission preview trigger ── */
+  function triggerPreview(immediate = false) {
+    clearTimeout(previewTimer.current);
+    const delay = immediate ? 0 : 500;
+    previewTimer.current = setTimeout(async () => {
+      if (!form.productId || !form.premium) {
+        setPreviewData(null);
+        return;
+      }
+      if (previewAbort.current) previewAbort.current.abort();
+      previewAbort.current = new AbortController();
+      setPreviewLoading(true);
+      setPreviewError(false);
+      try {
+        const res = await authFetch(`${API}/api/sales/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: form.productId,
+            premium: Number(form.premium),
+            enrollmentFee: form.enrollmentFee ? Number(form.enrollmentFee) : null,
+            addonProductIds: form.addonProductIds || [],
+            addonPremiums: Object.fromEntries(
+              Object.entries(addonPremiums).filter(([, v]) => v).map(([k, v]) => [k, Number(v)])
+            ),
+            paymentType: form.paymentType || "CC",
+            status: form.status || "RAN",
+            saleDate: form.saleDate || undefined,
+          }),
+          signal: previewAbort.current.signal,
+        });
+        if (res.ok) {
+          setPreviewData(await res.json());
+          setPreviewError(false);
+        } else {
+          setPreviewError(true);
+        }
+      } catch (e: any) {
+        if (e.name !== "AbortError") setPreviewError(true);
+      } finally {
+        setPreviewLoading(false);
+      }
+    }, delay);
+  }
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(previewTimer.current);
+      if (previewAbort.current) previewAbort.current.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -965,7 +1060,7 @@ export default function ManagerDashboard() {
               </div>
               <div className="animate-fade-in-up stagger-4">
                 <label style={LBL}>Product</label>
-                <select className="input-focus" style={{ ...INP }} value={form.productId} required onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}>
+                <select className="input-focus" style={{ ...INP }} value={form.productId} required onChange={e => { setForm(f => ({ ...f, productId: e.target.value })); triggerPreview(true); }}>
                   <option value="" disabled>Select product...</option>
                   {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -997,11 +1092,11 @@ export default function ManagerDashboard() {
               </div>
               <div className="animate-fade-in-up stagger-6">
                 <label style={LBL}>Premium ($)</label>
-                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => setForm(f => ({ ...f, premium: e.target.value }))} />
+                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.premium} required onChange={e => { setForm(f => ({ ...f, premium: e.target.value })); triggerPreview(false); }} />
               </div>
               <div className="animate-fade-in-up stagger-6">
                 <label style={LBL}>Enrollment Fee ($)</label>
-                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => setForm(f => ({ ...f, enrollmentFee: e.target.value }))} />
+                <input className="input-focus" style={INP} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => { setForm(f => ({ ...f, enrollmentFee: e.target.value })); triggerPreview(false); }} />
               </div>
               <div className="animate-fade-in-up stagger-7" style={{ gridColumn: "1/-1" }}>
                 <label style={LBL}>Notes</label>
@@ -1040,7 +1135,7 @@ export default function ManagerDashboard() {
                         name="paymentType"
                         value={pt}
                         checked={form.paymentType === pt}
-                        onChange={() => setForm(f => ({ ...f, paymentType: pt }))}
+                        onChange={() => { setForm(f => ({ ...f, paymentType: pt })); triggerPreview(true); }}
                         style={{ accentColor: colors.primary500 }}
                       />
                       {pt === "CC" ? "Credit Card" : "ACH / Bank"}
@@ -1073,8 +1168,61 @@ export default function ManagerDashboard() {
             </div>
             {/* ── END LEFT COLUMN ── */}
 
-            {/* ── RIGHT COLUMN: Receipt Parser + Add-ons ── */}
+            {/* ── RIGHT COLUMN: Preview + Receipt Parser + Add-ons ── */}
             <div style={{ position: "sticky", top: 20 }}>
+              {/* Commission Preview Panel */}
+              <div style={PREVIEW_PANEL} aria-live="polite">
+                <div style={PREVIEW_LABEL}>
+                  {previewLoading ? "CALCULATING..." : "COMMISSION PREVIEW"}
+                </div>
+
+                {!form.productId ? (
+                  <div style={{ fontSize: 14, color: colors.textMuted }}>
+                    Select a product to see commission preview.
+                  </div>
+                ) : previewError ? (
+                  <div style={{ fontSize: 11, color: colors.danger }}>
+                    Preview unavailable — commission will be calculated on submission.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{
+                      ...PREVIEW_TOTAL,
+                      ...(previewLoading ? { animation: "pulse 1.5s ease-in-out infinite", opacity: 0.6 } : {}),
+                    }}>
+                      ${previewData ? previewData.commission.toFixed(2) : "0.00"}
+                    </div>
+
+                    {previewData && (
+                      <div style={{ marginTop: spacing[3], display: "flex", flexDirection: "column", gap: spacing[1] }}>
+                        <div style={PREVIEW_LINE}>
+                          <span>Bundle</span>
+                          <span>{previewData.breakdown.hasBundleQualifier
+                            ? "Compass VAB included"
+                            : previewData.breakdown.hasCore
+                              ? "No qualifier — half rate applied"
+                              : "Standalone"}</span>
+                        </div>
+
+                        {previewData.breakdown.enrollmentFee !== null && previewData.breakdown.enrollmentFee >= 125 && (
+                          <div style={{ ...PREVIEW_LINE, color: colors.success }}>
+                            <span>Enrollment bonus</span>
+                            <span>+$10.00</span>
+                          </div>
+                        )}
+
+                        <div style={PREVIEW_LINE}>
+                          <span>Period</span>
+                          <span>{new Date(previewData.periodStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {" – "}
+                            {new Date(previewData.periodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
               {/* Receipt paste area */}
               <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
                 <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
@@ -1194,6 +1342,7 @@ export default function ManagerDashboard() {
                                       setForm(f => ({ ...f, addonProductIds: f.addonProductIds.filter(id => id !== ap.id) }));
                                       setAddonPremiums(prev => { const next = { ...prev }; delete next[ap.id]; return next; });
                                     }
+                                    triggerPreview(true);
                                   }}
                                 />
                                 <span style={{ fontSize: 12, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
