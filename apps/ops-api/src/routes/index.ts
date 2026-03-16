@@ -9,6 +9,7 @@ import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
 import { enqueueAuditJob } from "../services/auditQueue";
 import { emitSaleChanged } from "../socket";
+import { computeTrend, shiftRange } from "../services/reporting";
 
 const router = Router();
 
@@ -748,15 +749,26 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const callWhere: any = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
-  // Fetch agents with sales and their Convoso call logs in parallel
-  const [data, allLeadSources, callLogs] = await Promise.all([
+  // Fetch agents with sales, call logs, and commission totals in parallel
+  const [data, allLeadSources, callLogs, commissionByAgent] = await Promise.all([
     prisma.agent.findMany({
       where: { active: true },
       include: { sales: { where: salesWhere } },
     }),
     prisma.leadSource.findMany({ select: { id: true, costPerLead: true, callBufferSeconds: true } }),
     prisma.convosoCallLog.findMany({ where: callWhere, select: { agentId: true, leadSourceId: true, callDurationSeconds: true } }),
+    prisma.payrollEntry.groupBy({
+      by: ['agentId'],
+      _sum: { payoutAmount: true },
+      where: {
+        sale: {
+          status: 'RAN',
+          ...(dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {}),
+        },
+      },
+    }),
   ]);
+  const commMap = new Map(commissionByAgent.map(c => [c.agentId, Number(c._sum.payoutAmount ?? 0)]));
 
   // Build lead source lookup
   const lsMap = new Map(allLeadSources.map(ls => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
@@ -781,6 +793,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
       premiumTotal,
       totalLeadCost,
       costPerSale: salesCount > 0 ? totalLeadCost / salesCount : 0,
+      commissionTotal: commMap.get(agent.id) ?? 0,
     };
   });
   res.json(summary);
@@ -1074,15 +1087,78 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined);
-  const saleWhere = dr ? { status: 'RAN' as const, saleDate: { gte: dr.gte, lt: dr.lt } } : { status: 'RAN' as const };
-  const clawbackWhere = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
-  const [salesCount, premiumAgg, clawbacks, openPayrollPeriods] = await Promise.all([
-    prisma.sale.count({ where: saleWhere }),
-    prisma.sale.aggregate({ _sum: { premium: true }, where: saleWhere }),
-    prisma.clawback.count({ where: clawbackWhere }),
-    prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
+
+  async function fetchSummaryData(range: { gte: Date; lt: Date } | undefined) {
+    const saleWhere = range ? { status: 'RAN' as const, saleDate: { gte: range.gte, lt: range.lt } } : { status: 'RAN' as const };
+    const clawbackWhere = range ? { createdAt: { gte: range.gte, lt: range.lt } } : {};
+    const [salesCount, premiumAgg, clawbacks, openPayrollPeriods] = await Promise.all([
+      prisma.sale.count({ where: saleWhere }),
+      prisma.sale.aggregate({ _sum: { premium: true }, where: saleWhere }),
+      prisma.clawback.count({ where: clawbackWhere }),
+      prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
+    ]);
+    return { salesCount, premiumTotal: Number(premiumAgg._sum.premium ?? 0), clawbacks, openPayrollPeriods };
+  }
+
+  const priorWeekDr = dr ? shiftRange(dr, 7) : undefined;
+  const priorMonthDr = dr ? shiftRange(dr, 30) : undefined;
+
+  const [current, priorWeek, priorMonth] = await Promise.all([
+    fetchSummaryData(dr),
+    fetchSummaryData(priorWeekDr),
+    fetchSummaryData(priorMonthDr),
   ]);
-  res.json({ salesCount, premiumTotal: premiumAgg._sum.premium ?? 0, clawbacks, openPayrollPeriods });
+
+  const trends = dr ? {
+    salesCount: { priorWeek: priorWeek.salesCount, priorMonth: priorMonth.salesCount },
+    premiumTotal: { priorWeek: priorWeek.premiumTotal, priorMonth: priorMonth.premiumTotal },
+    clawbacks: { priorWeek: priorWeek.clawbacks, priorMonth: priorMonth.clawbacks },
+  } : null;
+
+  res.json({ ...current, trends });
+}));
+
+router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const view = req.query.view === "monthly" ? "monthly" : "weekly";
+
+  if (view === "weekly") {
+    const periods = await prisma.payrollPeriod.findMany({
+      include: {
+        entries: {
+          include: { sale: { select: { premium: true, status: true } } },
+        },
+      },
+      orderBy: { weekStart: "desc" },
+      take: 12,
+    });
+    const result = periods.map(p => {
+      const ranEntries = p.entries.filter(e => e.sale?.status === 'RAN');
+      return {
+        period: `${p.weekStart.toISOString().slice(0, 10)} - ${p.weekEnd.toISOString().slice(0, 10)}`,
+        salesCount: ranEntries.length,
+        premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0), 0),
+        commissionPaid: ranEntries.reduce((s, e) => s + Number(e.netAmount), 0),
+        periodStatus: p.status,
+      };
+    });
+    return res.json({ view, periods: result });
+  }
+
+  // Monthly: raw SQL for calendar month grouping
+  const monthlySales = await prisma.$queryRaw`
+    SELECT
+      TO_CHAR(s.sale_date, 'YYYY-MM') as period,
+      COUNT(*)::int as "salesCount",
+      COALESCE(SUM(s.premium), 0)::float as "premiumTotal",
+      COALESCE(SUM(pe.net_amount), 0)::float as "commissionPaid"
+    FROM sales s
+    LEFT JOIN payroll_entries pe ON pe.sale_id = s.id
+    WHERE s.status = 'RAN'
+    GROUP BY TO_CHAR(s.sale_date, 'YYYY-MM')
+    ORDER BY period DESC
+    LIMIT 6
+  `;
+  return res.json({ view, periods: monthlySales });
 }));
 
 router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
