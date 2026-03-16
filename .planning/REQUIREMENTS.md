@@ -42,10 +42,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Dashboard Cascade
 
-- [ ] **CASC-01**: Sale entry appears on agent tracker in manager dashboard in real-time
-- [ ] **CASC-02**: Sale entry appears on sales board leaderboard in real-time
-- [ ] **CASC-03**: Sale entry updates the correct agent's payroll card in payroll dashboard
-- [ ] **CASC-04**: Sale entry updates KPI metrics on owner dashboard
+- [x] **CASC-01**: Sale entry appears on agent tracker in manager dashboard in real-time
+- [x] **CASC-02**: Sale entry appears on sales board leaderboard in real-time
+- [x] **CASC-03**: Sale entry updates the correct agent's payroll card in payroll dashboard
+- [x] **CASC-04**: Sale entry updates KPI metrics on owner dashboard
 
 ### Reporting
 
@@ -139,10 +139,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAYR-05 | Phase 7 | Pending |
 | PAYR-06 | Phase 7 | Pending |
 | PAYR-07 | Phase 7 | Pending |
-| CASC-01 | Phase 6 | Pending |
-| CASC-02 | Phase 6 | Pending |
-| CASC-03 | Phase 6 | Pending |
-| CASC-04 | Phase 6 | Pending |
+| CASC-01 | Phase 6 | Complete |
+| CASC-02 | Phase 6 | Complete |
+| CASC-03 | Phase 6 | Complete |
+| CASC-04 | Phase 6 | Complete |
 | REPT-01 | Phase 8 | Pending |
 | REPT-02 | Phase 8 | Pending |
 | REPT-03 | Phase 8 | Pending |
