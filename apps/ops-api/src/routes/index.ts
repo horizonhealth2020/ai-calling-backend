@@ -385,40 +385,202 @@ router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
     where,
     include: {
       agent: true, product: true, leadSource: true,
-      _count: { select: { statusChangeRequests: { where: { status: 'PENDING' } } } },
+      _count: {
+        select: {
+          statusChangeRequests: { where: { status: 'PENDING' } },
+          saleEditRequests: { where: { status: 'PENDING' } },
+        },
+      },
     },
     orderBy: { saleDate: "desc" },
   });
   const result = sales.map(({ _count, ...sale }) => ({
     ...sale,
     hasPendingStatusChange: _count.statusChangeRequests > 0,
+    hasPendingEditRequest: _count.saleEditRequests > 0,
   }));
   res.json(result);
 }));
 
-router.patch("/sales/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({
+router.get("/sales/:id", requireAuth, asyncHandler(async (req, res) => {
+  const sale = await prisma.sale.findUnique({
+    where: { id: req.params.id },
+    include: {
+      agent: true, product: true, leadSource: true,
+      addons: { include: { product: true } },
+      _count: {
+        select: {
+          statusChangeRequests: { where: { status: 'PENDING' } },
+          saleEditRequests: { where: { status: 'PENDING' } },
+        },
+      },
+    },
+  });
+  if (!sale) return res.status(404).json({ error: "Sale not found" });
+  const { _count, ...rest } = sale;
+  res.json({
+    ...rest,
+    hasPendingStatusChange: _count.statusChangeRequests > 0,
+    hasPendingEditRequest: _count.saleEditRequests > 0,
+  });
+}));
+
+// ── Sale Editing (role-aware) ─────────────────────────────────
+router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const editSchema = z.object({
+    saleDate: z.string().optional(),
+    agentId: z.string().optional(),
     memberName: z.string().min(1).optional(),
     memberId: z.string().nullable().optional(),
-    carrier: z.string().min(1).optional(),
+    carrier: z.string().optional(),
+    productId: z.string().optional(),
     premium: z.number().min(0).optional(),
+    effectiveDate: z.string().optional(),
+    leadSourceId: z.string().optional(),
     enrollmentFee: z.number().min(0).nullable().optional(),
+    addonProductIds: z.array(z.string()).optional(),
+    addonPremiums: z.record(z.string(), z.number().min(0)).optional(),
+    paymentType: z.enum(["CC", "ACH"]).optional(),
     memberState: z.string().max(2).nullable().optional(),
     notes: z.string().nullable().optional(),
+    commissionApproved: z.boolean().optional(),
   });
-  const parsed = schema.safeParse(req.body);
+  const parsed = editSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const sale = await prisma.sale.update({
-    where: { id: req.params.id },
-    data: parsed.data,
-    include: { agent: true, product: true, leadSource: true },
-  });
-  await logAudit(req.user!.id, "UPDATE", "Sale", sale.id, parsed.data);
-  // Recalculate commission if premium or enrollment fee changed
-  if (parsed.data.premium !== undefined || parsed.data.enrollmentFee !== undefined) {
-    await upsertPayrollEntryForSale(sale.id);
+
+  const saleId = req.params.id;
+  const userRoles: string[] = (req.user as any)?.roles ?? [];
+  const isPrivileged = userRoles.includes("PAYROLL") || userRoles.includes("SUPER_ADMIN");
+
+  if (isPrivileged) {
+    // ── PAYROLL / SUPER_ADMIN: apply directly ──
+    const { addonProductIds, addonPremiums, ...saleFields } = parsed.data;
+    const updateData: any = { ...saleFields };
+    if (updateData.saleDate) updateData.saleDate = new Date(updateData.saleDate + "T12:00:00");
+    if (updateData.effectiveDate) updateData.effectiveDate = new Date(updateData.effectiveDate + "T12:00:00");
+
+    const oldSale = await prisma.sale.findUnique({ where: { id: saleId } });
+    if (!oldSale) return res.status(404).json({ error: "Sale not found" });
+    const oldAgentId = oldSale.agentId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.sale.update({ where: { id: saleId }, data: updateData });
+
+      if (addonProductIds !== undefined) {
+        await tx.saleAddon.deleteMany({ where: { saleId } });
+        const uniqueIds = [...new Set(addonProductIds)];
+        if (uniqueIds.length > 0) {
+          await tx.saleAddon.createMany({
+            data: uniqueIds.map(productId => ({
+              saleId, productId, premium: addonPremiums?.[productId] ?? null,
+            })),
+          });
+        }
+      }
+    });
+
+    // If agent changed, delete old payroll entries for old agent
+    if (updateData.agentId && updateData.agentId !== oldAgentId) {
+      await prisma.payrollEntry.deleteMany({ where: { saleId, agentId: oldAgentId } });
+    }
+
+    // Recalculate commission if any financial/product/agent/date/paymentType field changed
+    const financialFields = ['premium', 'enrollmentFee', 'productId', 'agentId', 'saleDate', 'effectiveDate', 'paymentType', 'commissionApproved', 'addonProductIds'];
+    const needsRecalc = financialFields.some(f => (parsed.data as any)[f] !== undefined);
+    if (needsRecalc) {
+      await upsertPayrollEntryForSale(saleId);
+    }
+
+    const updatedSale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: { agent: true, product: true, leadSource: true, addons: { include: { product: true } } },
+    });
+    await logAudit(req.user!.id, "UPDATE", "Sale", saleId, parsed.data);
+    res.json(updatedSale);
+  } else {
+    // ── MANAGER: create SaleEditRequest ──
+    // Check for pending StatusChangeRequest
+    const pendingStatusChange = await prisma.statusChangeRequest.findFirst({
+      where: { saleId, status: "PENDING" },
+    });
+    if (pendingStatusChange) {
+      return res.status(409).json({ error: "This sale has a pending status change. Wait for resolution before editing." });
+    }
+
+    // Check for pending SaleEditRequest
+    const pendingEdit = await prisma.saleEditRequest.findFirst({
+      where: { saleId, status: "PENDING" },
+    });
+    if (pendingEdit) {
+      return res.status(409).json({ error: "This sale already has a pending edit request." });
+    }
+
+    // Fetch current sale to build diff
+    const currentSale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: { product: true, addons: { include: { product: true } } },
+    });
+    if (!currentSale) return res.status(404).json({ error: "Sale not found" });
+
+    // Build diff: { fieldName: { old: currentValue, new: newValue } }
+    const changes: Record<string, { old: any; new: any }> = {};
+    const data = parsed.data;
+
+    const fieldMap: Record<string, (sale: any) => any> = {
+      saleDate: s => s.saleDate?.toISOString?.()?.split("T")[0] ?? null,
+      agentId: s => s.agentId,
+      memberName: s => s.memberName,
+      memberId: s => s.memberId,
+      carrier: s => s.carrier,
+      productId: s => s.productId,
+      premium: s => Number(s.premium),
+      effectiveDate: s => s.effectiveDate?.toISOString?.()?.split("T")[0] ?? null,
+      leadSourceId: s => s.leadSourceId,
+      enrollmentFee: s => s.enrollmentFee !== null ? Number(s.enrollmentFee) : null,
+      paymentType: s => s.paymentType,
+      memberState: s => s.memberState,
+      notes: s => s.notes,
+      commissionApproved: s => s.commissionApproved,
+    };
+
+    for (const [field, getter] of Object.entries(fieldMap)) {
+      if ((data as any)[field] !== undefined) {
+        const oldVal = getter(currentSale);
+        const newVal = (data as any)[field];
+        if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+          changes[field] = { old: oldVal, new: newVal };
+        }
+      }
+    }
+
+    // Handle addon changes
+    if (data.addonProductIds !== undefined) {
+      const oldAddonIds = currentSale.addons.map(a => a.productId).sort();
+      const newAddonIds = [...new Set(data.addonProductIds)].sort();
+      if (JSON.stringify(oldAddonIds) !== JSON.stringify(newAddonIds)) {
+        changes.addonProductIds = { old: oldAddonIds, new: newAddonIds };
+      }
+    }
+    if (data.addonPremiums !== undefined) {
+      const oldPremiums: Record<string, number> = {};
+      currentSale.addons.forEach(a => { oldPremiums[a.productId] = Number(a.premium ?? 0); });
+      changes.addonPremiums = { old: oldPremiums, new: data.addonPremiums };
+    }
+
+    if (Object.keys(changes).length === 0) {
+      return res.status(400).json({ error: "No changes detected" });
+    }
+
+    const editRequest = await prisma.saleEditRequest.create({
+      data: {
+        saleId,
+        requestedBy: req.user!.id,
+        changes,
+      },
+    });
+
+    res.json({ editRequest, message: "Edit request created for payroll approval" });
   }
-  res.json(sale);
 }));
 
 router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -430,6 +592,7 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
     prisma.clawback.deleteMany({ where: { saleId } }),
     prisma.payrollEntry.deleteMany({ where: { saleId } }),
     prisma.statusChangeRequest.deleteMany({ where: { saleId } }),
+    prisma.saleEditRequest.deleteMany({ where: { saleId } }),
     prisma.sale.delete({ where: { id: saleId } }),
   ]);
   await logAudit(req.user!.id, "DELETE", "Sale", saleId, { memberName: sale.memberName, agentId: sale.agentId, premium: Number(sale.premium) });
@@ -1279,6 +1442,114 @@ router.post("/status-change-requests/:id/reject", requireAuth, requireRole("PAYR
 
   await logAudit(req.user!.id, "REJECT_STATUS_CHANGE", "StatusChangeRequest", changeRequest.id, {
     saleId: changeRequest.saleId,
+  });
+  res.json(updated);
+}));
+
+// ── Sale Edit Requests (approval workflow) ──────────────────────
+router.get("/sale-edit-requests", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const status = (req.query.status as string) || "PENDING";
+  const requests = await prisma.saleEditRequest.findMany({
+    where: { status: status as any },
+    include: {
+      sale: { include: { agent: true, product: true } },
+      requester: { select: { name: true, email: true } },
+    },
+    orderBy: { requestedAt: "asc" },
+  });
+  res.json(requests);
+}));
+
+router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const editRequest = await prisma.saleEditRequest.findUnique({
+    where: { id: req.params.id },
+    include: { sale: true },
+  });
+  if (!editRequest) return res.status(404).json({ error: "Edit request not found" });
+  if (editRequest.status !== "PENDING") return res.status(400).json({ error: "Edit request is not pending" });
+
+  const changes = editRequest.changes as Record<string, { old: any; new: any }>;
+  const saleId = editRequest.saleId;
+  const oldAgentId = editRequest.sale.agentId;
+
+  // Build sale update data from changes
+  const saleUpdateData: any = {};
+  const dateFields = ['saleDate', 'effectiveDate'];
+  for (const [field, diff] of Object.entries(changes)) {
+    if (field === 'addonProductIds' || field === 'addonPremiums') continue;
+    if (dateFields.includes(field)) {
+      saleUpdateData[field] = new Date(diff.new + "T12:00:00");
+    } else {
+      saleUpdateData[field] = diff.new;
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Update the edit request status
+    await tx.saleEditRequest.update({
+      where: { id: editRequest.id },
+      data: { status: "APPROVED", reviewedBy: req.user!.id, reviewedAt: new Date() },
+    });
+
+    // Apply sale field changes
+    if (Object.keys(saleUpdateData).length > 0) {
+      await tx.sale.update({ where: { id: saleId }, data: saleUpdateData });
+    }
+
+    // Handle addon changes
+    if (changes.addonProductIds) {
+      await tx.saleAddon.deleteMany({ where: { saleId } });
+      const newAddonIds: string[] = changes.addonProductIds.new;
+      const addonPremiums: Record<string, number> = changes.addonPremiums?.new ?? {};
+      const uniqueIds = [...new Set(newAddonIds)];
+      if (uniqueIds.length > 0) {
+        await tx.saleAddon.createMany({
+          data: uniqueIds.map(productId => ({
+            saleId, productId, premium: addonPremiums[productId] ?? null,
+          })),
+        });
+      }
+    }
+  });
+
+  // Check if sale is in a finalized period and handle accordingly
+  const existingEntries = await prisma.payrollEntry.findMany({
+    where: { saleId },
+    include: { payrollPeriod: true },
+  });
+  const hasFinalizedEntry = existingEntries.some(e =>
+    e.payrollPeriod.status === 'FINALIZED' || e.payrollPeriod.status === 'LOCKED'
+  );
+
+  if (hasFinalizedEntry) {
+    await handleSaleEditApproval(saleId, changes, changes.agentId ? oldAgentId : undefined);
+  } else {
+    await upsertPayrollEntryForSale(saleId);
+  }
+
+  await logAudit(req.user!.id, "APPROVE_SALE_EDIT", "SaleEditRequest", editRequest.id, {
+    saleId, changes,
+  });
+
+  const result = await prisma.saleEditRequest.findUnique({
+    where: { id: editRequest.id },
+    include: { sale: { include: { agent: true, product: true } } },
+  });
+  res.json(result);
+}));
+
+router.post("/sale-edit-requests/:id/reject", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const editRequest = await prisma.saleEditRequest.findUnique({ where: { id: req.params.id } });
+  if (!editRequest) return res.status(404).json({ error: "Edit request not found" });
+  if (editRequest.status !== "PENDING") return res.status(400).json({ error: "Edit request is not pending" });
+
+  const updated = await prisma.saleEditRequest.update({
+    where: { id: editRequest.id },
+    data: { status: "REJECTED", reviewedBy: req.user!.id, reviewedAt: new Date() },
+  });
+
+  await logAudit(req.user!.id, "REJECT_SALE_EDIT", "SaleEditRequest", editRequest.id, {
+    saleId: editRequest.saleId,
   });
   res.json(updated);
 }));
