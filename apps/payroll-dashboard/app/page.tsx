@@ -1,8 +1,10 @@
 "use client";
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { PageShell, Badge, AnimatedNumber, SkeletonCard } from "@ops/ui";
 import { colors, spacing, radius, shadows, motion, baseCardStyle, baseInputStyle, baseLabelStyle, baseButtonStyle } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
+import type { SaleChangedPayload } from "@ops/socket";
 import {
   Calendar, AlertTriangle, FileDown, Package, Users,
   ChevronDown, ChevronUp, Lock, Unlock, CheckCircle,
@@ -216,7 +218,7 @@ const NAV_ITEMS = [
 /* ── Editable Sale Row ───────────────────────────────────────── */
 
 function EditableSaleRow({
-  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete, products,
+  entry, onSaleUpdate, onBonusFrontedUpdate, onApprove, onUnapprove, onDelete, products, highlighted,
 }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
@@ -225,6 +227,7 @@ function EditableSaleRow({
   onUnapprove: (saleId: string) => Promise<void>;
   onDelete: (saleId: string) => Promise<void>;
   products: Product[];
+  highlighted?: boolean;
 }) {
   const [editSale, setEditSale] = useState(false);
   const [saleData, setSaleData] = useState({
@@ -260,7 +263,7 @@ function EditableSaleRow({
   return (
     <tr
       className="row-hover"
-      style={{ borderTop: `1px solid ${C.borderSubtle}`, ...rowBg }}
+      style={{ borderTop: `1px solid ${C.borderSubtle}`, ...rowBg, transition: "box-shadow 1.5s ease-out", ...(highlighted ? HIGHLIGHT_GLOW : {}) }}
     >
       <td style={TD}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "—"}</span></td>
 
@@ -778,6 +781,7 @@ function AgentPayCard({
   onPrint, onMarkPaid, onMarkUnpaid,
   onApproveChangeRequest, onRejectChangeRequest,
   onApproveEditRequest, onRejectEditRequest,
+  highlightedEntryIds,
 }: {
   agentName: string;
   entries: Entry[];
@@ -806,6 +810,7 @@ function AgentPayCard({
   onRejectChangeRequest: (id: string) => Promise<void>;
   onApproveEditRequest: (id: string) => Promise<void>;
   onRejectEditRequest: (id: string) => Promise<void>;
+  highlightedEntryIds: Set<string>;
 }) {
   const activeEntries = entries.filter(isActiveEntry);
   const totalBonus = activeEntries.reduce((s, e) => s + Number(e.bonusAmount), 0);
@@ -998,6 +1003,7 @@ function AgentPayCard({
                 onApprove={onApprove}
                 onUnapprove={onUnapprove}
                 onDelete={onDelete}
+                highlighted={highlightedEntryIds.has(e.id)}
               />
             ))}
             {/* Agent subtotal */}
@@ -1179,6 +1185,73 @@ export default function PayrollDashboard() {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([]);
   const [printMenuPeriod, setPrintMenuPeriod] = useState<string | null>(null);
+  const [highlightedEntryIds, setHighlightedEntryIds] = useState<Set<string>>(new Set());
+
+  // Ref for expanded period to avoid stale closures in socket callback
+  const expandedPeriodRef = useRef(expandedPeriod);
+  expandedPeriodRef.current = expandedPeriod;
+
+  const highlightEntry = (id: string) => {
+    setHighlightedEntryIds(prev => new Set(prev).add(id));
+    setTimeout(() => {
+      setHighlightedEntryIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    }, 100);
+  };
+
+  // Socket.IO: sale:changed handler — patches local state directly (no API refetch)
+  const handleSaleChanged = useCallback((payload: SaleChangedPayload) => {
+    if (payload.type !== "created" && payload.type !== "status_changed") return;
+
+    // Filter payroll entries to those matching any period we have locally
+    const matchingEntries = payload.payrollEntries;
+    if (matchingEntries.length === 0) return;
+
+    // Highlight entries
+    matchingEntries.forEach(e => highlightEntry(e.id));
+
+    // Patch periods state directly
+    setPeriods(prev => prev.map(period => {
+      const periodEntries = matchingEntries.filter(e => e.periodId === period.id);
+      if (periodEntries.length === 0) return period;
+
+      const updatedEntries = [...period.entries];
+      for (const pe of periodEntries) {
+        const existingIdx = updatedEntries.findIndex(e => e.id === pe.id);
+        const newEntry: Entry = {
+          id: pe.id,
+          payoutAmount: pe.payoutAmount,
+          adjustmentAmount: pe.adjustmentAmount,
+          bonusAmount: pe.bonusAmount,
+          frontedAmount: pe.frontedAmount,
+          holdAmount: pe.holdAmount,
+          netAmount: pe.netAmount,
+          status: pe.status,
+          sale: {
+            id: payload.sale.id,
+            memberName: payload.sale.memberName,
+            memberId: payload.sale.memberId,
+            carrier: payload.sale.carrier,
+            premium: payload.sale.premium,
+            enrollmentFee: payload.sale.enrollmentFee,
+            commissionApproved: false,
+            status: payload.sale.status,
+            product: payload.sale.product,
+            addons: payload.sale.addons,
+          },
+          agent: { name: payload.sale.agent.name },
+        };
+        if (existingIdx >= 0) {
+          updatedEntries[existingIdx] = newEntry;
+        } else {
+          updatedEntries.push(newEntry);
+        }
+      }
+      return { ...period, entries: updatedEntries };
+    }));
+  }, []);
+
+  // Wire up Socket.IO — reconnect triggers full refetch
+  const { disconnected } = useSocket(API, handleSaleChanged, () => { refreshPeriods(); });
 
   useEffect(() => {
     captureTokenFromUrl();
@@ -1807,6 +1880,8 @@ export default function PayrollDashboard() {
       activeNav={tab}
       onNavChange={key => setTab(key as Tab)}
     >
+      {disconnected && <div style={DISCONNECT_BANNER}>Connection lost. Reconnecting...</div>}
+
       {/* ── Payroll Periods ───────────────────────────────────── */}
       {tab === "periods" && (
         <div className="animate-fade-in" style={{ display: "grid", gap: S[4] }}>
@@ -2024,6 +2099,7 @@ export default function PayrollDashboard() {
                               onRejectChangeRequest={rejectChangeRequest}
                               onApproveEditRequest={approveEditRequest}
                               onRejectEditRequest={rejectEditRequest}
+                              highlightedEntryIds={highlightedEntryIds}
                             />
                           </div>
                         );
