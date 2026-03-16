@@ -145,12 +145,12 @@ Plans:
 | 2. Commission Engine Core | 4/4 | Complete | 2026-03-15 |
 | 3. Commission Fees & Period Assignment | 2/2 | Complete | 2026-03-15 |
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
-| 5. Commission Preview & Sale Editing | 1/3 | In Progress | - |
+| 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
 | 6. Dashboard Cascade | 0/? | Not started | - |
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
-| 10. Sale Status Payroll Logic | 4/6 | In Progress | - |
+| 10. Sale Status Payroll Logic | 5/6 | In Progress | - |
 
 ### Phase 10: Sale Status Payroll Logic
 
@@ -170,7 +170,7 @@ Plans:
 - [x] 10-02-PLAN.md -- Status change API with approval workflow, commission zeroing, and dashboard query filters
 - [x] 10-03-PLAN.md -- Manager dashboard status dropdown on sales form and editable status on agent sales tab
 - [x] 10-04-PLAN.md -- Payroll dashboard pending approvals, approve/reject actions, and period total filtering
-- [ ] 10-05-PLAN.md -- Fix stale test helper and implement status-commission and status-change test suites
+- [x] 10-05-PLAN.md -- Fix stale test helper and implement status-commission and status-change test suites
 - [ ] 10-06-PLAN.md -- Payroll UX: card header financial summary, row status shading, editable product/premium
 
 ---
