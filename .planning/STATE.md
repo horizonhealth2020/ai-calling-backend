@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 06-01 (Socket Foundation)
-last_updated: "2026-03-16T14:48:18.000Z"
+status: executing
+stopped_at: Completed 06-02 (Manager & Sales Board Real-Time)
+last_updated: "2026-03-16T14:55:00.000Z"
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 20
-  completed_plans: 20
+  completed_plans: 23
 ---
 
 ---
@@ -32,18 +32,18 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 6 (Dashboard Cascade) in progress. Plan 01 complete, Plans 02-03 remain.
+**Current Focus:** Phase 6 (Dashboard Cascade) COMPLETE. All 3 plans done. Next: Phase 7+.
 
 ## Current Position
 
-**Phase:** 6 of 10 -- Dashboard Cascade -- IN PROGRESS
-**Plan:** 1 of 3 -- Socket Foundation complete
-**Status:** Phase 6 Plan 01 done. Plans 02-03 remain.
+**Phase:** 6 of 10 -- Dashboard Cascade -- COMPLETE
+**Plan:** 3 of 3 -- All complete
+**Status:** Phase 6 done. Phases 7-9 remain.
 
 ```
 Progress: [████████████████████████] 100% (Plans)
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [#####]
-Phase 5 [#####] | Phase 6 [##...] | Phase 7 [.....] | Phase 8 [.....]
+Phase 5 [#####] | Phase 6 [#####] | Phase 7 [.....] | Phase 8 [.....]
 Phase 9 [.....] | Phase 10 [#####]
 ```
 
@@ -79,6 +79,8 @@ Phase 9 [.....] | Phase 10 [#####]
 | 10 | 05 | 125s | 2 | 3 |
 | 10 | 06 | ~300s | 3 | 1 |
 | 06 | 01 | 248s | 2 | 14 |
+| 06 | 03 | 394s | 2 | 2 |
+| 06 | 02 | 519s | 2 | 2 |
 
 ## Accumulated Context
 
@@ -145,6 +147,13 @@ Phase 9 [.....] | Phase 10 [#####]
 - Socket.IO now emits sale:changed events via emitSaleChanged after sale creation and Dead/Declined->Ran approval -- Phase 6 Plan 01
 - [Phase 6] Server-side SaleChangedPayload duplicated in socket.ts to avoid React peer dependency on server
 - [Phase 6] workspace:* protocol replaced with * for npm workspace compatibility
+- [Phase 6] Payroll dashboard patches all loaded periods (not just expanded) for consistent data on expand
+- [Phase 6] Owner dashboard patches tracker alongside KPI summary for consistent leaderboard
+- [Phase 6] highlightedEntryIds prop-drilled through AgentPayCard to EditableSaleRow
+- [Phase 6] 100ms highlight timeout with CSS 1.5s box-shadow transition for visual fade effect
+- [Phase 6] Sales board 30s polling replaced by Socket.IO real-time; countdown ring removed
+- [Phase 6] Manager dashboard patches both tracker (agent-level) and salesList (sale-level) from event payload
+- [Phase 6] Sales board patches todayStats, weeklyTotals, weeklyDays, grandTotals incrementally from payload with re-sort
 - Luxon now used for Eastern timezone period assignment in getSundayWeekRange -- DONE in Phase 3
 
 ### Open Questions
@@ -157,13 +166,13 @@ Phase 9 [.....] | Phase 10 [#####]
 None currently.
 
 ### TODOs
-- Phases 6-9 remain: Dashboard Cascade, Payroll Management, Reporting, UI/UX Polish
+- Phases 7-9 remain: Payroll Management, Reporting, UI/UX Polish
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T14:48:18.000Z
-**Stopped at:** Completed 06-01 (Socket Foundation)
-**Next action:** Execute Phase 6 Plan 02 (Manager dashboard and sales board Socket.IO integration).
+**Last session:** 2026-03-16T14:56:00.000Z
+**Stopped at:** Completed 06-03 (Payroll & Owner Dashboard Real-Time) -- Phase 6 COMPLETE
+**Next action:** Phase 6 complete. Proceed to Phase 7 (Payroll Management) or next priority phase.
 
 ---
 *State initialized: 2026-03-14*

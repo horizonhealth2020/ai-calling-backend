@@ -12,7 +12,7 @@
 - [x] **Phase 3: Commission Fees & Period Assignment** - Enrollment fee rules and week-in-arrears period mapping
 - [x] **Phase 4: Multi-Product Sales Form** - Manager dashboard supports multiple products, payment type, and enrollment fee per sale
 - [x] **Phase 5: Commission Preview & Sale Editing** - Live commission preview before submit and full recalculation on edit
-- [ ] **Phase 6: Dashboard Cascade** - Sale creation updates all dashboards in real-time via Socket.IO
+- [x] **Phase 6: Dashboard Cascade** - Sale creation updates all dashboards in real-time via Socket.IO
 - [ ] **Phase 7: Payroll Management** - Period workflow, scrollable cards, finalization guards, and CSV export
 - [ ] **Phase 8: Reporting** - Agent performance metrics, period summaries, trend KPIs, and export-ready reports
 - [ ] **Phase 9: UI/UX Polish** - Form validation, layout consistency, and design system alignment across all dashboards
@@ -104,8 +104,8 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 06-01-PLAN.md -- Create @ops/socket shared package, server-side emitSaleChanged helper, and wire emits into sale creation and status-change approval routes
-- [ ] 06-02-PLAN.md -- Manager dashboard and sales board Socket.IO integration with real-time state patching and highlight
-- [ ] 06-03-PLAN.md -- Payroll dashboard and owner dashboard Socket.IO integration with real-time state patching and highlight
+- [x] 06-02-PLAN.md -- Manager dashboard and sales board Socket.IO integration with real-time state patching and highlight
+- [x] 06-03-PLAN.md -- Payroll dashboard and owner dashboard Socket.IO integration with real-time state patching and highlight
 
 ### Phase 7: Payroll Management
 **Goal**: Payroll staff can manage pay periods through their full lifecycle, view agent cards, and export finalized payroll
@@ -150,7 +150,7 @@ Plans:
 | 3. Commission Fees & Period Assignment | 2/2 | Complete | 2026-03-15 |
 | 4. Multi-Product Sales Form | 2/2 | Complete | 2026-03-15 |
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
-| 6. Dashboard Cascade | 1/3 | In progress | - |
+| 6. Dashboard Cascade | 3/3 | Complete | 2026-03-16 |
 | 7. Payroll Management | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. UI/UX Polish | 0/? | Not started | - |
