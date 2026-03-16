@@ -13,8 +13,8 @@
 - [x] **Phase 4: Multi-Product Sales Form** - Manager dashboard supports multiple products, payment type, and enrollment fee per sale
 - [x] **Phase 5: Commission Preview & Sale Editing** - Live commission preview before submit and full recalculation on edit
 - [x] **Phase 6: Dashboard Cascade** - Sale creation updates all dashboards in real-time via Socket.IO
-- [ ] **Phase 7: Payroll Management** - Period workflow, scrollable cards, finalization guards, and CSV export
-- [ ] **Phase 8: Reporting** - Agent performance metrics, period summaries, trend KPIs, and export-ready reports
+- [x] **Phase 7: Payroll Management** - Period workflow, scrollable cards, finalization guards, and CSV export
+- [x] **Phase 8: Reporting** - Agent performance metrics, period summaries, trend KPIs, and export-ready reports
 - [ ] **Phase 9: UI/UX Polish** - Form validation, layout consistency, and design system alignment across all dashboards
 
 ## Phase Details
@@ -135,7 +135,7 @@ Plans:
 **Plans:** 2 plans
 Plans:
 - [x] 08-01-PLAN.md -- Reporting pure functions, extend /tracker/summary with commission, /owner/summary with trends, new /reporting/periods endpoint
-- [ ] 08-02-PLAN.md -- Owner dashboard trend KPIs + period summary section, manager dashboard commission column + agent performance CSV export
+- [x] 08-02-PLAN.md -- Owner dashboard trend KPIs + period summary section, manager dashboard commission column + agent performance CSV export
 
 ### Phase 9: UI/UX Polish
 **Goal**: All dashboards have consistent, validated forms and polished layouts following the design system
@@ -158,7 +158,7 @@ Plans:
 | 5. Commission Preview & Sale Editing | 3/3 | Complete | 2026-03-15 |
 | 6. Dashboard Cascade | 3/3 | Complete | 2026-03-16 |
 | 7. Payroll Management | 2/2 | Complete | 2026-03-16 |
-| 8. Reporting | 1/2 | In progress | - |
+| 8. Reporting | 2/2 | Complete | 2026-03-16 |
 | 9. UI/UX Polish | 0/? | Not started | - |
 | 10. Sale Status Payroll Logic | 6/6 | Complete    | 2026-03-16 |
 

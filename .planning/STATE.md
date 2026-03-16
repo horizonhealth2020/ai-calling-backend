@@ -60,18 +60,18 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 8 (Reporting) in progress. Plan 1 of 2 complete.
+**Current Focus:** Phase 8 (Reporting) COMPLETE. All 2 plans done. Next: Phase 9 (UI/UX Polish).
 
 ## Current Position
 
-**Phase:** 8 of 10 -- Reporting
-**Plan:** 1 of 2 -- Reporting API Endpoints COMPLETE
-**Status:** Executing
+**Phase:** 8 of 10 -- Reporting -- COMPLETE
+**Plan:** 2 of 2 -- All complete
+**Status:** Phase complete
 
 ```
-Progress: [██████████████████████░░] 96% (Plans)
+Progress: [████████████████████████] 100% (Plans)
 Phase 1 [#####] | Phase 2 [#####] | Phase 3 [#####] | Phase 4 [#####]
-Phase 5 [#####] | Phase 6 [#####] | Phase 7 [#####] | Phase 8 [##...]
+Phase 5 [#####] | Phase 6 [#####] | Phase 7 [#####] | Phase 8 [#####]
 Phase 9 [.....] | Phase 10 [#####]
 ```
 
@@ -79,10 +79,10 @@ Phase 9 [.....] | Phase 10 [#####]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 27 |
-| Plans total | 28 (remaining: 08-02, Phase 9 TBD) |
-| Requirements done | 36/36+ |
-| Phases done | 8/10 |
+| Plans completed | 28 |
+| Plans total | 28+ (Phase 9 TBD) |
+| Requirements done | 41/41+ |
+| Phases done | 9/10 |
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -111,6 +111,7 @@ Phase 9 [.....] | Phase 10 [#####]
 | 06 | 02 | 519s | 2 | 2 |
 | 07 | 02 | 271s | 2 | 1 |
 | 07 | 01 | 193s | 2 | 3 |
+| 08 | 02 | 379s | 2 | 2 |
 | 08 | 01 | 168s | 2 | 3 |
 
 ## Accumulated Context
@@ -168,6 +169,10 @@ Phase 9 [.....] | Phase 10 [#####]
 - [Phase 1] Payroll upsert errors logged via console.error, non-fatal to sale creation
 - [Phase 1] Agent dropdown kept ?all=true fetch but defaults to empty; only saleDate display needed UTC fix
 
+- [Phase 8] computeTrend duplicated client-side in owner dashboard (matches server-side pure function for offline resilience)
+- [Phase 8] Period summary uses dedicated useEffect for periodView toggle (avoids refetching all dashboard data)
+- [Phase 8] Manager CSV export uses client-side Blob pattern (matches existing payroll export pattern)
+
 ### Roadmap Evolution
 - Phase 10 added: Sale Status Payroll Logic — status-driven commission (Ran/Declined/Dead), change request workflow, payroll approval queue
 
@@ -206,13 +211,13 @@ Phase 9 [.....] | Phase 10 [#####]
 None currently.
 
 ### TODOs
-- Phases 8-9 remain: Reporting, UI/UX Polish
+- Phase 9 remains: UI/UX Polish
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T19:02:29Z
-**Stopped at:** Completed 08-01 (Reporting API Endpoints)
-**Next action:** Execute Phase 8 Plan 2 (Reporting Dashboard Frontend).
+**Last session:** 2026-03-16T19:10:00Z
+**Stopped at:** Completed 08-02 (Dashboard Reporting Features)
+**Next action:** Phase 8 complete. Proceed to Phase 9 (UI/UX Polish).
 
 ---
 *State initialized: 2026-03-14*
