@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A sales operations platform with role-based dashboards for managers, payroll staff, owners, and agents. A single sale entry from the manager dashboard must cascade correctly across all dashboards — agent tracker, sales board, payroll cards, and owner KPIs. The platform currently has broken sales flow, buggy payroll logic, and UI usability gaps that prevent daily use.
+A sales operations platform with role-based dashboards for managers, payroll staff, owners, and agents. A sale entered on the manager dashboard cascades correctly across all dashboards — agent tracker, sales board, payroll cards, and owner KPIs — with accurate commission calculations, real-time updates, and a complete payroll management workflow.
 
 ## Core Value
 
@@ -12,79 +12,75 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Validated
 
-<!-- Shipped and confirmed valuable. Inferred from existing codebase. -->
+<!-- Shipped and confirmed valuable. -->
 
 - ✓ JWT authentication with role-based access control (6 roles) — existing
 - ✓ Auth portal with login, password change, role-based redirect — existing
-- ✓ Manager dashboard with sales entry form and agent tracker — existing (buggy)
-- ✓ Payroll dashboard with periods, commission view, clawbacks, exports — existing (buggy)
-- ✓ Sales board with public leaderboard — existing
-- ✓ Owner dashboard with KPI summary — existing (incomplete)
-- ✓ Product management (CORE, ADD_ON, AD_D categories) with commission rates and thresholds — existing
 - ✓ Prisma/PostgreSQL data layer with migrations — existing
-- ✓ Socket.IO real-time updates across dashboards — existing
-- ✓ Audit logging for sensitive operations — existing
 - ✓ Docker and Railway deployment — existing
+- ✓ Sales entry completes without errors — v1.0
+- ✓ Multi-product sales with payment type selection — v1.0
+- ✓ Commission engine: bundle rules, fee thresholds, AD&D, enrollment bonus — v1.0
+- ✓ Week-in-arrears payroll with ACH extra week delay — v1.0
+- ✓ Live commission preview before submission — v1.0
+- ✓ Sale editing with full commission and period recalculation — v1.0
+- ✓ Real-time dashboard cascade via Socket.IO — v1.0
+- ✓ Payroll period lifecycle (Pending → Ready → Finalized) with paid-agent guards — v1.0
+- ✓ Agent pay cards with collapsible entries and CSV export — v1.0
+- ✓ Sale status workflow: Ran/Declined/Dead with approval queue — v1.0
+- ✓ Reporting: per-agent metrics, period summaries, trend KPIs, CSV export — v1.0
+- ✓ Shared @ops/ui design system with form validation across all dashboards — v1.0
+- ✓ Audit logging for sensitive operations — existing
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
+<!-- Next milestone scope. -->
 
-- [ ] Fix sales entry internal server error on manager dashboard
-- [ ] Sales entry supports multiple products per sale
-- [ ] Sale cascades to agent tracker (manager dashboard)
-- [ ] Sale cascades to sales board leaderboard
-- [ ] Sale cascades to payroll card for correct agent
-- [ ] Sale cascades to owner dashboard KPIs
-- [ ] Commission calculation: Core products require Compass VAB bundle for full commission, else half
-- [ ] Commission calculation: Add-on products match core product commission rate when bundled; follow threshold rules when standalone
-- [ ] Commission calculation: AD&D products get half commission unless bundled with core product
-- [ ] Commission calculation: Enrollment fee below threshold triggers half commission
-- [ ] Commission calculation: $125 enrollment fee triggers $10 bonus
-- [ ] Week-in-arrears payroll: sale date maps to following Sun-Sat pay period
-- [ ] ACH sales paid a further week in arrears (two weeks delay)
-- [ ] Payroll paycards are scrollable
-- [ ] Forms & inputs overhaul across all dashboards
-- [ ] Agent performance reporting: per-agent sales, commission earned, cost-per-sale
-- [ ] Period summary reporting: weekly/monthly totals, export-ready payroll reports
-- [ ] Overall UI/UX polish and usability improvements
+(None yet — run /gsd:new-milestone to plan next work)
 
 ### Out of Scope
 
 - Morgan voice service changes — separate workload, not part of this initiative
-- Mobile app — web-first, mobile later
+- Mobile app — web-first, desktop is primary use case for internal ops
 - New role types — current 6 roles are sufficient
 - Real-time chat — not needed for operations workflow
+- Custom report builder — predefined reports cover the use case
+- Client-side commission calculation — must be server-authoritative for payroll accuracy
 
 ## Context
 
-This is a brownfield project with an existing monorepo containing 5 Next.js dashboards, an Express API, and shared packages. The core sales-to-payroll flow is broken (internal server error on sales entry), making it impossible to test downstream payroll calculations. The payroll service (`apps/ops-api/src/services/payroll.ts`) has existing commission logic but the product bundling rules (Compass VAB requirement, add-on bundling) and ACH delay logic need to be verified and corrected.
+Shipped v1.0 with 10 phases, 31 plans, 50 requirements across 4 days. Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with 5 dashboards, 1 API, and shared @ops/* packages.
 
-**Commission Rules Summary:**
-- **Core products:** Full commission rate if bundled with Compass VAB product; half commission if not bundled
-- **Add-on products:** When bundled with core product, commission matches the core product's rate. When standalone, follows threshold rules (below threshold = half commission)
-- **AD&D products:** Half commission from set rate unless bundled with a core product
-- **Enrollment fee:** Below product threshold → half commission; exactly $125 → +$10 bonus
-- **Payment method:** ACH sales are paid one additional week in arrears
+The platform is now fully operational: sales entry works end-to-end, commissions calculate correctly with all bundle/fee/arrears rules, dashboards cascade in real-time, payroll management has a complete lifecycle, and all UI uses a consistent shared design system.
 
-**Pay Period:** Sunday to Saturday, paid one week in arrears. A sale on 3/12/2026 (Thursday) goes into the 3/15–3/21 pay period. ACH sales from that date go into 3/22–3/28 instead.
+**Known areas for future work:**
+- Bulk sale import from CSV
+- Custom date range selection for reports
+- Enhanced AI call audit analysis
+- Automated call quality scoring
 
 ## Constraints
 
-- **Tech stack**: Must use existing stack — Next.js 15, Express, Prisma, PostgreSQL, Socket.IO
+- **Tech stack**: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO
 - **Styling**: Inline React.CSSProperties with dark glassmorphism theme — no Tailwind, no CSS files
-- **Architecture**: Monorepo workspace structure with @ops/* shared packages must be preserved
-- **Deployment**: Must remain compatible with both Railway and Docker deployment
+- **Architecture**: Monorepo workspace structure with @ops/* shared packages
+- **Deployment**: Compatible with both Railway and Docker
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Fix sales entry first | Everything downstream depends on working sales flow | — Pending |
-| Multi-product sales | Products are created in payroll, each sale can include multiple products | — Pending |
-| Product-based commission tiers | Commission rates determined by product type and bundling rules | — Pending |
-| Sun-Sat pay weeks with arrears | Industry standard for this business; ACH gets extra week delay | — Pending |
-| Full overhaul scope | Fix bugs + polish UI + add reporting — not just a patch job | — Pending |
+| Fix sales entry first | Everything downstream depends on working sales flow | ✓ Good |
+| Multi-product sales | Products are created in payroll, each sale can include multiple products | ✓ Good |
+| Product-based commission tiers | Commission rates determined by product type and bundling rules | ✓ Good |
+| Sun-Sat pay weeks with arrears | Industry standard for this business; ACH gets extra week delay | ✓ Good |
+| Full overhaul scope | Fix bugs + polish UI + add reporting — not just a patch job | ✓ Good |
+| isBundleQualifier flag | Replaced string-matching bundle detection with product flag | ✓ Good |
+| Luxon for timezone handling | America/New_York for day-of-week, UTC midnight for storage | ✓ Good |
+| Commission gate in upsert, not calc | Keeps calculateCommission pure; status gating in payroll entry creation | ✓ Good |
+| Socket.IO for real-time cascade | Replaced polling with event-driven updates across all dashboards | ✓ Good |
+| Shared @ops/ui design system | Migrated all dashboards to shared components with design tokens | ✓ Good |
+| Submit-only form validation | Per-field inline errors on submit, not on-blur or real-time | ✓ Good |
 
 ---
-*Last updated: 2026-03-14 after initialization*
+*Last updated: 2026-03-17 after v1.0 milestone*
