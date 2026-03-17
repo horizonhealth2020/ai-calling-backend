@@ -34,15 +34,32 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- Next milestone scope. -->
+<!-- v1.1 scope — Customer Service Dashboard -->
 
-(None yet — run /gsd:new-milestone to plan next work)
+- [ ] New customer_service role with restricted dashboard access
+- [ ] Customer Service dashboard with Submissions and Tracking tabs
+- [ ] Chargeback parser: paste raw text, parse fields, editable preview, batch submit
+- [ ] Pending Terms parser: paste raw text, parse fields, editable preview, batch submit
+- [ ] Chargeback tracking: KPI counter bar, filterable/sortable table, CSV export
+- [ ] Pending Terms tracking: summary bar, filterable/sortable/groupable table, CSV export
+- [ ] Database tables: chargeback_submissions, pending_terms with audit trail
+- [ ] Role-gated tab access: Submissions (owner/super_admin only), Tracking (+ customer_service)
+
+## Current Milestone: v1.1 Customer Service
+
+**Goal:** Add a Customer Service dashboard for managing chargebacks and pending terms with paste-to-parse submission workflows and rich tracking views.
+
+**Target features:**
+- New role: customer_service (tracking-only access)
+- Chargeback submission parser with batch support
+- Pending Terms submission parser with batch support
+- Chargeback tracking with KPI counters and filters
+- Pending Terms tracking with agent grouping and hold-date urgency
 
 ### Out of Scope
 
 - Morgan voice service changes — separate workload, not part of this initiative
 - Mobile app — web-first, desktop is primary use case for internal ops
-- New role types — current 6 roles are sufficient
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports cover the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
@@ -83,4 +100,4 @@ The platform is now fully operational: sales entry works end-to-end, commissions
 | Submit-only form validation | Per-field inline errors on submit, not on-blur or real-time | ✓ Good |
 
 ---
-*Last updated: 2026-03-17 after v1.0 milestone*
+*Last updated: 2026-03-17 after v1.1 milestone start*
