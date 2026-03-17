@@ -492,12 +492,23 @@ model ChargebackSubmission {
   submittedAt            DateTime  @default(now()) @map("submitted_at")
   batchId                String    @map("batch_id")
   rawPaste               String    @map("raw_paste")
+  assignedTo             String?   @map("assigned_to")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
   submitter User @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
 
   @@map("chargeback_submissions")
+}
+
+model CsRepRoster {
+  id        String   @id @default(cuid())
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cs_rep_roster")
 }
 
 model PendingTerm {
