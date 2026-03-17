@@ -1,4 +1,4 @@
-export type AppRole = "SUPER_ADMIN" | "OWNER_VIEW" | "MANAGER" | "PAYROLL" | "SERVICE" | "ADMIN";
+export type AppRole = "SUPER_ADMIN" | "OWNER_VIEW" | "MANAGER" | "PAYROLL" | "SERVICE" | "ADMIN" | "CUSTOMER_SERVICE";
 
 export type SessionUser = {
   id: string;

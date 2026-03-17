@@ -14,6 +14,7 @@ enum UserRole {
   PAYROLL
   SERVICE
   ADMIN
+  CUSTOMER_SERVICE
 }
 
 enum PayrollPeriodStatus {
@@ -72,6 +73,8 @@ model User {
   statusChangeRequestsReviewed StatusChangeRequest[] @relation("StatusChangeReviewer")
   saleEditRequestsMade         SaleEditRequest[] @relation("SaleEditRequester")
   saleEditRequestsReviewed     SaleEditRequest[] @relation("SaleEditReviewer")
+  chargebackSubmissions        ChargebackSubmission[] @relation("ChargebackSubmittedBy")
+  pendingTermSubmissions       PendingTerm[]          @relation("PendingTermSubmittedBy")
 
   @@map("users")
 }
@@ -468,4 +471,66 @@ model ServiceTicket {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("service_tickets")
+}
+
+model ChargebackSubmission {
+  id                     String    @id @default(cuid())
+  postedDate             DateTime? @map("posted_date")
+  type                   String?
+  payeeId                String?   @map("payee_id")
+  payeeName              String?   @map("payee_name")
+  payoutPercent          Decimal?  @db.Decimal(5, 2) @map("payout_percent")
+  chargebackAmount       Decimal?  @db.Decimal(12, 2) @map("chargeback_amount")
+  totalAmount            Decimal?  @db.Decimal(12, 2) @map("total_amount")
+  transactionDescription String?   @map("transaction_description")
+  product                String?
+  memberCompany          String?   @map("member_company")
+  memberId               String?   @map("member_id")
+  memberAgentCompany     String?   @map("member_agent_company")
+  memberAgentId          String?   @map("member_agent_id")
+  submittedBy            String    @map("submitted_by")
+  submittedAt            DateTime  @default(now()) @map("submitted_at")
+  batchId                String    @map("batch_id")
+  rawPaste               String    @map("raw_paste")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  submitter User @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
+
+  @@map("chargeback_submissions")
+}
+
+model PendingTerm {
+  id                  String    @id @default(cuid())
+  agentName           String?   @map("agent_name")
+  agentIdField        String?   @map("agent_id_field")
+  memberId            String?   @map("member_id")
+  memberName          String?   @map("member_name")
+  city                String?
+  state               String?
+  phone               String?
+  email               String?
+  product             String?
+  enrollAmount        Decimal?  @db.Decimal(12, 2) @map("enroll_amount")
+  monthlyAmount       Decimal?  @db.Decimal(12, 2) @map("monthly_amount")
+  paid                String?
+  createdDate         DateTime? @map("created_date")
+  firstBilling        DateTime? @map("first_billing")
+  activeDate          DateTime? @map("active_date")
+  nextBilling         DateTime? @map("next_billing")
+  holdDate            DateTime? @map("hold_date") @db.Date
+  holdReason          String?   @map("hold_reason")
+  inactive            Boolean?  @default(false)
+  lastTransactionType String?   @map("last_transaction_type")
+  smoker              String?
+  batchId             String    @map("batch_id")
+  submittedBy         String    @map("submitted_by")
+  submittedAt         DateTime  @default(now()) @map("submitted_at")
+  rawPaste            String    @map("raw_paste")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  submitter User @relation("PendingTermSubmittedBy", fields: [submittedBy], references: [id])
+
+  @@map("pending_terms")
 }
