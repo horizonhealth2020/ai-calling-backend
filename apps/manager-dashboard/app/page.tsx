@@ -668,6 +668,7 @@ function ManagerDashboardInner() {
   const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
   const [cfgMsg, setCfgMsg] = useState("");
+  const [cfgFieldErrors, setCfgFieldErrors] = useState<Record<string, string>>({});
 
   const [audits, setAudits] = useState<CallAudit[]>([]);
   const [auditsLoaded, setAuditsLoaded] = useState(false);
@@ -1155,9 +1156,13 @@ function ManagerDashboardInner() {
 
   async function addAgent(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
+    const errs: Record<string, string> = {};
+    if (!newAgent.name.trim()) errs.agentName = "Agent name is required";
+    setCfgFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     try {
       const res = await authFetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newAgent.name, email: newAgent.email || undefined, extension: newAgent.extension || undefined }) });
-      if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgMsg("Agent added"); }
+      if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgFieldErrors({}); setCfgMsg("Agent added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
@@ -1180,9 +1185,13 @@ function ManagerDashboardInner() {
 
   async function addLeadSource(e: FormEvent) {
     e.preventDefault(); setCfgMsg("");
+    const errs: Record<string, string> = {};
+    if (!newLS.name.trim()) errs.lsName = "Lead source name is required";
+    setCfgFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     try {
       const res = await authFetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0 }) });
-      if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgMsg("Lead source added"); }
+      if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgFieldErrors({}); setCfgMsg("Lead source added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
@@ -2589,9 +2598,9 @@ function ManagerDashboardInner() {
                 style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Agent</div>
-                <input className="input-focus" style={baseInputStyle} value={newAgent.name} placeholder="Name *" required onChange={e => setNewAgent(x => ({ ...x, name: e.target.value }))} />
-                <input className="input-focus" style={baseInputStyle} value={newAgent.email} placeholder="CRM User ID" onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
-                <input className="input-focus" style={baseInputStyle} value={newAgent.extension} placeholder="Tracking Extension" onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
+                <Input label="Name" error={cfgFieldErrors.agentName} value={newAgent.name} onChange={e => { setNewAgent(x => ({ ...x, name: e.target.value })); setCfgFieldErrors(fe => { const n = { ...fe }; delete n.agentName; return n; }); }} />
+                <Input label="CRM User ID" value={newAgent.email} onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
+                <Input label="Tracking Extension" value={newAgent.extension} onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
                 <Button type="submit" variant="success" size="sm" fullWidth>
                   <Plus size={14} />Add Agent
                 </Button>
@@ -2611,9 +2620,9 @@ function ManagerDashboardInner() {
                 style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Lead Source</div>
-                <input className="input-focus" style={baseInputStyle} value={newLS.name} placeholder="Name *" required onChange={e => setNewLS(x => ({ ...x, name: e.target.value }))} />
-                <input className="input-focus" style={baseInputStyle} value={newLS.listId} placeholder="CRM List ID" onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
-                <input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={newLS.costPerLead} placeholder="Cost per lead ($)" onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />
+                <Input label="Name" error={cfgFieldErrors.lsName} value={newLS.name} onChange={e => { setNewLS(x => ({ ...x, name: e.target.value })); setCfgFieldErrors(fe => { const n = { ...fe }; delete n.lsName; return n; }); }} />
+                <Input label="CRM List ID" value={newLS.listId} onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
+                <Input label="Cost per lead ($)" type="number" step="0.01" value={newLS.costPerLead} onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />
                 <Button type="submit" variant="success" size="sm" fullWidth>
                   <Plus size={14} />Add Lead Source
                 </Button>
