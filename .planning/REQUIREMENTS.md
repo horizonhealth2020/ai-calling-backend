@@ -9,15 +9,15 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 
 ### Role & Access
 
-- [ ] **ROLE-01**: New customer_service role added to AppRole enum and RBAC middleware
+- [x] **ROLE-01**: New customer_service role added to AppRole enum and RBAC middleware
 - [ ] **ROLE-02**: customer_service can access Customer Service dashboard Tracking tab only
 - [ ] **ROLE-03**: customer_service cannot access Submissions tab or any other dashboard
 - [ ] **ROLE-04**: owner and super_admin can access both Submissions and Tracking tabs
 
 ### Database Schema
 
-- [ ] **SCHEMA-01**: chargeback_submissions table with all specified fields (posted_date, type, payee_id, payee_name, payout_percent, chargeback_amount as negative decimal, total_amount, transaction_description, product, member_company, member_id, member_agent_company, member_agent_id, submitted_by FK, submitted_at, batch_id, raw_paste)
-- [ ] **SCHEMA-02**: pending_terms table with all specified fields (agent_name, agent_id, member_id, member_name, city, state, phone, email, product, enroll_amount, monthly_amount, paid, created_date, first_billing, active_date, next_billing, hold_date as DATE only, hold_reason as TEXT only, inactive, last_transaction_type, smoker, batch_id, submitted_by FK, submitted_at, raw_paste)
+- [x] **SCHEMA-01**: chargeback_submissions table with all specified fields (posted_date, type, payee_id, payee_name, payout_percent, chargeback_amount as negative decimal, total_amount, transaction_description, product, member_company, member_id, member_agent_company, member_agent_id, submitted_by FK, submitted_at, batch_id, raw_paste)
+- [x] **SCHEMA-02**: pending_terms table with all specified fields (agent_name, agent_id, member_id, member_name, city, state, phone, email, product, enroll_amount, monthly_amount, paid, created_date, first_billing, active_date, next_billing, hold_date as DATE only, hold_reason as TEXT only, inactive, last_transaction_type, smoker, batch_id, submitted_by FK, submitted_at, raw_paste)
 
 ### Chargeback Parser
 
