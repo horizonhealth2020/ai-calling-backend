@@ -59,7 +59,11 @@ Plans:
   3. User can set posted_date via date picker and override the type field before submitting
   4. Bulk paste of multiple records parses all records sharing a single batch_id
   5. Confirmed records persist to chargeback_submissions with raw_paste, submitted_by, and submitted_at populated
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 12-01-PLAN.md — Schema changes (assigned_to, CsRepRoster) + 6 API endpoints
+- [ ] 12-02-PLAN.md — Client-side parser + full Submissions tab UI
+- [ ] 12-03-PLAN.md — Human verification of end-to-end flow
 
 ### Phase 13: Pending Terms Parser
 **Goal**: Users can paste raw pending terms text and submit parsed records to the database
@@ -133,7 +137,7 @@ Plans:
 | 9. UI/UX Polish | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 10. Sale Status Payroll Logic | v1.0 | 6/6 | Complete | 2026-03-16 |
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
-| 12. Chargeback Parser | v1.1 | 0/? | Not started | - |
+| 12. Chargeback Parser | v1.1 | 0/3 | Not started | - |
 | 13. Pending Terms Parser | v1.1 | 0/? | Not started | - |
 | 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
 | 15. Pending Terms Tracking | v1.1 | 0/? | Not started | - |
