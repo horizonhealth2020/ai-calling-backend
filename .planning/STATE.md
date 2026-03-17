@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Customer Service
 status: executing
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-17T17:41:33Z"
-last_activity: 2026-03-17 -- completed 12-01 (Chargeback API & Rep Roster Backend)
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-03-17T17:48:22Z"
+last_activity: 2026-03-17 -- completed 12-02 (Chargeback Parser UI)
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 4
+  completed_plans: 4
 ---
 
 ---
@@ -53,13 +53,13 @@ progress:
 ## Current Position
 
 **Phase:** 12 - Chargeback Parser (in progress)
-**Plan:** 01 complete (1/3)
+**Plan:** 02 complete (2/3)
 **Status:** Executing
-**Last activity:** 2026-03-17 -- completed 12-01 (Chargeback API & Rep Roster Backend)
+**Last activity:** 2026-03-17 -- completed 12-02 (Chargeback Parser UI)
 
 ```
-Progress: [######                  ] 33% (Plans: 1/3 in Phase 12)
-Phase 11 [#####] | Phase 12 [##   ] | Phase 13 [     ] | Phase 14 [     ]
+Progress: [############            ] 67% (Plans: 2/3 in Phase 12)
+Phase 11 [#####] | Phase 12 [#### ] | Phase 13 [     ] | Phase 14 [     ]
 Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 ```
 
@@ -67,9 +67,9 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 3 |
+| Plans completed | 4 |
 | Plans total | 5 (Phase 11: 2, Phase 12: 3) |
-| Requirements done | 7/40 |
+| Requirements done | 12/40 |
 | Phases done | 1/7 |
 
 ## Accumulated Context
@@ -78,6 +78,9 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 - assignedTo is nullable String (no FK to CsRepRoster -- name-based assignment for flexibility)
 - Weekly chargeback total uses getSundayWeekRange for consistent Sun-Sat week boundaries
 - Inactive rep pruning runs on-access (GET /cs-rep-roster) after 30 days
+- All parser logic is client-side pure functions for instant preview without API round-trip
+- AnimatedNumber with dollar prefix used for ticker instead of StatCard for custom danger-bg styling
+- Round-robin assignment resets on every paste (session-scoped, not persisted)
 - v1.1 phases start at 11 (continuing from v1.0 phase 10)
 - Chargebacks and pending terms are decoupled from payroll (v2 integration)
 - Phase 12 and 13 (parsers) can run in parallel -- both depend only on Phase 11
@@ -111,13 +114,13 @@ None currently.
 | 260317-e6a | Deduplicate Convoso call log processing to prevent KPI inflation | 2026-03-17 | b422e4b | [260317-e6a-deduplicate-convoso-call-logs-prevent-sa](./quick/260317-e6a-deduplicate-convoso-call-logs-prevent-sa/) |
 
 ### TODOs
-- Execute Phase 12 plans 02-03 (Chargeback Parser UI + verification)
+- Execute Phase 12 plan 03 (Chargeback Parser verification)
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T17:41:33Z
-**Stopped at:** Completed 12-01-PLAN.md
-**Next action:** Execute 12-02-PLAN.md
+**Last session:** 2026-03-17T17:48:22Z
+**Stopped at:** Completed 12-02-PLAN.md
+**Next action:** Execute 12-03-PLAN.md
 
 ---
 *State initialized: 2026-03-14*

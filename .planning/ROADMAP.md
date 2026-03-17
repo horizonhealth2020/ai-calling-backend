@@ -62,7 +62,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 12-01-PLAN.md — Schema changes (assigned_to, CsRepRoster) + 6 API endpoints
-- [ ] 12-02-PLAN.md — Client-side parser + full Submissions tab UI
+- [x] 12-02-PLAN.md — Client-side parser + full Submissions tab UI
 - [ ] 12-03-PLAN.md — Human verification of end-to-end flow
 
 ### Phase 13: Pending Terms Parser
@@ -137,7 +137,7 @@ Plans:
 | 9. UI/UX Polish | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 10. Sale Status Payroll Logic | v1.0 | 6/6 | Complete | 2026-03-16 |
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
-| 12. Chargeback Parser | v1.1 | 1/3 | In progress | - |
+| 12. Chargeback Parser | v1.1 | 2/3 | In progress | - |
 | 13. Pending Terms Parser | v1.1 | 0/? | Not started | - |
 | 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
 | 15. Pending Terms Tracking | v1.1 | 0/? | Not started | - |
