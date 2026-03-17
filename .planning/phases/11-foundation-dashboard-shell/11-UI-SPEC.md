@@ -43,7 +43,12 @@ Declared values from `packages/ui/src/tokens.ts` spacing object (already establi
 | 12 | 48px | Major section breaks |
 | 16 | 64px | Page-level spacing |
 
-Exceptions: none -- use existing token scale as-is.
+**Approved exceptions from the standard {4, 8, 16, 24, 32, 48, 64} set:**
+
+- **12px (token 3):** Approved exception -- established token in `packages/ui/src/tokens.ts`, used for sidebar icon-label gaps and nav list padding across all existing dashboards (manager, payroll, owner, sales-board). Removing would be a breaking change across 4+ apps.
+- **20px (token 5):** Approved exception -- established token in `packages/ui/src/tokens.ts`, used for logo area horizontal padding across all existing dashboards. Removing would be a breaking change across 4+ apps.
+
+Both values are multiples of 4 and part of the project's established 4-point grid. They are inherited as-is; no new non-standard values are introduced in Phase 11.
 
 **Source:** packages/ui/src/tokens.ts `spacing` object
 
@@ -67,6 +72,8 @@ Font family: `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
 - Page subtitle ("Chargebacks & Pending Terms"): 11px bold, `colors.textTertiary` -- matches `PAGE_SUBTITLE`
 - Sidebar nav labels: 13px normal -- distinguished from Body (14px) and Label (11px) by size alone
 - Placeholder content headings inside tabs: 14px normal, `colors.textSecondary`
+
+**Note on 13px/14px proximity:** The 1px size difference between Subtitle (13px, sidebar nav labels) and Body (14px, main content area) is intentional and sufficient because these sizes never appear adjacent to each other. Sidebar nav labels render inside the fixed sidebar panel against `--bg-surface`, while Body text renders in the main content area against `--bg-root`. The spatial separation between sidebar and content area, combined with the distinct background colors, provides clear visual context that makes the 1px size difference a non-issue. This pairing is inherited from the existing token system and is already in use across all dashboards.
 
 **Source:** packages/ui/src/tokens.ts `typography` object, packages/ui/src/index.tsx PageShell styles
 
