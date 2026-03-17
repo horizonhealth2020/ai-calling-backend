@@ -212,15 +212,18 @@ function consolidateByMember(rows: ParsedRow[]): ConsolidatedRecord[] {
   }));
 }
 
+let _rrIndex = 0;
+
 function assignRoundRobin(
   records: ConsolidatedRecord[],
   activeReps: string[]
 ): ConsolidatedRecord[] {
   if (activeReps.length === 0) return records.map((r) => ({ ...r, assignedTo: "" }));
-  return records.map((r, i) => ({
-    ...r,
-    assignedTo: activeReps[i % activeReps.length],
-  }));
+  return records.map((r) => {
+    const rep = activeReps[_rrIndex % activeReps.length];
+    _rrIndex++;
+    return { ...r, assignedTo: rep };
+  });
 }
 
 /* ── Formatting Helpers ─────────────────────────────────────────── */
