@@ -239,6 +239,158 @@ function formatNegDollar(n: number): string {
   return `-$${abs}`;
 }
 
+/* ── Pending Terms Types ──────────────────────────────────────── */
+
+interface PendingParsedRow {
+  agentName: string | null;
+  agentIdField: string | null;
+  memberId: string | null;
+  memberName: string | null;
+  city: string | null;
+  state: string | null;
+  phone: string | null;
+  product: string | null;
+  monthlyAmount: number | null;
+  paid: string | null;
+  createdDate: string | null;
+  firstBilling: string | null;
+  activeDate: string | null;
+  nextBilling: string | null;
+  holdDate: string | null;
+  holdReason: string | null;
+  inactive: boolean | null;
+  lastTransactionType: string | null;
+}
+
+interface ConsolidatedPendingRecord extends Omit<PendingParsedRow, 'product' | 'monthlyAmount'> {
+  product: string;
+  monthlyAmount: number;
+  assignedTo: string;
+}
+
+/* ── Pending Terms Parser Functions ───────────────────────────── */
+
+function parseMDYDate(raw: string): string | null {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const m = match[1].padStart(2, "0");
+  const d = match[2].padStart(2, "0");
+  return `${match[3]}-${m}-${d}`;
+}
+
+function parsePendingDollar(raw: string): number | null {
+  const trimmed = raw.trim().replace(/[$,]/g, "");
+  if (!trimmed) return null;
+  const n = parseFloat(trimmed);
+  return isNaN(n) ? null : Math.round(n * 100) / 100;
+}
+
+function parseAgentInfo(raw: string): { agentName: string | null; agentIdField: string | null } {
+  const match = raw.match(/^.+\s-\s(.+?)\s*\((\d+)\)$/);
+  if (!match) return { agentName: null, agentIdField: null };
+  return { agentName: match[1].trim(), agentIdField: match[2] };
+}
+
+function isRecordStart(line: string): boolean {
+  const fields = line.split("\t");
+  const first = fields[0].trim();
+  const candidate = /^\d+$/.test(first) ? (fields[1] || "").trim() : first;
+  return /^.+\s-\s.+\(\d+\)$/.test(candidate);
+}
+
+function parsePendingTermsText(raw: string): PendingParsedRow[] {
+  const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+  const rows: PendingParsedRow[] = [];
+
+  // Group into 3-line records using isRecordStart to find boundaries
+  const groups: string[][] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (isRecordStart(lines[i])) {
+      groups.push([lines[i], lines[i + 1] || "", lines[i + 2] || ""]);
+      i += 3;
+    } else {
+      i++; // skip orphan lines (headers, etc.)
+    }
+  }
+
+  for (const group of groups) {
+    const line1 = group[0].split("\t");
+    const line2 = group[1].split("\t");
+    const line3 = group[2].split("\t");
+
+    // Line 1: skip optional row number prefix
+    let f = line1;
+    if (/^\d+$/.test((f[0] || "").trim()) && f.length > 1) {
+      f = f.slice(1);
+    }
+
+    const agentInfoStr = (f[0] || "").trim();
+    const { agentName, agentIdField } = parseAgentInfo(agentInfoStr);
+
+    const row: PendingParsedRow = {
+      agentName,
+      agentIdField,
+      memberId: f[1] ? f[1].trim() || null : null,
+      memberName: f[2] ? f[2].trim() || null : null,
+      city: f[3] ? f[3].trim() || null : null,
+      state: f[4] ? f[4].trim() || null : null,
+      phone: f[5] ? f[5].trim() || null : null,
+      // f[6] is email -- IGNORE
+      product: f[7] ? f[7].trim() || null : null,
+      // f[8] is enrollAmount -- IGNORE
+      monthlyAmount: f[9] ? parsePendingDollar(f[9]) : null,
+      paid: f[10] ? f[10].trim() || null : null,
+      // Line 2 fields
+      inactive: line2[0] ? (line2[0].trim().toLowerCase() === "inactive" ? true : line2[0].trim().toLowerCase() === "active" ? false : null) : null,
+      createdDate: line2[1] ? parseMDYDate(line2[1]) : null,
+      firstBilling: line2[2] ? parseMDYDate(line2[2]) : null,
+      activeDate: line2[3] ? parseMDYDate(line2[3]) : null,
+      nextBilling: line2[4] ? parseMDYDate(line2[4]) : null,
+      holdDate: line2[5] ? parseMDYDate(line2[5]) : null,
+      // Line 3 fields
+      holdReason: line3[0] ? line3[0].trim() || null : null,
+      lastTransactionType: line3[2] ? line3[2].trim() || null : null,
+    };
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function consolidatePendingByMember(rows: PendingParsedRow[]): ConsolidatedPendingRecord[] {
+  const groups = new Map<string, PendingParsedRow[]>();
+  for (const row of rows) {
+    const key = row.memberId ?? "unknown";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+  return Array.from(groups.entries()).map(([, memberRows]) => ({
+    ...memberRows[0],
+    product: memberRows
+      .map((r) => r.product)
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .join(", "),
+    monthlyAmount: Math.round(memberRows.reduce((s, r) => s + (r.monthlyAmount ?? 0), 0) * 100) / 100,
+    assignedTo: "",
+  }));
+}
+
+function assignPtRoundRobin(
+  records: ConsolidatedPendingRecord[],
+  activeReps: string[]
+): ConsolidatedPendingRecord[] {
+  if (activeReps.length === 0) return records.map((r) => ({ ...r, assignedTo: "" }));
+  return records.map((r) => {
+    const rep = activeReps[_rrIndex % activeReps.length];
+    _rrIndex++;
+    return { ...r, assignedTo: rep };
+  });
+}
+
 function getCurrentWeekRange(): { start: string; end: string } {
   const now = new Date();
   const day = now.getDay();
@@ -367,6 +519,11 @@ function SubmissionsTab() {
   const [submitting, setSubmitting] = useState(false);
   const [newRepName, setNewRepName] = useState("");
 
+  // Pending terms state
+  const [ptRawPaste, setPtRawPaste] = useState("");
+  const [ptRecords, setPtRecords] = useState<ConsolidatedPendingRecord[]>([]);
+  const [ptSubmitting, setPtSubmitting] = useState(false);
+
   const activeRepNames = reps.filter((r) => r.active).map((r) => r.name);
   const repsRef = useRef(reps);
   repsRef.current = reps;
@@ -399,11 +556,28 @@ function SubmissionsTab() {
     }
   };
 
+  const handlePtTextChange = (text: string) => {
+    setPtRawPaste(text);
+    if (text.trim()) {
+      const parsed = parsePendingTermsText(text);
+      const consolidated = consolidatePendingByMember(parsed);
+      _rrIndex = 0;
+      const currentActive = repsRef.current.filter((r) => r.active).map((r) => r.name);
+      const assigned = assignPtRoundRobin(consolidated, currentActive);
+      setPtRecords(assigned);
+    } else {
+      setPtRecords([]);
+    }
+  };
+
   // When reps change, re-assign existing records
   useEffect(() => {
+    const currentActive = reps.filter((r) => r.active).map((r) => r.name);
     if (records.length > 0) {
-      const currentActive = reps.filter((r) => r.active).map((r) => r.name);
       setRecords((prev) => assignRoundRobin(prev, currentActive));
+    }
+    if (ptRecords.length > 0) {
+      setPtRecords((prev) => assignPtRoundRobin(prev, currentActive));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reps]);
@@ -426,6 +600,13 @@ function SubmissionsTab() {
         onNewRepNameChange={setNewRepName}
         onRawTextClear={() => { setRawText(""); setRecords([]); }}
         rerunRoundRobin={assignRoundRobin}
+        ptRawPaste={ptRawPaste}
+        ptRecords={ptRecords}
+        ptSubmitting={ptSubmitting}
+        onPtTextChange={handlePtTextChange}
+        onPtRecordsChange={setPtRecords}
+        onPtSubmittingChange={setPtSubmitting}
+        onPtRawPasteClear={() => { setPtRawPaste(""); setPtRecords([]); }}
       />
     </ToastProvider>
   );
@@ -449,6 +630,13 @@ interface SubmissionsContentProps {
   onNewRepNameChange: (v: string) => void;
   onRawTextClear: () => void;
   rerunRoundRobin: (records: ConsolidatedRecord[], activeReps: string[]) => ConsolidatedRecord[];
+  ptRawPaste: string;
+  ptRecords: ConsolidatedPendingRecord[];
+  ptSubmitting: boolean;
+  onPtTextChange: (text: string) => void;
+  onPtRecordsChange: (records: ConsolidatedPendingRecord[]) => void;
+  onPtSubmittingChange: (v: boolean) => void;
+  onPtRawPasteClear: () => void;
 }
 
 function SubmissionsContent({
@@ -467,6 +655,13 @@ function SubmissionsContent({
   onNewRepNameChange,
   onRawTextClear,
   rerunRoundRobin,
+  ptRawPaste,
+  ptRecords,
+  ptSubmitting,
+  onPtTextChange,
+  onPtRecordsChange,
+  onPtSubmittingChange,
+  onPtRawPasteClear,
 }: SubmissionsContentProps) {
   const { toast } = useToast();
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
@@ -502,6 +697,63 @@ function SubmissionsContent({
     onRecordsChange(
       records.map((r, i) => (i === index ? { ...r, [field]: value } : r))
     );
+  };
+
+  const updatePtRecord = (index: number, field: keyof ConsolidatedPendingRecord, value: string | number | boolean | null) => {
+    onPtRecordsChange(
+      ptRecords.map((r, i) => (i === index ? { ...r, [field]: value } : r))
+    );
+  };
+
+  const handlePtSubmit = async () => {
+    if (ptRecords.length === 0) {
+      toast("error", "No valid records to submit");
+      return;
+    }
+    onPtSubmittingChange(true);
+    try {
+      const batchId = crypto.randomUUID();
+      const res = await authFetch(`${API}/api/pending-terms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          records: ptRecords.map((r) => ({
+            agentName: r.agentName,
+            agentIdField: r.agentIdField,
+            memberId: r.memberId,
+            memberName: r.memberName,
+            city: r.city,
+            state: r.state,
+            phone: r.phone,
+            product: r.product,
+            monthlyAmount: r.monthlyAmount,
+            paid: r.paid,
+            createdDate: r.createdDate,
+            firstBilling: r.firstBilling,
+            activeDate: r.activeDate,
+            nextBilling: r.nextBilling,
+            holdDate: r.holdDate,
+            holdReason: r.holdReason,
+            inactive: r.inactive,
+            lastTransactionType: r.lastTransactionType,
+            assignedTo: r.assignedTo,
+          })),
+          rawPaste: ptRawPaste,
+          batchId,
+        }),
+      });
+      if (res.status === 201) {
+        const data = await res.json();
+        onPtRawPasteClear();
+        toast("success", `${data.count} pending terms submitted`);
+      } else {
+        toast("error", `Failed to submit (${res.status})`);
+      }
+    } catch {
+      toast("error", "Failed to submit (network error)");
+    } finally {
+      onPtSubmittingChange(false);
+    }
   };
 
   /* ── Rep Roster handlers ── */
@@ -727,14 +979,139 @@ function SubmissionsContent({
           </Card>
         )}
 
-        {/* Pending Terms placeholder */}
+        {/* Pending Terms Parser */}
         <Card>
           <h3 style={SECTION_HEADING}>Pending Terms Submissions</h3>
-          <EmptyState
-            title="Paste Pending Terms Data"
-            description="Paste raw pending terms text here to parse and submit records. This feature is coming in the next update."
+          <textarea
+            style={TEXTAREA}
+            placeholder="Paste pending terms data from spreadsheet here..."
+            value={ptRawPaste}
+            onChange={(e) => onPtTextChange(e.target.value)}
+            disabled={ptSubmitting}
           />
+          {!ptRawPaste && ptRecords.length === 0 && (
+            <EmptyState
+              title="Paste Pending Terms Data"
+              description="Paste tab-separated pending terms rows from your spreadsheet. Records will be parsed and grouped by member automatically."
+            />
+          )}
         </Card>
+
+        {/* Pending Terms Preview Table */}
+        {ptRecords.length > 0 && (
+          <Card padding="none">
+            <div style={{ padding: `${spacing[4]}px ${spacing[6]}px 0` }}>
+              <h3 style={SECTION_HEADING}>
+                Pending Terms Preview ({ptRecords.length} record{ptRecords.length !== 1 ? "s" : ""})
+              </h3>
+            </div>
+            <div style={TABLE_WRAP}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={baseThStyle}>Member Name</th>
+                    <th style={{ ...baseThStyle, width: 120 }}>Member ID</th>
+                    <th style={baseThStyle}>Product</th>
+                    <th style={{ ...baseThStyle, width: 120 }}>Monthly Amt</th>
+                    <th style={{ ...baseThStyle, width: 140 }}>Hold Date</th>
+                    <th style={{ ...baseThStyle, width: 150 }}>Assigned To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ptRecords.map((rec, idx) => (
+                    <tr key={idx}>
+                      {/* Member Name (editable) */}
+                      <td style={baseTdStyle}>
+                        <input
+                          type="text"
+                          style={COMPACT_INPUT}
+                          value={rec.memberName ?? ""}
+                          onChange={(e) => updatePtRecord(idx, "memberName", e.target.value)}
+                          disabled={ptSubmitting}
+                        />
+                      </td>
+                      {/* Member ID (read-only) */}
+                      <td style={baseTdStyle}>
+                        <span style={{ color: colors.textSecondary }}>{rec.memberId || "--"}</span>
+                      </td>
+                      {/* Product (read-only) */}
+                      <td style={baseTdStyle}>
+                        <span
+                          style={{
+                            display: "block",
+                            maxWidth: 240,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: colors.textSecondary,
+                          }}
+                          title={rec.product || undefined}
+                        >
+                          {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
+                        </span>
+                      </td>
+                      {/* Monthly Amt (editable) */}
+                      <td style={baseTdStyle}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          style={COMPACT_INPUT}
+                          value={rec.monthlyAmount}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) updatePtRecord(idx, "monthlyAmount", Math.round(num * 100) / 100);
+                          }}
+                          disabled={ptSubmitting}
+                        />
+                      </td>
+                      {/* Hold Date (editable) */}
+                      <td style={baseTdStyle}>
+                        <input
+                          type="date"
+                          style={COMPACT_INPUT}
+                          value={rec.holdDate ?? ""}
+                          onChange={(e) => updatePtRecord(idx, "holdDate", e.target.value)}
+                          disabled={ptSubmitting}
+                        />
+                      </td>
+                      {/* Assigned To (editable select) */}
+                      <td style={baseTdStyle}>
+                        <select
+                          style={COMPACT_INPUT}
+                          value={rec.assignedTo}
+                          onChange={(e) => updatePtRecord(idx, "assignedTo", e.target.value)}
+                          disabled={ptSubmitting}
+                        >
+                          <option value="">Unassigned</option>
+                          {activeRepNames.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Submit Bar */}
+            <div style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              padding: `${spacing[4]}px ${spacing[6]}px`,
+              borderTop: `1px solid ${colors.borderSubtle}`,
+            }}>
+              <Button
+                variant="primary"
+                onClick={handlePtSubmit}
+                disabled={ptSubmitting || ptRecords.length === 0}
+                loading={ptSubmitting}
+              >
+                {ptSubmitting ? "Submitting..." : "Submit Pending Terms"}
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Sidebar Toggle */}
