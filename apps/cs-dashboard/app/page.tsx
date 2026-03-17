@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   PageShell,
   Card,
@@ -363,6 +363,8 @@ function SubmissionsTab() {
   const [newRepName, setNewRepName] = useState("");
 
   const activeRepNames = reps.filter((r) => r.active).map((r) => r.name);
+  const repsRef = useRef(reps);
+  repsRef.current = reps;
 
   const fetchReps = useCallback(async () => {
     try {
@@ -378,20 +380,14 @@ function SubmissionsTab() {
     fetchReps();
   }, [fetchReps]);
 
-  // Re-run round-robin when reps change
-  const rerunRoundRobin = useCallback(
-    (currentRecords: ConsolidatedRecord[], currentActiveReps: string[]) => {
-      return assignRoundRobin(currentRecords, currentActiveReps);
-    },
-    []
-  );
-
   const handleTextChange = (text: string) => {
     setRawText(text);
     if (text.trim()) {
       const parsed = parseChargebackText(text);
       const consolidated = consolidateByMember(parsed);
-      const assigned = assignRoundRobin(consolidated, activeRepNames);
+      // Use ref to always get current reps
+      const currentActive = repsRef.current.filter((r) => r.active).map((r) => r.name);
+      const assigned = assignRoundRobin(consolidated, currentActive);
       setRecords(assigned);
     } else {
       setRecords([]);
@@ -402,7 +398,7 @@ function SubmissionsTab() {
   useEffect(() => {
     if (records.length > 0) {
       const currentActive = reps.filter((r) => r.active).map((r) => r.name);
-      setRecords((prev) => rerunRoundRobin(prev, currentActive));
+      setRecords((prev) => assignRoundRobin(prev, currentActive));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reps]);
@@ -424,7 +420,7 @@ function SubmissionsTab() {
         onSubmittingChange={setSubmitting}
         onNewRepNameChange={setNewRepName}
         onRawTextClear={() => { setRawText(""); setRecords([]); }}
-        rerunRoundRobin={rerunRoundRobin}
+        rerunRoundRobin={assignRoundRobin}
       />
     </ToastProvider>
   );
@@ -965,7 +961,7 @@ function TrackingTab() {
     ? (() => {
         const ws = new Date(weeklyTotal.weekStart);
         const we = new Date(weeklyTotal.weekEnd);
-        return `${ws.getMonth() + 1}/${ws.getDate()}-${we.getMonth() + 1}/${we.getDate()}`;
+        return `${ws.getUTCMonth() + 1}/${ws.getUTCDate()}-${we.getUTCMonth() + 1}/${we.getUTCDate()}`;
       })()
     : (() => {
         const r = getCurrentWeekRange();
