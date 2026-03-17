@@ -7,7 +7,7 @@ stopped_at: Completed 13-02-PLAN.md
 last_updated: "2026-03-17T20:46:19.136Z"
 last_activity: 2026-03-17 -- completed 13-02 (Pending Terms Parser UI)
 progress:
-  total_phases: 7
+  total_phases: 5
   completed_phases: 3
   total_plans: 7
   completed_plans: 7
@@ -22,7 +22,7 @@ stopped_at: Phase 13 context gathered
 last_updated: "2026-03-17T20:14:12.054Z"
 last_activity: 2026-03-17 -- completed 12-02 (Chargeback Parser UI)
 progress:
-  total_phases: 7
+  total_phases: 5
   completed_phases: 2
   total_plans: 5
   completed_plans: 5
@@ -88,9 +88,8 @@ progress:
 **Last activity:** 2026-03-17 -- completed 13-02 (Pending Terms Parser UI)
 
 ```
-Progress: [################        ] 78% (Plans: 2/2 in Phase 13)
-Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [     ]
-Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
+Progress: [############            ] 60% (3/5 phases complete)
+Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [     ] | Phase 15 [     ]
 ```
 
 ## Performance Metrics
@@ -116,9 +115,8 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 - v1.1 phases start at 11 (continuing from v1.0 phase 10)
 - Chargebacks and pending terms are decoupled from payroll (v2 integration)
 - Phase 12 and 13 (parsers) can run in parallel -- both depend only on Phase 11
-- Phase 14 depends on 12, Phase 15 depends on 13 (tracking needs data)
-- Resolution workflow (Phase 16) depends on both tracking phases
-- Polish (Phase 17) is last -- role gating and formatting across all features
+- Phase 14 (Tracking Tables) depends on 12+13 (both parsers must exist)
+- Phase 15 (Resolution & Polish) depends on 14 (tracking tables must exist)
 
 ### Roadmap Evolution
 - v1.1 roadmap created with 7 phases covering 40 requirements
@@ -154,7 +152,7 @@ None currently.
 
 **Last session:** 2026-03-17T20:44:00Z
 **Stopped at:** Completed 13-02-PLAN.md
-**Next action:** Plan Phase 14 (Chargeback Tracking) or Phase 15 (Pending Terms Tracking)
+**Next action:** Plan Phase 14 (Tracking Tables)
 
 ---
 *State initialized: 2026-03-14*

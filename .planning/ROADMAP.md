@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
-- [ ] **v1.1 Customer Service** — Phases 11-17
+- [ ] **v1.1 Customer Service** — Phases 11-15
 
 ## Phases
 
@@ -23,15 +23,13 @@
 
 </details>
 
-### v1.1 Customer Service (Phases 11-17)
+### v1.1 Customer Service (Phases 11-15)
 
 - [x] **Phase 11: Foundation & Dashboard Shell** - Schema, role, app scaffold, auth redirect
 - [x] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [x] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
-- [ ] **Phase 14: Chargeback Tracking** - KPI counter bar, filterable/sortable table, CSV export
-- [ ] **Phase 15: Pending Terms Tracking** - Summary bar, filterable/sortable/groupable table, CSV export
-- [ ] **Phase 16: Resolution Workflow** - Mark resolved with notes, status filtering, resolved display
-- [ ] **Phase 17: Integration Polish** - Date/dollar formatting, live filter updates, tab role gating
+- [ ] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export
+- [ ] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates
 
 ## Phase Details
 
@@ -80,49 +78,34 @@ Plans:
 - [x] 13-01-PLAN.md — Schema (assignedTo field) + 3 API endpoints (POST/GET/DELETE)
 - [x] 13-02-PLAN.md — Client-side 3-line parser + editable preview table UI
 
-### Phase 14: Chargeback Tracking
-**Goal**: Users can view, search, filter, sort, and export chargeback records
-**Depends on**: Phase 12 (chargebacks must exist in the database to display)
-**Requirements**: TRKC-01, TRKC-02, TRKC-03, TRKC-04, TRKC-05, TRKC-06
+### Phase 14: Tracking Tables
+**Goal**: Users can view, search, filter, sort, group, and export both chargeback and pending terms records
+**Depends on**: Phase 12 (chargebacks), Phase 13 (pending terms)
+**Requirements**: TRKC-01, TRKC-02, TRKC-03, TRKC-04, TRKC-05, TRKC-06, TRKT-01, TRKT-02, TRKT-03, TRKT-04, TRKT-05, TRKT-06, TRKT-07
 **Success Criteria** (what must be TRUE):
   1. KPI counter bar shows Total Chargebacks (red), Total Recovered (green), Net Exposure (red/green), Records count with animated count-up
-  2. Table displays all 15 columns with chargeback_amount always rendered in red
-  3. Table is filterable by date range, product, member company, member agent company, and chargeback amount range
-  4. Table is searchable by payee name, member agent company, member ID, and member agent ID
-  5. CSV export button is visible only to owner and super_admin roles
+  2. Chargeback table displays all 15 columns with chargeback_amount always rendered in red
+  3. Chargeback table is filterable by date range, product, member company, member agent company, and chargeback amount range
+  4. Chargeback table is searchable by payee name, member agent company, member ID, and member agent ID
+  5. Summary bar shows total pending records, count by hold_reason category, and count of next_billing within 7 days highlighted as urgent/red
+  6. Pending terms table displays all specified columns with correct color coding (next_billing green, active/first_billing blue, hold_date red, hold_reason red italic)
+  7. agent_name and agent_id are stored in the database but never shown as visible table columns
+  8. Pending terms table supports group-by-agent with collapsible sections using agent name as the group header
+  9. CSV export button is visible only to owner and super_admin roles on both tables
 **Plans**: TBD
 
-### Phase 15: Pending Terms Tracking
-**Goal**: Users can view, search, filter, group, and export pending terms records
-**Depends on**: Phase 13 (pending terms must exist in the database to display)
-**Requirements**: TRKT-01, TRKT-02, TRKT-03, TRKT-04, TRKT-05, TRKT-06, TRKT-07
-**Success Criteria** (what must be TRUE):
-  1. Summary bar shows total pending records, count by hold_reason category, and count of next_billing within 7 days highlighted as urgent/red
-  2. Table displays all specified columns with correct color coding (next_billing green, active/first_billing blue, hold_date red, hold_reason red italic)
-  3. agent_name and agent_id are stored in the database but never shown as visible table columns
-  4. Table supports group-by-agent with collapsible sections using agent name as the group header
-  5. CSV export button is visible only to owner and super_admin roles
-**Plans**: TBD
-
-### Phase 16: Resolution Workflow
-**Goal**: Customer service staff can mark records as resolved and filter by resolution status
-**Depends on**: Phase 14, Phase 15 (tracking tables must exist to add resolution actions)
-**Requirements**: RESV-01, RESV-02, RESV-03, RESV-04
+### Phase 15: Resolution & Polish
+**Goal**: Customer service staff can mark records as resolved, filter by status, and all formatting/role gating is consistent
+**Depends on**: Phase 14 (tracking tables must exist)
+**Requirements**: RESV-01, RESV-02, RESV-03, RESV-04, ROLE-02, ROLE-03, ROLE-04, DASH-02, DASH-04, DASH-05
 **Success Criteria** (what must be TRUE):
   1. Customer service can click a resolve action on any chargeback or pending term record and enter a resolution note
   2. Resolved records display resolved status, resolved_by user, resolved_at timestamp, and the resolution note
   3. Both tracking tables default to showing open records and can toggle to show resolved or all records
-**Plans**: TBD
-
-### Phase 17: Integration Polish
-**Goal**: All formatting, role gating, and live-update behaviors are consistent and correct
-**Depends on**: Phase 16 (all features must exist before polish pass)
-**Requirements**: ROLE-02, ROLE-03, ROLE-04, DASH-02, DASH-04, DASH-05
-**Success Criteria** (what must be TRUE):
-  1. customer_service role sees only the Tracking tab; Submissions tab is hidden and its routes are blocked
-  2. owner and super_admin roles see both Submissions and Tracking tabs
-  3. All dates render as M/D/YYYY and all dollar amounts render with commas and 2 decimal places across the entire dashboard
-  4. Counters, filters, and summary bars update without full page reload when data or filter state changes
+  4. customer_service role sees only the Tracking tab; Submissions tab is hidden and its routes are blocked
+  5. owner and super_admin roles see both Submissions and Tracking tabs
+  6. All dates render as M/D/YYYY and all dollar amounts render with commas and 2 decimal places across the entire dashboard
+  7. Counters, filters, and summary bars update without full page reload when data or filter state changes
 **Plans**: TBD
 
 ## Progress
@@ -142,10 +125,8 @@ Plans:
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
-| 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
-| 15. Pending Terms Tracking | v1.1 | 0/? | Not started | - |
-| 16. Resolution Workflow | v1.1 | 0/? | Not started | - |
-| 17. Integration Polish | v1.1 | 0/? | Not started | - |
+| 14. Tracking Tables | v1.1 | 0/? | Not started | - |
+| 15. Resolution & Polish | v1.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
