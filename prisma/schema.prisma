@@ -93,6 +93,7 @@ model Agent {
   payrollEntries   PayrollEntry[]
   clawbacks        Clawback[]
   convosoCallLogs  ConvosoCallLog[]
+  callKpis         AgentCallKpi[]
 
   @@map("agents")
 }
@@ -111,6 +112,7 @@ model LeadSource {
 
   sales            Sale[]
   convosoCallLogs  ConvosoCallLog[]
+  callKpis         AgentCallKpi[]
 
   @@map("lead_sources")
 }
@@ -422,6 +424,29 @@ model ConvosoCallLog {
   @@index([callTimestamp])
   @@index([agentId, leadSourceId, callTimestamp])
   @@map("convoso_call_logs")
+}
+
+model AgentCallKpi {
+  id                 String   @id @default(cuid())
+  agentId            String   @map("agent_id")
+  leadSourceId       String   @map("lead_source_id")
+  convosoUserId      String   @map("convoso_user_id")
+  totalCalls         Int      @map("total_calls")
+  avgCallLength      Decimal  @db.Decimal(10, 2) @map("avg_call_length")
+  callsByTier        Json     @map("calls_by_tier")
+  costPerSale        Decimal? @db.Decimal(10, 2) @map("cost_per_sale")
+  totalLeadCost      Decimal? @db.Decimal(10, 2) @map("total_lead_cost")
+  longestCall        Int      @default(0) @map("longest_call")
+  conversionEligible Boolean  @default(false) @map("conversion_eligible")
+  snapshotDate       DateTime @default(now()) @map("snapshot_date")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  agent      Agent      @relation(fields: [agentId], references: [id])
+  leadSource LeadSource @relation(fields: [leadSourceId], references: [id])
+
+  @@index([agentId, leadSourceId, snapshotDate])
+  @@index([snapshotDate])
+  @@map("agent_call_kpis")
 }
 
 model ServiceTicket {
