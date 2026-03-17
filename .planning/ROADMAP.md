@@ -44,7 +44,10 @@
   2. A user with customer_service role can log in via auth portal and land on the Customer Service dashboard
   3. The Customer Service dashboard loads with a two-tab layout (Submissions / Tracking) visible in the nav
   4. The customer_service role exists in AppRole enum and is recognized by RBAC middleware
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 11-01-PLAN.md — Schema + role: Prisma models, migration SQL, AppRole type
+- [ ] 11-02-PLAN.md — Dashboard shell + auth wiring: cs-dashboard app, auth portal, env/config
 
 ### Phase 12: Chargeback Parser
 **Goal**: Users can paste raw chargeback text and submit parsed records to the database
@@ -129,7 +132,7 @@
 | 8. Reporting | v1.0 | 2/2 | Complete | 2026-03-16 |
 | 9. UI/UX Polish | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 10. Sale Status Payroll Logic | v1.0 | 6/6 | Complete | 2026-03-16 |
-| 11. Foundation & Dashboard Shell | v1.1 | 0/? | Not started | - |
+| 11. Foundation & Dashboard Shell | v1.1 | 0/2 | Not started | - |
 | 12. Chargeback Parser | v1.1 | 0/? | Not started | - |
 | 13. Pending Terms Parser | v1.1 | 0/? | Not started | - |
 | 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
