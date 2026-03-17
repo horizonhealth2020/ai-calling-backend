@@ -29,17 +29,27 @@ export interface KpiSummary {
 
 export interface AgentKpi {
   user_id: string;
+  agent_name: string | null;
+  agent_id: string | null;
   total_calls: number;
   avg_call_length: number;
   calls_by_tier: Record<CallLengthTier, number>;
   conversion_eligible: boolean;
   longest_call: number;
+  cost_per_sale: number | null;
+  total_lead_cost: number | null;
 }
 
 export interface KpiResponse {
   summary: KpiSummary;
   per_agent: AgentKpi[];
+  unmatched: AgentKpi[];
   results: EnrichedCallLog[];
+}
+
+export interface KpiBuildOptions {
+  agentMap?: Map<string, { id: string; name: string }>; // email -> agent
+  costPerLead?: number; // from LeadSource
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +134,7 @@ function emptyTierCounts(): Record<CallLengthTier, number> {
   return { live: 0, short: 0, contacted: 0, engaged: 0, deep: 0 };
 }
 
-export function buildKpiSummary(records: EnrichedCallLog[]): KpiResponse {
+export function buildKpiSummary(records: EnrichedCallLog[], opts?: KpiBuildOptions): KpiResponse {
   const breakdownByTier = emptyTierCounts();
   let callLengthSum = 0;
   let callLengthCount = 0;
@@ -148,19 +158,21 @@ export function buildKpiSummary(records: EnrichedCallLog[]): KpiResponse {
   };
 
   // Group by user_id for per-agent KPIs
-  const agentMap = new Map<string, EnrichedCallLog[]>();
+  const userIdMap = new Map<string, EnrichedCallLog[]>();
   for (const r of records) {
     const uid = String(r.user_id ?? "unknown");
-    const list = agentMap.get(uid);
+    const list = userIdMap.get(uid);
     if (list) {
       list.push(r);
     } else {
-      agentMap.set(uid, [r]);
+      userIdMap.set(uid, [r]);
     }
   }
 
   const perAgent: AgentKpi[] = [];
-  for (const [userId, agentRecords] of agentMap) {
+  const unmatched: AgentKpi[] = [];
+
+  for (const [userId, agentRecords] of userIdMap) {
     const tierCounts = emptyTierCounts();
     let agentSum = 0;
     let agentCount = 0;
@@ -175,15 +187,40 @@ export function buildKpiSummary(records: EnrichedCallLog[]): KpiResponse {
       }
     }
 
-    perAgent.push({
+    // Resolve agent identity from agentMap (keyed by email which stores Convoso user_id)
+    const agentInfo = opts?.agentMap?.get(userId) ?? null;
+    const isMatched = opts?.agentMap ? agentInfo !== null : true; // no agentMap = all matched (backward compat)
+
+    // Calculate cost metrics
+    let costPerSale: number | null = null;
+    let totalLeadCost: number | null = null;
+    if (opts?.costPerLead && opts.costPerLead > 0) {
+      totalLeadCost = Math.round(agentRecords.length * opts.costPerLead * 100) / 100;
+      const conversionEligibleCount = tierCounts.engaged + tierCounts.deep;
+      costPerSale = conversionEligibleCount > 0
+        ? Math.round((totalLeadCost / conversionEligibleCount) * 100) / 100
+        : null;
+    }
+
+    const kpi: AgentKpi = {
       user_id: userId,
+      agent_name: agentInfo?.name ?? null,
+      agent_id: agentInfo?.id ?? null,
       total_calls: agentRecords.length,
       avg_call_length: agentCount > 0 ? Math.round((agentSum / agentCount) * 100) / 100 : 0,
       calls_by_tier: tierCounts,
       conversion_eligible: tierCounts.engaged > 0 || tierCounts.deep > 0,
       longest_call: longestCall,
-    });
+      cost_per_sale: costPerSale,
+      total_lead_cost: totalLeadCost,
+    };
+
+    if (isMatched) {
+      perAgent.push(kpi);
+    } else {
+      unmatched.push(kpi);
+    }
   }
 
-  return { summary, per_agent: perAgent, results: records };
+  return { summary, per_agent: perAgent, unmatched, results: records };
 }

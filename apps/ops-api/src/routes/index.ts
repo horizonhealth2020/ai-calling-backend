@@ -1805,7 +1805,16 @@ router.get("/call-logs/kpi", requireAuth, asyncHandler(async (req, res) => {
       enriched = filterByTier(enriched, tierParam);
     }
 
-    const kpiResponse = buildKpiSummary(enriched);
+    // Fetch agents and lead source for agent-aware KPI aggregation
+    const agents = await prisma.agent.findMany({ where: { active: true }, select: { id: true, name: true, email: true } });
+    const agentMap = new Map(agents.filter(a => a.email).map(a => [a.email!, { id: a.id, name: a.name }]));
+    let costPerLead = 0;
+    if (list_id) {
+      const leadSource = await prisma.leadSource.findFirst({ where: { listId: list_id } });
+      costPerLead = leadSource?.costPerLead ? Number(leadSource.costPerLead) : 0;
+    }
+
+    const kpiResponse = buildKpiSummary(enriched, { agentMap, costPerLead });
 
     console.log(JSON.stringify({
       event: "call_logs_kpi_fetch",
