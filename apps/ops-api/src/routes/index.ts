@@ -367,6 +367,35 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   } catch (emitErr) {
     console.error("Socket emit failed for sale", sale.id, emitErr);
   }
+  // Auto-tag CallAudit records matching this sale (non-fatal)
+  try {
+    const saleDate = new Date(parsed.saleDate + "T12:00:00");
+    await prisma.callAudit.updateMany({
+      where: {
+        agentId: sale.agentId,
+        callDate: {
+          gte: new Date(saleDate.getTime() - 86400000),
+          lte: new Date(saleDate.getTime() + 86400000),
+        },
+        status: { in: ["pending", "new"] },
+      },
+      data: {
+        status: "sale_matched",
+      },
+    });
+    if (sale.recordingUrl) {
+      await prisma.callAudit.updateMany({
+        where: {
+          recordingUrl: sale.recordingUrl,
+          status: { in: ["pending", "new"] },
+        },
+        data: { status: "sale_matched" },
+      });
+    }
+    console.log(JSON.stringify({ event: "call_audit_auto_tagged", saleId: sale.id, agentId: sale.agentId }));
+  } catch (tagErr) {
+    console.error("CallAudit auto-tag failed for sale", sale.id, tagErr);
+  }
   res.status(201).json(sale);
 }));
 
