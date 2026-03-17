@@ -1,287 +1,283 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-14
+**Analysis Date:** 2026-03-17
 
 ## Test Framework
 
 **Runner:**
-- Jest 29.7.0
-- Config: `jest.config.js` (root)
-- Environment: Node.js
+- Jest v29.7.0
+- Root config: `jest.config.js` (covers Morgan voice service JS tests)
+- ops-api config: `apps/ops-api/jest.config.ts` (covers TypeScript service tests, uses `ts-jest`)
 
 **Assertion Library:**
-- Jest built-in matchers (`expect()`)
+- Jest built-in (`expect`, `toBe`, `toEqual`, `toMatchObject`, `toBeNull`, `rejects.toThrow`)
+
+**Transform:**
+- TypeScript tests use `ts-jest` with `tsconfig.base.json`
 
 **Run Commands:**
 ```bash
-npm test                         # Run all tests
-npm test -- helpers.test.js      # Single file
-npm test -- -t "test name"       # By name
+npm test                         # Run all root-level JS tests (Morgan voice service)
 npm run test:watch               # Watch mode
-npm run test:coverage            # Generate coverage report
+npm run test:coverage            # With coverage report (outputs to coverage/)
+npm test -- helpers.test.js      # Single file by name
+npm test -- -t "test name"       # By test name pattern
+npm run test:ops                 # Run ops-api TypeScript tests only
 ```
 
 ## Test File Organization
 
-**Location:**
-- Co-located in `__tests__/` directory at root
-- Tests for Morgan service (legacy backend at `index.js`)
-- Path: `__tests__/*.test.js`
+**Root-level (Morgan voice service):**
+- Location: `__tests__/` directory at repo root
+- Naming: `<module>.test.js` matching source module name
+- Test files: `helpers.test.js`, `voiceGateway.test.js`, `timeUtils.test.js`, `queueProcessor.test.js`, `morganToggle.test.js`, `rateLimitState.test.js`, `integration.test.js`
 
-**Naming:**
-- Convention: `[module].test.js`
-- Examples: `helpers.test.js`, `voiceGateway.test.js`, `queueProcessor.test.js`, `rateLimitState.test.js`, `timeUtils.test.js`, `integration.test.js`, `morganToggle.test.js`
+**ops-api (TypeScript services):**
+- Location: `apps/ops-api/src/services/__tests__/`
+- Naming: `<domain>.test.ts` kebab-case, matching the service function's concern
+- Test files: `commission.test.ts`, `payroll-guard.test.ts`, `period-assignment.test.ts`, `reporting.test.ts`, `status-change.test.ts`, `status-commission.test.ts`
+- Mock files: `apps/ops-api/src/services/__tests__/__mocks__/ops-db.ts`
 
-**Coverage:**
-- Configured in `jest.config.js`: `collectCoverageFrom: ['*.js', '!jest.config.js', '!coverage/**']`
-- Covers root-level `.js` files only (Morgan service)
-- Frontend/API apps (under `apps/`) are **not tested via Jest** — testing framework TBD for TypeScript projects
+**Structure:**
+```
+__tests__/                         # Root JS tests (Morgan service)
+├── helpers.test.js
+├── voiceGateway.test.js
+├── timeUtils.test.js
+├── queueProcessor.test.js
+├── morganToggle.test.js
+├── rateLimitState.test.js
+└── integration.test.js            # Placeholder stubs only
+
+apps/ops-api/src/services/
+└── __tests__/
+    ├── __mocks__/
+    │   └── ops-db.ts              # Prisma client stub
+    ├── commission.test.ts
+    ├── payroll-guard.test.ts
+    ├── period-assignment.test.ts
+    ├── reporting.test.ts
+    ├── status-change.test.ts
+    └── status-commission.test.ts
+```
 
 ## Test Structure
 
 **Suite Organization:**
+```typescript
+// ops-api TypeScript tests
+describe('calculateCommission', () => {
+  // =============================================
+  // COMM-01: Descriptive business rule ID
+  // =============================================
+  describe('COMM-01: Core with Compass VAB earns full commission rate', () => {
+    it('core (premium=100, commissionAbove=50%, threshold=50) + Compass VAB = 50.00', () => {
+      const sale = makeSale({ ... });
+      expect(calculateCommission(sale)).toBe(50.00);
+    });
+  });
+});
+```
+
 ```javascript
+// Root JS tests
 describe('Helper Functions', () => {
   describe('normalizeConvosoNote', () => {
     test('should return empty string for null input', () => {
       expect(normalizeConvosoNote(null)).toBe('');
-    });
-
-    test('should collapse multiple spaces into single space', () => {
-      expect(normalizeConvosoNote('hello    world')).toBe('hello world');
     });
   });
 });
 ```
 
 **Patterns:**
-- Top-level `describe()` for module/feature
-- Nested `describe()` for function or behavior group
-- Individual `test()` for single assertion or scenario
-- Descriptive test names using "should" convention
-- Clear arrange-act-assert structure (often combined in simple tests)
+- TypeScript tests use `it(...)` inside nested `describe`; JS tests use `test(...)`
+- Business rule IDs (e.g., `COMM-01`, `PAYR-01`) in describe labels to trace to spec
+- Inline math comments explain expected values: `// 100 * 50% = 50, halved = 25`
+- `beforeEach` used for mock resets and env setup; `afterEach` for env teardown
 
 ## Mocking
 
-**Framework:** Jest's built-in `jest.mock()` and `jest.fn()`
+**Framework:** Jest built-in (`jest.fn()`, `jest.mock()`, `jest.spyOn()`, `jest.resetModules()`)
 
-**Pattern from `__tests__/voiceGateway.test.js`:**
+**Prisma DB mock (ops-api TypeScript tests):**
+```typescript
+// apps/ops-api/src/services/__tests__/__mocks__/ops-db.ts
+export const prisma = {} as any;
+```
+The `jest.config.ts` maps `@ops/db` to this file via `moduleNameMapper`:
+```typescript
+'^@ops/db$': '<rootDir>/src/services/__tests__/__mocks__/ops-db.ts'
+```
+
+For tests that need specific Prisma behavior, mock functions are declared at the top of the test file:
+```typescript
+const mockFindMany = jest.fn();
+jest.mock('@ops/db', () => ({
+  __esModule: true,
+  prisma: { payrollEntry: { findMany: (...args: any[]) => mockFindMany(...args) } },
+  default: { payrollEntry: { findMany: (...args: any[]) => mockFindMany(...args) } },
+}));
+
+beforeEach(() => {
+  mockFindMany.mockReset();
+});
+```
+
+**Module mocking (JS tests):**
 ```javascript
 jest.mock('node-fetch');
 jest.mock('../morganToggle', () => ({
   isMorganEnabled: jest.fn(() => true),
 }));
-jest.mock('../rateLimitState', () => ({
-  setLastVapi429At: jest.fn(),
-  getLastVapi429At: jest.fn(() => 0),
-}));
 
-describe('voiceGateway', () => {
-  let startOutboundCall;
-  let fetch;
-
-  beforeEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
-
-    fetch = require('node-fetch');
-    const voiceGateway = require('../voiceGateway');
-    startOutboundCall = voiceGateway.startOutboundCall;
-  });
+beforeEach(() => {
+  jest.resetModules();
+  jest.clearAllMocks();
+  fetch = require('node-fetch');
+  const voiceGateway = require('../voiceGateway');
+  startOutboundCall = voiceGateway.startOutboundCall;
+});
 ```
 
-**Setup Pattern:**
-- `beforeEach()` clears mocks and resets module cache
-- Environment variables saved/restored in `beforeEach()`/`afterEach()`
-- Mocks configured with return values using `jest.fn().mockResolvedValue()` or `jest.fn().mockReturnValue()`
-
-**What to Mock:**
-- External APIs: `node-fetch` for HTTP calls
-- Environment-dependent modules: `morganToggle`, `rateLimitState`
-- System time if needed: `Date.now()`
-- Database calls (would use mocked `@ops/db` in app tests)
-
-**What NOT to Mock:**
-- Core helper functions being tested
-- Business logic utilities (test directly)
-- Simple data transformations
-
-## Fixtures and Factories
-
-**Test Data:**
+**Environment variable mocking:**
 ```javascript
-test('should normalize basic lead data', () => {
-  const input = {
-    lead_id: '123',
-    list_id: '456',
-    first_name: 'John',
-    last_name: 'Doe',
-    phone_number: '+13055551234',
-    state: 'FL',
-    called_count: 2,
-  };
-
-  const result = normalizeConvosoLead(input);
-
-  expect(result).toMatchObject({
-    id: '123',
-    list_id: '456',
-    first_name: 'John',
-    last_name: 'Doe',
-    phone: '+13055551234',
-    phone_number: '+13055551234',
-    state: 'FL',
-    call_count: 2,
+beforeEach(() => {
+  originalEnv = { VAPI_API_KEY: process.env.VAPI_API_KEY };
+  process.env.VAPI_API_KEY = 'test-api-key';
+});
+afterEach(() => {
+  // Restore or delete keys
+  Object.keys(originalEnv).forEach((key) => {
+    if (originalEnv[key] !== undefined) process.env[key] = originalEnv[key];
+    else delete process.env[key];
   });
 });
 ```
 
+**DateTime mocking (Luxon):**
+```javascript
+jest.spyOn(DateTime, 'now').mockReturnValue(mockNow);
+// ... assertions ...
+DateTime.now.mockRestore();
+```
+
+**What to Mock:**
+- All DB access (`@ops/db` / Prisma client) — tests must not require a live database
+- External HTTP clients (`node-fetch`) for tests touching Vapi/Convoso APIs
+- Side-effect modules (`morganToggle`, `rateLimitState`) when testing downstream behavior
+- `DateTime.now` for time-sensitive business logic (business hours, timezone calculations)
+
+**What NOT to Mock:**
+- Pure business logic functions (`calculateCommission`, `getSundayWeekRange`, `computeTrend`) — tested with real arguments
+- Shared utility functions from `@ops/utils` — not mocked; tested directly if needed
+
+## Fixtures and Factories
+
+**Factory pattern (TypeScript):**
+```typescript
+const makeProduct = (overrides: Partial<Product> = {}): Product => ({
+  id: 'prod-1',
+  name: 'Test Product',
+  active: true,
+  type: 'CORE',
+  premiumThreshold: new Decimal(50),
+  commissionBelow: new Decimal(25),
+  commissionAbove: new Decimal(50),
+  bundledCommission: null,
+  standaloneCommission: null,
+  isBundleQualifier: false,
+  enrollFeeThreshold: null,
+  notes: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
+});
+
+const makeSale = (overrides: Partial<SaleWithProduct> = {}): SaleWithProduct => ({
+  // full default shape
+  ...overrides,
+} as SaleWithProduct);
+
+const makeAddon = (productOverrides: Partial<Product> = {}, premium: number = 0) => ({ ... });
+```
+
+- Factories are defined at the top of each test file (no shared fixture module)
+- `makeProduct`, `makeSale`, and `makeAddon` are duplicated between `commission.test.ts` and `status-commission.test.ts` — noted as technical debt with comment `// --- Test Helpers (mirrored from commission.test.ts) ---`
+
 **Location:**
-- Inline in test files as `const input = { ... }`
-- No separate fixtures directory (kept simple for Morgan service tests)
-- Test data created fresh per test
+- No shared fixture module — factories are local to each test file
+- `Decimal` from `@prisma/client/runtime/library` used for financial values
 
 ## Coverage
 
-**Requirements:**
-- Not enforced (no threshold in jest.config.js)
-- Generated on demand: `npm run test:coverage`
-- Report location: `coverage/` directory
+**Requirements:** No minimum threshold enforced in config
 
 **View Coverage:**
 ```bash
-npm run test:coverage
-# Output: lcov.info and HTML report in coverage/
+npm run test:coverage            # outputs to coverage/ directory
 ```
+
+**Collection scope (root):** `*.js` files at repo root, excluding `jest.config.js` and `coverage/`
 
 ## Test Types
 
 **Unit Tests:**
-- Scope: Individual functions in isolation
-- Approach: Mock all dependencies
-- Examples: `helpers.test.js` (normalize functions), `timeUtils.test.js` (date helpers), `rateLimitState.test.js`
-- Timeout: 10 seconds (set in `jest.config.js`)
+- Pure function tests: `commission.test.ts`, `reporting.test.ts`, `period-assignment.test.ts`, `helpers.test.js`, `timeUtils.test.js`
+- Mock-assisted unit tests: `payroll-guard.test.ts`, `voiceGateway.test.js`
+- Pattern behavior tests (inlined logic mirrors): `status-change.test.ts`, `status-commission.test.ts`
 
 **Integration Tests:**
-- Scope: Multiple modules together, mocked external APIs
-- Approach: Real function calls, mocked fetch/Vapi/Convoso
-- Status: **Placeholder suite exists** at `__tests__/integration.test.js` with TODO comments
-- Blocked: Requires mocking Express app (suggest `supertest` package)
+- `__tests__/integration.test.js` exists but contains only stub tests with `// TODO: Implement with supertest` comments and `expect(true).toBe(true)` placeholders
+- No HTTP-level integration tests are currently implemented for ops-api
 
 **E2E Tests:**
-- Framework: Not used
-- Status: Not implemented
-- Note: Would require running full Docker stack or live environment
+- Not present
 
 ## Common Patterns
 
 **Async Testing:**
-```javascript
-test('should make successful call with valid parameters', async () => {
-  const mockResponse = {
-    ok: true,
-    json: jest.fn().mockResolvedValue({ id: 'call-123', status: 'queued' }),
-    text: jest.fn(),
-  };
-  fetch.mockResolvedValue(mockResponse);
-
-  const result = await startOutboundCall({
-    agentName: 'Morgan',
-    toNumber: '+13055551234',
-    metadata: { test: 'data' },
-    callName: 'Test Call',
-  });
-
-  expect(result).toEqual({
-    provider: 'vapi',
-    callId: 'call-123',
-    raw: { id: 'call-123', status: 'queued' },
-  });
+```typescript
+it('returns true when agent has at least one PAID entry', async () => {
+  mockFindMany.mockResolvedValue([{ id: 'e1', status: 'PAID', ... }]);
+  const result = await isAgentPaidInPeriod('agent-1', 'pp-1');
+  expect(result).toBe(true);
 });
 ```
 
 **Error Testing:**
 ```javascript
-test('should return null for empty string', () => {
-  expect(getMemberIdValue({ member_id: '' })).toBeNull();
-});
-
-test('should return null for null object', () => {
-  expect(getMemberIdValue(null)).toBeNull();
-});
-```
-
-**Snapshot/Matching:**
-```javascript
-test('should normalize basic lead data', () => {
-  const result = normalizeConvosoLead(input);
-  expect(result).toMatchObject({
-    id: '123',
-    list_id: '456',
-    // ... assertions
-  });
-});
-```
-
-## Middleware & Setup/Teardown
-
-**Setup (`beforeEach`):**
-- Save original environment state
-- Set test-specific env vars
-- Clear Jest module cache
-- Clear all mocks
-- Re-require modules under test
-
-**Teardown (`afterEach`):**
-- Restore original environment variables
-- Delete dynamically-set env keys
-
-**Example from `voiceGateway.test.js`:**
-```javascript
-beforeEach(() => {
-  originalEnv = {
-    VAPI_API_KEY: process.env.VAPI_API_KEY,
-    VAPI_MORGAN_ASSISTANT_ID: process.env.VAPI_MORGAN_ASSISTANT_ID,
-    VAPI_PHONE_NUMBER_IDS: process.env.VAPI_PHONE_NUMBER_IDS,
-  };
-
-  process.env.VAPI_API_KEY = 'test-api-key';
-  process.env.VAPI_MORGAN_ASSISTANT_ID = 'test-morgan-id';
-  process.env.VAPI_PHONE_NUMBER_IDS = 'phone-1,phone-2,phone-3';
-
+test('should throw error when VAPI_API_KEY is missing', async () => {
+  delete process.env.VAPI_API_KEY;
   jest.resetModules();
-  jest.clearAllMocks();
-});
-
-afterEach(() => {
-  Object.keys(originalEnv).forEach((key) => {
-    if (originalEnv[key] !== undefined) {
-      process.env[key] = originalEnv[key];
-    } else {
-      delete process.env[key];
-    }
-  });
+  const { startOutboundCall } = require('../voiceGateway');
+  await expect(
+    startOutboundCall({ agentName: 'Morgan', toNumber: '+13055551234', metadata: {}, callName: 'Test' })
+  ).rejects.toThrow('Missing VAPI_API_KEY env var');
 });
 ```
 
-## Testing Gaps
+**Synchronous throw testing:**
+```typescript
+it('throws when request is already APPROVED', () => {
+  expect(() => determineApprovalResult('APPROVED', 'approve')).toThrow('Can only act on PENDING requests');
+});
+```
 
-**Not Tested (Morgan Service):**
-- Express route handlers (need `supertest`)
-- Webhook payloads (integration tests blocked)
-- Rate limiting recovery logic
-- Queue processor concurrent behavior (unit tests only)
-- External API interactions (Vapi, Convoso, calls)
+**Spy-based time control:**
+```javascript
+jest.spyOn(DateTime, 'now').mockReturnValue(mockNow);
+expect(isBusinessHours()).toBe(false);
+DateTime.now.mockRestore();
+```
 
-**Frontend/API Apps (`apps/*`):**
-- No Jest configuration detected
-- No test files in `apps/ops-api`, `apps/manager-dashboard`, etc.
-- Would require separate test setup per app (recommend Vitest for TypeScript)
-- Prisma models untested
-- API routes untested
-
-**Recommendation:** Create tests for critical paths before expanding features.
+**Verifying call arguments:**
+```javascript
+expect(mockFindMany).toHaveBeenCalledWith({
+  where: { payrollPeriodId: 'pp-1', agentId: 'agent-1', status: 'PAID' },
+});
+```
 
 ---
 
-*Testing analysis: 2026-03-14*
+*Testing analysis: 2026-03-17*

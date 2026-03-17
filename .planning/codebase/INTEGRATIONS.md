@@ -1,183 +1,154 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-14
+**Analysis Date:** 2026-03-17
 
 ## APIs & External Services
 
-**Voice/Calling Platform:**
-- Vapi - AI voice platform for outbound calls
-  - SDK/Client: `voiceGateway.js` uses native fetch for HTTP calls
-  - Auth: `VAPI_API_KEY` environment variable
-  - Usage: `startOutboundCall()` function in `voiceGateway.js` manages outbound call initiation
-  - Phone Numbers: `VAPI_PHONE_NUMBER_IDS` (comma-separated, 3 slots for Morgan concurrent calls) or single fallback `VAPI_PHONE_NUMBER_ID`
-  - Assistants: `VAPI_MORGAN_ASSISTANT_ID` and `VAPI_RILEY_ASSISTANT_ID` (agent-specific)
-  - Features: Rate limiting with 10s backoff on 429 errors, Morgan slot management for concurrent call limits
+**AI Call Auditing (primary):**
+- Anthropic Claude — Structured call transcript auditing using tool-use API
+  - SDK/Client: `@anthropic-ai/sdk` ^0.78.0
+  - Model: `claude-sonnet-4-20250514`
+  - Auth: `ANTHROPIC_API_KEY` env var
+  - Integration: `apps/ops-api/src/services/callAudit.ts` — `auditWithClaude()`
+  - Uses forced tool-use (`submit_call_audit`) for structured JSON output with issues, wins, coaching, and manager summary
 
-**CRM Integration:**
-- Convoso - Sales CRM and dialing platform
-  - SDK/Client: Direct HTTP API calls via axios in `index.js`
-  - Auth: `CONVOSO_AUTH_TOKEN` environment variable
-  - Webhook endpoint: Root Express app receives Convoso webhook to trigger Morgan outbound calls
-  - Webhook Secret: `CONVOSO_WEBHOOK_SECRET` (for request validation, in `apps/ops-api/.env.example`)
-  - Usage: Lead updates via `https://api.convoso.com/v1/leads/update` (queued to prevent race conditions)
-  - Data synced: Lead ID, phone, first/last name, call count, list ID, member ID
+**AI Call Auditing (fallback):**
+- OpenAI GPT-4o-mini — Legacy fallback when `ANTHROPIC_API_KEY` is not set
+  - SDK/Client: `openai` ^4.73.0
+  - Model: `gpt-4o-mini`
+  - Auth: `OPENAI_API_KEY` env var
+  - Integration: `apps/ops-api/src/services/callAudit.ts` — `auditWithOpenAI()`
 
 **Speech-to-Text:**
-- OpenAI Whisper API - Audio transcription (primary)
-  - SDK/Client: `openai` npm package
-  - Auth: `OPENAI_API_KEY` environment variable (required for call audit transcription)
-  - Usage: In `apps/ops-api/src/services/callAudit.ts` for transcribing call audio
+- Whisper (self-hosted or third-party endpoint) — Transcribes call recordings before auditing
+  - Client: Native `fetch`
+  - Auth: None (URL-based)
+  - Config: `WHISPER_API_URL` env var (required for audio transcription)
+  - Integration: `apps/ops-api/src/services/callAudit.ts` — `transcribeRecording()`
 
-- Local Whisper Server (fallback/alternative)
-  - URL: `WHISPER_API_URL` environment variable (e.g., `http://localhost:9000/transcribe`)
-  - Purpose: On-premise transcription alternative
+**Outbound AI Calling:**
+- Vapi — Voice AI platform for outbound calls via Morgan and Riley agents
+  - Client: Native `fetch` to `https://api.vapi.ai/call`
+  - Auth: `VAPI_API_KEY` env var (Bearer token)
+  - Config: `VAPI_MORGAN_ASSISTANT_ID`, `VAPI_RILEY_ASSISTANT_ID`, `VAPI_PHONE_NUMBER_ID` / `VAPI_PHONE_NUMBER_IDS` (comma-separated for round-robin)
+  - Integration: `voiceGateway.js` — `startOutboundCall()`
+  - Rate limit: 429 responses trigger backoff state in `rateLimitState.js`; tracked via `VAPI_429_BACKOFF_MS` (10s)
 
-## AI & LLM Services
-
-**Claude (Anthropic) - Call Audit Analysis:**
-- SDK: `@anthropic-ai/sdk` 0.78.0
-- Auth: `ANTHROPIC_API_KEY` environment variable (required for re-audit feature)
-- Usage: `apps/ops-api/src/services/callAudit.ts` uses Claude's tool calling API for structured call analysis
-- Tool: `submit_call_audit` tool with schema covering:
-  - Agent name, call outcome (sold/callback/lost/not_qualified/incomplete)
-  - Issues: Specific coaching moments with direct quotes from transcript
-  - Wins: Agent strengths demonstrated in the call
-  - Missed opportunities: Moments where agent should have spoken
-  - Suggested coaching: Top 1-3 priorities for manager
-  - Manager summary: 2-3 sentence executive summary
-- Real-time Updates: Emits Socket.io events during audit processing (status, complete, failed)
-
-**OpenAI - Alternative LLM (fallback):**
-- SDK: `openai` npm package 4.73.0
-- Auth: `OPENAI_API_KEY` environment variable
-- Usage: Fallback if Claude unavailable; used for transcription via Whisper API
+**Dialer / CRM / Call Logs:**
+- Convoso — Outbound dialer; provides call log data and triggers Morgan via webhooks
+  - Client: Native `fetch` to `https://api.convoso.com/v1/log/retrieve`
+  - Auth: `CONVOSO_AUTH_TOKEN` env var (Bearer token)
+  - Config: `CONVOSO_DEFAULT_QUEUE_ID` env var (required for KPI polling)
+  - Integrations:
+    - `apps/ops-api/src/services/convosoCallLogs.ts` — `fetchConvosoCallLogs()`, KPI aggregation
+    - `apps/ops-api/src/workers/convosoKpiPoller.ts` — 10-minute polling worker that persists snapshots to `AgentCallKpi` table
+    - `index.js` — Convoso webhook receiver that triggers Morgan outbound calls
+  - Webhook secret: `CONVOSO_WEBHOOK_SECRET` env var (used in `index.js` for inbound webhook validation)
 
 ## Data Storage
 
 **Databases:**
-- PostgreSQL 15 (primary)
-  - Connection: `DATABASE_URL` environment variable
-  - Format: `postgresql://user:password@host:port/database`
-  - Docker Compose: `postgres:15-alpine` with credentials from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-  - Healthcheck: Required before API/app containers start (waits for `pg_isready`)
-
-**Client:**
-- Prisma ORM (`@prisma/client` 5.20.0)
-- Singleton instance in `packages/db/src/client.ts`
-- Schema: `prisma/schema.prisma`
-- Migrations: `prisma/migrations/` (deployed via `prisma migrate deploy`)
+- PostgreSQL 15 — Primary database
+  - Connection: `DATABASE_URL` env var (full connection string)
+  - Client: Prisma ORM (`@prisma/client` 5.20) via `@ops/db` singleton (`packages/db/src/client.ts`)
+  - Schema: `prisma/schema.prisma`
+  - Migrations: `prisma/migrations/`
+  - Key tables: `users`, `agents`, `sales`, `products`, `lead_sources`, `payroll_periods`, `payroll_entries`, `clawbacks`, `service_agents`, `service_payroll_entries`, `call_audits`, `convoso_call_logs`, `agent_call_kpis`, `processed_convoso_calls`, `app_audit_log`, `sales_board_settings`, `service_tickets`
 
 **File Storage:**
-- Not detected - applications use PostgreSQL only
+- No external file storage service detected. Recording URLs stored as strings (pointing to Convoso-hosted recordings). Audio is fetched as buffers at audit time — not persisted locally.
 
 **Caching:**
-- Not detected - no Redis or Memcached in dependencies
+- None — No Redis or in-memory cache layer. KPI deduplication uses `processed_convoso_calls` table. Morgan call queue is in-process memory (`morganQueue` array, `morganQueuedIds` Set in `index.js`).
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Custom JWT-based authentication (no third-party provider)
-  - Implementation: `packages/auth/src/index.ts` (server-side) and `packages/auth/src/client.ts` (browser-side)
-  - JWT Secret: `AUTH_JWT_SECRET` environment variable (required at startup)
-  - Token Expiry: 12 hours
+- Custom JWT (no third-party auth provider)
+  - Implementation: `packages/auth/src/index.ts` (server-side signing/verification), `packages/auth/src/client.ts` (browser-side)
+  - Token: JWT signed with `AUTH_JWT_SECRET` (HS256 implied by `jsonwebtoken`), 12h expiry
+  - Delivery: Passed via URL `session_token` param on redirect, stored in localStorage as `ops_session_token`; also set as HttpOnly cookie `ops_session` for server-side use
+  - Cookie domain: `AUTH_COOKIE_DOMAIN` env var (enables cross-subdomain sharing)
+  - Auto-refresh: Client refreshes token when within 15 minutes of expiry (`packages/auth/src/client.ts` — `authFetch()`)
+  - RBAC: `requireAuth` + `requireRole()` middleware in `apps/ops-api/src/middleware/auth.ts`; `SUPER_ADMIN` bypasses all role checks
 
-**Server-Side Session Management:**
-- Token signing: `signSessionToken()` in `packages/auth/src/index.ts`
-- Token verification: `verifySessionToken()` validates JWT signature
-- Session cookie: `ops_session` httpOnly cookie, secure in production, sameSite=lax
-- Cookie domain: `AUTH_COOKIE_DOMAIN` environment variable (for cross-subdomain sharing)
-- Endpoints:
-  - `POST /api/auth/login` - Email/password authentication, returns JWT token
-  - `POST /api/auth/logout` - Clears session cookie
-  - `POST /api/auth/change-password` - Update user password
-  - `GET /api/auth/refresh` - Refresh token (requires valid token)
-
-**Browser-Side Session Management:**
-- Token capture: `captureTokenFromUrl()` reads `session_token` URL param from redirect
-- Token storage: localStorage key `ops_session_token`
-- Auto-refresh: `authFetch()` wrapper refreshes token when within 15 minutes of expiry
-- Request injection: Bearer token header added to all API calls via `authFetch()`
-- Request timeout: 30 seconds
-
-**RBAC (Role-Based Access Control):**
-- Roles: `SUPER_ADMIN`, `OWNER_VIEW`, `MANAGER`, `PAYROLL`, `SERVICE`, `ADMIN`
-- Enforcement: Middleware `requireAuth` and `requireRole(...roles)` in `apps/ops-api/src/middleware/auth.ts`
-- Special case: `SUPER_ADMIN` bypasses all role checks (intentional)
-- User model: `packages/types/src/index.ts` exports `AppRole` and `SessionUser` types
+**Password Hashing:**
+- bcryptjs 2.4 — used during login in `apps/ops-api/`
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- Not detected - no Sentry, Rollbar, or similar
+- None detected — no Sentry, Datadog, or equivalent SDK
 
 **Logs:**
-- Structured JSON logging via `@ops/utils` package (`logEvent`, `logError`)
-- Audit logging: `logAudit()` in `apps/ops-api/src/services/audit.ts` writes to `app_audit_log` table for sensitive operations
-- Console logging with levels: error, warn, info, debug (controlled by `LOG_LEVEL` env var in Morgan service)
-- Socket.io events emitted for real-time audit status tracking (via `apps/ops-api/src/socket.ts`)
+- Structured JSON logging via `@ops/utils` (`packages/utils/src/index.ts`) — `logEvent()` and `logError()` write `{ level, event, payload, ts }` to stdout/stderr
+- ops-api uses `console.log(JSON.stringify({...}))` directly in workers (`convosoKpiPoller.ts`)
+- Morgan voice service uses a custom logger with `LOG_LEVEL` env var (error/warn/info/debug levels)
+
+**Audit Trail:**
+- Internal `app_audit_log` table — sensitive operations call `logAudit()` from `apps/ops-api/src/services/audit.ts`
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Railway (primary - per README.md)
-- Docker Compose (local development or on-premise)
+- Railway — primary deployment target (per-service, each app deployed independently)
+- Docker — full-stack local deployment via `docker-compose.yml`
 
 **CI Pipeline:**
-- Not detected - no GitHub Actions, GitLab CI, or similar in codebase
+- None detected — no GitHub Actions, CircleCI, or equivalent config files found
 
-**Build & Deployment:**
-- Railway per-service build/start commands (defined in README.md)
-- Docker:
-  - `Dockerfile.nextjs` - Builds Next.js apps with `APP_NAME` build arg
-  - `docker-compose.yml` - Orchestrates postgres + ops-api + 5 frontend services
-  - Conditional standalone output: `output: "standalone"` only when `NEXT_OUTPUT_STANDALONE=true`
-  - Build-time `NEXT_PUBLIC_OPS_API_URL` injection for frontend apps
+## Real-Time Communication
 
-## Environment Configuration
-
-**Required Environment Variables:**
-- `DATABASE_URL` - PostgreSQL connection string (startup fails without it)
-- `AUTH_JWT_SECRET` - JWT signing secret (startup fails without it)
-- `OPENAI_API_KEY` - OpenAI API key for transcription
-- `ANTHROPIC_API_KEY` - Anthropic API key for call audit analysis
-
-**Integration Environment Variables:**
-- `CONVOSO_AUTH_TOKEN` - CRM webhook authentication token
-- `VAPI_API_KEY` - Voice platform API key
-- `VAPI_MORGAN_ASSISTANT_ID` - Morgan AI assistant ID
-- `VAPI_RILEY_ASSISTANT_ID` - Riley AI assistant ID (optional)
-- `VAPI_PHONE_NUMBER_IDS` - Comma-separated phone number IDs (exactly 3 for Morgan)
-- `CONVOSO_WEBHOOK_SECRET` - Webhook validation secret
-
-**Configuration Environment Variables:**
-- `PORT` - API server port (default: 3000 for Morgan, 8080 for ops-api)
-- `NODE_ENV` - Environment (production/development)
-- `LOG_LEVEL` - Logging verbosity (error, warn, info, debug)
-- `ALLOWED_ORIGINS` - CORS whitelist (comma-separated URLs)
-- `NEXT_PUBLIC_OPS_API_URL` - Browser-reachable API URL
-- `AUTH_COOKIE_DOMAIN` - Cookie domain for cross-subdomain sessions
-- `MORGAN_ENABLED` - Toggle for Morgan voice service (true/false)
-- `WHISPER_API_URL` - Local Whisper transcription endpoint
-
-**Docker Compose Postgres Variables:**
-- `POSTGRES_USER` - Database user (default: ops)
-- `POSTGRES_PASSWORD` - Database password (default: ops_secret)
-- `POSTGRES_DB` - Database name (default: ops_prod)
+**WebSockets:**
+- Socket.IO 4.8.3 — server mounted on ops-api HTTP server (`apps/ops-api/src/index.ts`)
+- Events emitted during call audit pipeline: `audit:status` and `audit:complete` (`apps/ops-api/src/socket.ts`)
+- Clients: `manager-dashboard`, `owner-dashboard`, `payroll-dashboard`, `sales-board` all use `socket.io-client` via `@ops/socket` package
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- Convoso Webhook - Triggers Morgan outbound call initiation
-  - Endpoint: Root Express server (undefined path in codebase)
-  - Payload: Lead data from Convoso CRM
-  - Security: Validated via `CONVOSO_WEBHOOK_SECRET`
-  - Processing: Queued to prevent race conditions
+- Convoso webhook → Morgan trigger: `POST /webhook/convoso` in `index.js` — receives dialer events and enqueues outbound AI calls
+- Vapi webhooks: Referenced in `index.js` — handles call status updates from Vapi
 
-**Outgoing (via Socket.io):**
-- Real-time audit status events: `audit_status`, `processing_started`, `processing_failed`, `new_audit`
-  - Emitted from `apps/ops-api/src/socket.ts` during call audit analysis
-  - Received by connected browser clients (manager dashboard listening for updates)
+**Outgoing:**
+- Vapi `POST https://api.vapi.ai/call` — initiates outbound calls (`voiceGateway.js`)
+- Convoso `GET https://api.convoso.com/v1/log/retrieve` — polling for call logs (`apps/ops-api/src/services/convosoCallLogs.ts`)
+- Anthropic `messages.create` — call audit (`apps/ops-api/src/services/callAudit.ts`)
+- OpenAI `chat.completions.create` — fallback call audit (`apps/ops-api/src/services/callAudit.ts`)
+- Whisper endpoint (configurable) — audio transcription (`apps/ops-api/src/services/callAudit.ts`)
+
+## Environment Configuration
+
+**Required env vars (ops-api):**
+- `DATABASE_URL` — Startup fails without it
+- `AUTH_JWT_SECRET` — Startup fails without it
+
+**Required env vars (ops-api, feature-gated):**
+- `CONVOSO_AUTH_TOKEN` — Enables Convoso KPI poller and call log routes; silently disabled when absent
+- `CONVOSO_DEFAULT_QUEUE_ID` — Required for KPI poller to run
+- `CONVOSO_WEBHOOK_SECRET` — Webhook validation in Morgan service
+- `ANTHROPIC_API_KEY` — Enables Claude-based call auditing; falls back to OpenAI when absent
+- `OPENAI_API_KEY` — Used as audit fallback when `ANTHROPIC_API_KEY` is not set
+- `WHISPER_API_URL` — Required for audio transcription before auditing
+
+**Required env vars (Morgan voice service, root):**
+- `VAPI_API_KEY` — Required to initiate any outbound call
+- `VAPI_MORGAN_ASSISTANT_ID` — Vapi assistant ID for Morgan agent
+- `VAPI_RILEY_ASSISTANT_ID` — Vapi assistant ID for Riley agent (optional)
+- `VAPI_PHONE_NUMBER_ID` / `VAPI_PHONE_NUMBER_IDS` — One or more Twilio numbers registered in Vapi
+
+**Optional env vars:**
+- `ALLOWED_ORIGINS` — CORS whitelist (defaults to all five dashboard localhost ports)
+- `AUTH_COOKIE_DOMAIN` — Cookie domain for cross-subdomain session sharing
+- `AUTH_PORTAL_URL`, `MANAGER_DASHBOARD_URL`, `PAYROLL_DASHBOARD_URL`, `OWNER_DASHBOARD_URL` — Redirect targets after login
+- `NEXT_PUBLIC_OPS_API_URL` — API URL baked into Next.js builds (must be browser-reachable)
+- `NEXT_OUTPUT_STANDALONE` — Enables Next.js standalone output (Docker only)
+- `LOG_LEVEL` — Morgan logger verbosity (error/warn/info/debug)
+- `PORT` — API server port (defaults to 8080)
+
+**Secrets location:**
+- Environment variables only — no secrets files committed. Docker Compose reads from shell env or `.env` file at compose root.
 
 ---
 
-*Integration audit: 2026-03-14*
+*Integration audit: 2026-03-17*
