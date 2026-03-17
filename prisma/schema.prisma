@@ -533,6 +533,7 @@ model PendingTerm {
   holdReason          String?   @map("hold_reason")
   inactive            Boolean?  @default(false)
   lastTransactionType String?   @map("last_transaction_type")
+  assignedTo          String?   @map("assigned_to")
   smoker              String?
   batchId             String    @map("batch_id")
   submittedBy         String    @map("submitted_by")
