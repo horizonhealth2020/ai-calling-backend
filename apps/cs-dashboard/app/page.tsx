@@ -197,7 +197,7 @@ function consolidateByMember(rows: ParsedRow[]): ConsolidatedRecord[] {
     payeeName: memberRows[0].payeeName,
     payoutPercent: memberRows[0].payoutPercent,
     chargebackAmount: memberRows.reduce((s, r) => s + (r.chargebackAmount ?? 0), 0),
-    totalAmount: memberRows.reduce((s, r) => s + (r.totalAmount ?? 0), 0),
+    totalAmount: Math.abs(memberRows.reduce((s, r) => s + (r.chargebackAmount ?? 0), 0)),
     transactionDescription: memberRows[0].transactionDescription,
     product: memberRows
       .map((r) => r.product)
@@ -401,7 +401,8 @@ function SubmissionsTab() {
   // When reps change, re-assign existing records
   useEffect(() => {
     if (records.length > 0) {
-      setRecords((prev) => rerunRoundRobin(prev, activeRepNames));
+      const currentActive = reps.filter((r) => r.active).map((r) => r.name);
+      setRecords((prev) => rerunRoundRobin(prev, currentActive));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reps]);
@@ -933,20 +934,30 @@ function TrackingTab() {
     submittedAt: string;
   }>>([]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await authFetch(`${API}/api/chargebacks/weekly-total`);
-        if (res.ok) setWeeklyTotal(await res.json());
-      } catch { /* ignore */ }
-    })();
-    (async () => {
-      try {
-        const res = await authFetch(`${API}/api/chargebacks`);
-        if (res.ok) setChargebacks(await res.json());
-      } catch { /* ignore */ }
-    })();
+  const fetchData = useCallback(async () => {
+    try {
+      const [totalRes, cbRes] = await Promise.all([
+        authFetch(`${API}/api/chargebacks/weekly-total`),
+        authFetch(`${API}/api/chargebacks`),
+      ]);
+      if (totalRes.ok) setWeeklyTotal(await totalRes.json());
+      if (cbRes.ok) setChargebacks(await cbRes.json());
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await authFetch(`${API}/api/chargebacks/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) {
+        setChargebacks((prev) => prev.filter((cb) => cb.id !== id));
+        // Refresh ticker after delete
+        const totalRes = await authFetch(`${API}/api/chargebacks/weekly-total`);
+        if (totalRes.ok) setWeeklyTotal(await totalRes.json());
+      }
+    } catch { /* ignore */ }
+  };
 
   const tickerTotal = weeklyTotal ? Math.abs(weeklyTotal.total) : 0;
   const tickerCount = weeklyTotal?.count ?? 0;
@@ -994,6 +1005,7 @@ function TrackingTab() {
                   <th style={baseThStyle}>Total</th>
                   <th style={baseThStyle}>Assigned To</th>
                   <th style={baseThStyle}>Submitted</th>
+                  <th style={{ ...baseThStyle, width: 50 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1006,6 +1018,26 @@ function TrackingTab() {
                     <td style={baseTdStyle}>{cb.totalAmount ? `$${parseFloat(cb.totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "--"}</td>
                     <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
                     <td style={baseTdStyle}>{new Date(cb.submittedAt).toLocaleDateString("en-US")}</td>
+                    <td style={baseTdStyle}>
+                      <button
+                        onClick={() => handleDelete(cb.id)}
+                        aria-label="Delete record"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          color: colors.textMuted,
+                          padding: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                        onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

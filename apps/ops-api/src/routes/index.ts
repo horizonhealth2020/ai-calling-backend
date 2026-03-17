@@ -1957,6 +1957,11 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   return res.status(201).json({ count: result.count, batchId });
 }));
 
+router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  await prisma.chargebackSubmission.delete({ where: { id: req.params.id } });
+  return res.status(204).end();
+}));
+
 router.get("/chargebacks", requireAuth, asyncHandler(async (_req, res) => {
   const records = await prisma.chargebackSubmission.findMany({
     orderBy: { submittedAt: "desc" },
