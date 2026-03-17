@@ -40,24 +40,24 @@ Declared values from `packages/ui/src/tokens.ts` (all multiples of 4):
 | spacing[8] | 32px | Main content padding (from PageShell MAIN_CONTENT) |
 | spacing[12] | 48px | Empty state vertical padding |
 
-Exceptions: none — use existing token scale exclusively.
+**Approved exceptions:** 12px (`spacing[3]`) and 20px (`spacing[5]`) are not in the standard 8-point set {4, 8, 16, 24, 32, 48, 64} but are established tokens defined in `packages/ui/src/tokens.ts` and used across all existing dashboards (manager-dashboard, payroll-dashboard, cs-dashboard). These values are approved project-wide exceptions, consistent with the Phase 11 UI-SPEC resolution of the same tokens.
 
 ---
 
 ## Typography
 
-All values from `packages/ui/src/tokens.ts`. This phase uses 4 sizes and 2 primary weights:
+All values from `packages/ui/src/tokens.ts`. This phase uses 4 sizes and 2 weights:
 
 | Role | Size | Weight | Line Height | Token Reference |
 |------|------|--------|-------------|-----------------|
-| Body / Table cells | 13px | 400 (normal) | 1.5 | `typography.sizes.sm` |
+| Body / Table cells / Ticker sub-label | 13px | 400 (normal) | 1.5 | `typography.sizes.sm` |
 | Labels / Table headers | 11px | 700 (bold) | 1.45 | `typography.sizes.xs` + `baseLabelStyle` |
-| Section heading | 16px | 600 (semibold) | 1.5 | `typography.sizes.md` |
-| Ticker value (weekly total) | 28px | 800 (extrabold) | 1.2 | `typography.sizes["2xl"]` |
+| Section heading | 16px | 700 (bold) | 1.5 | `typography.sizes.md` |
+| Ticker value (weekly total) | 28px | 700 (bold) | 1.2 | `typography.sizes["2xl"]` |
 
 Additional:
-- Paste textarea: `typography.fontMono` at 12px, line-height 1.5 (monospaced for raw data readability)
-- Ticker sub-label (record count + week range): 13px, weight 500 (medium), color `colors.textSecondary`
+- Paste textarea: `typography.fontMono` at 13px, line-height 1.5 (monospaced font family alone provides visual distinction from body text; no separate size needed)
+- Ticker sub-label (record count + week range): 13px, weight 400 (normal), color `colors.textSecondary`
 - All uppercase labels use `letterSpacing: typography.tracking.caps` ("0.06em")
 
 ---
@@ -129,7 +129,7 @@ SubmissionsTab
 - Main content and sidebar use `display: flex` with `gap: spacing[6]` (24px)
 - Sidebar width: 240px, collapsible via CSS `max-width` transition (`motion.duration.normal`, `motion.easing.out`)
 - When sidebar collapsed: main content expands to full width
-- Sidebar toggle: icon button (ChevronRight/ChevronLeft from lucide-react) positioned at top-right of main content area
+- Sidebar toggle: icon button (ChevronRight/ChevronLeft from lucide-react) positioned at top-right of main content area, `aria-label="Collapse sidebar"` when expanded and `aria-label="Expand sidebar"` when collapsed
 
 ### Preview Table Columns
 
@@ -183,9 +183,9 @@ Table styling: Use `baseThStyle` for headers, `baseTdStyle` for cells. Row hover
 | Action | Trigger | UI Response |
 |--------|---------|-------------|
 | Toggle sidebar | Click chevron icon | Sidebar slides in/out via `max-width` transition (250ms) |
-| Add rep | Type name + click "Add" or press Enter | POST to API, rep appears in list with active toggle on |
+| Add rep | Type name + click "Add Rep" or press Enter | POST to API, rep appears in list with active toggle on |
 | Toggle active/inactive | Click toggle switch | PATCH to API, toggle visual state, re-run round-robin on current preview records |
-| Remove rep | Click X icon (visible on hover) | DELETE to API, rep removed from list, re-run round-robin |
+| Remove rep | Click X icon (visible on hover), `aria-label="Remove {rep name}"` | DELETE to API, rep removed from list, re-run round-robin |
 
 ### 5. Weekly Ticker
 
@@ -213,12 +213,22 @@ Table styling: Use `baseThStyle` for headers, `baseTdStyle` for cells. Row hover
 | Textarea placeholder | "Paste chargeback data from spreadsheet here..." |
 | Roster sidebar heading | "Rep Roster" |
 | Add rep placeholder | "Rep name" |
-| Add rep button | "Add" |
+| Add rep button | "Add Rep" |
 | No active reps warning | "No active reps -- records will be unassigned" |
 | Ticker label | "WEEKLY CHARGEBACKS" |
 | Ticker sub-label | "{count} records -- Week of {start_date}-{end_date}" |
 | Section heading | "Chargeback Submissions" |
 | Remove rep confirmation | None -- immediate deletion (low-risk action, reps can be re-added) |
+
+---
+
+## Accessibility Declarations
+
+| Element | Attribute | Value |
+|---------|-----------|-------|
+| Sidebar toggle (expanded) | `aria-label` | "Collapse sidebar" |
+| Sidebar toggle (collapsed) | `aria-label` | "Expand sidebar" |
+| Remove rep X icon | `aria-label` | "Remove {rep name}" (dynamic, interpolated with rep's name) |
 
 ---
 
