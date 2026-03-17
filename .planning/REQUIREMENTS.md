@@ -96,52 +96,52 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ROLE-01 | TBD | Pending |
-| ROLE-02 | TBD | Pending |
-| ROLE-03 | TBD | Pending |
-| ROLE-04 | TBD | Pending |
-| SCHEMA-01 | TBD | Pending |
-| SCHEMA-02 | TBD | Pending |
-| CHBK-01 | TBD | Pending |
-| CHBK-02 | TBD | Pending |
-| CHBK-03 | TBD | Pending |
-| CHBK-04 | TBD | Pending |
-| CHBK-05 | TBD | Pending |
-| CHBK-06 | TBD | Pending |
-| TERM-01 | TBD | Pending |
-| TERM-02 | TBD | Pending |
-| TERM-03 | TBD | Pending |
-| TERM-04 | TBD | Pending |
-| TERM-05 | TBD | Pending |
-| TERM-06 | TBD | Pending |
-| TRKC-01 | TBD | Pending |
-| TRKC-02 | TBD | Pending |
-| TRKC-03 | TBD | Pending |
-| TRKC-04 | TBD | Pending |
-| TRKC-05 | TBD | Pending |
-| TRKC-06 | TBD | Pending |
-| TRKT-01 | TBD | Pending |
-| TRKT-02 | TBD | Pending |
-| TRKT-03 | TBD | Pending |
-| TRKT-04 | TBD | Pending |
-| TRKT-05 | TBD | Pending |
-| TRKT-06 | TBD | Pending |
-| TRKT-07 | TBD | Pending |
-| DASH-01 | TBD | Pending |
-| DASH-02 | TBD | Pending |
-| DASH-03 | TBD | Pending |
-| DASH-04 | TBD | Pending |
-| DASH-05 | TBD | Pending |
-| RESV-01 | TBD | Pending |
-| RESV-02 | TBD | Pending |
-| RESV-03 | TBD | Pending |
-| RESV-04 | TBD | Pending |
+| ROLE-01 | Phase 11 | Pending |
+| ROLE-02 | Phase 17 | Pending |
+| ROLE-03 | Phase 17 | Pending |
+| ROLE-04 | Phase 17 | Pending |
+| SCHEMA-01 | Phase 11 | Pending |
+| SCHEMA-02 | Phase 11 | Pending |
+| CHBK-01 | Phase 12 | Pending |
+| CHBK-02 | Phase 12 | Pending |
+| CHBK-03 | Phase 12 | Pending |
+| CHBK-04 | Phase 12 | Pending |
+| CHBK-05 | Phase 12 | Pending |
+| CHBK-06 | Phase 12 | Pending |
+| TERM-01 | Phase 13 | Pending |
+| TERM-02 | Phase 13 | Pending |
+| TERM-03 | Phase 13 | Pending |
+| TERM-04 | Phase 13 | Pending |
+| TERM-05 | Phase 13 | Pending |
+| TERM-06 | Phase 13 | Pending |
+| TRKC-01 | Phase 14 | Pending |
+| TRKC-02 | Phase 14 | Pending |
+| TRKC-03 | Phase 14 | Pending |
+| TRKC-04 | Phase 14 | Pending |
+| TRKC-05 | Phase 14 | Pending |
+| TRKC-06 | Phase 14 | Pending |
+| TRKT-01 | Phase 15 | Pending |
+| TRKT-02 | Phase 15 | Pending |
+| TRKT-03 | Phase 15 | Pending |
+| TRKT-04 | Phase 15 | Pending |
+| TRKT-05 | Phase 15 | Pending |
+| TRKT-06 | Phase 15 | Pending |
+| TRKT-07 | Phase 15 | Pending |
+| RESV-01 | Phase 16 | Pending |
+| RESV-02 | Phase 16 | Pending |
+| RESV-03 | Phase 16 | Pending |
+| RESV-04 | Phase 16 | Pending |
+| DASH-01 | Phase 11 | Pending |
+| DASH-02 | Phase 17 | Pending |
+| DASH-03 | Phase 11 | Pending |
+| DASH-04 | Phase 17 | Pending |
+| DASH-05 | Phase 17 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 40 total
-- Mapped to phases: 0
-- Unmapped: 36
+- Mapped to phases: 40
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after initial definition*
+*Last updated: 2026-03-17 after roadmap creation*
