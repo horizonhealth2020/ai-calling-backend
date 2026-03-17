@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import routes from "./routes";
 import { setIO } from "./socket";
+import { startConvosoKpiPoller } from "./workers/convosoKpiPoller";
 
 // ── Validate required environment variables ─────────────────────
 const required = ["DATABASE_URL", "AUTH_JWT_SECRET"];
@@ -62,4 +63,7 @@ io.on("connection", (socket) => {
 });
 
 const port = Number(process.env.PORT || 8080);
-server.listen(port, () => console.log(`ops-api listening on ${port}`));
+server.listen(port, () => {
+  console.log(`ops-api listening on ${port}`);
+  startConvosoKpiPoller();
+});
