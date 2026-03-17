@@ -67,14 +67,14 @@ progress:
 
 ## Current Position
 
-**Phase:** 12 - Chargeback Parser (in progress)
-**Plan:** 02 complete (2/3)
-**Status:** Ready to plan
-**Last activity:** 2026-03-17 -- completed 12-02 (Chargeback Parser UI)
+**Phase:** 13 - Pending Terms Parser (in progress)
+**Plan:** 01 complete (1/2)
+**Status:** Executing
+**Last activity:** 2026-03-17 -- completed 13-01 (Pending Terms API & Schema)
 
 ```
-Progress: [############            ] 67% (Plans: 2/3 in Phase 12)
-Phase 11 [#####] | Phase 12 [#### ] | Phase 13 [     ] | Phase 14 [     ]
+Progress: [##############          ] 71% (Plans: 1/2 in Phase 13)
+Phase 11 [#####] | Phase 12 [#### ] | Phase 13 [##   ] | Phase 14 [     ]
 Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 ```
 
@@ -82,10 +82,10 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 4 |
-| Plans total | 5 (Phase 11: 2, Phase 12: 3) |
-| Requirements done | 12/40 |
-| Phases done | 1/7 |
+| Plans completed | 5 |
+| Plans total | 7 (Phase 11: 2, Phase 12: 3, Phase 13: 2) |
+| Requirements done | 13/40 |
+| Phases done | 2/7 |
 
 ## Accumulated Context
 
@@ -108,6 +108,8 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 
 ### Research Findings Applied
 - holdDate uses @db.Date for DATE-only PostgreSQL type (no time component needed)
+- holdDate conversion uses T00:00:00 suffix in API to prevent timezone shift on DATE column
+- GET /pending-terms limited to 200 records matching chargeback pattern
 - agentIdField mapped to agent_id_field to avoid FK naming confusion
 - rawPaste is non-nullable (always required on paste submission)
 - Card component has no title prop -- use h3 heading inside Card
@@ -133,9 +135,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T20:14:12.050Z
-**Stopped at:** Phase 13 context gathered
-**Next action:** Execute 12-03-PLAN.md
+**Last session:** 2026-03-17T20:35:13Z
+**Stopped at:** Completed 13-01-PLAN.md
+**Next action:** Execute 13-02-PLAN.md
 
 ---
 *State initialized: 2026-03-14*
