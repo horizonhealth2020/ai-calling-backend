@@ -1,0 +1,21 @@
+{
+  "name": "@ops/cs-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3014",
+    "build": "next build",
+    "start": "next build && next start"
+  },
+  "dependencies": {
+    "@ops/ui": "*",
+    "next": "15.3.9",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.10",
+    "typescript": "^5.6.2"
+  }
+}
