@@ -142,9 +142,14 @@ function parseChargebackText(raw: string): ParsedRow[] {
       offset = 1;
     }
 
+    // Extract transaction type from transactionDescription (last pipe segment)
+    const txnDesc = fields[7 + offset] ? fields[7 + offset].trim() : "";
+    const txnParts = txnDesc.split("|").map((p) => p.trim());
+    const extractedType = txnParts[txnParts.length - 1] || null;
+
     const row: ParsedRow = {
       postedDate: fields[0] ? parseDateField(fields[0]) : null,
-      type: fields[1] ? fields[1].trim() || null : null,
+      type: extractedType,
       payeeId: fields[2 + offset] ? fields[2 + offset].trim() || null : null,
       payeeName: fields[3 + offset] ? fields[3 + offset].trim() || null : null,
       payoutPercent: fields[4 + offset] ? parsePercent(fields[4 + offset]) : null,
@@ -311,7 +316,7 @@ const SIDEBAR_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const TYPE_OPTIONS = ["ADVANCED COMM", "OVERRIDE"];
+const TYPE_OPTIONS = ["Chargeback", "Chargeback Reversal", "Refund Reversal"];
 
 /* ── Tab Type ───────────────────────────────────────────────────── */
 
@@ -994,7 +999,7 @@ function TrackingTab() {
               <tbody>
                 {chargebacks.map((cb) => (
                   <tr key={cb.id}>
-                    <td style={baseTdStyle}>{cb.postedDate ? new Date(cb.postedDate).toLocaleDateString("en-US") : "--"}</td>
+                    <td style={baseTdStyle}>{cb.postedDate ? (() => { const [y, m, d] = cb.postedDate.split("T")[0].split("-"); return `${parseInt(m)}/${parseInt(d)}/${y}`; })() : "--"}</td>
                     <td style={baseTdStyle}>{cb.memberCompany || "--"}</td>
                     <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={cb.product || undefined}>{cb.product || "--"}</td>
                     <td style={baseTdStyle}>{cb.type || "--"}</td>
