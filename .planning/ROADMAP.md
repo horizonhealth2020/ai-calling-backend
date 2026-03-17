@@ -26,7 +26,7 @@
 ### v1.1 Customer Service (Phases 11-17)
 
 - [x] **Phase 11: Foundation & Dashboard Shell** - Schema, role, app scaffold, auth redirect
-- [ ] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit
+- [x] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [ ] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit
 - [ ] **Phase 14: Chargeback Tracking** - KPI counter bar, filterable/sortable table, CSV export
 - [ ] **Phase 15: Pending Terms Tracking** - Summary bar, filterable/sortable/groupable table, CSV export
@@ -59,7 +59,7 @@ Plans:
   3. User can set posted_date via date picker and override the type field before submitting
   4. Bulk paste of multiple records parses all records sharing a single batch_id
   5. Confirmed records persist to chargeback_submissions with raw_paste, submitted_by, and submitted_at populated
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 12-01-PLAN.md — Schema changes (assigned_to, CsRepRoster) + 6 API endpoints
 - [x] 12-02-PLAN.md — Client-side parser + full Submissions tab UI
@@ -137,7 +137,7 @@ Plans:
 | 9. UI/UX Polish | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 10. Sale Status Payroll Logic | v1.0 | 6/6 | Complete | 2026-03-16 |
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
-| 12. Chargeback Parser | v1.1 | 2/3 | In progress | - |
+| 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | 0/? | Not started | - |
 | 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
 | 15. Pending Terms Tracking | v1.1 | 0/? | Not started | - |
