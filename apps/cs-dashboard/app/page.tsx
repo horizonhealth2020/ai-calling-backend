@@ -597,6 +597,7 @@ function SubmissionsContent({
                   <tr>
                     <th style={{ ...baseThStyle, width: 120 }}>Date Posted</th>
                     <th style={baseThStyle}>Member</th>
+                    <th style={{ ...baseThStyle, width: 110 }}>Member ID</th>
                     <th style={baseThStyle}>Product</th>
                     <th style={{ ...baseThStyle, width: 160 }}>Transaction Type</th>
                     <th style={{ ...baseThStyle, width: 110 }}>Total</th>
@@ -633,6 +634,10 @@ function SubmissionsContent({
                           onChange={(e) => updateRecord(idx, "memberCompany", e.target.value)}
                           disabled={submitting}
                         />
+                      </td>
+                      {/* Member ID (read-only) */}
+                      <td style={baseTdStyle}>
+                        <span style={{ color: colors.textSecondary }}>{rec.memberId || "--"}</span>
                       </td>
                       {/* Product (read-only) */}
                       <td style={baseTdStyle}>
