@@ -255,14 +255,15 @@ None currently.
 |---|-------------|------|--------|-----------|
 | 260317-dgz | Convoso call log API integration with KPI tiers and per-agent aggregates | 2026-03-17 | 6c8ef4e | [260317-dgz-convoso-call-log-api-integration-with-kp](./quick/260317-dgz-convoso-call-log-api-integration-with-kp/) |
 | 260317-dqd | Wire Convoso call logs to Agent model with cost-per-sale and CallAudit auto-tag | 2026-03-17 | ba7b111 | [260317-dqd-wire-convoso-call-logs-to-agent-model-an](./quick/260317-dqd-wire-convoso-call-logs-to-agent-model-an/) |
+| 260317-dxw | Cron worker polling Convoso every 10 min for per-agent KPI snapshots | 2026-03-17 | 2083caa | [260317-dxw-cron-worker-polling-convoso-every-10-min](./quick/260317-dxw-cron-worker-polling-convoso-every-10-min/) |
 
 ### TODOs
 - All plans complete. Project milestone v1.0 achieved.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T13:56:47Z
-**Stopped at:** Completed quick task 260317-dqd: Wire Convoso call logs to Agent model
+**Last session:** 2026-03-17T14:08:36Z
+**Stopped at:** Completed quick task 260317-dxw: Cron worker polling Convoso every 10 min
 **Next action:** Ready for next task or /gsd:new-milestone.
 
 ---
