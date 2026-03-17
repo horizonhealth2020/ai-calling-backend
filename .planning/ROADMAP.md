@@ -27,7 +27,7 @@
 
 - [x] **Phase 11: Foundation & Dashboard Shell** - Schema, role, app scaffold, auth redirect
 - [x] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
-- [ ] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit
+- [x] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [ ] **Phase 14: Chargeback Tracking** - KPI counter bar, filterable/sortable table, CSV export
 - [ ] **Phase 15: Pending Terms Tracking** - Summary bar, filterable/sortable/groupable table, CSV export
 - [ ] **Phase 16: Resolution Workflow** - Mark resolved with notes, status filtering, resolved display
@@ -75,10 +75,10 @@ Plans:
   3. Bulk paste detects multiple records by agent name pattern, all sharing a batch_id
   4. Missing or malformed fields store as null without crashing the parser or blocking submission
   5. Confirmed records persist to pending_terms with raw_paste, submitted_by, and submitted_at populated
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 13-01-PLAN.md — Schema (assignedTo field) + 3 API endpoints (POST/GET/DELETE)
-- [ ] 13-02-PLAN.md — Client-side 3-line parser + editable preview table UI
+- [x] 13-02-PLAN.md — Client-side 3-line parser + editable preview table UI
 
 ### Phase 14: Chargeback Tracking
 **Goal**: Users can view, search, filter, sort, and export chargeback records
@@ -141,7 +141,7 @@ Plans:
 | 10. Sale Status Payroll Logic | v1.0 | 6/6 | Complete | 2026-03-16 |
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
-| 13. Pending Terms Parser | v1.1 | 1/2 | In progress | - |
+| 13. Pending Terms Parser | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
 | 15. Pending Terms Tracking | v1.1 | 0/? | Not started | - |
 | 16. Resolution Workflow | v1.1 | 0/? | Not started | - |

@@ -30,12 +30,12 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 
 ### Pending Terms Parser
 
-- [ ] **TERM-01**: User can paste raw pending terms text and parser extracts all specified fields
-- [ ] **TERM-02**: Parser correctly separates hold_date (date only) and hold_reason (text only) as two distinct fields
-- [ ] **TERM-03**: Parsed records shown as editable preview cards before submission
-- [ ] **TERM-04**: Bulk paste detects multiple records by agent name pattern, all sharing a batch_id
+- [x] **TERM-01**: User can paste raw pending terms text and parser extracts all specified fields
+- [x] **TERM-02**: Parser correctly separates hold_date (date only) and hold_reason (text only) as two distinct fields
+- [x] **TERM-03**: Parsed records shown as editable preview cards before submission
+- [x] **TERM-04**: Bulk paste detects multiple records by agent name pattern, all sharing a batch_id
 - [x] **TERM-05**: Confirmed records saved to pending_terms with raw_paste, submitted_by, submitted_at
-- [ ] **TERM-06**: Parser handles missing/malformed fields gracefully — blank values stored as null, never crash
+- [x] **TERM-06**: Parser handles missing/malformed fields gracefully — blank values stored as null, never crash
 
 ### Chargeback Tracking
 
@@ -108,12 +108,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHBK-04 | Phase 12 | Complete |
 | CHBK-05 | Phase 12 | Complete |
 | CHBK-06 | Phase 12 | Complete |
-| TERM-01 | Phase 13 | Pending |
-| TERM-02 | Phase 13 | Pending |
-| TERM-03 | Phase 13 | Pending |
-| TERM-04 | Phase 13 | Pending |
+| TERM-01 | Phase 13 | Complete |
+| TERM-02 | Phase 13 | Complete |
+| TERM-03 | Phase 13 | Complete |
+| TERM-04 | Phase 13 | Complete |
 | TERM-05 | Phase 13 | Complete |
-| TERM-06 | Phase 13 | Pending |
+| TERM-06 | Phase 13 | Complete |
 | TRKC-01 | Phase 14 | Pending |
 | TRKC-02 | Phase 14 | Pending |
 | TRKC-03 | Phase 14 | Pending |

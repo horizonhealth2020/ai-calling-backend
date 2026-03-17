@@ -67,14 +67,14 @@ progress:
 
 ## Current Position
 
-**Phase:** 13 - Pending Terms Parser (in progress)
-**Plan:** 01 complete (1/2)
-**Status:** Executing
-**Last activity:** 2026-03-17 -- completed 13-01 (Pending Terms API & Schema)
+**Phase:** 13 - Pending Terms Parser (complete)
+**Plan:** 02 complete (2/2)
+**Status:** Phase 13 complete
+**Last activity:** 2026-03-17 -- completed 13-02 (Pending Terms Parser UI)
 
 ```
-Progress: [##############          ] 71% (Plans: 1/2 in Phase 13)
-Phase 11 [#####] | Phase 12 [#### ] | Phase 13 [##   ] | Phase 14 [     ]
+Progress: [################        ] 78% (Plans: 2/2 in Phase 13)
+Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [     ]
 Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 ```
 
@@ -82,10 +82,10 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 5 |
+| Plans completed | 7 |
 | Plans total | 7 (Phase 11: 2, Phase 12: 3, Phase 13: 2) |
-| Requirements done | 13/40 |
-| Phases done | 2/7 |
+| Requirements done | 18/40 |
+| Phases done | 3/7 |
 
 ## Accumulated Context
 
@@ -96,6 +96,8 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 - All parser logic is client-side pure functions for instant preview without API round-trip
 - AnimatedNumber with dollar prefix used for ticker instead of StatCard for custom danger-bg styling
 - Round-robin assignment resets on every paste (session-scoped, not persisted)
+- Created separate assignPtRoundRobin for pending terms to avoid modifying chargeback round-robin
+- Shared rep roster sidebar serves both chargeback and pending terms parsers
 - v1.1 phases start at 11 (continuing from v1.0 phase 10)
 - Chargebacks and pending terms are decoupled from payroll (v2 integration)
 - Phase 12 and 13 (parsers) can run in parallel -- both depend only on Phase 11
@@ -135,9 +137,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T20:35:13Z
-**Stopped at:** Completed 13-01-PLAN.md
-**Next action:** Execute 13-02-PLAN.md
+**Last session:** 2026-03-17T20:44:00Z
+**Stopped at:** Completed 13-02-PLAN.md
+**Next action:** Plan Phase 14 (Chargeback Tracking) or Phase 15 (Pending Terms Tracking)
 
 ---
 *State initialized: 2026-03-14*
