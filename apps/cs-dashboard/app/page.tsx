@@ -114,7 +114,20 @@ function parseChargebackText(raw: string): ParsedRow[] {
   const lines = raw.split("\n").filter((l) => l.trim().length > 0);
   const rows: ParsedRow[] = [];
 
-  for (const line of lines) {
+  // Join multi-line records: date+type on line 1, "Product"+data on line 2
+  const joinedLines: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (i + 1 < lines.length && lines[i + 1].trim().startsWith("Product\t")) {
+      joinedLines.push(lines[i] + "\t" + lines[i + 1]);
+      i += 2;
+    } else {
+      joinedLines.push(lines[i]);
+      i++;
+    }
+  }
+
+  for (const line of joinedLines) {
     let fields = line.split("\t");
     if (fields.length < 2) continue;
 
@@ -123,32 +136,38 @@ function parseChargebackText(raw: string): ParsedRow[] {
       fields = fields.slice(1);
     }
 
+    // Skip "Product" label field if present after date+type
+    let offset = 0;
+    if (fields[2] && fields[2].trim() === "Product") {
+      offset = 1;
+    }
+
     const row: ParsedRow = {
       postedDate: fields[0] ? parseDateField(fields[0]) : null,
       type: fields[1] ? fields[1].trim() || null : null,
-      payeeId: fields[2] ? fields[2].trim() || null : null,
-      payeeName: fields[3] ? fields[3].trim() || null : null,
-      payoutPercent: fields[4] ? parsePercent(fields[4]) : null,
-      chargebackAmount: fields[5] ? parseChargebackAmount(fields[5]) : null,
-      totalAmount: fields[6] ? parseDollarAmount(fields[6]) : null,
-      transactionDescription: fields[7] ? fields[7].trim() || null : null,
-      product: fields[8] ? fields[8].trim() || null : null,
+      payeeId: fields[2 + offset] ? fields[2 + offset].trim() || null : null,
+      payeeName: fields[3 + offset] ? fields[3 + offset].trim() || null : null,
+      payoutPercent: fields[4 + offset] ? parsePercent(fields[4 + offset]) : null,
+      chargebackAmount: fields[5 + offset] ? parseChargebackAmount(fields[5 + offset]) : null,
+      totalAmount: fields[6 + offset] ? parseDollarAmount(fields[6 + offset]) : null,
+      transactionDescription: fields[7 + offset] ? fields[7 + offset].trim() || null : null,
+      product: fields[8 + offset] ? fields[8 + offset].trim() || null : null,
       memberCompany: null,
       memberId: null,
       memberAgentCompany: null,
       memberAgentId: null,
     };
 
-    // Parse member info pipe group (field 9)
-    if (fields[9]) {
-      const memberParts = fields[9].split("|").map((p) => p.trim());
+    // Parse member info pipe group
+    if (fields[9 + offset]) {
+      const memberParts = fields[9 + offset].split("|").map((p) => p.trim());
       row.memberCompany = memberParts[0] || null;
       row.memberId = memberParts[1] || null;
     }
 
-    // Parse agent info pipe group (field 10)
-    if (fields[10]) {
-      const agentParts = fields[10].split("|").map((p) => p.trim());
+    // Parse agent info pipe group
+    if (fields[10 + offset]) {
+      const agentParts = fields[10 + offset].split("|").map((p) => p.trim());
       row.memberAgentCompany = agentParts[0] || null;
       row.memberAgentId = agentParts[1] || null;
     }
@@ -337,7 +356,6 @@ function SubmissionsTab() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [newRepName, setNewRepName] = useState("");
-  const [weeklyTotal, setWeeklyTotal] = useState<WeeklyTotal | null>(null);
 
   const activeRepNames = reps.filter((r) => r.active).map((r) => r.name);
 
@@ -351,20 +369,9 @@ function SubmissionsTab() {
     } catch { /* ignore */ }
   }, []);
 
-  const fetchWeeklyTotal = useCallback(async () => {
-    try {
-      const res = await authFetch(`${API}/api/chargebacks/weekly-total`);
-      if (res.ok) {
-        const data = await res.json();
-        setWeeklyTotal(data);
-      }
-    } catch { /* ignore */ }
-  }, []);
-
   useEffect(() => {
     fetchReps();
-    fetchWeeklyTotal();
-  }, [fetchReps, fetchWeeklyTotal]);
+  }, [fetchReps]);
 
   // Re-run round-robin when reps change
   const rerunRoundRobin = useCallback(
@@ -403,7 +410,6 @@ function SubmissionsTab() {
         sidebarOpen={sidebarOpen}
         submitting={submitting}
         newRepName={newRepName}
-        weeklyTotal={weeklyTotal}
         activeRepNames={activeRepNames}
         onTextChange={handleTextChange}
         onRecordsChange={setRecords}
@@ -411,7 +417,6 @@ function SubmissionsTab() {
         onSidebarToggle={() => setSidebarOpen((o) => !o)}
         onSubmittingChange={setSubmitting}
         onNewRepNameChange={setNewRepName}
-        onWeeklyTotalRefresh={fetchWeeklyTotal}
         onRawTextClear={() => { setRawText(""); setRecords([]); }}
         rerunRoundRobin={rerunRoundRobin}
       />
@@ -428,7 +433,6 @@ interface SubmissionsContentProps {
   sidebarOpen: boolean;
   submitting: boolean;
   newRepName: string;
-  weeklyTotal: WeeklyTotal | null;
   activeRepNames: string[];
   onTextChange: (text: string) => void;
   onRecordsChange: (records: ConsolidatedRecord[]) => void;
@@ -436,7 +440,6 @@ interface SubmissionsContentProps {
   onSidebarToggle: () => void;
   onSubmittingChange: (v: boolean) => void;
   onNewRepNameChange: (v: string) => void;
-  onWeeklyTotalRefresh: () => void;
   onRawTextClear: () => void;
   rerunRoundRobin: (records: ConsolidatedRecord[], activeReps: string[]) => ConsolidatedRecord[];
 }
@@ -448,7 +451,6 @@ function SubmissionsContent({
   sidebarOpen,
   submitting,
   newRepName,
-  weeklyTotal,
   activeRepNames,
   onTextChange,
   onRecordsChange,
@@ -456,7 +458,6 @@ function SubmissionsContent({
   onSidebarToggle,
   onSubmittingChange,
   onNewRepNameChange,
-  onWeeklyTotalRefresh,
   onRawTextClear,
   rerunRoundRobin,
 }: SubmissionsContentProps) {
@@ -480,7 +481,6 @@ function SubmissionsContent({
         const data = await res.json();
         onRawTextClear();
         toast("success", `${data.count} chargebacks submitted`);
-        onWeeklyTotalRefresh();
       } else {
         toast("error", `Failed to submit (${res.status})`);
       }
@@ -556,35 +556,10 @@ function SubmissionsContent({
     } catch { /* ignore */ }
   };
 
-  /* ── Weekly ticker display values ── */
-  const tickerTotal = weeklyTotal ? Math.abs(weeklyTotal.total) : 0;
-  const tickerCount = weeklyTotal?.count ?? 0;
-  const weekRange = weeklyTotal
-    ? (() => {
-        const ws = new Date(weeklyTotal.weekStart);
-        const we = new Date(weeklyTotal.weekEnd);
-        return `${ws.getMonth() + 1}/${ws.getDate()}-${we.getMonth() + 1}/${we.getDate()}`;
-      })()
-    : (() => {
-        const r = getCurrentWeekRange();
-        return `${r.start}-${r.end}`;
-      })();
-
   return (
     <div style={{ display: "flex", gap: spacing[6] }}>
       {/* Main Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: spacing[6], minWidth: 0 }}>
-        {/* Weekly Ticker */}
-        <Card style={TICKER_CARD}>
-          <span style={TICKER_LABEL}>WEEKLY CHARGEBACKS</span>
-          <div style={TICKER_VALUE}>
-            <AnimatedNumber value={tickerTotal} decimals={2} prefix="$" duration={600} />
-          </div>
-          <span style={TICKER_SUB}>
-            {tickerCount} records -- Week of {weekRange}
-          </span>
-        </Card>
-
         {/* Paste Area */}
         <Card>
           <h3 style={SECTION_HEADING}>Chargeback Submissions</h3>
@@ -615,12 +590,11 @@ function SubmissionsContent({
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <th style={{ ...baseThStyle, width: 120 }}>Posted Date</th>
-                    <th style={{ ...baseThStyle, width: 140 }}>Type</th>
-                    <th style={baseThStyle}>Member Company</th>
-                    <th style={baseThStyle}>Products</th>
-                    <th style={{ ...baseThStyle, width: 120 }}>Chargeback Amt</th>
-                    <th style={{ ...baseThStyle, width: 100 }}>Total</th>
+                    <th style={{ ...baseThStyle, width: 120 }}>Date Posted</th>
+                    <th style={baseThStyle}>Member</th>
+                    <th style={baseThStyle}>Product</th>
+                    <th style={{ ...baseThStyle, width: 160 }}>Transaction Type</th>
+                    <th style={{ ...baseThStyle, width: 110 }}>Total</th>
                     <th style={{ ...baseThStyle, width: 140 }}>Assigned To</th>
                   </tr>
                 </thead>
@@ -635,7 +609,7 @@ function SubmissionsContent({
                         transition: `background ${motion.duration.fast} ${motion.easing.out}`,
                       }}
                     >
-                      {/* Posted Date */}
+                      {/* Date Posted */}
                       <td style={baseTdStyle}>
                         <input
                           type="date"
@@ -645,7 +619,33 @@ function SubmissionsContent({
                           disabled={submitting}
                         />
                       </td>
-                      {/* Type */}
+                      {/* Member */}
+                      <td style={baseTdStyle}>
+                        <input
+                          type="text"
+                          style={COMPACT_INPUT}
+                          value={rec.memberCompany}
+                          onChange={(e) => updateRecord(idx, "memberCompany", e.target.value)}
+                          disabled={submitting}
+                        />
+                      </td>
+                      {/* Product (read-only) */}
+                      <td style={baseTdStyle}>
+                        <span
+                          style={{
+                            display: "block",
+                            maxWidth: 240,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: colors.textSecondary,
+                          }}
+                          title={rec.product || undefined}
+                        >
+                          {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
+                        </span>
+                      </td>
+                      {/* Transaction Type */}
                       <td style={baseTdStyle}>
                         <select
                           style={COMPACT_INPUT}
@@ -661,49 +661,6 @@ function SubmissionsContent({
                             <option value={rec.type}>{rec.type}</option>
                           )}
                         </select>
-                      </td>
-                      {/* Member Company */}
-                      <td style={baseTdStyle}>
-                        {rec.memberCompany ? (
-                          <input
-                            type="text"
-                            style={COMPACT_INPUT}
-                            value={rec.memberCompany}
-                            onChange={(e) => updateRecord(idx, "memberCompany", e.target.value)}
-                            disabled={submitting}
-                          />
-                        ) : (
-                          <span style={{ color: colors.textMuted }}>--</span>
-                        )}
-                      </td>
-                      {/* Products */}
-                      <td style={baseTdStyle}>
-                        <span
-                          style={{
-                            display: "block",
-                            maxWidth: 200,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                          title={rec.product || undefined}
-                        >
-                          {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
-                        </span>
-                      </td>
-                      {/* Chargeback Amount */}
-                      <td style={baseTdStyle}>
-                        <input
-                          type="text"
-                          style={{ ...COMPACT_INPUT, color: colors.danger }}
-                          value={rec.chargebackAmount !== 0 ? formatNegDollar(rec.chargebackAmount) : "$0.00"}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9.\-]/g, "");
-                            const num = parseFloat(raw);
-                            if (!isNaN(num)) updateRecord(idx, "chargebackAmount", num < 0 ? num : -Math.abs(num));
-                          }}
-                          disabled={submitting}
-                        />
                       </td>
                       {/* Total */}
                       <td style={baseTdStyle}>
@@ -958,15 +915,100 @@ function RepRow({
 /* ── Tracking Tab ───────────────────────────────────────────────── */
 
 function TrackingTab() {
+  const [weeklyTotal, setWeeklyTotal] = useState<WeeklyTotal | null>(null);
+  const [chargebacks, setChargebacks] = useState<Array<{
+    id: string;
+    postedDate: string | null;
+    memberCompany: string | null;
+    product: string | null;
+    type: string | null;
+    totalAmount: string | null;
+    chargebackAmount: string | null;
+    assignedTo: string | null;
+    submittedAt: string;
+  }>>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await authFetch(`${API}/api/chargebacks/weekly-total`);
+        if (res.ok) setWeeklyTotal(await res.json());
+      } catch { /* ignore */ }
+    })();
+    (async () => {
+      try {
+        const res = await authFetch(`${API}/api/chargebacks`);
+        if (res.ok) setChargebacks(await res.json());
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const tickerTotal = weeklyTotal ? Math.abs(weeklyTotal.total) : 0;
+  const tickerCount = weeklyTotal?.count ?? 0;
+  const weekRange = weeklyTotal
+    ? (() => {
+        const ws = new Date(weeklyTotal.weekStart);
+        const we = new Date(weeklyTotal.weekEnd);
+        return `${ws.getMonth() + 1}/${ws.getDate()}-${we.getMonth() + 1}/${we.getDate()}`;
+      })()
+    : (() => {
+        const r = getCurrentWeekRange();
+        return `${r.start}-${r.end}`;
+      })();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: `${spacing[6]}px` }}>
+      {/* Weekly Ticker */}
+      <Card style={TICKER_CARD}>
+        <span style={TICKER_LABEL}>WEEKLY CHARGEBACKS</span>
+        <div style={TICKER_VALUE}>
+          <AnimatedNumber value={tickerTotal} decimals={2} prefix="$" duration={600} />
+        </div>
+        <span style={TICKER_SUB}>
+          {tickerCount} records — Week of {weekRange}
+        </span>
+      </Card>
+
+      {/* Chargeback Tracking */}
       <Card>
         <h3 style={SECTION_HEADING}>Chargeback Tracking</h3>
-        <EmptyState
-          title="No Chargebacks Yet"
-          description="Chargeback records will appear here once submissions are processed."
-        />
+        {chargebacks.length === 0 ? (
+          <EmptyState
+            title="No Chargebacks Yet"
+            description="Chargeback records will appear here once submissions are processed."
+          />
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={baseThStyle}>Date Posted</th>
+                  <th style={baseThStyle}>Member</th>
+                  <th style={baseThStyle}>Product</th>
+                  <th style={baseThStyle}>Type</th>
+                  <th style={baseThStyle}>Total</th>
+                  <th style={baseThStyle}>Assigned To</th>
+                  <th style={baseThStyle}>Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chargebacks.map((cb) => (
+                  <tr key={cb.id}>
+                    <td style={baseTdStyle}>{cb.postedDate ? new Date(cb.postedDate).toLocaleDateString("en-US") : "--"}</td>
+                    <td style={baseTdStyle}>{cb.memberCompany || "--"}</td>
+                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={cb.product || undefined}>{cb.product || "--"}</td>
+                    <td style={baseTdStyle}>{cb.type || "--"}</td>
+                    <td style={baseTdStyle}>{cb.totalAmount ? `$${parseFloat(cb.totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "--"}</td>
+                    <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
+                    <td style={baseTdStyle}>{new Date(cb.submittedAt).toLocaleDateString("en-US")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
+
       <Card>
         <h3 style={SECTION_HEADING}>Pending Terms Tracking</h3>
         <EmptyState

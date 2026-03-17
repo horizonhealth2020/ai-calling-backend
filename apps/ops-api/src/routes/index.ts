@@ -1957,6 +1957,14 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   return res.status(201).json({ count: result.count, batchId });
 }));
 
+router.get("/chargebacks", requireAuth, asyncHandler(async (_req, res) => {
+  const records = await prisma.chargebackSubmission.findMany({
+    orderBy: { submittedAt: "desc" },
+    take: 200,
+  });
+  return res.json(records);
+}));
+
 router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (_req, res) => {
   const { weekStart, weekEnd } = getSundayWeekRange(new Date());
   const nextSunday = new Date(weekEnd);
