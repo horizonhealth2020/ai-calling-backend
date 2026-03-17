@@ -51,21 +51,21 @@ Exceptions: none -- use existing token scale as-is.
 
 ## Typography
 
-All values from `packages/ui/src/tokens.ts` typography object. Phase 11 uses 4 sizes:
+All values from `packages/ui/src/tokens.ts` typography object. Phase 11 uses 4 sizes, 2 weights:
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (base) | 400 (normal) | 1.6 |
 | Label | 11px (xs) | 700 (bold) | 1.45 |
 | Heading | 18px (lg) | 700 (bold) | 1.4 |
-| Subtitle | 13px (sm) | 500 (medium) | 1.5 |
+| Subtitle | 13px (sm) | 400 (normal) | 1.5 |
 
 Font family: `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
 
 **Phase 11 specific usage:**
 - Page title ("Customer Service"): 18px bold, `colors.textPrimary` -- matches `PAGE_TITLE` in PageShell
-- Page subtitle ("Chargebacks & Pending Terms"): 11px medium, `colors.textTertiary` -- matches `PAGE_SUBTITLE`
-- Sidebar nav labels: 13px medium/semibold -- matches existing `SidebarNavItem` labelStyle
+- Page subtitle ("Chargebacks & Pending Terms"): 11px bold, `colors.textTertiary` -- matches `PAGE_SUBTITLE`
+- Sidebar nav labels: 13px normal -- distinguished from Body (14px) and Label (11px) by size alone
 - Placeholder content headings inside tabs: 14px normal, `colors.textSecondary`
 
 **Source:** packages/ui/src/tokens.ts `typography` object, packages/ui/src/index.tsx PageShell styles
