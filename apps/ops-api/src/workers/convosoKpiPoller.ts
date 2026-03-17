@@ -52,7 +52,33 @@ async function pollLeadSource(
     const raw = extractConvosoResults(response);
     if (raw.length === 0) return 0;
 
-    const enriched = enrichWithTiers(raw);
+    // --- Deduplication: filter out already-processed call IDs ---
+    const callIds = raw.map((r: any) => String(r.id)).filter(Boolean);
+
+    const existing = await prisma.processedConvosoCall.findMany({
+      where: { convosoCallId: { in: callIds } },
+      select: { convosoCallId: true },
+    });
+    const existingSet = new Set(existing.map((e) => e.convosoCallId));
+
+    const newRaw = raw.filter((r: any) => !existingSet.has(String(r.id)));
+
+    if (existingSet.size > 0) {
+      console.log(
+        JSON.stringify({
+          event: "kpi_poll_dedup",
+          leadSourceId: leadSource.id,
+          totalFetched: raw.length,
+          alreadyProcessed: existingSet.size,
+          newCalls: newRaw.length,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    }
+
+    if (newRaw.length === 0) return 0;
+
+    const enriched = enrichWithTiers(newRaw);
     const costPerLead =
       typeof leadSource.costPerLead === "number"
         ? leadSource.costPerLead
@@ -80,6 +106,19 @@ async function pollLeadSource(
     if (records.length === 0) return 0;
 
     await prisma.agentCallKpi.createMany({ data: records });
+
+    // Track processed call IDs to prevent duplicate processing
+    const newCallIds = newRaw.map((r: any) => String(r.id)).filter(Boolean);
+    if (newCallIds.length > 0) {
+      await prisma.processedConvosoCall.createMany({
+        data: newCallIds.map((cid) => ({
+          convosoCallId: cid,
+          leadSourceId: leadSource.id,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     return records.length;
   } catch (err: any) {
     console.error(
@@ -144,6 +183,32 @@ async function runPollCycle(): Promise<void> {
   for (const ls of leadSources) {
     const count = await pollLeadSource(ls, agentMap, queueId);
     totalCount += count;
+  }
+
+  // Cleanup processed call records older than 30 days
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const { count } = await prisma.processedConvosoCall.deleteMany({
+      where: { processedAt: { lt: cutoff } },
+    });
+    if (count > 0) {
+      console.log(
+        JSON.stringify({
+          event: "kpi_poll_cleanup",
+          deletedRecords: count,
+          cutoffDate: cutoff.toISOString(),
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    }
+  } catch (cleanupErr: any) {
+    console.error(
+      JSON.stringify({
+        event: "kpi_poll_cleanup_error",
+        error: cleanupErr.message,
+        timestamp: new Date().toISOString(),
+      }),
+    );
   }
 
   console.log(
