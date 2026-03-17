@@ -65,9 +65,9 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 
 ### Dashboard & UI
 
-- [ ] **DASH-01**: Customer Service dashboard app created following existing Next.js dashboard patterns
+- [x] **DASH-01**: Customer Service dashboard app created following existing Next.js dashboard patterns
 - [ ] **DASH-02**: Dashboard has two tabs: Submissions and Tracking with role-gated visibility
-- [ ] **DASH-03**: Auth portal redirects customer_service role to Customer Service dashboard
+- [x] **DASH-03**: Auth portal redirects customer_service role to Customer Service dashboard
 - [ ] **DASH-04**: All counters, filters, and summaries update without page reload
 - [ ] **DASH-05**: All dates displayed as M/D/YYYY, all dollar amounts formatted with commas and 2 decimal places
 
@@ -131,9 +131,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RESV-02 | Phase 16 | Pending |
 | RESV-03 | Phase 16 | Pending |
 | RESV-04 | Phase 16 | Pending |
-| DASH-01 | Phase 11 | Pending |
+| DASH-01 | Phase 11 | Complete |
 | DASH-02 | Phase 17 | Pending |
-| DASH-03 | Phase 11 | Pending |
+| DASH-03 | Phase 11 | Complete |
 | DASH-04 | Phase 17 | Pending |
 | DASH-05 | Phase 17 | Pending |
 

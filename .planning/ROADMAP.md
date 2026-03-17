@@ -25,7 +25,7 @@
 
 ### v1.1 Customer Service (Phases 11-17)
 
-- [ ] **Phase 11: Foundation & Dashboard Shell** - Schema, role, app scaffold, auth redirect
+- [x] **Phase 11: Foundation & Dashboard Shell** - Schema, role, app scaffold, auth redirect
 - [ ] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit
 - [ ] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit
 - [ ] **Phase 14: Chargeback Tracking** - KPI counter bar, filterable/sortable table, CSV export
@@ -46,8 +46,8 @@
   4. The customer_service role exists in AppRole enum and is recognized by RBAC middleware
 **Plans:** 2 plans
 Plans:
-- [ ] 11-01-PLAN.md — Schema + role: Prisma models, migration SQL, AppRole type
-- [ ] 11-02-PLAN.md — Dashboard shell + auth wiring: cs-dashboard app, auth portal, env/config
+- [x] 11-01-PLAN.md — Schema + role: Prisma models, migration SQL, AppRole type
+- [x] 11-02-PLAN.md — Dashboard shell + auth wiring: cs-dashboard app, auth portal, env/config
 
 ### Phase 12: Chargeback Parser
 **Goal**: Users can paste raw chargeback text and submit parsed records to the database
@@ -132,7 +132,7 @@ Plans:
 | 8. Reporting | v1.0 | 2/2 | Complete | 2026-03-16 |
 | 9. UI/UX Polish | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 10. Sale Status Payroll Logic | v1.0 | 6/6 | Complete | 2026-03-16 |
-| 11. Foundation & Dashboard Shell | v1.1 | 1/2 | In progress | - |
+| 11. Foundation & Dashboard Shell | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 12. Chargeback Parser | v1.1 | 0/? | Not started | - |
 | 13. Pending Terms Parser | v1.1 | 0/? | Not started | - |
 | 14. Chargeback Tracking | v1.1 | 0/? | Not started | - |
