@@ -25,8 +25,8 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 - [ ] **CHBK-02**: Parser extracts chargeback_amount from parenthesized dollar pattern as negative decimal
 - [ ] **CHBK-03**: Parsed records shown as editable preview cards before submission
 - [ ] **CHBK-04**: User can manually set posted_date via date picker and override type field
-- [ ] **CHBK-05**: Bulk paste detects and parses multiple records, all sharing a batch_id
-- [ ] **CHBK-06**: Confirmed records saved to chargeback_submissions with raw_paste, submitted_by, submitted_at
+- [x] **CHBK-05**: Bulk paste detects and parses multiple records, all sharing a batch_id
+- [x] **CHBK-06**: Confirmed records saved to chargeback_submissions with raw_paste, submitted_by, submitted_at
 
 ### Pending Terms Parser
 
@@ -106,8 +106,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHBK-02 | Phase 12 | Pending |
 | CHBK-03 | Phase 12 | Pending |
 | CHBK-04 | Phase 12 | Pending |
-| CHBK-05 | Phase 12 | Pending |
-| CHBK-06 | Phase 12 | Pending |
+| CHBK-05 | Phase 12 | Complete |
+| CHBK-06 | Phase 12 | Complete |
 | TERM-01 | Phase 13 | Pending |
 | TERM-02 | Phase 13 | Pending |
 | TERM-03 | Phase 13 | Pending |

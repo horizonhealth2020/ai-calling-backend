@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Customer Service
-status: planning
-stopped_at: Phase 12 context gathered
-last_updated: "2026-03-17T17:11:09.698Z"
-last_activity: 2026-03-17 -- completed 11-02 (Dashboard Shell + Auth Wiring)
+status: executing
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-17T17:41:33Z"
+last_activity: 2026-03-17 -- completed 12-01 (Chargeback API & Rep Roster Backend)
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 ---
@@ -52,14 +52,14 @@ progress:
 
 ## Current Position
 
-**Phase:** 11 - Foundation & Dashboard Shell (complete)
-**Plan:** 02 complete (2/2)
-**Status:** Ready to plan
-**Last activity:** 2026-03-17 -- completed 11-02 (Dashboard Shell + Auth Wiring)
+**Phase:** 12 - Chargeback Parser (in progress)
+**Plan:** 01 complete (1/3)
+**Status:** Executing
+**Last activity:** 2026-03-17 -- completed 12-01 (Chargeback API & Rep Roster Backend)
 
 ```
-Progress: [####                    ] 100% (Plans: 2/2 in Phase 11)
-Phase 11 [#####] | Phase 12 [     ] | Phase 13 [     ] | Phase 14 [     ]
+Progress: [######                  ] 33% (Plans: 1/3 in Phase 12)
+Phase 11 [#####] | Phase 12 [##   ] | Phase 13 [     ] | Phase 14 [     ]
 Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 ```
 
@@ -67,14 +67,17 @@ Phase 15 [     ] | Phase 16 [     ] | Phase 17 [     ]
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 2 |
-| Plans total | 2 (Phase 11) |
-| Requirements done | 5/40 |
+| Plans completed | 3 |
+| Plans total | 5 (Phase 11: 2, Phase 12: 3) |
+| Requirements done | 7/40 |
 | Phases done | 1/7 |
 
 ## Accumulated Context
 
 ### Key Decisions
+- assignedTo is nullable String (no FK to CsRepRoster -- name-based assignment for flexibility)
+- Weekly chargeback total uses getSundayWeekRange for consistent Sun-Sat week boundaries
+- Inactive rep pruning runs on-access (GET /cs-rep-roster) after 30 days
 - v1.1 phases start at 11 (continuing from v1.0 phase 10)
 - Chargebacks and pending terms are decoupled from payroll (v2 integration)
 - Phase 12 and 13 (parsers) can run in parallel -- both depend only on Phase 11
@@ -108,13 +111,13 @@ None currently.
 | 260317-e6a | Deduplicate Convoso call log processing to prevent KPI inflation | 2026-03-17 | b422e4b | [260317-e6a-deduplicate-convoso-call-logs-prevent-sa](./quick/260317-e6a-deduplicate-convoso-call-logs-prevent-sa/) |
 
 ### TODOs
-- Plan and execute Phase 12 (Chargeback Parser)
+- Execute Phase 12 plans 02-03 (Chargeback Parser UI + verification)
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T17:11:09.694Z
-**Stopped at:** Phase 12 context gathered
-**Next action:** `/gsd:plan-phase 12`
+**Last session:** 2026-03-17T17:41:33Z
+**Stopped at:** Completed 12-01-PLAN.md
+**Next action:** Execute 12-02-PLAN.md
 
 ---
 *State initialized: 2026-03-14*
