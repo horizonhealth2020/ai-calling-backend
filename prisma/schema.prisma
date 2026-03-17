@@ -449,6 +449,16 @@ model AgentCallKpi {
   @@map("agent_call_kpis")
 }
 
+model ProcessedConvosoCall {
+  id              String   @id @default(cuid())
+  convosoCallId   String   @unique @map("convoso_call_id")
+  leadSourceId    String?  @map("lead_source_id")
+  processedAt     DateTime @default(now()) @map("processed_at")
+
+  @@index([processedAt])
+  @@map("processed_convoso_calls")
+}
+
 model ServiceTicket {
   id         String   @id @default(cuid())
   title      String
