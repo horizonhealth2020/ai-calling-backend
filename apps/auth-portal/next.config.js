@@ -9,6 +9,7 @@ const nextConfig = {
     MANAGER_DASHBOARD_URL: process.env.MANAGER_DASHBOARD_URL || "http://localhost:3019",
     PAYROLL_DASHBOARD_URL: process.env.PAYROLL_DASHBOARD_URL || "http://localhost:3012",
     OWNER_DASHBOARD_URL: process.env.OWNER_DASHBOARD_URL || "http://localhost:3026",
+    CS_DASHBOARD_URL: process.env.CS_DASHBOARD_URL || "http://localhost:3014",
   },
 };
 module.exports = nextConfig;

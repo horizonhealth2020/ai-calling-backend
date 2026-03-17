@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Headphones,
 } from "lucide-react";
 import {
   colors,
@@ -63,6 +64,14 @@ const DASHBOARD_MAP: Record<string, DashboardConfig> = {
     color: "#10b981",
     gradient: "linear-gradient(135deg, #10b981, #059669)",
     Icon: DollarSign,
+  },
+  CUSTOMER_SERVICE: {
+    label: "Customer Service",
+    description: "Chargebacks & pending terms management",
+    url: process.env.CS_DASHBOARD_URL || "",
+    color: "#f59e0b",
+    gradient: "linear-gradient(135deg, #f59e0b, #d97706)",
+    Icon: Headphones,
   },
 };
 
