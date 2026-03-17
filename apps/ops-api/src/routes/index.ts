@@ -1904,4 +1904,118 @@ router.get("/call-logs", requireAuth, asyncHandler(async (req, res) => {
   }
 }));
 
+// ─── Chargebacks ──────────────────────────────────────────────────
+
+const chargebackSchema = z.object({
+  records: z.array(z.object({
+    postedDate: z.string().nullable(),
+    type: z.string().nullable(),
+    payeeId: z.string().nullable(),
+    payeeName: z.string().nullable(),
+    payoutPercent: z.number().nullable(),
+    chargebackAmount: z.number(),
+    totalAmount: z.number().nullable(),
+    transactionDescription: z.string().nullable(),
+    product: z.string().nullable(),
+    memberCompany: z.string().nullable(),
+    memberId: z.string().nullable(),
+    memberAgentCompany: z.string().nullable(),
+    memberAgentId: z.string().nullable(),
+    assignedTo: z.string().nullable(),
+  })),
+  rawPaste: z.string().min(1),
+  batchId: z.string().min(1),
+});
+
+router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const parsed = chargebackSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const { records, rawPaste, batchId } = parsed.data;
+  const result = await prisma.chargebackSubmission.createMany({
+    data: records.map((r) => ({
+      postedDate: r.postedDate ? new Date(r.postedDate) : null,
+      type: r.type,
+      payeeId: r.payeeId,
+      payeeName: r.payeeName,
+      payoutPercent: r.payoutPercent,
+      chargebackAmount: r.chargebackAmount,
+      totalAmount: r.totalAmount,
+      transactionDescription: r.transactionDescription,
+      product: r.product,
+      memberCompany: r.memberCompany,
+      memberId: r.memberId,
+      memberAgentCompany: r.memberAgentCompany,
+      memberAgentId: r.memberAgentId,
+      assignedTo: r.assignedTo,
+      submittedBy: req.user!.id,
+      batchId,
+      rawPaste,
+    })),
+  });
+
+  return res.status(201).json({ count: result.count, batchId });
+}));
+
+router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (_req, res) => {
+  const { weekStart, weekEnd } = getSundayWeekRange(new Date());
+  const nextSunday = new Date(weekEnd);
+  nextSunday.setDate(nextSunday.getDate() + 1);
+
+  const result = await prisma.chargebackSubmission.aggregate({
+    _sum: { chargebackAmount: true },
+    _count: { id: true },
+    where: { submittedAt: { gte: weekStart, lt: nextSunday } },
+  });
+
+  return res.json({
+    total: result._sum.chargebackAmount ?? 0,
+    count: result._count.id,
+    weekStart: weekStart.toISOString(),
+    weekEnd: weekEnd.toISOString(),
+  });
+}));
+
+// ─── CS Rep Roster ────────────────────────────────────────────────
+
+router.get("/cs-rep-roster", requireAuth, asyncHandler(async (_req, res) => {
+  // On-access pruning: remove inactive reps older than 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  await prisma.csRepRoster.deleteMany({
+    where: { active: false, updatedAt: { lt: thirtyDaysAgo } },
+  });
+
+  const reps = await prisma.csRepRoster.findMany({ orderBy: { createdAt: "asc" } });
+  return res.json(reps);
+}));
+
+const csRepSchema = z.object({ name: z.string().min(1).max(100) });
+
+router.post("/cs-rep-roster", requireAuth, asyncHandler(async (req, res) => {
+  const parsed = csRepSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const rep = await prisma.csRepRoster.create({ data: { name: parsed.data.name } });
+  return res.status(201).json(rep);
+}));
+
+const csRepToggleSchema = z.object({ active: z.boolean() });
+
+router.patch("/cs-rep-roster/:id", requireAuth, asyncHandler(async (req, res) => {
+  const parsed = csRepToggleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const rep = await prisma.csRepRoster.update({
+    where: { id: req.params.id },
+    data: { active: parsed.data.active },
+  });
+  return res.json(rep);
+}));
+
+router.delete("/cs-rep-roster/:id", requireAuth, asyncHandler(async (req, res) => {
+  await prisma.csRepRoster.delete({ where: { id: req.params.id } });
+  return res.status(204).end();
+}));
+
 export default router;
