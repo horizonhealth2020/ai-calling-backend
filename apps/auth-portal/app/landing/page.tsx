@@ -317,8 +317,9 @@ export default function Landing() {
     window.open(dest.toString(), "_blank");
   }
 
+  const isSuperAdmin = roles.includes("SUPER_ADMIN");
   const seen = new Set<string>();
-  const dashboards = roles
+  const dashboards = (isSuperAdmin ? Object.keys(DASHBOARD_MAP) : roles)
     .filter((r) => DASHBOARD_MAP[r])
     .filter((r) => {
       const url = DASHBOARD_MAP[r].url;
