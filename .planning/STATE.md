@@ -254,14 +254,15 @@ None currently.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260317-dgz | Convoso call log API integration with KPI tiers and per-agent aggregates | 2026-03-17 | 6c8ef4e | [260317-dgz-convoso-call-log-api-integration-with-kp](./quick/260317-dgz-convoso-call-log-api-integration-with-kp/) |
+| 260317-dqd | Wire Convoso call logs to Agent model with cost-per-sale and CallAudit auto-tag | 2026-03-17 | ba7b111 | [260317-dqd-wire-convoso-call-logs-to-agent-model-an](./quick/260317-dqd-wire-convoso-call-logs-to-agent-model-an/) |
 
 ### TODOs
 - All plans complete. Project milestone v1.0 achieved.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T13:41:59Z
-**Stopped at:** Completed quick task 260317-dgz: Convoso call log API integration
+**Last session:** 2026-03-17T13:56:47Z
+**Stopped at:** Completed quick task 260317-dqd: Wire Convoso call logs to Agent model
 **Next action:** Ready for next task or /gsd:new-milestone.
 
 ---
