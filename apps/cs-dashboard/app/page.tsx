@@ -114,11 +114,13 @@ function parseChargebackText(raw: string): ParsedRow[] {
   const lines = raw.split("\n").filter((l) => l.trim().length > 0);
   const rows: ParsedRow[] = [];
 
-  // Join multi-line records: date+type on line 1, "Product"+data on line 2
+  // Join multi-line records: if a line has <=3 tab-separated fields (date+type header),
+  // join it with the next line (the data line)
   const joinedLines: string[] = [];
   let i = 0;
   while (i < lines.length) {
-    if (i + 1 < lines.length && lines[i + 1].trim().startsWith("Product\t")) {
+    const fieldCount = lines[i].split("\t").length;
+    if (fieldCount <= 3 && i + 1 < lines.length) {
       joinedLines.push(lines[i] + "\t" + lines[i + 1]);
       i += 2;
     } else {
@@ -1004,6 +1006,7 @@ function TrackingTab() {
                 <tr>
                   <th style={baseThStyle}>Date Posted</th>
                   <th style={baseThStyle}>Member</th>
+                  <th style={{ ...baseThStyle, width: 110 }}>Member ID</th>
                   <th style={baseThStyle}>Product</th>
                   <th style={baseThStyle}>Type</th>
                   <th style={baseThStyle}>Total</th>
@@ -1017,6 +1020,7 @@ function TrackingTab() {
                   <tr key={cb.id}>
                     <td style={baseTdStyle}>{cb.postedDate ? (() => { const [y, m, d] = cb.postedDate.split("T")[0].split("-"); return `${parseInt(m)}/${parseInt(d)}/${y}`; })() : "--"}</td>
                     <td style={baseTdStyle}>{cb.memberCompany || "--"}</td>
+                    <td style={baseTdStyle}>{cb.memberId || "--"}</td>
                     <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={cb.product || undefined}>{cb.product || "--"}</td>
                     <td style={baseTdStyle}>{cb.type || "--"}</td>
                     <td style={baseTdStyle}>{cb.totalAmount ? `$${parseFloat(cb.totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "--"}</td>
