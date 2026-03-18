@@ -101,8 +101,8 @@ Position: Above each tracking table, below KPI/summary bar, above filter panel.
 
 | State | Style |
 |-------|-------|
-| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: 700`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "6px 16px"` |
-| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault`, `fontWeight: 400`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "6px 16px"` |
+| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: 700`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "8px 16px"` |
+| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault`, `fontWeight: 400`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "8px 16px"` |
 | Container | `display: "flex"`, `gap: spacing[2]`, `marginBottom: spacing[4]` |
 
 Pills: "Open" (default), "Resolved", "All"
@@ -142,7 +142,7 @@ Two pill-shaped buttons for selecting resolution type before saving.
 | "Saved" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid colors.success` | Same as above |
 | "Cancelled" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid colors.danger` | Same as above |
 
-Both: `borderRadius: radius.full`, `padding: "6px 16px"`, `fontSize: 14px`, `fontWeight: 700`, `cursor: "pointer"`
+Both: `borderRadius: radius.full`, `padding: "8px 16px"`, `fontSize: 14px`, `fontWeight: 700`, `cursor: "pointer"`
 
 #### 4. Resolved Row Treatment
 
@@ -158,7 +158,7 @@ Badge styling:
 - `fontSize: 11px`, `fontWeight: 700`, `textTransform: "uppercase"`, `letterSpacing: typography.tracking.caps`
 - For "Recovered"/"Saved": `color: colors.success`, `background: colors.successBg`
 - For "Closed"/"Cancelled": `color: colors.danger`, `background: colors.dangerBg`
-- `borderRadius: radius.full`, `padding: "2px 8px"`
+- `borderRadius: radius.full`, `padding: "4px 8px"`
 
 #### 5. Resolved Metadata Display
 
