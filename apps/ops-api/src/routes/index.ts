@@ -7,10 +7,13 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, handleSaleEditApproval, isAgentPaidInPeriod } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
-import { enqueueAuditJob } from "../services/auditQueue";
-import { emitSaleChanged } from "../socket";
+import { enqueueAuditJob, enqueueAutoScore, getAiUsageStats, startAutoScorePolling } from "../services/auditQueue";
+import { emitSaleChanged, emitCSChanged } from "../socket";
+import { createAlertFromChargeback, getPendingAlerts, approveAlert, clearAlert } from "../services/alerts";
 import { computeTrend, shiftRange } from "../services/reporting";
 import { fetchConvosoCallLogs, enrichWithTiers, filterByCallLength, filterByTier, buildKpiSummary, CallLengthTier } from "../services/convosoCallLogs";
+import { getAgentRetentionKpis } from "../services/agentKpiAggregator";
+import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps } from "../services/repSync";
 
 const router = Router();
 
@@ -1550,12 +1553,12 @@ router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
 }));
 
 // ── AI Audit System Prompt Settings ─────────────────────────────
-router.get("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+router.get("/settings/ai-audit-prompt", requireAuth, requireRole("OWNER_VIEW", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_audit_system_prompt" } });
   res.json({ prompt: setting?.value ?? "" });
 }));
 
-router.put("/settings/ai-audit-prompt", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+router.put("/settings/ai-audit-prompt", requireAuth, requireRole("OWNER_VIEW", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({ prompt: z.string().min(1) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -2006,6 +2009,25 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     })),
   });
 
+  // Create payroll alerts for chargebacks with amounts
+  const createdChargebacks = await prisma.chargebackSubmission.findMany({
+    where: { batchId },
+    orderBy: { createdAt: "desc" },
+  });
+  for (const cb of createdChargebacks) {
+    if (cb.chargebackAmount) {
+      await createAlertFromChargeback(
+        cb.id,
+        cb.memberAgentId || cb.memberAgentCompany || undefined,
+        cb.memberCompany || cb.memberId || undefined,
+        cb.chargebackAmount ? Number(cb.chargebackAmount) : undefined,
+      );
+    }
+  }
+
+  // Emit CS changed event for real-time updates
+  emitCSChanged({ type: "chargeback", batchId, count: result.count });
+
   return res.status(201).json({ count: result.count, batchId });
 }));
 
@@ -2033,6 +2055,7 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
       resolutionType: parsed.data.resolutionType,
     },
   });
+  emitCSChanged({ type: "chargeback", batchId: "resolution", count: 1 });
   return res.json(record);
 }));
 
@@ -2197,6 +2220,9 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
     })),
   });
 
+  // Emit CS changed event for real-time updates
+  emitCSChanged({ type: "pending_term", batchId, count: result.count });
+
   return res.status(201).json({ count: result.count, batchId });
 }));
 
@@ -2233,6 +2259,7 @@ router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SE
       resolutionType: parsed.data.resolutionType,
     },
   });
+  emitCSChanged({ type: "pending_term", batchId: "resolution", count: 1 });
   return res.json(record);
 }));
 
@@ -2247,6 +2274,40 @@ router.patch("/pending-terms/:id/unresolve", requireAuth, requireRole("CUSTOMER_
     },
   });
   return res.json(record);
+}));
+
+// ─── Payroll Alerts ─────────────────────────────────────────────
+
+// GET /alerts -- pending payroll alerts
+router.get("/alerts", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const alerts = await getPendingAlerts();
+  res.json(alerts);
+}));
+
+// POST /alerts/:id/approve -- approve alert, create clawback in selected period
+router.post("/alerts/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const { periodId } = z.object({ periodId: z.string().min(1) }).parse(req.body);
+  const alert = await approveAlert(req.params.id, periodId, (req as any).user.id);
+  res.json(alert);
+}));
+
+// POST /alerts/:id/clear -- clear/dismiss alert
+router.post("/alerts/:id/clear", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const alert = await clearAlert(req.params.id, (req as any).user.id);
+  res.json(alert);
+}));
+
+// GET /alerts/agent-periods/:agentId -- get unpaid periods for an agent (for approve dropdown)
+router.get("/alerts/agent-periods/:agentId", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const periods = await prisma.payrollPeriod.findMany({
+    where: {
+      status: "OPEN",
+      entries: { some: { agentId: req.params.agentId, status: { not: "PAID" } } },
+    },
+    orderBy: { weekStart: "desc" },
+    select: { id: true, weekStart: true, weekEnd: true, status: true },
+  });
+  res.json(periods);
 }));
 
 export default router;
