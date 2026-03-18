@@ -21,10 +21,10 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 ### Chargeback & Pending Terms Integration
 
-- [ ] **CS-01**: Chargebacks create alerts displayed in a table above the current open week in payroll dashboard with approve/clear actions
+- [x] **CS-01**: Chargebacks create alerts displayed in a table above the current open week in payroll dashboard with approve/clear actions
 - [ ] **CS-02**: Pending terms + chargebacks within 30 days wired to new agent KPI tables
 - [ ] **CS-03**: Pending terms tracker shows holder date records aggregated per date (replaces "due within 7 days")
-- [ ] **CS-04**: Real-time Socket.IO auto-refreshes CS tracking tables on new submissions
+- [x] **CS-04**: Real-time Socket.IO auto-refreshes CS tracking tables on new submissions
 
 ### Payroll UX
 
@@ -79,10 +79,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-01 | Phase 18 | Complete |
 | AI-02 | Phase 18 | Complete |
 | AI-03 | Phase 18 | Complete |
-| CS-01 | Phase 18 | Pending |
+| CS-01 | Phase 18 | Complete |
 | CS-02 | Phase 18 | Pending |
 | CS-03 | Phase 18 | Pending |
-| CS-04 | Phase 18 | Pending |
+| CS-04 | Phase 18 | Complete |
 | PAY-01 | Phase 18 | Complete |
 | PAY-02 | Phase 18 | Complete |
 | PAY-03 | Phase 18 | Complete |
