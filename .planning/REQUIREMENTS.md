@@ -11,7 +11,7 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 
 - [x] **ROLE-01**: New customer_service role added to AppRole enum and RBAC middleware
 - [x] **ROLE-02**: customer_service can access Customer Service dashboard Tracking tab only
-- [ ] **ROLE-03**: customer_service cannot access Submissions tab or any other dashboard
+- [x] **ROLE-03**: customer_service cannot access Submissions tab or any other dashboard
 - [x] **ROLE-04**: owner and super_admin can access both Submissions and Tracking tabs
 
 ### Database Schema
@@ -98,7 +98,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | ROLE-01 | Phase 11 | Pending |
 | ROLE-02 | Phase 15 | Complete |
-| ROLE-03 | Phase 15 | Pending |
+| ROLE-03 | Phase 15 | Complete |
 | ROLE-04 | Phase 15 | Complete |
 | SCHEMA-01 | Phase 11 | Pending |
 | SCHEMA-02 | Phase 11 | Pending |

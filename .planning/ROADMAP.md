@@ -29,7 +29,7 @@
 - [x] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [x] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [x] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export (completed 2026-03-18)
-- [ ] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates
+- [x] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates (completed 2026-03-18)
 
 ## Phase Details
 
@@ -133,7 +133,7 @@ Plans:
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
-| 15. Resolution & Polish | v1.1 | 3/3 | Complete | 2026-03-18 |
+| 15. Resolution & Polish | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 
 ---
 *Roadmap created: 2026-03-14*
