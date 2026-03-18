@@ -1031,9 +1031,9 @@ router.post("/service-agents", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
   const schema = z.object({ name: z.string().min(1), basePay: z.number().min(0) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const agent = await prisma.serviceAgent.create({ data: parsed.data });
-  await logAudit(req.user!.id, "CREATE", "ServiceAgent", agent.id, { name: agent.name });
-  res.status(201).json(agent);
+  // Use synced creation to create both ServiceAgent + CsRepRoster
+  const { serviceAgent } = await createSyncedRep(parsed.data.name, parsed.data.basePay, req.user!.id);
+  res.status(201).json(serviceAgent);
 }));
 
 router.patch("/service-agents/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
