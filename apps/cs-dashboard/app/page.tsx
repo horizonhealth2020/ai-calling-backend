@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   PageShell,
   Card,
@@ -16,9 +16,11 @@ import {
   baseThStyle,
   baseTdStyle,
   baseCardStyle,
+  baseLabelStyle,
+  radius,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
-import { ClipboardList, BarChart3, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ClipboardList, BarChart3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -1301,111 +1303,373 @@ function RepRow({
   );
 }
 
+/* ── Sort Header ────────────────────────────────────────────────── */
+
+function SortHeader({ label, sortKey, currentSort, currentDir, onSort }: {
+  label: string;
+  sortKey: string;
+  currentSort: string | null;
+  currentDir: "asc" | "desc";
+  onSort: (key: string) => void;
+}) {
+  return (
+    <th
+      style={{ ...baseThStyle, cursor: "pointer", userSelect: "none" }}
+      onClick={() => onSort(sortKey)}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        {label}
+        {currentSort === sortKey && (
+          currentDir === "asc"
+            ? <ChevronUp size={12} />
+            : <ChevronDown size={12} />
+        )}
+      </span>
+    </th>
+  );
+}
+
 /* ── Tracking Tab ───────────────────────────────────────────────── */
 
 function TrackingTab() {
-  const [weeklyTotal, setWeeklyTotal] = useState<WeeklyTotal | null>(null);
-  const [chargebacks, setChargebacks] = useState<Array<{
-    id: string;
-    postedDate: string | null;
-    memberCompany: string | null;
-    product: string | null;
-    type: string | null;
-    totalAmount: string | null;
-    chargebackAmount: string | null;
-    assignedTo: string | null;
-    submittedAt: string;
-  }>>([]);
+  // Data
+  const [chargebacks, setChargebacks] = useState<any[]>([]);
+  const [pendingTerms, setPendingTerms] = useState<any[]>([]);
+  const [totals, setTotals] = useState<{ totalChargebacks: number; totalRecovered: number; recordCount: number } | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
+  // Search (shared between both tables)
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Chargeback filters
+  const [cbFiltersOpen, setCbFiltersOpen] = useState(false);
+  const [cbFilters, setCbFilters] = useState({
+    dateFrom: "", dateTo: "", product: "", memberCompany: "", memberAgentCompany: "", amountMin: "", amountMax: "",
+  });
+
+  // Chargeback sort (default: submittedAt desc)
+  const [cbSortKey, setCbSortKey] = useState<string>("submittedAt");
+  const [cbSortDir, setCbSortDir] = useState<"asc" | "desc">("desc");
+
+  // Pending terms filters (placeholder for Plan 02)
+  const [ptFiltersOpen, setPtFiltersOpen] = useState(false);
+  const [ptFilters, setPtFilters] = useState({
+    agent: "", state: "", product: "", holdReason: "", dateFrom: "", dateTo: "",
+  });
+
+  // Pending terms sort (default: holdDate desc)
+  const [ptSortKey, setPtSortKey] = useState<string>("holdDate");
+  const [ptSortDir, setPtSortDir] = useState<"asc" | "desc">("desc");
+
+  // Group collapse state for pending terms
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // Data fetching
   const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     try {
-      const [totalRes, cbRes] = await Promise.all([
-        authFetch(`${API}/api/chargebacks/weekly-total`),
+      const [totalsRes, cbRes, ptRes, meRes] = await Promise.all([
+        authFetch(`${API}/api/chargebacks/totals`),
         authFetch(`${API}/api/chargebacks`),
+        authFetch(`${API}/api/pending-terms`),
+        authFetch(`${API}/api/session/me`),
       ]);
-      if (totalRes.ok) setWeeklyTotal(await totalRes.json());
+      if (totalsRes.ok) setTotals(await totalsRes.json());
       if (cbRes.ok) setChargebacks(await cbRes.json());
-    } catch { /* ignore */ }
+      if (ptRes.ok) setPendingTerms(await ptRes.json());
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me?.roles) setUserRoles(me.roles);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleDelete = async (id: string) => {
+  // Chargeback filter/search/sort pipeline
+  const filteredChargebacks = useMemo(() => {
+    let result = chargebacks;
+
+    // Search (case-insensitive partial match)
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      result = result.filter((cb: any) =>
+        (cb.payeeName || "").toLowerCase().includes(q) ||
+        (cb.memberAgentCompany || "").toLowerCase().includes(q) ||
+        (cb.memberId || "").toLowerCase().includes(q) ||
+        (cb.memberAgentId || "").toLowerCase().includes(q)
+      );
+    }
+
+    // Filters
+    if (cbFilters.product) result = result.filter((cb: any) => (cb.product || "").toLowerCase().includes(cbFilters.product.toLowerCase()));
+    if (cbFilters.memberCompany) result = result.filter((cb: any) => (cb.memberCompany || "").toLowerCase().includes(cbFilters.memberCompany.toLowerCase()));
+    if (cbFilters.memberAgentCompany) result = result.filter((cb: any) => (cb.memberAgentCompany || "").toLowerCase().includes(cbFilters.memberAgentCompany.toLowerCase()));
+    if (cbFilters.dateFrom) result = result.filter((cb: any) => cb.postedDate && cb.postedDate.split("T")[0] >= cbFilters.dateFrom);
+    if (cbFilters.dateTo) result = result.filter((cb: any) => cb.postedDate && cb.postedDate.split("T")[0] <= cbFilters.dateTo);
+    if (cbFilters.amountMin) result = result.filter((cb: any) => Math.abs(parseFloat(cb.chargebackAmount || "0")) >= parseFloat(cbFilters.amountMin));
+    if (cbFilters.amountMax) result = result.filter((cb: any) => Math.abs(parseFloat(cb.chargebackAmount || "0")) <= parseFloat(cbFilters.amountMax));
+
+    // Sort
+    if (cbSortKey) {
+      result = [...result].sort((a: any, b: any) => {
+        let aVal = a[cbSortKey] ?? "";
+        let bVal = b[cbSortKey] ?? "";
+        // Numeric sort for amount fields
+        if (cbSortKey === "chargebackAmount" || cbSortKey === "totalAmount") {
+          aVal = parseFloat(aVal) || 0;
+          bVal = parseFloat(bVal) || 0;
+        }
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return cbSortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [chargebacks, searchTerm, cbFilters, cbSortKey, cbSortDir]);
+
+  // Delete handler
+  const handleDeleteCb = async (id: string) => {
     try {
       const res = await authFetch(`${API}/api/chargebacks/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
-        setChargebacks((prev) => prev.filter((cb) => cb.id !== id));
-        // Refresh ticker after delete
-        const totalRes = await authFetch(`${API}/api/chargebacks/weekly-total`);
-        if (totalRes.ok) setWeeklyTotal(await totalRes.json());
+        setChargebacks((prev) => prev.filter((cb: any) => cb.id !== id));
+        const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
+        if (totalsRes.ok) setTotals(await totalsRes.json());
       }
     } catch { /* ignore */ }
   };
 
-  const tickerTotal = weeklyTotal ? Math.abs(weeklyTotal.total) : 0;
-  const tickerCount = weeklyTotal?.count ?? 0;
-  const weekRange = weeklyTotal
-    ? (() => {
-        const ws = new Date(weeklyTotal.weekStart);
-        const we = new Date(weeklyTotal.weekEnd);
-        return `${ws.getUTCMonth() + 1}/${ws.getUTCDate()}-${we.getUTCMonth() + 1}/${we.getUTCDate()}`;
-      })()
-    : (() => {
-        const r = getCurrentWeekRange();
-        return `${r.start}-${r.end}`;
-      })();
+  // Sort toggle handler
+  const handleCbSort = (key: string) => {
+    if (cbSortKey === key) {
+      setCbSortDir(cbSortDir === "asc" ? "desc" : "asc");
+    } else {
+      setCbSortKey(key);
+      setCbSortDir("asc");
+    }
+  };
+
+  // Clear filters helper
+  const hasCbFilters = Object.values(cbFilters).some(v => v !== "");
+  const clearCbFilters = () => setCbFilters({ dateFrom: "", dateTo: "", product: "", memberCompany: "", memberAgentCompany: "", amountMin: "", amountMax: "" });
+
+  // Role check
+  const canExport = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
+
+  // Date format helper
+  const fmtDate = (d: string | null) => {
+    if (!d) return "--";
+    const [y, m, dd] = d.split("T")[0].split("-");
+    return `${parseInt(m)}/${parseInt(dd)}/${y}`;
+  };
+
+  // CSV Export
+  const exportCSV = () => {
+    const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+    const rows: string[][] = [];
+
+    rows.push(["--- CHARGEBACKS ---"]);
+    rows.push(["Date Posted", "Member", "Member ID", "Product", "Type", "Total", "Assigned To", "Submitted"]);
+    filteredChargebacks.forEach((cb: any) => {
+      rows.push([
+        esc(fmtDate(cb.postedDate)),
+        esc(cb.memberCompany || "--"),
+        esc(cb.memberId || "--"),
+        esc(cb.product || "--"),
+        esc(cb.type || "--"),
+        esc(cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"),
+        esc(cb.assignedTo || "Unassigned"),
+        esc(fmtDate(cb.submittedAt)),
+      ]);
+    });
+
+    rows.push([]);
+    rows.push(["--- PENDING TERMS ---"]);
+    rows.push(["Member Name", "Member ID", "Phone", "Product", "Hold Date", "Next Billing", "Assigned To"]);
+    // Pending terms rows will be added in Plan 02
+
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" })),
+      download: `cs-tracking-${new Date().toISOString().slice(0, 10)}.csv`,
+    });
+    a.click();
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: `${spacing[6]}px` }}>
-      {/* Weekly Ticker */}
-      <Card style={TICKER_CARD}>
-        <span style={TICKER_LABEL}>WEEKLY CHARGEBACKS</span>
-        <div style={TICKER_VALUE}>
-          <AnimatedNumber value={tickerTotal} decimals={2} prefix="$" duration={600} />
-        </div>
-        <span style={TICKER_SUB}>
-          {tickerCount} records — Week of {weekRange}
-        </span>
-      </Card>
+      {/* KPI Bar */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: `${spacing[4]}px` }}>
+        {/* Total Chargebacks */}
+        <Card style={{ ...baseCardStyle, background: colors.dangerBg }}>
+          <span style={TICKER_LABEL}>TOTAL CHARGEBACKS</span>
+          <div style={{ ...TICKER_VALUE, color: colors.danger }}>
+            <AnimatedNumber value={totals?.totalChargebacks ?? 0} decimals={2} prefix="$" duration={600} />
+          </div>
+          <span style={TICKER_SUB}>{totals?.recordCount ?? 0} records</span>
+        </Card>
 
-      {/* Chargeback Tracking */}
+        {/* Total Recovered */}
+        <Card style={{ ...baseCardStyle, background: colors.successBg }}>
+          <span style={TICKER_LABEL}>TOTAL RECOVERED</span>
+          <div style={{ ...TICKER_VALUE, color: colors.success }}>
+            <AnimatedNumber value={0} decimals={2} prefix="$" duration={600} />
+          </div>
+          <span style={TICKER_SUB}>resolution tracking</span>
+        </Card>
+
+        {/* Net Exposure */}
+        <Card style={{ ...baseCardStyle, background: (totals?.totalChargebacks ?? 0) > 0 ? colors.dangerBg : colors.successBg }}>
+          <span style={TICKER_LABEL}>NET EXPOSURE</span>
+          <div style={{ ...TICKER_VALUE, color: (totals?.totalChargebacks ?? 0) > 0 ? colors.danger : colors.success }}>
+            <AnimatedNumber value={(totals?.totalChargebacks ?? 0) - (totals?.totalRecovered ?? 0)} decimals={2} prefix="$" duration={600} />
+          </div>
+          <span style={TICKER_SUB}>chargebacks - recovered</span>
+        </Card>
+
+        {/* Records */}
+        <Card style={baseCardStyle}>
+          <span style={TICKER_LABEL}>RECORDS</span>
+          <div style={{ ...TICKER_VALUE, color: colors.textPrimary }}>
+            <AnimatedNumber value={totals?.recordCount ?? 0} decimals={0} duration={600} />
+          </div>
+          <span style={TICKER_SUB}>all submissions</span>
+        </Card>
+      </div>
+
+      {/* Search + Filter + Export row */}
+      <div style={{ display: "flex", gap: `${spacing[2]}px`, alignItems: "center" }}>
+        {/* Search input */}
+        <div style={{ position: "relative", flex: 1 }}>
+          <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: colors.textMuted, pointerEvents: "none" }} />
+          <input
+            style={{ ...baseInputStyle, paddingLeft: 36, width: "100%" }}
+            placeholder="Search by name, ID, company, phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              aria-label="Clear search"
+              onClick={() => setSearchTerm("")}
+              style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", color: colors.textMuted, padding: 2, display: "flex", alignItems: "center" }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Filter toggle */}
+        <button
+          onClick={() => { setCbFiltersOpen(!cbFiltersOpen); setPtFiltersOpen(!ptFiltersOpen); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13 }}
+        >
+          <Filter size={14} />
+          Filters
+          {(cbFiltersOpen || ptFiltersOpen) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {/* Export CSV */}
+        {canExport && (
+          <button
+            onClick={exportCSV}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13 }}
+          >
+            <Download size={14} /> Export CSV
+          </button>
+        )}
+      </div>
+
+      {/* Chargeback Filter Panel */}
+      {cbFiltersOpen && (
+        <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: `${spacing[4]}px`, marginTop: `${spacing[2]}px` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={baseLabelStyle}>Chargeback Filters</span>
+            {hasCbFilters && (
+              <button onClick={clearCbFilters} style={{ background: "transparent", border: "none", color: colors.accentTeal, cursor: "pointer", fontSize: 12 }}>
+                Clear Filters
+              </button>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: `${spacing[4]}px`, marginTop: `${spacing[2]}px` }}>
+            <div>
+              <label style={baseLabelStyle}>Date From</label>
+              <input type="date" style={baseInputStyle} value={cbFilters.dateFrom} onChange={(e) => setCbFilters({ ...cbFilters, dateFrom: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Date To</label>
+              <input type="date" style={baseInputStyle} value={cbFilters.dateTo} onChange={(e) => setCbFilters({ ...cbFilters, dateTo: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Product</label>
+              <input type="text" style={baseInputStyle} placeholder="Filter by product" value={cbFilters.product} onChange={(e) => setCbFilters({ ...cbFilters, product: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Member Company</label>
+              <input type="text" style={baseInputStyle} placeholder="Filter by company" value={cbFilters.memberCompany} onChange={(e) => setCbFilters({ ...cbFilters, memberCompany: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Member Agent Company</label>
+              <input type="text" style={baseInputStyle} placeholder="Filter by agent company" value={cbFilters.memberAgentCompany} onChange={(e) => setCbFilters({ ...cbFilters, memberAgentCompany: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Amount Min ($)</label>
+              <input type="number" style={baseInputStyle} placeholder="Min amount" value={cbFilters.amountMin} onChange={(e) => setCbFilters({ ...cbFilters, amountMin: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Amount Max ($)</label>
+              <input type="number" style={baseInputStyle} placeholder="Max amount" value={cbFilters.amountMax} onChange={(e) => setCbFilters({ ...cbFilters, amountMax: e.target.value })} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chargeback Table */}
       <Card>
         <h3 style={SECTION_HEADING}>Chargeback Tracking</h3>
-        {chargebacks.length === 0 ? (
-          <EmptyState
-            title="No Chargebacks Yet"
-            description="Chargeback records will appear here once submissions are processed."
-          />
+        {error ? (
+          <EmptyState title="Failed to Load Records" description="Check your connection and reload the page. If the problem continues, contact your administrator." />
+        ) : chargebacks.length === 0 && !loading ? (
+          <EmptyState title="No Chargebacks Yet" description="Chargeback records will appear here once submissions are processed." />
+        ) : filteredChargebacks.length === 0 && chargebacks.length > 0 ? (
+          <EmptyState title="No Chargebacks Found" description="No chargebacks match your current search or filters. Try adjusting your criteria." />
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={baseThStyle}>Date Posted</th>
-                  <th style={baseThStyle}>Member</th>
-                  <th style={{ ...baseThStyle, width: 110 }}>Member ID</th>
-                  <th style={baseThStyle}>Product</th>
-                  <th style={baseThStyle}>Type</th>
-                  <th style={baseThStyle}>Total</th>
-                  <th style={baseThStyle}>Assigned To</th>
-                  <th style={baseThStyle}>Submitted</th>
+                  <SortHeader label="Date Posted" sortKey="postedDate" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Member" sortKey="memberCompany" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Member ID" sortKey="memberId" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Product" sortKey="product" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Type" sortKey="type" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Total" sortKey="chargebackAmount" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Submitted" sortKey="submittedAt" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <th style={{ ...baseThStyle, width: 50 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {chargebacks.map((cb) => (
+                {filteredChargebacks.map((cb: any) => (
                   <tr key={cb.id}>
-                    <td style={baseTdStyle}>{cb.postedDate ? (() => { const [y, m, d] = cb.postedDate.split("T")[0].split("-"); return `${parseInt(m)}/${parseInt(d)}/${y}`; })() : "--"}</td>
-                    <td style={baseTdStyle}>{cb.memberCompany || "--"}</td>
+                    <td style={baseTdStyle}>{fmtDate(cb.postedDate)}</td>
+                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.memberCompany || "--"}</td>
                     <td style={baseTdStyle}>{cb.memberId || "--"}</td>
-                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={cb.product || undefined}>{cb.product || "--"}</td>
+                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.product || "--"}</td>
                     <td style={baseTdStyle}>{cb.type || "--"}</td>
-                    <td style={baseTdStyle}>{cb.totalAmount ? `$${parseFloat(cb.totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "--"}</td>
+                    <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
                     <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
-                    <td style={baseTdStyle}>{new Date(cb.submittedAt).toLocaleDateString("en-US")}</td>
+                    <td style={baseTdStyle}>{fmtDate(cb.submittedAt)}</td>
                     <td style={baseTdStyle}>
                       <button
-                        onClick={() => handleDelete(cb.id)}
+                        onClick={() => handleDeleteCb(cb.id)}
                         aria-label="Delete record"
                         style={{
                           background: "transparent",
@@ -1431,12 +1695,20 @@ function TrackingTab() {
         )}
       </Card>
 
+      {/* Pending Terms Placeholder */}
       <Card>
         <h3 style={SECTION_HEADING}>Pending Terms Tracking</h3>
-        <EmptyState
-          title="No Pending Terms Yet"
-          description="Pending terms records will appear here once submissions are processed."
-        />
+        {pendingTerms.length === 0 ? (
+          <EmptyState
+            title="No Pending Terms Yet"
+            description="Pending terms records will appear here once submissions are processed."
+          />
+        ) : (
+          <EmptyState
+            title="Pending Terms"
+            description={`${pendingTerms.length} records loaded. Full table implementation coming in Plan 02.`}
+          />
+        )}
       </Card>
     </div>
   );
