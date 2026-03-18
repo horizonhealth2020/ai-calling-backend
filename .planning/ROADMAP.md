@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
-- [x] **v1.1 Customer Service** — Phases 11-15 (shipped 2026-03-18)
+- [ ] **v1.1 Customer Service** — Phases 11-16 (in progress)
 
 ## Phases
 
@@ -30,6 +30,7 @@
 - [x] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [x] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export (completed 2026-03-18)
 - [x] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates (completed 2026-03-18)
+- [ ] **Phase 16: Auth & Permission Tightening** - Fix SUPER_ADMIN effectiveRoles, gate Submissions tab and delete buttons by proper role
 
 ## Phase Details
 
@@ -116,6 +117,18 @@ Plans:
 - [x] 15-03-PLAN.md — CS Dashboard resolve UX, status pills, role-gated tabs, remove agent grouping
 - [x] 15-04-PLAN.md — UAT gap closure: Total Recovered KPI auto-update + TD constant + CUSTOMER_SERVICE role UI
 
+### Phase 16: Auth & Permission Tightening
+**Goal**: SUPER_ADMIN sees all dashboard cards on landing page, and Submissions tab + delete buttons are only visible to roles that can actually use them
+**Depends on**: Phase 15 (all CS dashboard features must exist)
+**Requirements**: ROLE-04
+**Gap Closure**: Closes integration gaps from v1.1 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. SUPER_ADMIN users see the Customer Service dashboard card on the auth-portal landing page
+  2. Submissions tab is only visible to SUPER_ADMIN and OWNER_VIEW (not MANAGER, PAYROLL, ADMIN)
+  3. Delete buttons on tracking tables are only visible to SUPER_ADMIN and OWNER_VIEW
+  4. CUSTOMER_SERVICE role users still see only the Tracking tab (no regression)
+**Plans:** 0 plans (needs planning)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -135,6 +148,7 @@ Plans:
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 | 15. Resolution & Polish | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
+| 16. Auth & Permission Tightening | v1.1 | Not started | - | - |
 
 ---
 *Roadmap created: 2026-03-14*
