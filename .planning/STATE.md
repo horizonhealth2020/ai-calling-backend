@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Customer Service
 status: planning
-stopped_at: Phase 15 UI-SPEC approved
-last_updated: "2026-03-18T15:42:38.828Z"
+stopped_at: Phase 15 plans verified
+last_updated: "2026-03-18T15:54:24.535Z"
 last_activity: 2026-03-18 -- completed 14-02 (Pending Terms Summary Bar, Grouped Table & CSV Export)
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 9
+  total_plans: 12
   completed_plans: 9
 ---
 
@@ -112,23 +112,23 @@ progress:
 
 ## Current Position
 
-**Phase:** 14 - Tracking Tables (complete)
-**Plan:** 02 complete (2/2)
-**Status:** Ready to plan
-**Last activity:** 2026-03-18 -- completed 14-02 (Pending Terms Summary Bar, Grouped Table & CSV Export)
+**Phase:** 15 - Resolution & Polish (in progress)
+**Plan:** 01 complete (1/3)
+**Status:** Executing
+**Last activity:** 2026-03-18 -- completed 15-01 (Resolution Backend Infrastructure)
 
 ```
-Progress: [####################    ] 80% (4/5 phases complete)
-Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phase 15 [     ]
+Progress: [####################    ] 80% (4/5 phases complete, Phase 15: 1/3 plans)
+Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phase 15 [##   ]
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 9 |
-| Plans total | 9 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2) |
-| Requirements done | 31/40 |
+| Plans completed | 10 |
+| Plans total | 12 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2, Phase 15: 3) |
+| Requirements done | 34/40 |
 | Phases done | 4/5 |
 
 ## Accumulated Context
@@ -153,6 +153,10 @@ Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phas
 - Summary bar uses full unfiltered pendingTerms dataset for global counts (not filtered view)
 - Group headers use Fragment with key for React reconciliation in grouped pending terms table
 - Urgent count defined as nextBilling within 7 calendar days from today
+- Chargeback resolution types are "recovered" and "closed"
+- Pending term resolution types are "saved" and "cancelled"
+- Resolution endpoints require CUSTOMER_SERVICE, SUPER_ADMIN, or OWNER_VIEW roles
+- Total Recovered KPI aggregates only chargebacks with resolutionType="recovered"
 
 ### Roadmap Evolution
 - v1.1 roadmap created with 7 phases covering 40 requirements
@@ -186,9 +190,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T15:42:38.825Z
-**Stopped at:** Phase 15 UI-SPEC approved
-**Next action:** Plan and execute Phase 15 (Resolution & Polish)
+**Last session:** 2026-03-18T15:59:34Z
+**Stopped at:** Completed 15-01-PLAN.md
+**Next action:** Execute 15-02-PLAN.md (shared formatting helpers)
 
 ---
 *State initialized: 2026-03-14*
