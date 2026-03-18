@@ -19,11 +19,11 @@ created: 2026-03-18
 |----------|-------|
 | Tool | none |
 | Preset | not applicable |
-| Component library | @ops/ui (custom inline CSSProperties) |
+| Component library | @ops/ui (custom inline CSSProperties + token system) |
 | Icon library | lucide-react |
 | Font | Inter (sans), JetBrains Mono (mono) |
 
-All styling uses inline `React.CSSProperties` constants. Tokens imported from `@ops/ui` (`colors`, `spacing`, `radius`, `typography`, `motion`, `shadows`).
+All styling uses inline `React.CSSProperties` constants. Tokens imported from `@ops/ui` (`colors`, `spacing`, `radius`, `typography`, `motion`, `shadows`). Base style constants (`baseCardStyle`, `baseInputStyle`, `baseLabelStyle`, `baseThStyle`, `baseTdStyle`, `baseButtonStyle`) are also imported from `@ops/ui` tokens.
 
 ---
 
@@ -31,14 +31,14 @@ All styling uses inline `React.CSSProperties` constants. Tokens imported from `@
 
 Declared values from `@ops/ui` tokens (already established):
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| spacing[1] | 4px | Icon gaps, inline padding |
-| spacing[2] | 8px | Compact element spacing, pill gaps |
+| Token | Value | Usage in Phase 15 |
+|-------|-------|-------------------|
+| spacing[1] | 4px | Badge internal padding (vertical), icon gaps |
+| spacing[2] | 8px | Pill toggle gap, action button row gap, badge horizontal padding |
 | spacing[3] | 12px | Small internal gaps |
-| spacing[4] | 16px | Default element spacing, panel padding |
-| spacing[5] | 20px | Card internal padding |
-| spacing[6] | 24px | Section padding, table cell horizontal |
+| spacing[4] | 16px | Expandable panel internal gap (flex column), status pill margin-bottom |
+| spacing[5] | 20px | Expandable panel padding |
+| spacing[6] | 24px | Card internal padding (baseCardStyle default) |
 | spacing[8] | 32px | Layout gaps |
 | spacing[12] | 48px | Major section breaks |
 | spacing[16] | 64px | Page-level spacing |
@@ -53,10 +53,14 @@ All values from `@ops/ui` `typography` tokens. Phase 15 uses these specific role
 
 | Role | Size | Weight | Line Height | Usage in Phase 15 |
 |------|------|--------|-------------|-------------------|
-| Table header / Label | 11px (xs) | 700 (bold) | 1.45 | Column headers (uppercase, caps tracking), "Resolution Type" / "Notes" field labels |
-| Table cell / Body | 14px (base) | 400 (normal) | 1.6 | Tracking table data, resolution notes display, panel body text, textarea content |
-| Section heading | 16px (md) | 700 (bold) | 1.5 | Status pill group label, panel heading |
-| KPI value | 28px (2xl) | 700 (bold) | 1.2 | Animated KPI counter values (existing) |
+| Table header / Label | 11px (`xs`) | 700 (`bold`) | 1.45 | Column headers (via `baseThStyle`), "Resolution Type" / "Resolution Note" field labels (via `baseLabelStyle`), resolved badge text |
+| Table cell / Body | 13px (`sm`) | inherit (400) | 1.5 | Table data cells (via `baseTdStyle`), resolved metadata line |
+| Pill / Button text | 14px (`base`) | 700 (`bold`) for active/selected, 400 (`normal`) for inactive | 1.6 | Status pill labels, resolution type selector buttons, "Resolve"/"Unresolve" text buttons |
+| Textarea content | 14px (`base`) | 400 (`normal`) | 1.6 | Resolution note textarea (via `baseInputStyle`) |
+| Section heading | 16px (`md`) | 700 (`bold`) | 1.5 | Panel heading if needed |
+| KPI value | 28px (`2xl`) | 700 (`bold`) | 1.2 | Animated KPI counter values (existing, unchanged) |
+
+**Correction from baseline:** Table cell font size is 13px (matching `baseTdStyle.fontSize: 13`), not 14px. The baseline spec incorrectly listed 14px for table cells.
 
 ---
 
@@ -67,27 +71,29 @@ All values from `@ops/ui` `colors` tokens (CSS custom properties):
 | Role | Token | Usage |
 |------|-------|-------|
 | Dominant (60%) | `colors.bgRoot` | Page background |
-| Secondary (30%) | `colors.bgSurface` | Cards, table containers, expandable panels |
-| Accent (10%) | `colors.primary500` | Active pill toggle, "Save Resolution" button, "Resolve" button |
-| Destructive | `colors.danger` | Chargeback amounts (red), urgent counts, "Unresolve" action text |
+| Secondary (30%) | `colors.bgSurface` | Cards, table containers, expandable panels (via `baseCardStyle`) |
+| Accent (10%) | `colors.primary500` | Active pill toggle, "Save Resolution" button, "Resolve" text button |
+| Destructive | `colors.danger` | Chargeback amounts (red), urgent counts, "Closed"/"Cancelled" badges |
 
 ### Semantic Color Assignments
 
 | Token | Element |
 |-------|---------|
-| `colors.success` / `colors.successBg` | "Recovered" resolution badge, Total Recovered KPI, "Saved" badge |
-| `colors.danger` / `colors.dangerBg` | Chargeback amounts, "Closed" badge, "Cancelled" badge, urgent count |
-| `colors.warning` / `colors.warningBg` | Rep roster warning indicators (existing) |
-| `colors.info` / `colors.infoBg` | Not used in Phase 15 |
-| `colors.textMuted` | Dimmed/faded resolved row text |
-| `colors.textTertiary` | Resolved metadata (resolved_by, resolved_at) |
-| `colors.bgSurfaceInset` | Expandable row panel background |
+| `colors.success` / `colors.successBg` | "Recovered" resolution badge, "Saved" resolution badge, Total Recovered KPI |
+| `colors.danger` / `colors.dangerBg` | Chargeback amounts, "Closed" badge, "Cancelled" badge, urgent count in summary bar |
+| `colors.warning` / `colors.warningBg` | Rep roster warning indicators (existing, unchanged) |
+| `colors.textMuted` | Resolved row text (dimmed via opacity 0.5) |
+| `colors.textTertiary` | Resolved metadata text (resolved_by, resolved_at), "Unresolve" text button |
+| `colors.textSecondary` | Inactive pill text, unselected resolution type button text, resolution note italic display |
+| `colors.bgSurfaceInset` | Expandable row panel background, textarea background (via `baseInputStyle`) |
+| `colors.borderDefault` | Inactive pill border, unselected resolution type button border |
+| `colors.borderSubtle` | Expandable panel top border, table row borders (via `baseTdStyle`) |
 
 ### Accent Reserved For
 
-- Active status pill (Open/Resolved/All toggle -- selected state)
-- "Resolve" action button in each table row
-- "Save Resolution" button in expandable panel
+- Active status pill (Open/Resolved/All toggle -- selected state background)
+- "Resolve" action text button in each table row (`color` only, no background)
+- "Save Resolution" primary button in expandable panel
 
 ---
 
@@ -97,100 +103,139 @@ All values from `@ops/ui` `colors` tokens (CSS custom properties):
 
 #### 1. Status Pill Toggle
 
-Position: Above each tracking table, below KPI/summary bar, above filter panel.
+Position: Above each tracking table, below KPI/summary bar, above the collapsible filter panel. Always visible (not inside the filter panel).
 
 | State | Style |
 |-------|-------|
-| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: 700`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "8px 16px"` |
-| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault`, `fontWeight: 400`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "8px 16px"` |
-| Container | `display: "flex"`, `gap: spacing[2]`, `marginBottom: spacing[4]` |
+| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: typography.weights.bold` (700), `fontSize: typography.sizes.base.fontSize` (14), `borderRadius: radius.full`, `padding: "8px 16px"`, `border: "1px solid transparent"`, `cursor: "pointer"` |
+| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: "1px solid " + colors.borderDefault`, `fontWeight: typography.weights.normal` (400), `fontSize: typography.sizes.base.fontSize` (14), `borderRadius: radius.full`, `padding: "8px 16px"`, `cursor: "pointer"` |
+| Container | `display: "flex"`, `gap: spacing[2]` (8px), `marginBottom: spacing[4]` (16px) |
 
-Pills: "Open" (default), "Resolved", "All"
+Pills: "Open" (default active), "Resolved", "All"
+
+Hover on inactive pill: `borderColor: colors.borderStrong`, `transition: all ${motion.duration.fast} ${motion.easing.out}`
 
 #### 2. Expandable Row Panel
 
-Triggered by clicking "Resolve" button in a table row. Renders as a `<tr>` with `colSpan` spanning all columns.
+Triggered by clicking "Resolve" text button in a table row action column. Renders as a `<tr>` with `<td colSpan={allColumns}>`.
 
 | Property | Value |
 |----------|-------|
 | Background | `colors.bgSurfaceInset` |
-| Border top | `1px solid colors.borderSubtle` |
+| Border top | `1px solid ${colors.borderSubtle}` |
 | Padding | `spacing[5]` (20px) |
-| Transition | `max-height ${motion.duration.normal} ${motion.easing.out}` |
-| Layout | Flex column, `gap: spacing[4]` |
+| Transition | `max-height ${motion.duration.normal} ${motion.easing.out}` (250ms) |
+| Layout | `display: "flex"`, `flexDirection: "column"`, `gap: spacing[4]` (16px) |
+| Outer td | `padding: 0`, `border: "none"` |
 
-Panel contents:
-- Resolution type selector: Two radio-style buttons side by side
-- Resolution note: `<textarea>` using `baseInputStyle`, 3 rows minimum, `min-height: 80px`
-- Action row: "Save Resolution" (primary button) + "Discard" (ghost button), `gap: spacing[2]`, right-aligned
+Panel contents (top to bottom):
+1. **Resolution type selector** (see component 3 below)
+2. **Resolution note textarea** -- uses `baseInputStyle` spread, override: `minHeight: 80px`, `resize: "vertical"`. Label above using `baseLabelStyle`: "Resolution Note"
+3. **Action row** -- `display: "flex"`, `justifyContent: "flex-end"`, `gap: spacing[2]` (8px)
 
 #### 3. Resolution Type Selector
 
-Two pill-shaped buttons for selecting resolution type before saving.
+Label above using `baseLabelStyle`: "Resolution Type"
 
-**Chargeback types:**
+Two pill-shaped buttons side-by-side in a flex row with `gap: spacing[2]` (8px).
 
-| Button | Selected Style | Unselected Style |
-|--------|---------------|-----------------|
-| "Recovered" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid colors.success` | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault` |
-| "Closed" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid colors.danger` | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault` |
-
-**Pending terms types:**
+**Chargeback resolution types:**
 
 | Button | Selected Style | Unselected Style |
 |--------|---------------|-----------------|
-| "Saved" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid colors.success` | Same as above |
-| "Cancelled" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid colors.danger` | Same as above |
+| "Recovered" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid ${colors.success}` | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid ${colors.borderDefault}` |
+| "Closed" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid ${colors.danger}` | Same as Recovered unselected |
 
-Both: `borderRadius: radius.full`, `padding: "8px 16px"`, `fontSize: 14px`, `fontWeight: 700`, `cursor: "pointer"`
+**Pending terms resolution types:**
+
+| Button | Selected Style | Unselected Style |
+|--------|---------------|-----------------|
+| "Saved" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid ${colors.success}` | Same as above |
+| "Cancelled" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid ${colors.danger}` | Same as above |
+
+Both types shared style: `borderRadius: radius.full`, `padding: "8px 16px"`, `fontSize: typography.sizes.base.fontSize` (14), `fontWeight: typography.weights.bold` (700), `cursor: "pointer"`, `transition: all ${motion.duration.fast} ${motion.easing.out}`
 
 #### 4. Resolved Row Treatment
 
-When a row's `resolvedAt` is set and it appears in the table (status filter = "all"):
+When a row has `resolvedAt` set and is visible (status filter is "All" or "Resolved"):
 
 | Property | Value |
 |----------|-------|
 | Row opacity | `0.5` |
-| Text color override | `colors.textMuted` for all cell values |
-| Badge | Inline "Resolved" text badge after row action column |
+| Text color override | All cell values use inherited opacity (no color override needed since opacity handles dimming) |
+| Badge | Inline pill badge in the action column, replacing the "Resolve" button |
 
 Badge styling:
-- `fontSize: 11px`, `fontWeight: 700`, `textTransform: "uppercase"`, `letterSpacing: typography.tracking.caps`
+- `fontSize: typography.sizes.xs.fontSize` (11px), `fontWeight: typography.weights.bold` (700)
+- `textTransform: "uppercase"`, `letterSpacing: typography.tracking.caps` (0.06em)
+- `borderRadius: radius.full`, `padding: "4px 8px"`
 - For "Recovered"/"Saved": `color: colors.success`, `background: colors.successBg`
 - For "Closed"/"Cancelled": `color: colors.danger`, `background: colors.dangerBg`
-- `borderRadius: radius.full`, `padding: "4px 8px"`
 
 #### 5. Resolved Metadata Display
 
-Shown below the badge or in an expanded detail view for resolved records:
+Shown on a second line below the badge within the same resolved row cell, or as a tooltip on hover. Recommended: inline below badge.
 
 | Element | Style |
 |---------|-------|
-| resolved_by name | `fontSize: 11px`, `color: colors.textTertiary` |
-| resolved_at date | `fontSize: 11px`, `color: colors.textTertiary`, formatted as M/D/YYYY |
-| resolution_note | `fontSize: 14px`, `color: colors.textSecondary`, `fontStyle: "italic"` |
-| Separator | `"|"` between resolved_by and resolved_at |
+| Metadata line | `fontSize: typography.sizes.xs.fontSize` (11px), `color: colors.textTertiary`, `lineHeight: typography.sizes.xs.lineHeight` (1.45) |
+| Resolution note | `fontSize: typography.sizes.sm.fontSize` (13px), `color: colors.textSecondary`, `fontStyle: "italic"`, `lineHeight: typography.sizes.sm.lineHeight` (1.5) |
 
-Format: `"Resolved by {name} on {date}"` on one line, note below.
+Format: `"Resolved by {name} | {M/D/YYYY}"` on one line, note on a second line below (italic).
 
 #### 6. Resolve / Unresolve Row Button
 
 | State | Label | Style |
 |-------|-------|-------|
-| Open record | "Resolve" | `color: colors.primary500`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: 14px`, `fontWeight: 700` |
-| Resolved record | "Unresolve" | `color: colors.textTertiary`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: 14px`, `fontWeight: 400` |
+| Open record | "Resolve" | `color: colors.primary500`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: typography.sizes.base.fontSize` (14), `fontWeight: typography.weights.bold` (700), `padding: 0` |
+| Resolved record | "Unresolve" | `color: colors.textTertiary`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: typography.sizes.base.fontSize` (14), `fontWeight: typography.weights.normal` (400), `padding: 0` |
 
-Both use text-only button style (no background, no border). Hover: `textDecoration: "underline"`.
+Both: hover adds `textDecoration: "underline"`. Transition: `color ${motion.duration.fast} ${motion.easing.out}`.
 
-### Existing Components (No Changes)
+#### 7. Save Resolution Button
 
-- `AnimatedNumber` -- KPI counter values
-- `SortHeader` -- Column sorting
-- `PageShell` -- Sidebar layout (navItems modified for role gating)
-- `Card` -- Container component
-- `Button` -- Standard button (used for Save Resolution)
-- `EmptyState` -- Empty table state
-- `ToastProvider` / `useToast` -- Feedback on resolve/unresolve
+Uses `baseButtonStyle` spread with overrides:
+
+| Property | Value |
+|----------|-------|
+| Background (enabled) | `colors.primary500` |
+| Background (disabled) | `colors.bgSurfaceInset` |
+| Color (enabled) | `colors.textInverse` |
+| Color (disabled) | `colors.textMuted` |
+| Cursor (disabled) | `"not-allowed"` |
+| Opacity (disabled) | `0.5` |
+
+Disabled when: resolution type not selected OR resolution note is empty.
+
+#### 8. Discard Button (Ghost)
+
+Uses `baseButtonStyle` spread with overrides:
+
+| Property | Value |
+|----------|-------|
+| Background | `"transparent"` |
+| Color | `colors.textSecondary` |
+| Border | `1px solid ${colors.borderDefault}` |
+
+Hover: `borderColor: colors.borderStrong`
+
+### Existing Components (No Changes Needed)
+
+- `AnimatedNumber` -- KPI counter values (unchanged)
+- `SortHeader` -- Column sorting (unchanged)
+- `PageShell` -- Sidebar layout (navItems array modified per role gating logic)
+- `Card` -- Container component (unchanged)
+- `Button` -- Standard button from @ops/ui (used if preferred over inline style for Save)
+- `EmptyState` -- Empty table state with `title` and `description` props
+- `ToastProvider` / `useToast` -- Feedback on resolve/unresolve actions
+- `baseInputStyle` -- Textarea for resolution note
+- `baseLabelStyle` -- Labels for resolution type and note fields
+- `baseTdStyle` -- All table data cells
+- `baseThStyle` -- All table header cells
+
+### Removed Components (Phase 15)
+
+- **Agent group headers** -- Collapsible group-by-agent sections in pending terms table are removed. Table renders as flat rows. The Fragment-with-key group header pattern from Phase 14 is deleted entirely.
 
 ---
 
@@ -200,46 +245,58 @@ Both use text-only button style (no background, no border). Hover: `textDecorati
 
 1. User clicks "Resolve" text button in table row action column
 2. Row expands downward revealing resolution panel (no page navigation)
-3. Only one row can be expanded at a time (clicking another collapses the current)
-4. User selects resolution type (required -- Save button disabled until type selected)
-5. User types resolution note (required -- minimum 1 character)
+3. Only one row can be expanded at a time -- clicking another row's "Resolve" collapses the current panel and opens the new one. State: `expandedRowId: string | null`
+4. User selects resolution type (required -- "Save Resolution" button disabled until type selected)
+5. User types resolution note (required -- minimum 1 character, "Save Resolution" button disabled until note has content)
 6. User clicks "Save Resolution" -- optimistic UI update:
-   - Row immediately dims to opacity 0.5
-   - Badge appears with resolution type
-   - If status filter is "Open", row fades out after 300ms (`motion.duration.normal`)
-   - Panel collapses
-   - Toast: "Chargeback marked as {type}" or "Pending term marked as {type}"
-7. On API failure: revert optimistic update, toast error: "Failed to resolve -- try again"
+   - Panel collapses immediately (`expandedRowId` set to null)
+   - Row immediately gets `opacity: 0.5` and badge appears with resolution type
+   - If status filter is "Open", row fades out after `motion.duration.normal` (250ms) then is removed from filtered view
+   - Toast via `useToast`: "Chargeback marked as {type}" or "Pending term marked as {type}"
+   - Local state updated: record's `resolvedAt`, `resolvedBy`, `resolutionType`, `resolutionNote` set
+7. On API failure (non-2xx response): revert local state to pre-resolve values, toast error: "Failed to resolve -- try again"
+8. "Discard" button: collapses panel, clears form state (`resolveType` reset to empty string, `resolveNote` reset to empty string). No API call.
 
 ### Unresolve Flow
 
 1. User clicks "Unresolve" text on a resolved record (visible when filter is "Resolved" or "All")
-2. No confirmation dialog (lightweight action, consistent with delete pattern)
-3. Optimistic UI update: row opacity returns to 1, badge removed
-4. If status filter is "Resolved", row fades out after 300ms
+2. No confirmation dialog -- lightweight reversible action
+3. Optimistic UI update: row opacity returns to 1, badge removed, "Resolve" button reappears
+4. If status filter is "Resolved", row fades out after `motion.duration.normal` (250ms)
 5. Toast: "Resolution cleared"
-6. On API failure: revert, toast error: "Failed to clear resolution -- try again"
+6. On API failure: revert to resolved state, toast error: "Failed to clear resolution -- try again"
 
 ### Status Filter Toggle
 
-1. Pill toggle above each table: Open (default) | Resolved | All
-2. Clicking a pill applies client-side filter via `useMemo`
-3. KPI counters and summary bars are NOT affected by status filter (always global)
-4. Filter persists per table independently (chargeback status filter is separate from pending terms)
-5. Active pill uses accent color, inactive pills use border-only style
+1. Pill toggle rendered above each table: Open (default) | Resolved | All
+2. Each table has independent filter state: `cbStatusFilter` and `ptStatusFilter` (both type `"open" | "resolved" | "all"`)
+3. Clicking a pill applies client-side filter via `useMemo` -- status filter runs BEFORE existing search/date/product filters in the pipeline
+4. KPI counters (chargeback totals bar) are NOT affected by status filter -- always show global aggregates from `/api/chargebacks/totals`
+5. Pending terms summary bar is NOT affected by status filter -- always shows global counts from full `pendingTerms` dataset
+6. Active pill uses accent background, inactive pills use border-only style
+7. Record count displayed in table or KPI area should reflect the filtered view count, not the global count
 
 ### Role-Gated Tab Visibility
 
-1. On page load, fetch `/api/session/me` at `CSDashboard` parent level (lifted from TrackingTab)
-2. Default initial tab: "tracking" (safe for all roles, prevents flash)
+1. On page load, fetch `/api/session/me` at `CSDashboard` parent level (lifted from TrackingTab where it currently lives)
+2. Default initial tab: `"tracking"` -- safe for all roles, prevents flash of Submissions tab for CS users
 3. If user is `CUSTOMER_SERVICE` only (not SUPER_ADMIN, not OWNER_VIEW):
-   - `navItems` array contains only "Tracking"
-   - Tab state forced to "tracking"
+   - `navItems` array contains only `"Tracking"`
+   - Tab state forced to `"tracking"` (setting tab to `"submissions"` is blocked)
    - Delete buttons hidden in tracking tables
    - CSV export buttons hidden
+   - Resolve/Unresolve buttons are VISIBLE (CS can resolve records)
 4. If user is `OWNER_VIEW` or `SUPER_ADMIN`:
    - Both "Submissions" and "Tracking" in navItems
    - All actions available (delete, export, resolve)
+5. Role check: `const isCSOnly = userRoles.includes("CUSTOMER_SERVICE") && !userRoles.includes("SUPER_ADMIN") && !userRoles.includes("OWNER_VIEW")`
+
+### Pending Terms Table Flattening
+
+1. Remove the group-by-agent collapsible sections entirely
+2. Render all pending terms as flat table rows (same columns as Phase 14)
+3. Agent name remains in the data model but is not displayed as a column (unchanged)
+4. All existing filters (search, product, state, date range) continue to work on the flat table
 
 ---
 
@@ -247,15 +304,13 @@ Both use text-only button style (no background, no border). Hover: `textDecorati
 
 | Element | Copy |
 |---------|------|
-| Primary CTA (chargeback) | "Save Resolution" |
-| Primary CTA (pending term) | "Save Resolution" |
-| Dismiss action | "Discard" |
+| Primary CTA (resolve panel) | "Save Resolution" |
+| Dismiss action (resolve panel) | "Discard" |
 | Resolve button (open record) | "Resolve" |
 | Unresolve button (resolved record) | "Unresolve" |
 | Resolution type label | "Resolution Type" |
 | Resolution note label | "Resolution Note" |
-| Resolution note placeholder (chargeback) | "Describe the resolution outcome..." |
-| Resolution note placeholder (pending term) | "Describe the resolution outcome..." |
+| Resolution note placeholder | "Describe the resolution outcome..." |
 | Chargeback type: recovered | "Recovered" |
 | Chargeback type: closed | "Closed" |
 | Pending term type: saved | "Saved" |
@@ -263,38 +318,42 @@ Both use text-only button style (no background, no border). Hover: `textDecorati
 | Status pill: open | "Open" |
 | Status pill: resolved | "Resolved" |
 | Status pill: all | "All" |
-| Toast: resolve success (chargeback) | "Chargeback marked as {type}" |
-| Toast: resolve success (pending term) | "Pending term marked as {type}" |
+| Toast: resolve chargeback success | "Chargeback marked as {type}" |
+| Toast: resolve pending term success | "Pending term marked as {type}" |
 | Toast: unresolve success | "Resolution cleared" |
 | Toast: resolve error | "Failed to resolve -- try again" |
 | Toast: unresolve error | "Failed to clear resolution -- try again" |
-| Resolved badge text (chargeback recovered) | "Recovered" |
-| Resolved badge text (chargeback closed) | "Closed" |
-| Resolved badge text (pending saved) | "Saved" |
-| Resolved badge text (pending cancelled) | "Cancelled" |
-| Resolved metadata line | "Resolved by {name} on {M/D/YYYY}" |
-| Empty state heading (chargebacks, filter: open) | "No open chargebacks" |
-| Empty state heading (chargebacks, filter: resolved) | "No resolved chargebacks" |
-| Empty state heading (chargebacks, filter: all) | "All chargebacks resolved" |
-| Empty state heading (pending terms, filter: open) | "No pending terms to review" |
-| Empty state heading (pending terms, filter: resolved) | "No resolved pending terms" |
-| Empty state heading (pending terms, filter: all) | "No pending terms recorded" |
-| Empty state body (filtered empty) | "Try changing the status filter or adjusting your search criteria." |
+| Resolved badge (chargeback recovered) | "RECOVERED" |
+| Resolved badge (chargeback closed) | "CLOSED" |
+| Resolved badge (pending saved) | "SAVED" |
+| Resolved badge (pending cancelled) | "CANCELLED" |
+| Resolved metadata line | "Resolved by {name} | {M/D/YYYY}" |
+| Empty: chargebacks, filter open | "No open chargebacks" |
+| Empty: chargebacks, filter resolved | "No resolved chargebacks" |
+| Empty: chargebacks, filter all | "No chargebacks recorded" |
+| Empty: pending terms, filter open | "No pending terms to review" |
+| Empty: pending terms, filter resolved | "No resolved pending terms" |
+| Empty: pending terms, filter all | "No pending terms recorded" |
+| Empty state body (any filtered empty) | "Try changing the status filter or adjusting your search criteria." |
 | Save disabled tooltip | "Select a resolution type and add a note" |
+
+**Note on badge text:** Badge labels render with `textTransform: "uppercase"` via CSS, so source strings can be title-case ("Recovered") in code. The visual output will be "RECOVERED".
 
 ---
 
 ## Formatting Contract (DASH-05)
 
-All dashboards must use shared helpers from `@ops/utils`:
+All dashboards must use shared helpers extracted to `@ops/utils`:
 
-| Helper | Format | Example |
-|--------|--------|---------|
-| `formatDollar(n)` | `$X,XXX.XX` (always positive, 2 decimals) | `formatDollar(1234.5)` = `"$1,234.50"` |
-| `formatNegDollar(n)` | `-$X,XXX.XX` (negative prefix) | `formatNegDollar(-50.1)` = `"-$50.10"` |
-| `formatDate(d)` | `M/D/YYYY` (no leading zeros) | `formatDate("2026-03-05T00:00:00")` = `"3/5/2026"` |
+| Helper | Signature | Format | Example |
+|--------|-----------|--------|---------|
+| `formatDollar(n)` | `(n: number) => string` | `$X,XXX.XX` (always positive, 2 decimals) | `formatDollar(1234.5)` = `"$1,234.50"` |
+| `formatNegDollar(n)` | `(n: number) => string` | `-$X,XXX.XX` (negative prefix) | `formatNegDollar(-50.1)` = `"-$50.10"` |
+| `formatDate(d)` | `(d: string \| null \| undefined) => string` | `M/D/YYYY` (no leading zeros) | `formatDate("2026-03-05T00:00:00")` = `"3/5/2026"` |
 
 Null/undefined dates render as `"--"`.
+
+**Audit scope:** All 5 frontend apps must import these helpers from `@ops/utils` instead of local implementations. Remove duplicate `formatDollar`, `formatNegDollar`, and `fmtDate` functions from `apps/cs-dashboard/app/page.tsx` after extraction.
 
 ---
 
