@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 phase: 15-resolution-polish
 source: [15-01-SUMMARY.md, 15-02-SUMMARY.md, 15-03-SUMMARY.md]
 started: 2026-03-18T17:30:00Z
@@ -80,7 +80,7 @@ skipped: 1
 ## Gaps
 
 - truth: "Total Recovered KPI updates automatically after resolving a chargeback as Recovered, without requiring a page refresh"
-  status: failed
+  status: resolved
   reason: "User reported: it does but why does it require a refresh when other kpi auto update"
   severity: major
   test: 7
@@ -94,7 +94,7 @@ skipped: 1
     - "Add totals re-fetch (authFetch + setTotals) after successful PATCH in handleResolveCb"
     - "Add totals re-fetch after successful PATCH in handleUnresolveCb"
 - truth: "CUSTOMER_SERVICE user can log in and see only the Tracking tab"
-  status: failed
+  status: resolved
   reason: "User reported: FAIL. created service user cant login went to edit user an got a td is not defined error"
   severity: blocker
   test: 8
