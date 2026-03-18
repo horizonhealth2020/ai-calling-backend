@@ -478,25 +478,47 @@ const API = typeof window !== "undefined"
   : "";
 
 export default function CSDashboard() {
-  const [tab, setTab] = useState<Tab>("submissions");
+  const [tab, setTab] = useState<Tab>("tracking");
+  const [userRoles, setUserRoles] = useState<string[]>([]);
 
   useEffect(() => { captureTokenFromUrl(); }, []);
 
-  const navItems = [
-    { icon: <ClipboardList size={18} />, label: "Submissions", key: "submissions" },
-    { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
-  ];
+  // Fetch user roles at parent level
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await authFetch(`${API}/api/session/me`);
+        if (res.ok) {
+          const data = await res.json();
+          setUserRoles(data.roles || []);
+        }
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const isCSOnly = userRoles.includes("CUSTOMER_SERVICE")
+    && !userRoles.includes("SUPER_ADMIN")
+    && !userRoles.includes("OWNER_VIEW");
+
+  const navItems = isCSOnly
+    ? [{ icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" }]
+    : [
+        { icon: <ClipboardList size={18} />, label: "Submissions", key: "submissions" },
+        { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
+      ];
+
+  const effectiveTab = isCSOnly ? "tracking" : tab;
 
   return (
     <PageShell
       title="Customer Service"
       subtitle="Chargebacks & Pending Terms"
       navItems={navItems}
-      activeNav={tab}
+      activeNav={effectiveTab}
       onNavChange={(k) => setTab(k as Tab)}
     >
-      {tab === "submissions" && <SubmissionsTab />}
-      {tab === "tracking" && <TrackingTab />}
+      {effectiveTab === "submissions" && <SubmissionsTab />}
+      {effectiveTab === "tracking" && <TrackingTab userRoles={userRoles} isCSOnly={isCSOnly} />}
     </PageShell>
   );
 }
@@ -1321,12 +1343,11 @@ function SortHeader({ label, sortKey, currentSort, currentDir, onSort }: {
 
 /* ── Tracking Tab ───────────────────────────────────────────────── */
 
-function TrackingTab() {
+function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: boolean }) {
   // Data
   const [chargebacks, setChargebacks] = useState<any[]>([]);
   const [pendingTerms, setPendingTerms] = useState<any[]>([]);
   const [totals, setTotals] = useState<{ totalChargebacks: number; totalRecovered: number; recordCount: number } | null>(null);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -1359,19 +1380,14 @@ function TrackingTab() {
     setLoading(true);
     setError(false);
     try {
-      const [totalsRes, cbRes, ptRes, meRes] = await Promise.all([
+      const [totalsRes, cbRes, ptRes] = await Promise.all([
         authFetch(`${API}/api/chargebacks/totals`),
         authFetch(`${API}/api/chargebacks`),
         authFetch(`${API}/api/pending-terms`),
-        authFetch(`${API}/api/session/me`),
       ]);
       if (totalsRes.ok) setTotals(await totalsRes.json());
       if (cbRes.ok) setChargebacks(await cbRes.json());
       if (ptRes.ok) setPendingTerms(await ptRes.json());
-      if (meRes.ok) {
-        const me = await meRes.json();
-        if (me?.roles) setUserRoles(me.roles);
-      }
     } catch {
       setError(true);
     } finally {
@@ -1549,7 +1565,7 @@ function TrackingTab() {
 
 
   // Role check
-  const canExport = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
+  const canExport = !isCSOnly && (userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW"));
 
   // Date format helper - uses shared formatDate from @ops/utils
 
@@ -1795,7 +1811,7 @@ function TrackingTab() {
                   <SortHeader label="Total" sortKey="chargebackAmount" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Submitted" sortKey="submittedAt" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
-                  <th style={{ ...baseThStyle, width: 50 }}></th>
+                  {!isCSOnly && <th style={{ ...baseThStyle, width: 50 }}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -1809,26 +1825,28 @@ function TrackingTab() {
                     <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
                     <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
                     <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
-                    <td style={baseTdStyle}>
-                      <button
-                        onClick={() => handleDeleteCb(cb.id)}
-                        aria-label="Delete record"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          color: colors.textMuted,
-                          padding: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
-                        onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
-                      >
-                        <X size={14} />
-                      </button>
-                    </td>
+                    {!isCSOnly && (
+                      <td style={baseTdStyle}>
+                        <button
+                          onClick={() => handleDeleteCb(cb.id)}
+                          aria-label="Delete record"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            color: colors.textMuted,
+                            padding: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -1897,7 +1915,7 @@ function TrackingTab() {
                   <SortHeader label="Hold Date" sortKey="holdDate" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
                   <SortHeader label="Next Billing" sortKey="nextBilling" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
                   <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
-                  <th style={{ ...baseThStyle, width: 50 }}></th>
+                  {!isCSOnly && <th style={{ ...baseThStyle, width: 50 }}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -1910,26 +1928,28 @@ function TrackingTab() {
                     <td style={{ ...baseTdStyle, color: colors.danger }}>{formatDate(pt.holdDate)}</td>
                     <td style={{ ...baseTdStyle, color: colors.success }}>{formatDate(pt.nextBilling)}</td>
                     <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
-                    <td style={baseTdStyle}>
-                      <button
-                        onClick={() => handleDeletePt(pt.id)}
-                        aria-label="Delete record"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          color: colors.textMuted,
-                          padding: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
-                        onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
-                      >
-                        <X size={14} />
-                      </button>
-                    </td>
+                    {!isCSOnly && (
+                      <td style={baseTdStyle}>
+                        <button
+                          onClick={() => handleDeletePt(pt.id)}
+                          aria-label="Delete record"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            color: colors.textMuted,
+                            padding: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
