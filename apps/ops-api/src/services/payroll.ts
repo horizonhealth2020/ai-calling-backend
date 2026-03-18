@@ -4,6 +4,11 @@ import { DateTime } from 'luxon';
 
 const TIMEZONE = 'America/New_York';
 
+/** Enrollment fee >= this threshold triggers the enrollment bonus */
+export const ENROLLMENT_BONUS_THRESHOLD = 125;
+/** Dollar amount of the enrollment bonus */
+export const ENROLLMENT_BONUS_AMOUNT = 10;
+
 export const getSundayWeekRange = (date: Date, shiftWeeks: number = 0) => {
   // Convert UTC date to Eastern time to determine the correct day-of-week
   const eastern = DateTime.fromJSDate(date, { zone: TIMEZONE });
@@ -45,8 +50,8 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
   const fee = Number(enrollmentFee);
   let enrollmentBonus = 0;
 
-  if (fee >= 125) {
-    enrollmentBonus = 10;
+  if (fee >= ENROLLMENT_BONUS_THRESHOLD) {
+    enrollmentBonus = ENROLLMENT_BONUS_AMOUNT;
   }
 
   // Determine the threshold for halving commission

@@ -887,6 +887,32 @@ router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_A
     return res.status(400).json({ error: "No entry IDs provided" });
   }
 
+  // Guard: only allow un-pay for entries in OPEN periods
+  if (entryIds.length > 0) {
+    const entries = await prisma.payrollEntry.findMany({
+      where: { id: { in: entryIds } },
+      include: { payrollPeriod: { select: { status: true, id: true } } },
+    });
+    const nonOpen = entries.filter(e => e.payrollPeriod.status !== "OPEN");
+    if (nonOpen.length > 0) {
+      return res.status(400).json({
+        error: "Cannot un-pay entries in LOCKED or FINALIZED periods. Only entries in OPEN periods can be marked unpaid."
+      });
+    }
+  }
+  if (serviceEntryIds.length > 0) {
+    const serviceEntries = await prisma.servicePayrollEntry.findMany({
+      where: { id: { in: serviceEntryIds } },
+      include: { payrollPeriod: { select: { status: true, id: true } } },
+    });
+    const nonOpen = serviceEntries.filter(e => e.payrollPeriod.status !== "OPEN");
+    if (nonOpen.length > 0) {
+      return res.status(400).json({
+        error: "Cannot un-pay service entries in LOCKED or FINALIZED periods. Only entries in OPEN periods can be marked unpaid."
+      });
+    }
+  }
+
   if (entryIds.length > 0) {
     await prisma.payrollEntry.updateMany({
       where: { id: { in: entryIds }, status: "PAID" },
