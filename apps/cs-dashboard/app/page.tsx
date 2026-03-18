@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   PageShell,
   Card,
@@ -1363,8 +1363,6 @@ function TrackingTab() {
   const [ptSortKey, setPtSortKey] = useState<string>("holdDate");
   const [ptSortDir, setPtSortDir] = useState<"asc" | "desc">("desc");
 
-  // Group collapse state for pending terms
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Data fetching
   const fetchData = useCallback(async () => {
@@ -1482,16 +1480,6 @@ function TrackingTab() {
     return result;
   }, [pendingTerms, searchTerm, ptFilters, ptSortKey, ptSortDir]);
 
-  // Group by agent name (alphabetical group order)
-  const groupedPending = useMemo(() => {
-    const map = new Map<string, any[]>();
-    filteredPending.forEach((pt: any) => {
-      const key = pt.agentName || "Unassigned";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(pt);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filteredPending]);
 
   // Summary bar stats (computed from FULL unfiltered dataset, not filtered)
   const ptSummary = useMemo(() => {
@@ -1569,13 +1557,6 @@ function TrackingTab() {
   const hasPtFilters = Object.values(ptFilters).some(v => v !== "");
   const clearPtFilters = () => setPtFilters({ agent: "", state: "", product: "", holdReason: "", dateFrom: "", dateTo: "" });
 
-  const toggleGroup = (agent: string) => {
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      next.has(agent) ? next.delete(agent) : next.add(agent);
-      return next;
-    });
-  };
 
   // Role check
   const canExport = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
@@ -1935,65 +1916,36 @@ function TrackingTab() {
                 </tr>
               </thead>
               <tbody>
-                {groupedPending.map(([agentName, records]) => (
-                  <Fragment key={agentName}>
-                    {/* Group header row */}
-                    <tr
-                      style={{ cursor: "pointer" }}
-                      onClick={() => toggleGroup(agentName)}
-                    >
-                      <td
-                        colSpan={8}
+                {filteredPending.map((pt: any) => (
+                  <tr key={pt.id}>
+                    <td style={baseTdStyle}>{pt.memberName || "--"}</td>
+                    <td style={baseTdStyle}>{pt.memberId || "--"}</td>
+                    <td style={baseTdStyle}>{pt.phone || "--"}</td>
+                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
+                    <td style={{ ...baseTdStyle, color: colors.danger }}>{fmtDate(pt.holdDate)}</td>
+                    <td style={{ ...baseTdStyle, color: colors.success }}>{fmtDate(pt.nextBilling)}</td>
+                    <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
+                    <td style={baseTdStyle}>
+                      <button
+                        onClick={() => handleDeletePt(pt.id)}
+                        aria-label="Delete record"
                         style={{
-                          background: colors.bgSurfaceInset,
-                          padding: `${spacing[2]}px ${spacing[4]}px`,
-                          fontSize: 13,
-                          fontWeight: 700,
-                          color: colors.textPrimary,
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          color: colors.textMuted,
+                          padding: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
+                        onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                        onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
                       >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          {collapsed.has(agentName)
-                            ? <ChevronRight size={14} />
-                            : <ChevronDown size={14} />
-                          }
-                          {agentName} ({records.length})
-                        </span>
-                      </td>
-                    </tr>
-                    {/* Data rows (hidden when collapsed) */}
-                    {!collapsed.has(agentName) && records.map((pt: any) => (
-                      <tr key={pt.id}>
-                        <td style={baseTdStyle}>{pt.memberName || "--"}</td>
-                        <td style={baseTdStyle}>{pt.memberId || "--"}</td>
-                        <td style={baseTdStyle}>{pt.phone || "--"}</td>
-                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
-                        <td style={{ ...baseTdStyle, color: colors.danger }}>{fmtDate(pt.holdDate)}</td>
-                        <td style={{ ...baseTdStyle, color: colors.success }}>{fmtDate(pt.nextBilling)}</td>
-                        <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
-                        <td style={baseTdStyle}>
-                          <button
-                            onClick={() => handleDeletePt(pt.id)}
-                            aria-label="Delete record"
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              color: colors.textMuted,
-                              padding: 4,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                            onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
-                            onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
-                          >
-                            <X size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </Fragment>
+                        <X size={14} />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
