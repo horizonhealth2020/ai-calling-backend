@@ -40,7 +40,7 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 ### Chargeback Tracking
 
 - [x] **TRKC-01**: KPI counter bar shows Total Chargebacks (red), Total Recovered (green), Net Exposure (red/green), Records count — all animated count-up on load and filter change
-- [x] **TRKC-02**: Chargeback table displays all 15 specified columns with chargeback_amount always in red
+- [ ] **TRKC-02**: Chargeback table displays all 15 specified columns with chargeback_amount always in red
 - [x] **TRKC-03**: Table filterable by date range, product, member company, member agent company, chargeback amount range
 - [x] **TRKC-04**: Table searchable by payee name, member agent company, member ID, member agent ID
 - [x] **TRKC-05**: Table sortable by any column
@@ -49,11 +49,11 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 ### Pending Terms Tracking
 
 - [x] **TRKT-01**: Summary bar shows total pending records, count by hold_reason category, count of next_billing within 7 days (urgent/red)
-- [x] **TRKT-02**: Pending terms table displays all specified columns with correct color coding (next_billing green, active/first_billing blue, hold_date red, hold_reason red italic)
+- [ ] **TRKT-02**: Pending terms table displays all specified columns with correct color coding (next_billing green, active/first_billing blue, hold_date red, hold_reason red italic)
 - [x] **TRKT-03**: agent_name and agent_id stored in DB but never displayed as visible table columns
 - [x] **TRKT-04**: Table filterable by agent (behind-the-scenes), state, product, hold_reason keyword, date ranges
 - [x] **TRKT-05**: Table searchable by member name, member ID, agent name, agent ID, phone
-- [x] **TRKT-06**: Table supports group-by-agent with collapsible sections (agent name as group header only)
+- [ ] **TRKT-06**: Table supports group-by-agent with collapsible sections (agent name as group header only)
 - [x] **TRKT-07**: CSV export available to owner and super_admin only
 
 ### Resolution Workflow
@@ -96,12 +96,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ROLE-01 | Phase 11 | Pending |
+| ROLE-01 | Phase 11 | Complete |
 | ROLE-02 | Phase 15 | Complete |
 | ROLE-03 | Phase 15 | Complete |
 | ROLE-04 | Phase 15 | Complete |
-| SCHEMA-01 | Phase 11 | Pending |
-| SCHEMA-02 | Phase 11 | Pending |
+| SCHEMA-01 | Phase 11 | Complete |
+| SCHEMA-02 | Phase 11 | Complete |
 | CHBK-01 | Phase 12 | Complete |
 | CHBK-02 | Phase 12 | Complete |
 | CHBK-03 | Phase 12 | Complete |
@@ -115,17 +115,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TERM-05 | Phase 13 | Complete |
 | TERM-06 | Phase 13 | Complete |
 | TRKC-01 | Phase 14 | Complete |
-| TRKC-02 | Phase 14 | Complete |
+| TRKC-02 | Phase 17 | Pending |
 | TRKC-03 | Phase 14 | Complete |
 | TRKC-04 | Phase 14 | Complete |
 | TRKC-05 | Phase 14 | Complete |
 | TRKC-06 | Phase 14 | Complete |
 | TRKT-01 | Phase 14 | Complete |
-| TRKT-02 | Phase 14 | Complete |
+| TRKT-02 | Phase 17 | Pending |
 | TRKT-03 | Phase 14 | Complete |
 | TRKT-04 | Phase 14 | Complete |
 | TRKT-05 | Phase 14 | Complete |
-| TRKT-06 | Phase 14 | Complete |
+| TRKT-06 | Phase 17 | Pending |
 | TRKT-07 | Phase 14 | Complete |
 | RESV-01 | Phase 15 | Complete |
 | RESV-02 | Phase 15 | Complete |
@@ -141,6 +141,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 - v1.1 requirements: 40 total
 - Mapped to phases: 40
 - Unmapped: 0
+- Pending (Phase 17 gap closure): 3 (TRKC-02, TRKT-02, TRKT-06)
 
 ---
 *Requirements defined: 2026-03-17*
