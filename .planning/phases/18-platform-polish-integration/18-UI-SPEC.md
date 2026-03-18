@@ -40,27 +40,25 @@ Declared values from existing `packages/ui/src/tokens.ts` spacing object:
 | 5 | 20px | Logo area padding |
 | 6 | 24px | Card padding (baseCardStyle), section padding |
 | 8 | 32px | Main content padding, topbar horizontal padding |
-| 10 | 40px | Large layout gaps |
 | 12 | 48px | Major section breaks, empty state vertical padding |
 | 16 | 64px | Page-level spacing |
 
-Exceptions: `spacing[3]` (12px) and `spacing[5]` (20px) are non-standard 8pt multiples but are established project tokens -- use as-is.
+Exceptions: `spacing[3]` (12px) and `spacing[5]` (20px) are non-standard 8pt multiples but are established project tokens -- use as-is. `spacing[10]` (40px) removed from the contract; use `spacing[8]` (32px) or `spacing[12]` (48px) instead for large layout gaps.
 
 ---
 
 ## Typography
 
-All values from existing `packages/ui/src/tokens.ts`:
+All values derived from existing `packages/ui/src/tokens.ts`, consolidated to 4 sizes and 2 weights:
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body (base) | 14px | 400 (normal) | 1.6 |
 | Label (xs) | 11px | 700 (bold) | 1.45 |
-| Table cell (sm) | 13px | 400-500 | 1.5 |
-| Button text | 13px | 600 (semibold) | 1.5 |
+| Body (base, table cells, buttons) | 14px | 400 (normal) | 1.6 |
 | Heading (lg) | 18px | 700 (bold) | 1.4 |
-| Page title (xl) | 22px | 700 (bold) | 1.3 |
-| Display (2xl) | 28px | 700 (bold) | 1.2 |
+| Display (2xl, page titles) | 28px | 700 (bold) | 1.2 |
+
+Weight scale: `400` for body text, table cells, and secondary content. `700` for headings, labels, buttons, page titles, and display numbers. No intermediate weights (500, 600) permitted.
 
 Label convention: `textTransform: "uppercase"`, `letterSpacing: "0.06em"` (tracking.caps), `color: textTertiary`.
 
@@ -81,6 +79,19 @@ All values from existing `packages/ui/src/theme.css` (dark mode defaults, light 
 | Warning | `#fbbf24` (warning) | Storage capacity alerts, pending status indicators, "+10" enrollment badge |
 
 Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), active sidebar indicator bar, focus outline, nav badge pills, link text color. Never used on plain body text or static containers.
+
+---
+
+## Focal Points
+
+| Screen | Primary Visual Anchor |
+|--------|-----------------------|
+| Payroll dashboard | PayrollAlertTable (chargeback alerts above open week) -- draws immediate attention to actionable items |
+| Owner dashboard (KPI tab) | Three StatCard summary row (Total Chargebacks, Total Chargeback $, Pending Terms) -- top-of-card aggregate numbers |
+| Owner dashboard (Users tab) | PermissionTable checkbox matrix -- the interactive core of the permissions view |
+| Manager dashboard (Sale entry) | ParsePreviewCard -- appears inline after paste, visually distinct via `bgSurfaceRaised` + `borderStrong` |
+| CS dashboard | RepChecklist cards with ProgressRing -- per-rep completion progress is the scanning anchor |
+| Owner dashboard (Storage) | StorageAlert banner -- full-width warning band at top of content area |
 
 ---
 
@@ -109,8 +120,8 @@ Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), a
 | Container | Card with `dangerBg` (`rgba(248,113,113,0.08)`) left border accent (4px solid `danger`) |
 | Header | "Chargeback Alerts" label (xs style), badge pill with count |
 | Table columns | Agent Name, Customer, Amount, Date Submitted, Actions |
-| Approve action | `Button variant="success" size="sm"` labeled "Approve" -- opens dropdown of agent's unpaid periods |
-| Clear action | `Button variant="ghost" size="sm"` labeled "Clear" -- with confirmation (see Copywriting) |
+| Approve action | `Button variant="success" size="sm"` labeled "Approve Alert" -- opens dropdown of agent's unpaid periods |
+| Clear action | `Button variant="ghost" size="sm"` labeled "Clear Alert" -- with confirmation (see Copywriting) |
 | Period dropdown | `Select` component listing unpaid period labels (e.g., "Week of Mar 10 - Mar 16") |
 | Empty state | "No pending alerts" with checkmark icon |
 | Socket.IO | Highlight new rows with `HIGHLIGHT_GLOW` pattern on `alert:created` event |
@@ -152,7 +163,7 @@ Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), a
 | Header | "Parsed Sale Details" with edit icon |
 | Content | Key-value pairs: Customer, Products (as Badge pills), State, Status, Lead Source |
 | Matched products | Each shown as a `Badge` with product name; unmatched products shown with warning color |
-| Actions | "Confirm & Fill" (`Button variant="primary"`), "Discard" (`Button variant="ghost"`) |
+| Actions | "Confirm & Fill" (`Button variant="primary"`), "Discard Parse" (`Button variant="ghost"`) |
 | Spacing | `gap: spacing[2]` (8px) between rows, `padding: spacing[4]` (16px) |
 
 ### 6. RepChecklist (cs-dashboard)
@@ -174,7 +185,7 @@ Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), a
 |---------|---------------|
 | Layout | Full-width banner above main content, `warningBg` background, `warning` left border (4px) |
 | Content | Warning icon + "Database storage at {X}% capacity" + "Download CSVs" link + "Manage Data" button |
-| Dismiss | Ghost close button at right |
+| Dismiss | Ghost close button at right with `aria-label="Dismiss storage alert"` |
 | Threshold | Show when storage exceeds 80% of plan limit |
 
 ### 8. EnrollmentBadge (payroll-dashboard)
@@ -184,7 +195,7 @@ Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), a
 | Element | Specification |
 |---------|---------------|
 | Layout | Inline `Badge` adjacent to enrollment fee dollar amount |
-| Style | `warningBg` background, `warning` text color, fontSize 10px, fontWeight 700, borderRadius full |
+| Style | `warningBg` background, `warning` text color, fontSize 11px (label size), fontWeight 700, borderRadius full |
 | Content | "+10" |
 | Condition | Only visible when enrollment qualifies for $124 enrollment bonus |
 
@@ -197,11 +208,11 @@ Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), a
 | Element | Copy |
 |---------|------|
 | Export with date range | "Export CSV" |
-| Approve chargeback alert | "Approve" |
-| Clear chargeback alert | "Clear" |
+| Approve chargeback alert | "Approve Alert" |
+| Clear chargeback alert | "Clear Alert" |
 | Save AI system prompt | "Save Prompt" |
 | Confirm parsed receipt | "Confirm & Fill" |
-| Discard parsed receipt | "Discard" |
+| Discard parsed receipt | "Discard Parse" |
 | Save permissions | "Save Permissions" |
 | Create rep | "Add Rep" |
 | Toggle paid | "Mark Paid" |
@@ -263,7 +274,7 @@ Accent reserved for: primary action buttons (gradient `#14b8a6` to `#0d9488`), a
 1. User pastes text into existing textarea
 2. System calls `parseReceipt()` (fixed to map enum values correctly)
 3. `ParsePreviewCard` appears with parsed key-value pairs and matched products
-4. User reviews, clicks "Confirm & Fill" or "Discard"
+4. User reviews, clicks "Confirm & Fill" or "Discard Parse"
 5. On confirm: form fields populated, lead source at top, state field filled, matched products pre-selected
 6. Core product NOT auto-selected unless explicitly parsed
 
