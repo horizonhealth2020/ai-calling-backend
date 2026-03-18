@@ -98,7 +98,7 @@ router.get("/session/me", requireAuth, asyncHandler(async (req, res) => {
   res.json(req.user);
 }));
 
-const ROLE_ENUM = z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"]);
+const ROLE_ENUM = z.enum(["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN", "CUSTOMER_SERVICE"]);
 const USER_SELECT = { id: true, name: true, email: true, roles: true, active: true, createdAt: true };
 
 router.get("/users", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (_req, res) => {
@@ -1962,10 +1962,46 @@ router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER
   return res.status(204).end();
 }));
 
+// ─── Chargeback Resolution ──────────────────────────────────────
+
+const resolveChargebackSchema = z.object({
+  resolutionType: z.enum(["recovered", "closed"]),
+  resolutionNote: z.string().min(1).max(2000),
+});
+
+router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const parsed = resolveChargebackSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const record = await prisma.chargebackSubmission.update({
+    where: { id: req.params.id },
+    data: {
+      resolvedAt: new Date(),
+      resolvedBy: (req as any).user!.id,
+      resolutionNote: parsed.data.resolutionNote,
+      resolutionType: parsed.data.resolutionType,
+    },
+  });
+  return res.json(record);
+}));
+
+router.patch("/chargebacks/:id/unresolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const record = await prisma.chargebackSubmission.update({
+    where: { id: req.params.id },
+    data: {
+      resolvedAt: null,
+      resolvedBy: null,
+      resolutionNote: null,
+      resolutionType: null,
+    },
+  });
+  return res.json(record);
+}));
+
 router.get("/chargebacks", requireAuth, asyncHandler(async (_req, res) => {
   const records = await prisma.chargebackSubmission.findMany({
     orderBy: { submittedAt: "desc" },
     take: 200,
+    include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
   });
   return res.json(records);
 }));
@@ -1990,14 +2026,20 @@ router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (_req, r
 }));
 
 router.get("/chargebacks/totals", requireAuth, asyncHandler(async (_req, res) => {
-  const result = await prisma.chargebackSubmission.aggregate({
-    _sum: { chargebackAmount: true },
-    _count: { id: true },
-  });
+  const [totalResult, recoveredResult] = await Promise.all([
+    prisma.chargebackSubmission.aggregate({
+      _sum: { chargebackAmount: true },
+      _count: { id: true },
+    }),
+    prisma.chargebackSubmission.aggregate({
+      _sum: { chargebackAmount: true },
+      where: { resolutionType: "recovered" },
+    }),
+  ]);
   return res.json({
-    totalChargebacks: result._sum.chargebackAmount ? Math.abs(Number(result._sum.chargebackAmount)) : 0,
-    totalRecovered: 0,
-    recordCount: result._count.id,
+    totalChargebacks: totalResult._sum.chargebackAmount ? Math.abs(Number(totalResult._sum.chargebackAmount)) : 0,
+    totalRecovered: recoveredResult._sum?.chargebackAmount ? Math.abs(Number(recoveredResult._sum.chargebackAmount)) : 0,
+    recordCount: totalResult._count.id,
   });
 }));
 
@@ -2110,6 +2152,7 @@ router.get("/pending-terms", requireAuth, asyncHandler(async (_req, res) => {
   const records = await prisma.pendingTerm.findMany({
     orderBy: { submittedAt: "desc" },
     take: 200,
+    include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
   });
   return res.json(records);
 }));
@@ -2117,6 +2160,41 @@ router.get("/pending-terms", requireAuth, asyncHandler(async (_req, res) => {
 router.delete("/pending-terms/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
   await prisma.pendingTerm.delete({ where: { id: req.params.id } });
   return res.status(204).end();
+}));
+
+// ─── Pending Term Resolution ────────────────────────────────────
+
+const resolvePendingTermSchema = z.object({
+  resolutionType: z.enum(["saved", "cancelled"]),
+  resolutionNote: z.string().min(1).max(2000),
+});
+
+router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const parsed = resolvePendingTermSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const record = await prisma.pendingTerm.update({
+    where: { id: req.params.id },
+    data: {
+      resolvedAt: new Date(),
+      resolvedBy: (req as any).user!.id,
+      resolutionNote: parsed.data.resolutionNote,
+      resolutionType: parsed.data.resolutionType,
+    },
+  });
+  return res.json(record);
+}));
+
+router.patch("/pending-terms/:id/unresolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const record = await prisma.pendingTerm.update({
+    where: { id: req.params.id },
+    data: {
+      resolvedAt: null,
+      resolvedBy: null,
+      resolutionNote: null,
+      resolutionType: null,
+    },
+  });
+  return res.json(record);
 }));
 
 export default router;
