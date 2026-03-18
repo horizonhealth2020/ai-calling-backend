@@ -50,7 +50,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Chargeback submission parser with batch support
 - Pending Terms submission parser with batch support
 - Chargeback tracking with KPI counters and filters
-- Pending Terms tracking with agent grouping and hold-date urgency
+- Pending Terms tracking with hold-date urgency
 
 ### Out of Scope
 
@@ -96,4 +96,4 @@ The platform is now fully operational: sales entry works end-to-end, commissions
 | Submit-only form validation | Per-field inline errors on submit, not on-blur or real-time | ✓ Good |
 
 ---
-*Last updated: 2026-03-18 after v1.1 Phase 16 completion — milestone complete*
+*Last updated: 2026-03-18 after v1.1 Phase 17 completion — all tech debt resolved*
