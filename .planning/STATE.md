@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Platform Polish & Integration
 status: executing
-stopped_at: Completed 18-03-PLAN.md
-last_updated: "2026-03-18T21:45:14Z"
+stopped_at: Completed 18-06-PLAN.md
+last_updated: "2026-03-18T21:55:00Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 3
+  completed_plans: 6
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 18 (platform-polish-integration) — EXECUTING
-Plan: 4 of 8
+Plan: 7 of 8
 
 ## Performance Metrics
 
@@ -58,6 +58,8 @@ Plan: 4 of 8
 | Core product never auto-selected unless parsed | Explicit matching only -- no assumptions |
 | Enrollment threshold is 125 not 124 | Matched actual server logic in applyEnrollmentFee |
 | Bonus/fronted/hold removed from sale rows, kept on agent card header | Agent card header provides aggregate editing; sale rows show only commission and net |
+| DB polling replaces in-memory queue for audit jobs | Crash resilience -- jobs persist across server restarts |
+| Default daily AI budget cap of $10 | Prevents runaway AI costs without configuration |
 
 ### Research Flags (from SUMMARY.md)
 
@@ -76,9 +78,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T21:45:14Z
-**Stopped at:** Completed 18-03-PLAN.md
-**Next action:** Execute 18-04-PLAN.md
+**Last session:** 2026-03-18T21:55:00Z
+**Stopped at:** Completed 18-06-PLAN.md
+**Next action:** Execute 18-07-PLAN.md
 
 ---
 *State initialized: 2026-03-14*

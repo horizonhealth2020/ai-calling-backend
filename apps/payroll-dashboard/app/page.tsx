@@ -1182,6 +1182,13 @@ function PayrollDashboardInner() {
   const [printMenuPeriod, setPrintMenuPeriod] = useState<string | null>(null);
   const [highlightedEntryIds, setHighlightedEntryIds] = useState<Set<string>>(new Set());
 
+  // Payroll alerts state
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
+  const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
+  const [highlightedAlertIds, setHighlightedAlertIds] = useState<Set<string>>(new Set());
+
   // Ref for expanded period to avoid stale closures in socket callback
   const expandedPeriodRef = useRef(expandedPeriod);
   expandedPeriodRef.current = expandedPeriod;
@@ -1246,7 +1253,27 @@ function PayrollDashboardInner() {
   }, []);
 
   // Wire up Socket.IO — reconnect triggers full refetch
-  const { disconnected } = useSocket(API, handleSaleChanged, () => { refreshPeriods(); });
+  const fetchAlerts = useCallback(() => {
+    authFetch(`${API}/api/alerts`).then(r => r.ok ? r.json() : []).then(data => {
+      if (Array.isArray(data)) setAlerts(data);
+    }).catch(() => {});
+  }, []);
+
+  const { disconnected } = useSocket(API, handleSaleChanged, () => { refreshPeriods(); fetchAlerts(); }, {
+    "alert:created": (data: any) => {
+      fetchAlerts();
+      // Highlight new alert
+      if (data?.alertId) {
+        setHighlightedAlertIds(prev => new Set(prev).add(data.alertId));
+        setTimeout(() => {
+          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(data.alertId); return next; });
+        }, 100);
+      }
+    },
+    "alert:resolved": (data: { alertId: string }) => {
+      setAlerts(prev => prev.filter(a => a.id !== data.alertId));
+    },
+  });
 
   useEffect(() => {
     captureTokenFromUrl();
@@ -1258,7 +1285,8 @@ function PayrollDashboardInner() {
       authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/status-change-requests?status=PENDING`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/sale-edit-requests?status=PENDING`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([p, prod, sa, cats, agents, scr, editReqs]) => {
+      authFetch(`${API}/api/alerts`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([p, prod, sa, cats, agents, scr, editReqs, alertsData]) => {
       setPeriods(p);
       setProducts(prod);
       setServiceAgents(sa);
@@ -1266,6 +1294,8 @@ function PayrollDashboardInner() {
       setAllAgents(agents);
       setPendingRequests(scr);
       setPendingEditRequests(editReqs);
+      if (Array.isArray(alertsData)) setAlerts(alertsData);
+      setLoadingAlerts(false);
       if (p.length > 0) setSvcPeriodId(p[0].id);
       setLoading(false);
     });
@@ -1276,6 +1306,51 @@ function PayrollDashboardInner() {
       .then(r => r.ok ? r.json() : periods)
       .catch(() => periods);
     setPeriods(p);
+  }
+
+  async function fetchAgentPeriods(agentId: string, alertId: string) {
+    if (!agentId) return;
+    const res = await authFetch(`${API}/api/alerts/agent-periods/${agentId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setAlertPeriods(prev => ({ ...prev, [alertId]: data }));
+    }
+  }
+
+  async function handleApproveAlert(alertId: string, periodId: string) {
+    try {
+      const res = await authFetch(`${API}/api/alerts/${alertId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodId }),
+      });
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== alertId));
+        setApprovingAlertId(null);
+        toast("success", "Alert approved and clawback created");
+        refreshPeriods();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error || `Request failed (${res.status})`);
+      }
+    } catch { toast("error", "Failed to approve alert"); }
+  }
+
+  async function handleClearAlert(alertId: string) {
+    if (!confirm("Clear this alert? It will be permanently dismissed and no clawback will be created.")) return;
+    try {
+      const res = await authFetch(`${API}/api/alerts/${alertId}/clear`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== alertId));
+        toast("success", "Alert cleared");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error || `Request failed (${res.status})`);
+      }
+    } catch { toast("error", "Failed to clear alert"); }
   }
 
   async function refreshPendingRequests() {
@@ -1779,14 +1854,15 @@ function PayrollDashboardInner() {
   async function addServiceAgent(e: FormEvent) {
     e.preventDefault(); setSvcMsg("");
     try {
-      const res = await authFetch(`${API}/api/service-agents`, {
+      // Use synced creation to create both ServiceAgent + CsRepRoster
+      const res = await authFetch(`${API}/api/reps/create-synced`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newServiceAgent.name, basePay: Number(newServiceAgent.basePay) }),
       });
       if (res.ok) {
-        const a = await res.json();
-        setServiceAgents(prev => [...prev, a]);
+        const data = await res.json();
+        setServiceAgents(prev => [...prev, data.serviceAgent]);
         setNewServiceAgent({ name: "", basePay: "" });
         setSvcMsg("Customer service agent added successfully");
       } else {
@@ -1885,6 +1961,120 @@ function PayrollDashboardInner() {
       {/* ── Payroll Periods ───────────────────────────────────── */}
       {tab === "periods" && (
         <div className="animate-fade-in" style={{ display: "grid", gap: S[4] }}>
+
+          {/* ── Chargeback Alerts ─────────────────────────────── */}
+          <div style={{
+            background: C.bgSurface,
+            borderLeft: `4px solid ${C.danger}`,
+            borderRadius: R["2xl"],
+            padding: S[4],
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: alerts.length > 0 ? S[3] : 0,
+              fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const,
+              letterSpacing: "0.06em", color: C.textTertiary,
+            }}>
+              <AlertTriangle size={14} />
+              Chargeback Alerts
+              {alerts.length > 0 && (
+                <span style={{
+                  background: C.dangerBg, color: C.danger,
+                  fontSize: 11, fontWeight: 700, borderRadius: 9999, padding: "2px 8px",
+                }}>{alerts.length}</span>
+              )}
+            </div>
+            {!loadingAlerts && alerts.length === 0 && (
+              <div style={{ color: C.textMuted, fontSize: 13, padding: `${S[2]}px 0` }}>
+                No pending alerts. Chargeback alerts will appear here when submitted from the CS dashboard.
+              </div>
+            )}
+            {alerts.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Agent Name</th>
+                      <th style={thStyle}>Customer</th>
+                      <th style={thRight}>Amount</th>
+                      <th style={thStyle}>Date Submitted</th>
+                      <th style={thCenter}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alerts.map(alert => {
+                      const highlighted = highlightedAlertIds.has(alert.id);
+                      return (
+                        <tr key={alert.id} style={{
+                          ...(highlighted ? HIGHLIGHT_GLOW : {}),
+                          transition: "background 0.3s",
+                        }}>
+                          <td style={tdStyle}>{alert.agentName || "Unknown"}</td>
+                          <td style={tdStyle}>{alert.customerName || "Unknown"}</td>
+                          <td style={tdRight}>{alert.amount != null ? formatDollar(Number(alert.amount)) : "--"}</td>
+                          <td style={tdStyle}>{formatDate(alert.createdAt)}</td>
+                          <td style={{ ...tdCenter, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+                            {approvingAlertId === alert.id ? (
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                                <select
+                                  style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
+                                  defaultValue=""
+                                  onChange={e => { if (e.target.value) handleApproveAlert(alert.id, e.target.value); }}
+                                >
+                                  <option value="" disabled>Select period...</option>
+                                  {(alertPeriods[alert.id] || []).map((p: any) => (
+                                    <option key={p.id} value={p.id}>
+                                      {fmtDate(p.weekStart)} – {fmtDate(p.weekEnd)}
+                                    </option>
+                                  ))}
+                                  {(!alertPeriods[alert.id] || alertPeriods[alert.id].length === 0) && (
+                                    <option disabled>No open periods found</option>
+                                  )}
+                                </select>
+                                <Button size="sm" variant="ghost" onClick={() => setApprovingAlertId(null)}>Cancel</Button>
+                              </div>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  onClick={() => {
+                                    setApprovingAlertId(alert.id);
+                                    // Fetch open periods - use agentId if available, otherwise fetch all open periods
+                                    if (alert.agentId) {
+                                      fetchAgentPeriods(alert.agentId, alert.id);
+                                    } else {
+                                      // Fetch all open periods as fallback
+                                      authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).then(data => {
+                                        const openPeriods = (data || []).filter((p: any) => p.status === "OPEN").map((p: any) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
+                                        setAlertPeriods(prev => ({ ...prev, [alert.id]: openPeriods }));
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Check size={12} style={{ marginRight: 3 }} />
+                                  Approve Alert
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleClearAlert(alert.id)}
+                                >
+                                  <X size={12} style={{ marginRight: 3 }} />
+                                  Clear Alert
+                                </Button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {periods.length === 0 && (
             <Card style={{ borderRadius: R["2xl"] }}>
               <EmptyState

@@ -15,9 +15,9 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 ### AI & Call Auditing
 
-- [ ] **AI-01**: System prompt is visible and editable in owner dashboard AI tab
-- [ ] **AI-02**: Fix "INP not defined" error on owner dashboard AI config
-- [ ] **AI-03**: AI auto-scores call transcripts from Convoso with budget controls
+- [x] **AI-01**: System prompt is visible and editable in owner dashboard AI tab
+- [x] **AI-02**: Fix "INP not defined" error on owner dashboard AI config
+- [x] **AI-03**: AI auto-scores call transcripts from Convoso with budget controls
 
 ### Chargeback & Pending Terms Integration
 
@@ -76,9 +76,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXPORT-01 | Phase 18 | Pending |
 | EXPORT-02 | Phase 18 | Pending |
 | EXPORT-03 | Phase 18 | Pending |
-| AI-01 | Phase 18 | Pending |
-| AI-02 | Phase 18 | Pending |
-| AI-03 | Phase 18 | Pending |
+| AI-01 | Phase 18 | Complete |
+| AI-02 | Phase 18 | Complete |
+| AI-03 | Phase 18 | Complete |
 | CS-01 | Phase 18 | Pending |
 | CS-02 | Phase 18 | Pending |
 | CS-03 | Phase 18 | Pending |

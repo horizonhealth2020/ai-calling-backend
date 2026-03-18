@@ -61,7 +61,7 @@ Plans:
 - [x] 18-03-PLAN.md — Payroll UX: bidirectional toggle, edit button, card cleanup, enrollment indicator
 - [ ] 18-04-PLAN.md — Chargeback alert pipeline + CS real-time Socket.IO
 - [ ] 18-05-PLAN.md — Rep sync, round robin assignment, rep checklist
-- [ ] 18-06-PLAN.md — AI visibility: prompt editor, DB-backed queue, budget controls
+- [x] 18-06-PLAN.md — AI visibility: prompt editor, DB-backed queue, budget controls
 - [ ] 18-07-PLAN.md — Agent KPI table, permission matrix, storage monitoring, holdDate grouping
 - [ ] 18-08-PLAN.md — DateRangeFilter rollout to all dashboards + visual verification
 
@@ -86,7 +86,7 @@ Plans:
 | 15. Resolution & Polish | v1.1 | 4/4 | Complete | 2026-03-18 |
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
-| 18. Platform Polish & Integration | v1.2 | 3/8 | In Progress | - |
+| 18. Platform Polish & Integration | v1.2 | 6/8 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*

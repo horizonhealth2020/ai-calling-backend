@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@ops/auth": "*",
+    "@ops/socket": "*",
     "@ops/ui": "*",
     "@ops/utils": "*",
     "lucide-react": "^0.577.0",
