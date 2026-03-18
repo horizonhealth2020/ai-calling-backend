@@ -116,6 +116,11 @@ const TD: React.CSSProperties = {
   ...baseTdStyle,
 };
 
+const INP: React.CSSProperties = {
+  ...baseInputStyle,
+  boxSizing: "border-box" as const,
+};
+
 /* ── Nav items ─────────────────────────────────────────────────── */
 
 const NAV_ITEMS_BASE = [
@@ -715,6 +720,71 @@ function ConfigSection({
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [savingDuration, setSavingDuration] = useState(false);
 
+  // AI stats & controls
+  const [aiStats, setAiStats] = useState<{ todaySpent: number; todayCount: number; dailyBudget: number; queuedCount: number; estimatedMonthly: number } | null>(null);
+  const [budgetInput, setBudgetInput] = useState("");
+  const [autoScoring, setAutoScoring] = useState(false);
+  const [savingBudget, setSavingBudget] = useState(false);
+
+  useEffect(() => {
+    authFetch(`${API}/api/ai/usage-stats`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setAiStats(d);
+          setBudgetInput(String(d.dailyBudget));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleAutoScore() {
+    setAutoScoring(true);
+    try {
+      const res = await authFetch(`${API}/api/ai/auto-score`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        toast("success", data.message || `${data.queued} calls queued`);
+        // Refresh stats
+        const sr = await authFetch(`${API}/api/ai/usage-stats`);
+        if (sr.ok) {
+          const sd = await sr.json();
+          setAiStats(sd);
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error ?? `Request failed (${res.status})`);
+      }
+    } catch (e: unknown) {
+      toast("error", `Unable to reach API — ${e instanceof Error ? e.message : "network error"}`);
+    } finally {
+      setAutoScoring(false);
+    }
+  }
+
+  async function handleSaveBudget() {
+    setSavingBudget(true);
+    try {
+      const res = await authFetch(`${API}/api/ai/budget`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dailyBudget: parseFloat(budgetInput) || 0 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast("success", `Daily budget updated to ${formatDollar(data.dailyBudget)}`);
+        setAiStats((prev) => prev ? { ...prev, dailyBudget: data.dailyBudget } : prev);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error ?? `Request failed (${res.status})`);
+      }
+    } catch (e: unknown) {
+      toast("error", `Unable to reach API — ${e instanceof Error ? e.message : "network error"}`);
+    } finally {
+      setSavingBudget(false);
+    }
+  }
+
   async function handleSavePrompt() {
     setSavingPrompt(true);
     try {
@@ -954,6 +1024,79 @@ function ConfigSection({
           <code style={{ fontFamily: typography.fontMono, fontSize: 12, color: colors.primary300, wordBreak: "break-all" }}>
             {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601", "call_duration_seconds": 120 }`}
           </code>
+        </div>
+      </div>
+
+      {/* AI Scoring & Cost Controls */}
+      <div className="animate-fade-in-up stagger-5" style={{ ...CARD, marginBottom: 20 }}>
+        <div style={{ marginBottom: 16 }}>
+          <h3 style={SECTION_TITLE}>AI Scoring & Cost Controls</h3>
+          <p style={{ ...SECTION_SUBTITLE, marginTop: 4 }}>
+            Monitor AI usage, set budget caps, and trigger batch scoring of eligible calls.
+          </p>
+        </div>
+
+        {/* Usage Stats */}
+        {aiStats && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
+              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Today's Spend</div>
+              <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                {formatDollar(aiStats.todaySpent)}
+              </div>
+              <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                of {formatDollar(aiStats.dailyBudget)} budget
+              </div>
+            </div>
+            <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
+              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Calls Scored Today</div>
+              <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                {aiStats.todayCount}
+              </div>
+            </div>
+            <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
+              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Queued</div>
+              <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: aiStats.queuedCount > 0 ? colors.warning : colors.textPrimary }}>
+                {aiStats.queuedCount}
+              </div>
+            </div>
+            <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
+              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Est. Monthly</div>
+              <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                {formatDollar(aiStats.estimatedMonthly)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Budget Control */}
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+          <div>
+            <label style={LBL}>Daily Budget Cap ($)</label>
+            <input
+              className="input-focus"
+              style={{ ...INP, width: 160 }}
+              type="number"
+              min="0"
+              max="1000"
+              step="0.50"
+              value={budgetInput}
+              onChange={(e) => setBudgetInput(e.target.value)}
+            />
+          </div>
+          <Button variant="success" icon={<Save size={14} />} loading={savingBudget} onClick={handleSaveBudget}>
+            Update Budget
+          </Button>
+        </div>
+
+        {/* Auto-Score Trigger */}
+        <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 16 }}>
+          <p style={{ ...SECTION_SUBTITLE, marginBottom: 12 }}>
+            Queue all eligible calls (2+ min with recording, not yet scored) for AI analysis.
+          </p>
+          <Button variant="primary" loading={autoScoring} onClick={handleAutoScore}>
+            Score Eligible Calls
+          </Button>
         </div>
       </div>
     </div>
