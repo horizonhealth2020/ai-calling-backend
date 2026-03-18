@@ -84,11 +84,11 @@ Plans:
 **Requirements**: TRKC-01, TRKC-02, TRKC-03, TRKC-04, TRKC-05, TRKC-06, TRKT-01, TRKT-02, TRKT-03, TRKT-04, TRKT-05, TRKT-06, TRKT-07
 **Success Criteria** (what must be TRUE):
   1. KPI counter bar shows Total Chargebacks (red), Total Recovered (green), Net Exposure (red/green), Records count with animated count-up
-  2. Chargeback table displays all 15 columns with chargeback_amount always rendered in red
+  2. Chargeback table displays 8 data columns (Date Posted, Member, Member ID, Product, Type, Total, Assigned To, Submitted) per locked decision in 14-CONTEXT.md, with chargeback_amount always rendered in red
   3. Chargeback table is filterable by date range, product, member company, member agent company, and chargeback amount range
   4. Chargeback table is searchable by payee name, member agent company, member ID, and member agent ID
   5. Summary bar shows total pending records, count by hold_reason category, and count of next_billing within 7 days highlighted as urgent/red
-  6. Pending terms table displays all specified columns with correct color coding (next_billing green, active/first_billing blue, hold_date red, hold_reason red italic)
+  6. Pending terms table displays 7 columns (Member Name, Member ID, Phone, Product, Hold Date, Next Billing, Assigned To) with color coding (hold_date red, next_billing green; hold_reason and active/first_billing not shown as columns per locked decision)
   7. agent_name and agent_id are stored in the database but never shown as visible table columns
   8. Pending terms table supports group-by-agent with collapsible sections using agent name as the group header
   9. CSV export button is visible only to owner and super_admin roles on both tables
