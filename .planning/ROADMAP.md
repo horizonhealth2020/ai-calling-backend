@@ -144,7 +144,9 @@ Plans:
   4. ROLE-01, SCHEMA-01, SCHEMA-02 traceability table entries show "Complete" (not "Pending")
   5. POST/PATCH/DELETE /cs-rep-roster endpoints have requireRole guard
   6. OWNER_VIEW landing card gap documented as intentional known UX decision
-Plans: 0/0 (not yet planned)
+**Plans:** 1 plan
+Plans:
+- [ ] 17-01-PLAN.md — Fix stale requirement text, update traceability, add requireRole to rep roster, document OWNER_VIEW gap
 
 ## Progress
 
