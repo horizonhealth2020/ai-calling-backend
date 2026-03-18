@@ -159,11 +159,12 @@ async function transcribeRecording(audioBuffer: Buffer): Promise<string> {
 }
 
 // ── Claude audit (primary) ──────────────────────────────────────
-async function auditWithClaude(transcription: string, systemPrompt: string, agentName: string): Promise<AuditResult> {
+async function auditWithClaude(transcription: string, systemPrompt: string, agentName: string): Promise<{ result: AuditResult; usage: { inputTokens: number; outputTokens: number; model: string } }> {
   const anthropic = new Anthropic();
+  const model = "claude-sonnet-4-20250514";
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model,
     max_tokens: 4096,
     system: systemPrompt,
     tools: [auditTool],
@@ -179,7 +180,14 @@ async function auditWithClaude(transcription: string, systemPrompt: string, agen
   const toolUseBlock = response.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
   if (!toolUseBlock) throw new Error("No tool use in Claude response");
 
-  return toolUseBlock.input as unknown as AuditResult;
+  return {
+    result: toolUseBlock.input as unknown as AuditResult,
+    usage: {
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+      model,
+    },
+  };
 }
 
 // ── Derive numeric score from structured audit ──────────────────
@@ -233,8 +241,26 @@ async function auditWithOpenAI(transcription: string, systemPrompt: string): Pro
   };
 }
 
+// ── Usage info returned to caller for cost tracking ─────────────
+export interface AuditUsageInfo {
+  inputTokens: number;
+  outputTokens: number;
+  model: string;
+  estimatedCost: number;
+}
+
+// ── Cost estimation helpers ─────────────────────────────────────
+function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
+  // Claude Sonnet: $3/M input, $15/M output
+  if (model.includes("claude")) {
+    return (inputTokens * 0.003 + outputTokens * 0.015) / 1000;
+  }
+  // GPT-4o-mini: $0.15/M input, $0.60/M output
+  return (inputTokens * 0.00015 + outputTokens * 0.0006) / 1000;
+}
+
 // ── Main processing pipeline ────────────────────────────────────
-export async function processCallRecording(callLogId: string, audioBuffer: Buffer): Promise<void> {
+export async function processCallRecording(callLogId: string, audioBuffer: Buffer): Promise<AuditUsageInfo | void> {
   try {
     const callLog = await prisma.convosoCallLog.findUnique({
       where: { id: callLogId },
@@ -260,10 +286,17 @@ export async function processCallRecording(callLogId: string, audioBuffer: Buffe
 
     const useClaude = !!process.env.ANTHROPIC_API_KEY;
     let callAudit;
+    let usageInfo: AuditUsageInfo | undefined;
 
     if (useClaude) {
-      const result = await auditWithClaude(transcription, systemPrompt, agentName);
+      const { result, usage } = await auditWithClaude(transcription, systemPrompt, agentName);
       const score = deriveScore(result);
+      usageInfo = {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        model: usage.model,
+        estimatedCost: estimateCost(usage.model, usage.inputTokens, usage.outputTokens),
+      };
 
       callAudit = await prisma.callAudit.create({
         data: {
@@ -321,6 +354,7 @@ export async function processCallRecording(callLogId: string, audioBuffer: Buffe
     emitAuditComplete(auditForDashboard);
 
     console.log(`[callAudit] Audit complete for call log ${callLogId} (${useClaude ? "Claude" : "OpenAI"})`);
+    return usageInfo;
   } catch (err) {
     console.error(`[callAudit] Failed to process call ${callLogId}:`, err);
     await prisma.convosoCallLog.update({
@@ -345,7 +379,7 @@ export async function reAuditCall(callAuditId: string): Promise<void> {
 
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY required for re-audit");
 
-  const result = await auditWithClaude(existing.transcription, systemPrompt, agentName);
+  const { result } = await auditWithClaude(existing.transcription, systemPrompt, agentName);
   const score = deriveScore(result);
 
   await prisma.callAudit.update({
