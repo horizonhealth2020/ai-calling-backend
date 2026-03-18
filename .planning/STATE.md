@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Platform Polish & Integration
-status: completed
-stopped_at: Phase 18 UI-SPEC approved
-last_updated: "2026-03-18T21:10:55.324Z"
-last_activity: 2026-03-18 -- Roadmap created for v1.2
+status: executing
+stopped_at: Completed 18-03-PLAN.md
+last_updated: "2026-03-18T21:45:14Z"
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 8
+  completed_plans: 3
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -20,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.2 Platform Polish & Integration
+**Current focus:** Phase 18 — platform-polish-integration
 
 ## Current Position
 
-Phase: 18 -- Platform Polish & Integration
-Plan: --
-Status: Roadmap complete, awaiting plan-phase
-Last activity: 2026-03-18 -- Roadmap created for v1.2
-
-Progress: [....................] 0/1 phases | 0/? plans
+Phase: 18 (platform-polish-integration) — EXECUTING
+Plan: 4 of 8
 
 ## Performance Metrics
 
@@ -58,6 +53,11 @@ Progress: [....................] 0/1 phases | 0/? plans
 |----------|-----------|
 | Single phase for all 24 requirements | User requested consolidation -- all v1.2 work is integration/polish, not new architecture |
 | Phase 18 numbering | Continues from v1.1 Phase 17 |
+| Parse flow shows preview card before filling form | Prevents accidental form population from paste-to-parse |
+| Status mapping defaults to RAN for unrecognized values | Safer than failing with invalid enum errors |
+| Core product never auto-selected unless parsed | Explicit matching only -- no assumptions |
+| Enrollment threshold is 125 not 124 | Matched actual server logic in applyEnrollmentFee |
+| Bonus/fronted/hold removed from sale rows, kept on agent card header | Agent card header provides aggregate editing; sale rows show only commission and net |
 
 ### Research Flags (from SUMMARY.md)
 
@@ -76,9 +76,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T21:10:55.321Z
-**Stopped at:** Phase 18 UI-SPEC approved
-**Next action:** /gsd:plan-phase 18
+**Last session:** 2026-03-18T21:45:14Z
+**Stopped at:** Completed 18-03-PLAN.md
+**Next action:** Execute 18-04-PLAN.md
 
 ---
 *State initialized: 2026-03-14*

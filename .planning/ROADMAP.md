@@ -56,9 +56,9 @@
 **Plans:** 8 plans
 
 Plans:
-- [ ] 18-01-PLAN.md — Foundation: schema migration, dateRange extension, DateRangeFilter component, Socket.IO events
-- [ ] 18-02-PLAN.md — Manager dashboard: paste-to-parse fix, preview card, form layout, commission column removal
-- [ ] 18-03-PLAN.md — Payroll UX: bidirectional toggle, edit button, card cleanup, enrollment indicator
+- [x] 18-01-PLAN.md — Foundation: schema migration, dateRange extension, DateRangeFilter component, Socket.IO events
+- [x] 18-02-PLAN.md — Manager dashboard: paste-to-parse fix, preview card, form layout, commission column removal
+- [x] 18-03-PLAN.md — Payroll UX: bidirectional toggle, edit button, card cleanup, enrollment indicator
 - [ ] 18-04-PLAN.md — Chargeback alert pipeline + CS real-time Socket.IO
 - [ ] 18-05-PLAN.md — Rep sync, round robin assignment, rep checklist
 - [ ] 18-06-PLAN.md — AI visibility: prompt editor, DB-backed queue, budget controls
@@ -86,7 +86,7 @@ Plans:
 | 15. Resolution & Polish | v1.1 | 4/4 | Complete | 2026-03-18 |
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
-| 18. Platform Polish & Integration | v1.2 | 0/8 | Not started | - |
+| 18. Platform Polish & Integration | v1.2 | 2/8 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*

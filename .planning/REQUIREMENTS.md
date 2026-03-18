@@ -35,12 +35,12 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 ### Manager Dashboard
 
-- [ ] **MGR-01**: Commission column removed from agent tracker
-- [ ] **MGR-02**: Paste-to-parse sale entry — paste sale confirmation text, auto-fills form fields
-- [ ] **MGR-03**: Fix "invalid enum APPROVED" error — map parsed sale status to correct enum values
-- [ ] **MGR-04**: Core product auto-selected by default unless explicitly parsed otherwise
-- [ ] **MGR-05**: Lead source field moved to top of form next to agent selector
-- [ ] **MGR-06**: State field correctly populated from parsed address data
+- [x] **MGR-01**: Commission column removed from agent tracker
+- [x] **MGR-02**: Paste-to-parse sale entry — paste sale confirmation text, auto-fills form fields
+- [x] **MGR-03**: Fix "invalid enum APPROVED" error — map parsed sale status to correct enum values
+- [x] **MGR-04**: Core product auto-selected by default unless explicitly parsed otherwise
+- [x] **MGR-05**: Lead source field moved to top of form next to agent selector
+- [x] **MGR-06**: State field correctly populated from parsed address data
 
 ### Rep & Permission Management
 
@@ -87,12 +87,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAY-02 | Phase 18 | Pending |
 | PAY-03 | Phase 18 | Pending |
 | PAY-04 | Phase 18 | Pending |
-| MGR-01 | Phase 18 | Pending |
-| MGR-02 | Phase 18 | Pending |
-| MGR-03 | Phase 18 | Pending |
-| MGR-04 | Phase 18 | Pending |
-| MGR-05 | Phase 18 | Pending |
-| MGR-06 | Phase 18 | Pending |
+| MGR-01 | Phase 18 | Complete |
+| MGR-02 | Phase 18 | Complete |
+| MGR-03 | Phase 18 | Complete |
+| MGR-04 | Phase 18 | Complete |
+| MGR-05 | Phase 18 | Complete |
+| MGR-06 | Phase 18 | Complete |
 | REP-01 | Phase 18 | Pending |
 | REP-02 | Phase 18 | Pending |
 | REP-03 | Phase 18 | Pending |
