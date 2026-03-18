@@ -63,6 +63,9 @@ Plan: 8 of 8
 | Alert pipeline uses informational-only approach with manual approve/clear | P2 research flag: never auto-deduct from payroll |
 | Rep sync uses prisma.$transaction for atomic dual-table creation | Ensures CsRepRoster and ServiceAgent stay in sync |
 | Round robin index persisted in SalesBoardSetting | Reuses existing key-value table, survives server restarts |
+| Agent KPI matching uses case-insensitive name comparison | ChargebackSubmission.memberAgentId is free-text, matched by name |
+| Permission overrides use upsert with compound unique key | Clean override pattern: role defaults + per-user overrides |
+| Storage plan limit defaults 1 GB with 80% alert threshold | Configurable via SalesBoardSetting without code changes |
 
 ### Research Flags (from SUMMARY.md)
 
@@ -81,9 +84,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T21:57:50Z
-**Stopped at:** Completed 18-05-PLAN.md
-**Next action:** Execute remaining plans
+**Last session:** 2026-03-18T22:00:00Z
+**Stopped at:** Completed 18-07-PLAN.md
+**Next action:** Execute 18-08-PLAN.md
 
 ---
 *State initialized: 2026-03-14*

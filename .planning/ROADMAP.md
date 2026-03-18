@@ -62,7 +62,7 @@ Plans:
 - [x] 18-04-PLAN.md — Chargeback alert pipeline + CS real-time Socket.IO
 - [x] 18-05-PLAN.md — Rep sync, round robin assignment, rep checklist
 - [x] 18-06-PLAN.md — AI visibility: prompt editor, DB-backed queue, budget controls
-- [ ] 18-07-PLAN.md — Agent KPI table, permission matrix, storage monitoring, holdDate grouping
+- [x] 18-07-PLAN.md — Agent KPI table, permission matrix, storage monitoring, holdDate grouping
 - [ ] 18-08-PLAN.md — DateRangeFilter rollout to all dashboards + visual verification
 
 ## Progress

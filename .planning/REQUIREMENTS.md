@@ -11,7 +11,7 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 - [ ] **EXPORT-01**: User can select date range (from/to) on any CSV export across all dashboards
 - [ ] **EXPORT-02**: User can choose relative presets (Last 7 days, Last 30 days, This month) alongside custom range
-- [ ] **EXPORT-03**: System alerts when database storage is near capacity with option to download CSVs and clear old data
+- [x] **EXPORT-03**: System alerts when database storage is near capacity with option to download CSVs and clear old data
 
 ### AI & Call Auditing
 
@@ -22,8 +22,8 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 ### Chargeback & Pending Terms Integration
 
 - [x] **CS-01**: Chargebacks create alerts displayed in a table above the current open week in payroll dashboard with approve/clear actions
-- [ ] **CS-02**: Pending terms + chargebacks within 30 days wired to new agent KPI tables
-- [ ] **CS-03**: Pending terms tracker shows holder date records aggregated per date (replaces "due within 7 days")
+- [x] **CS-02**: Pending terms + chargebacks within 30 days wired to new agent KPI tables
+- [x] **CS-03**: Pending terms tracker shows holder date records aggregated per date (replaces "due within 7 days")
 - [x] **CS-04**: Real-time Socket.IO auto-refreshes CS tracking tables on new submissions
 
 ### Payroll UX
@@ -47,7 +47,7 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 - [x] **REP-01**: Service agents synced between payroll and CS dashboard
 - [x] **REP-02**: CS reps creatable from either CS or payroll dashboard (requires OWNER_VIEW or PAYROLL role)
 - [x] **REP-03**: Round robin checklist in reps for pending term and chargeback assignment
-- [ ] **REP-04**: Customizable permission table in owner dashboard users section for all create actions
+- [x] **REP-04**: Customizable permission table in owner dashboard users section for all create actions
 
 ## Future Requirements
 
@@ -75,13 +75,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | EXPORT-01 | Phase 18 | Pending |
 | EXPORT-02 | Phase 18 | Pending |
-| EXPORT-03 | Phase 18 | Pending |
+| EXPORT-03 | Phase 18 | Complete |
 | AI-01 | Phase 18 | Complete |
 | AI-02 | Phase 18 | Complete |
 | AI-03 | Phase 18 | Complete |
 | CS-01 | Phase 18 | Complete |
-| CS-02 | Phase 18 | Pending |
-| CS-03 | Phase 18 | Pending |
+| CS-02 | Phase 18 | Complete |
+| CS-03 | Phase 18 | Complete |
 | CS-04 | Phase 18 | Complete |
 | PAY-01 | Phase 18 | Complete |
 | PAY-02 | Phase 18 | Complete |
@@ -96,7 +96,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REP-01 | Phase 18 | Complete |
 | REP-02 | Phase 18 | Complete |
 | REP-03 | Phase 18 | Complete |
-| REP-04 | Phase 18 | Pending |
+| REP-04 | Phase 18 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 24 total
