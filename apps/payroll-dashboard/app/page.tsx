@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
-import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, ToastProvider, useToast, Card, EmptyState } from "@ops/ui";
+import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, ToastProvider, useToast, Card, EmptyState, DateRangeFilter } from "@ops/ui";
+import type { DateRangeFilterValue } from "@ops/ui";
 import { colors, spacing, radius, shadows, motion, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
@@ -67,7 +68,7 @@ type SaleEditRequest = {
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
 };
-type ExportRange = "week" | "month" | "quarter";
+/* ExportRange replaced by DateRangeFilterValue from @ops/ui */
 
 /* ── Design tokens (local aliases) ─────────────────────────── */
 
@@ -1146,7 +1147,7 @@ function PayrollDashboardInner() {
   const [chargebackForm, setChargebackForm] = useState({ memberName: "", memberId: "", notes: "" });
   const [chargebackMsg, setChargebackMsg] = useState("");
 
-  const [exportRange, setExportRange] = useState<ExportRange>("week");
+  const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "30d" });
   const [exporting, setExporting] = useState(false);
 
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
@@ -1547,18 +1548,31 @@ function PayrollDashboardInner() {
     }
   }
 
-  function filterPeriodsByRange(range: ExportRange): Period[] {
-    const now = new Date();
+  function filterPeriodsByDateRange(filter: DateRangeFilterValue): Period[] {
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (filter.preset === "custom" && filter.from && filter.to) {
+      from = new Date(filter.from + "T00:00:00");
+      to = new Date(filter.to + "T23:59:59.999");
+    } else if (filter.preset === "7d") {
+      from = new Date(); from.setDate(from.getDate() - 7); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    } else if (filter.preset === "30d") {
+      from = new Date(); from.setDate(from.getDate() - 30); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    } else if (filter.preset === "month") {
+      from = new Date(); from.setDate(1); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    }
+    if (!from || !to) return periods;
     return periods.filter(p => {
       const start = new Date(p.weekStart);
-      if (range === "week")    { const d = new Date(now); d.setDate(now.getDate() - 7);        return start >= d; }
-      if (range === "month")   { const d = new Date(now); d.setMonth(now.getMonth() - 1);      return start >= d; }
-      const d = new Date(now); d.setMonth(now.getMonth() - 3); return start >= d;
+      return start >= from! && start <= to!;
     });
   }
 
-  function exportCSV(range: ExportRange) {
-    const filtered = filterPeriodsByRange(range);
+  function exportCSV() {
+    const filtered = filterPeriodsByDateRange(exportDateFilter);
     const rows = [["Week Start", "Week End", "Quarter", "Status", "Entries", "Gross", "Net"]];
     filtered.forEach(p => {
       const active = p.entries.filter(isActiveEntry);
@@ -1566,16 +1580,15 @@ function PayrollDashboardInner() {
       const net   = active.reduce((s, e) => s + Number(e.netAmount), 0);
       rows.push([p.weekStart, p.weekEnd, p.quarterLabel, p.status, String(active.length), gross.toFixed(2), net.toFixed(2)]);
     });
-    const label = range === "week" ? "weekly" : range === "month" ? "monthly" : "quarterly";
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" })),
-      download: `payroll-${label}.csv`,
+      download: `payroll-summary.csv`,
     });
     a.click();
   }
 
-  function exportDetailedCSV(range: ExportRange) {
-    const filtered = filterPeriodsByRange(range);
+  function exportDetailedCSV() {
+    const filtered = filterPeriodsByDateRange(exportDateFilter);
     const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
     const rows = [["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Hold","Net"]];
     for (const p of filtered) {
@@ -1630,10 +1643,9 @@ function PayrollDashboardInner() {
         rows.push([""]); // blank separator between periods
       }
     }
-    const label = range === "week" ? "weekly" : range === "month" ? "monthly" : "quarterly";
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" })),
-      download: `payroll-detailed-${label}.csv`,
+      download: `payroll-detailed.csv`,
     });
     a.click();
   }
@@ -2502,34 +2514,10 @@ function PayrollDashboardInner() {
           </p>
 
           <Card style={{ borderRadius: R["2xl"] }}>
-            {/* Range selector */}
+            {/* Date range selector */}
             <div style={{ marginBottom: S[6] }}>
-              <label style={LBL}>Time Range</label>
-              <div style={{ display: "flex", gap: S[2] }}>
-                {(["week", "month", "quarter"] as ExportRange[]).map((r, i) => {
-                  const active = exportRange === r;
-                  return (
-                    <button
-                      key={r}
-                      className={`btn-hover animate-fade-in-up stagger-${i + 1}`}
-                      onClick={() => setExportRange(r)}
-                      style={{
-                        padding: "10px 20px",
-                        border: active ? `1px solid rgba(20,184,166,0.4)` : `1px solid ${C.borderDefault}`,
-                        borderRadius: R.lg,
-                        background: active ? "rgba(20,184,166,0.12)" : C.bgSurfaceInset,
-                        color: active ? C.primary400 : C.textMuted,
-                        fontWeight: active ? 700 : 500,
-                        cursor: "pointer", fontSize: 13,
-                        boxShadow: active ? shadows.glowPrimary : "none",
-                        transition: `all ${motion.duration.fast} ${motion.easing.out}`,
-                      }}
-                    >
-                      {{ week: "This Week", month: "This Month", quarter: "This Quarter" }[r]}
-                    </button>
-                  );
-                })}
-              </div>
+              <label style={LBL}>Date Range</label>
+              <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} />
             </div>
 
             {/* Export actions */}
@@ -2542,7 +2530,7 @@ function PayrollDashboardInner() {
                 </div>
                 <Button
                   variant="ghost"
-                  onClick={() => { setExporting(true); exportCSV(exportRange); setTimeout(() => setExporting(false), 800); }}
+                  onClick={() => { setExporting(true); exportCSV(); setTimeout(() => setExporting(false), 800); }}
                   style={{ flexShrink: 0 }}
                 >
                   <Download size={14} /> Export
@@ -2557,7 +2545,7 @@ function PayrollDashboardInner() {
                 </div>
                 <Button
                   variant="primary"
-                  onClick={() => { setExporting(true); exportDetailedCSV(exportRange); setTimeout(() => setExporting(false), 800); }}
+                  onClick={() => { setExporting(true); exportDetailedCSV(); setTimeout(() => setExporting(false), 800); }}
                   style={{ flexShrink: 0 }}
                 >
                   <Download size={14} /> Export

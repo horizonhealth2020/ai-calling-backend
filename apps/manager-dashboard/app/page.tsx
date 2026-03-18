@@ -15,6 +15,7 @@ import {
   Input,
   Select,
   SkeletonCard,
+  DateRangeFilter,
   colors,
   spacing,
   radius,
@@ -27,6 +28,7 @@ import {
   baseThStyle,
   baseTdStyle,
 } from "@ops/ui";
+import type { DateRangeFilterValue } from "@ops/ui";
 import { captureTokenFromUrl, authFetch, getToken } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
 import {
@@ -97,6 +99,16 @@ type Sale = { id: string; saleDate: string; memberName: string; memberId?: strin
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+function buildDateParams(filter: DateRangeFilterValue): string {
+  if (filter.preset === "custom" && filter.from && filter.to) {
+    return `from=${filter.from}&to=${filter.to}`;
+  }
+  if (filter.preset !== "custom") {
+    return `range=${filter.preset}`;
+  }
+  return "";
+}
 
 function exportAgentPerformanceCSV(tracker: TrackerEntry[]) {
   const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
@@ -709,6 +721,7 @@ function ManagerDashboardInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
+  const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "30d" });
   const [salesList, setSalesList] = useState<Sale[]>([]);
   const [salesDay, setSalesDay] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -1789,16 +1802,25 @@ function ManagerDashboardInner() {
           <Card className="animate-fade-in">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing[5] }}>
               <SectionHeader icon={<Trophy size={18} />} title="Agent Performance" count={sorted.length} />
-              <button
-                onClick={() => exportAgentPerformanceCSV(tracker)}
-                style={{
-                  padding: "6px 14px", borderRadius: radius.md, border: `1px solid ${colors.borderDefault}`,
-                  background: colors.bgSurface, color: colors.textSecondary, fontSize: 12, fontWeight: 600,
-                  cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
-                }}
-              >
-                <Download size={14} /> Export CSV
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
+                <DateRangeFilter value={exportDateFilter} onChange={async (v) => {
+                  setExportDateFilter(v);
+                  const dp = buildDateParams(v);
+                  const url = `${API}/api/tracker/summary${dp ? `?${dp}` : ""}`;
+                  const res = await authFetch(url);
+                  if (res.ok) setTracker(await res.json());
+                }} />
+                <button
+                  onClick={() => exportAgentPerformanceCSV(tracker)}
+                  style={{
+                    padding: "6px 14px", borderRadius: radius.md, border: `1px solid ${colors.borderDefault}`,
+                    background: colors.bgSurface, color: colors.textSecondary, fontSize: 12, fontWeight: 600,
+                    cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
+                  }}
+                >
+                  <Download size={14} /> Export CSV
+                </button>
+              </div>
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
