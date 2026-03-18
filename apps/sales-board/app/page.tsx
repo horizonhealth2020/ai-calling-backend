@@ -25,6 +25,7 @@ import {
   ThemeToggle,
 } from "@ops/ui";
 import { colors, spacing, radius, shadows, baseCardStyle } from "@ops/ui";
+import { formatDollar, formatDate } from "@ops/utils";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
@@ -39,8 +40,7 @@ type DetailedData = {
   todayStats: Record<string, AgentStat>;
 };
 
-const fmt$ = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
@@ -532,7 +532,7 @@ function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highl
                             <AnimatedNumber value={stat.count} />
                           </div>
                           <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>
-                            {fmt$(stat.premium)}
+                            {formatDollar(stat.premium)}
                           </div>
                         </>
                       ) : (

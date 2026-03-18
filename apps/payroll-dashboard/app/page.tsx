@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, ToastProvider, useToast, Card, EmptyState } from "@ops/ui";
 import { colors, spacing, radius, shadows, motion, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { formatDollar, formatDate } from "@ops/utils";
 import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
 import {
@@ -281,7 +282,7 @@ function EditableSaleRow({
             <div style={{ display: "flex", flexDirection: "column" }}>
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
               {entry.sale?.premium != null && (
-                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>${Number(entry.sale.premium).toFixed(2)}</span>
+                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>{formatDollar(Number(entry.sale.premium))}</span>
               )}
             </div>
             {/* Addon & AD&D products side by side */}
@@ -310,14 +311,14 @@ function EditableSaleRow({
           />
         ) : (
           <span style={{ color: needsApproval ? C.danger : C.textSecondary, fontWeight: needsApproval ? 700 : 400 }}>
-            {fee !== null ? `$${fee.toFixed(2)}` : "—"}
+            {fee !== null ? formatDollar(fee) : "—"}
           </span>
         )}
       </td>
 
       <td style={tdRight}>
         <span style={{ color: C.textPrimary, fontWeight: 700 }}>
-          ${Number(entry.payoutAmount).toFixed(2)}
+          {formatDollar(Number(entry.payoutAmount))}
         </span>
       </td>
 
@@ -672,7 +673,7 @@ function ServiceAgentCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary }}>{agent.name}</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              Base Pay: <span style={{ color: C.textSecondary, fontWeight: 600 }}>${Number(agent.basePay).toFixed(2)}</span>
+              Base Pay: <span style={{ color: C.textSecondary, fontWeight: 600 }}>{formatDollar(Number(agent.basePay))}</span>
               {!agent.active && <span style={{ marginLeft: 6, color: C.textMuted }}> · Inactive</span>}
             </div>
           </div>
@@ -890,7 +891,7 @@ function AgentPayCard({
       }}>
         <div>
           <div style={HEADER_LBL}>Commission</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</div>
         </div>
         <div>
           <div style={HEADER_LBL}>Bonus</div>
@@ -996,10 +997,10 @@ function AgentPayCard({
             {/* Agent subtotal */}
             <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
               <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>${agentGross.toFixed(2)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.success }}>${totalBonus.toFixed(2)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.danger }}>${totalFronted.toFixed(2)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.warning }}>${totalHold.toFixed(2)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.success }}>{formatDollar(totalBonus)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.danger }}>{formatDollar(totalFronted)}</td>
+              <td style={{ ...tdRight, fontWeight: 700, color: C.warning }}>{formatDollar(totalHold)}</td>
               <td style={{ ...tdRight, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
                 <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
               </td>
@@ -2179,8 +2180,8 @@ function PayrollDashboardInner() {
                                   <Badge color={C.info} size="sm">CS</Badge>
                                 </div>
                                 <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
-                                  <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>${Number(se.basePay).toFixed(2)}</strong></span>
-                                  <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>${Number(se.totalPay).toFixed(2)}</strong></span>
+                                  <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</strong></span>
+                                  <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>{formatDollar(Number(se.totalPay))}</strong></span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -2221,12 +2222,12 @@ function PayrollDashboardInner() {
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: S[3] }}>
                                   <div>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Base Pay</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary }}>${Number(se.basePay).toFixed(2)}</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</div>
                                   </div>
                                   {seFronted > 0 && (
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Fronted</div>
-                                      <div style={{ fontSize: 15, fontWeight: 700, color: C.danger }}>${seFronted.toFixed(2)}</div>
+                                      <div style={{ fontSize: 15, fontWeight: 700, color: C.danger }}>{formatDollar(seFronted)}</div>
                                     </div>
                                   )}
                                   {bonusCategories.map(cat => {
@@ -2235,13 +2236,13 @@ function PayrollDashboardInner() {
                                     return (
                                       <div key={cat.name}>
                                         <div style={{ fontSize: 10, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{cat.name}</div>
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success }}>${amt.toFixed(2)}</div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success }}>{formatDollar(amt)}</div>
                                       </div>
                                     );
                                   })}
                                   <div>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Total Pay</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.info }}>${Number(se.totalPay).toFixed(2)}</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.info }}>{formatDollar(Number(se.totalPay))}</div>
                                   </div>
                                 </div>
                               </div>
@@ -2696,7 +2697,7 @@ function PayrollDashboardInner() {
                             )}
                           </td>
                           <td style={{ ...tdRight, color: C.textSecondary, fontWeight: 600 }}>
-                            ${basePay.toFixed(2)}
+                            {formatDollar(basePay)}
                           </td>
                           <td style={{ ...tdCenter, padding: "6px 4px" }}>
                             <input

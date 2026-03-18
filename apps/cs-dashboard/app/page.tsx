@@ -20,6 +20,7 @@ import {
   radius,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { formatDollar, formatNegDollar, formatDate } from "@ops/utils";
 import { ClipboardList, BarChart3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -228,17 +229,6 @@ function assignRoundRobin(
     _rrIndex++;
     return { ...r, assignedTo: rep };
   });
-}
-
-/* ── Formatting Helpers ─────────────────────────────────────────── */
-
-function formatDollar(n: number): string {
-  return "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatNegDollar(n: number): string {
-  const abs = Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `-$${abs}`;
 }
 
 /* ── Pending Terms Types ──────────────────────────────────────── */
@@ -1561,12 +1551,7 @@ function TrackingTab() {
   // Role check
   const canExport = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
 
-  // Date format helper
-  const fmtDate = (d: string | null) => {
-    if (!d) return "--";
-    const [y, m, dd] = d.split("T")[0].split("-");
-    return `${parseInt(m)}/${parseInt(dd)}/${y}`;
-  };
+  // Date format helper - uses shared formatDate from @ops/utils
 
   // CSV Export
   const exportCSV = () => {
@@ -1577,14 +1562,14 @@ function TrackingTab() {
     rows.push(["Date Posted", "Member", "Member ID", "Product", "Type", "Total", "Assigned To", "Submitted"]);
     filteredChargebacks.forEach((cb: any) => {
       rows.push([
-        esc(fmtDate(cb.postedDate)),
+        esc(formatDate(cb.postedDate)),
         esc(cb.memberCompany || "--"),
         esc(cb.memberId || "--"),
         esc(cb.product || "--"),
         esc(cb.type || "--"),
         esc(cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"),
         esc(cb.assignedTo || "Unassigned"),
-        esc(fmtDate(cb.submittedAt)),
+        esc(formatDate(cb.submittedAt)),
       ]);
     });
 
@@ -1597,8 +1582,8 @@ function TrackingTab() {
         esc(pt.memberId || "--"),
         esc(pt.phone || "--"),
         esc(pt.product || "--"),
-        esc(fmtDate(pt.holdDate)),
-        esc(fmtDate(pt.nextBilling)),
+        esc(formatDate(pt.holdDate)),
+        esc(formatDate(pt.nextBilling)),
         esc(pt.assignedTo || "Unassigned"),
       ]);
     });
@@ -1816,14 +1801,14 @@ function TrackingTab() {
               <tbody>
                 {filteredChargebacks.map((cb: any) => (
                   <tr key={cb.id}>
-                    <td style={baseTdStyle}>{fmtDate(cb.postedDate)}</td>
+                    <td style={baseTdStyle}>{formatDate(cb.postedDate)}</td>
                     <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.memberCompany || "--"}</td>
                     <td style={baseTdStyle}>{cb.memberId || "--"}</td>
                     <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.product || "--"}</td>
                     <td style={baseTdStyle}>{cb.type || "--"}</td>
                     <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
                     <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
-                    <td style={baseTdStyle}>{fmtDate(cb.submittedAt)}</td>
+                    <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
                     <td style={baseTdStyle}>
                       <button
                         onClick={() => handleDeleteCb(cb.id)}
@@ -1922,8 +1907,8 @@ function TrackingTab() {
                     <td style={baseTdStyle}>{pt.memberId || "--"}</td>
                     <td style={baseTdStyle}>{pt.phone || "--"}</td>
                     <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
-                    <td style={{ ...baseTdStyle, color: colors.danger }}>{fmtDate(pt.holdDate)}</td>
-                    <td style={{ ...baseTdStyle, color: colors.success }}>{fmtDate(pt.nextBilling)}</td>
+                    <td style={{ ...baseTdStyle, color: colors.danger }}>{formatDate(pt.holdDate)}</td>
+                    <td style={{ ...baseTdStyle, color: colors.success }}>{formatDate(pt.nextBilling)}</td>
                     <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
                     <td style={baseTdStyle}>
                       <button

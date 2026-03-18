@@ -28,6 +28,7 @@ import {
   baseTdStyle,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch, getToken } from "@ops/auth/client";
+import { formatDollar, formatDate } from "@ops/utils";
 import {
   FileText,
   Users,
@@ -557,7 +558,7 @@ function ProductRow({ product, onSave }: { product: Product; onSave: (id: string
         </div>
         <div style={{ fontSize: 12, color: colors.textTertiary, marginTop: 3 }}>
           {product.type === "CORE" && product.premiumThreshold != null && (
-            <span>Threshold: ${Number(product.premiumThreshold).toFixed(2)} \u00b7 Below: {product.commissionBelow ?? "\u2014"}% \u00b7 Above: {product.commissionAbove ?? "\u2014"}%</span>
+            <span>Threshold: {formatDollar(Number(product.premiumThreshold))} {"\u00b7"} Below: {product.commissionBelow ?? "\u2014"}% {"\u00b7"} Above: {product.commissionAbove ?? "\u2014"}%</span>
           )}
           {product.type !== "CORE" && (
             <span>Bundled: {product.bundledCommission ?? "\u2014"}% \u00b7 Standalone: {product.standaloneCommission ?? "\u2014"}%</span>
@@ -1405,7 +1406,7 @@ function ManagerDashboardInner() {
                       ...PREVIEW_TOTAL,
                       ...(previewLoading ? { animation: "pulse 1.5s ease-in-out infinite", opacity: 0.6 } : {}),
                     }}>
-                      ${previewData ? previewData.commission.toFixed(2) : "0.00"}
+                      {previewData ? formatDollar(previewData.commission) : "$0.00"}
                     </div>
 
                     {previewData && (
@@ -1834,12 +1835,12 @@ function ManagerDashboardInner() {
                         {sales.map(s => (
                           <React.Fragment key={s.id}>
                           <tr className="row-hover" style={{ transition: "box-shadow 1.5s ease-out", ...(highlightedSaleIds.has(s.id) ? HIGHLIGHT_GLOW : {}) }}>
-                            <td style={baseTdStyle}>{new Date(s.saleDate).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
+                            <td style={baseTdStyle}>{formatDate(s.saleDate)}</td>
                             <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
                             <td style={baseTdStyle}>{s.carrier}</td>
                             <td style={baseTdStyle}>{s.product.name}</td>
                             <td style={baseTdStyle}>{s.leadSource.name}</td>
-                            <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>${Number(s.premium).toFixed(2)}</td>
+                            <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{formatDollar(Number(s.premium))}</td>
                             <td style={{ ...baseTdStyle, textAlign: "center" }}>
                               {s.hasPendingStatusChange ? (
                                 <StatusBadge status="PENDING_RAN" />
@@ -2045,7 +2046,7 @@ function ManagerDashboardInner() {
                                               {editPreview && (
                                                 <div style={{ display: "flex", gap: spacing[2], alignItems: "center" }}>
                                                   <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 120 }}>Commission:</span>
-                                                  <span style={DIFF_NEW}>${editPreview.commission.toFixed(2)}</span>
+                                                  <span style={DIFF_NEW}>{formatDollar(editPreview.commission)}</span>
                                                 </div>
                                               )}
                                             </div>
@@ -2172,7 +2173,7 @@ function ManagerDashboardInner() {
                           style={{ cursor: "pointer" }}
                           onClick={() => setExpandedAudit(isExpanded ? null : a.id)}
                         >
-                          <td style={baseTdStyle}>{new Date(a.callDate).toLocaleDateString()}</td>
+                          <td style={baseTdStyle}>{formatDate(a.callDate)}</td>
                           <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{a.agent.name}</td>
                           <td style={baseTdStyle}>
                             {outcomeStyle ? (
