@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A sales operations platform with role-based dashboards for managers, payroll staff, owners, and agents. A sale entered on the manager dashboard cascades correctly across all dashboards — agent tracker, sales board, payroll cards, and owner KPIs — with accurate commission calculations, real-time updates, and a complete payroll management workflow.
+A sales operations platform with role-based dashboards for managers, payroll staff, owners, customer service, and agents. A sale entered on the manager dashboard cascades correctly across all dashboards — agent tracker, sales board, payroll cards, and owner KPIs — with accurate commission calculations, real-time updates, and a complete payroll management workflow. Customer service staff manage chargebacks and pending terms through paste-to-parse submission workflows and rich tracking views.
 
 ## Core Value
 
@@ -14,7 +14,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 <!-- Shipped and confirmed valuable. -->
 
-- ✓ JWT authentication with role-based access control (6 roles) — existing
+- ✓ JWT authentication with role-based access control (7 roles) — existing + v1.1
 - ✓ Auth portal with login, password change, role-based redirect — existing
 - ✓ Prisma/PostgreSQL data layer with migrations — existing
 - ✓ Docker and Railway deployment — existing
@@ -33,24 +33,27 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Audit logging for sensitive operations — existing
 - ✓ Customer Service dashboard with chargeback and pending terms parsers — v1.1
 - ✓ Chargeback and pending terms tracking tables with KPI counters, filters, CSV export — v1.1
-- ✓ Resolution workflow with typed outcomes and status filtering — v1.1
+- ✓ Resolution workflow with resolve/unresolve, status filtering, live KPI updates — v1.1
 - ✓ Role-gated tab access: Submissions (SUPER_ADMIN/OWNER_VIEW only), Tracking (+ CUSTOMER_SERVICE) — v1.1
 - ✓ Auth permission tightening: positive canManageCS allowlist, SUPER_ADMIN sees all dashboard cards — v1.1
+- ✓ Shared formatDollar/formatDate utilities in @ops/utils across all 6 dashboards — v1.1
 
 ### Active
 
-<!-- No active requirements — v1.1 complete -->
+<!-- No active requirements — planning next milestone -->
 
-## Current Milestone: v1.1 Customer Service
+## Current State
 
-**Goal:** Add a Customer Service dashboard for managing chargebacks and pending terms with paste-to-parse submission workflows and rich tracking views.
+**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18)
+**Total:** 17 phases, 46 plans, 90 requirements across 5 days
 
-**Target features:**
-- New role: customer_service (tracking-only access)
-- Chargeback submission parser with batch support
-- Pending Terms submission parser with batch support
-- Chargeback tracking with KPI counters and filters
-- Pending Terms tracking with hold-date urgency
+The platform is fully operational with 6 dashboards, 1 API, and shared @ops/* packages:
+- **Manager dashboard** — sales entry, agent tracker, call audits, config management
+- **Payroll dashboard** — payroll periods, commission approval, service staff, clawbacks, exports
+- **Sales board** — read-only sales leaderboard
+- **Owner dashboard** — KPI summary and operational overview
+- **Auth portal** — login UX + role-based redirect
+- **CS dashboard** — chargeback/pending terms submission and tracking
 
 ### Out of Scope
 
@@ -59,18 +62,21 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports cover the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
+- Chargeback → payroll integration — v1.1 is standalone tracking; wire later
+- Pending terms → agent KPI influence — decoupled for now; extensible schema allows future wiring
 
 ## Context
 
-Shipped v1.0 with 10 phases, 31 plans, 50 requirements across 4 days. Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with 5 dashboards, 1 API, and shared @ops/* packages.
-
-The platform is now fully operational: sales entry works end-to-end, commissions calculate correctly with all bundle/fee/arrears rules, dashboards cascade in real-time, payroll management has a complete lifecycle, and all UI uses a consistent shared design system.
+Shipped v1.0 MVP in 4 days (10 phases, 31 plans) and v1.1 Customer Service in 2 days (7 phases, 15 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with 6 dashboards, 1 API, and shared @ops/* packages.
 
 **Known areas for future work:**
 - Bulk sale import from CSV
 - Custom date range selection for reports
 - Enhanced AI call audit analysis
 - Automated call quality scoring
+- Wire chargebacks to payroll clawback workflow
+- Wire pending terms to agent KPI metrics
+- Real-time Socket.IO updates on new CS submissions
 
 ## Constraints
 
@@ -94,6 +100,11 @@ The platform is now fully operational: sales entry works end-to-end, commissions
 | Socket.IO for real-time cascade | Replaced polling with event-driven updates across all dashboards | ✓ Good |
 | Shared @ops/ui design system | Migrated all dashboards to shared components with design tokens | ✓ Good |
 | Submit-only form validation | Per-field inline errors on submit, not on-blur or real-time | ✓ Good |
+| CS dashboard as 6th app | Separate Next.js app following existing dashboard pattern | ✓ Good |
+| Paste-to-parse submission workflow | Raw text pasted, client-side parser, editable preview before submit | ✓ Good |
+| Flat tracking tables (no agent grouping) | Simpler UX, agent data stored but filtered behind-the-scenes | ✓ Good |
+| canManageCS positive allowlist | Replaced negative isCSOnly check with explicit role list | ✓ Good |
+| Shared formatDollar/formatDate in @ops/utils | Extracted from dashboards to shared package for consistency | ✓ Good |
 
 ---
-*Last updated: 2026-03-18 after v1.1 Phase 17 completion — all tech debt resolved*
+*Last updated: 2026-03-18 after v1.1 milestone completion*
