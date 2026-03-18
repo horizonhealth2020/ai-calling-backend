@@ -246,6 +246,26 @@ type ParseResult = {
   parsedProducts: ParsedProduct[]; paymentType?: "CC" | "ACH"; memberState?: string;
 };
 
+function mapParsedStatus(raw: string): string {
+  const normalized = raw.toUpperCase().trim();
+  const statusMap: Record<string, string> = {
+    "APPROVED": "RAN",
+    "SALE": "RAN",
+    "ACTIVE": "RAN",
+    "COMPLETED": "RAN",
+    "SUBMITTED": "RAN",
+    "RAN": "RAN",
+    "DECLINED": "DECLINED",
+    "REJECTED": "DECLINED",
+    "CANCELLED": "DEAD",
+    "CANCELED": "DEAD",
+    "DEAD": "DEAD",
+    "VOID": "DEAD",
+    "VOIDED": "DEAD",
+  };
+  return statusMap[normalized] || "RAN";
+}
+
 function parseReceipt(text: string): ParseResult {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const t = lines.join(" ");
@@ -266,7 +286,7 @@ function parseReceipt(text: string): ParseResult {
   }
 
   const st = t.match(/SALE on .+?[-\u2013]\s*(Approved|Rejected|Cancelled|Submitted)/i);
-  if (st) out.status = st[1].toUpperCase();
+  if (st) out.status = mapParsedStatus(st[1]);
 
   const dt = t.match(/Date:\s*(\d{2})\/(\d{2})\/(\d{4})/);
   if (dt) out.saleDate = `${dt[3]}-${dt[1]}-${dt[2]}`;
@@ -325,8 +345,14 @@ function parseReceipt(text: string): ParseResult {
     if (mid) { out.memberId = mid[1]; out.memberName = mid[2].trim(); }
   }
 
+  // Match state from address -- "City, ST 12345" pattern
   const stateMatch = t.match(/,\s*([A-Z]{2})\s+\d{5}/);
   if (stateMatch) out.memberState = stateMatch[1];
+  // Fallback: 2-letter state code before ZIP without comma
+  if (!out.memberState) {
+    const stateMatch2 = t.match(/\b([A-Z]{2})\s+\d{5}/);
+    if (stateMatch2) out.memberState = stateMatch2[1];
+  }
 
   if (!out.enrollmentFee) {
     const efRe = /Enrollment\s+\$?([\d,]+\.?\d*)/g;
@@ -1031,7 +1057,7 @@ function ManagerDashboardInner() {
     });
     const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
     const { addonNames: _, parsedProducts, enrollmentFee, paymentType: parsedPaymentType, ...formFields } = p;
-    setForm(f => ({ ...f, ...formFields, enrollmentFee: enrollmentFee ?? f.enrollmentFee, addonProductIds, productId: coreMatch?.id ?? f.productId, paymentType: parsedPaymentType ?? f.paymentType }));
+    setForm(f => ({ ...f, ...formFields, enrollmentFee: enrollmentFee ?? f.enrollmentFee, addonProductIds, productId: coreMatch?.id ?? "", paymentType: parsedPaymentType ?? f.paymentType }));
     setParsedInfo({ enrollmentFee, premium: p.premium, coreProduct: coreMatch ? coreMatch.name : p.carrier, parsedProducts, addons: addonMatches });
     setParsed(true);
   }
