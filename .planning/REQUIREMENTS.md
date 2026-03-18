@@ -28,10 +28,10 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 ### Payroll UX
 
-- [ ] **PAY-01**: Paid/unpaid toggle works bidirectionally (on and off)
-- [ ] **PAY-02**: Edit button on each sale record in payroll view
-- [ ] **PAY-03**: Bonus, fronted, and hold fields removed from sale rows — only on agent card header
-- [ ] **PAY-04**: "+10" indicator next to enrollment fee amount when qualifying for $124 enrollment bonus
+- [x] **PAY-01**: Paid/unpaid toggle works bidirectionally (on and off)
+- [x] **PAY-02**: Edit button on each sale record in payroll view
+- [x] **PAY-03**: Bonus, fronted, and hold fields removed from sale rows — only on agent card header
+- [x] **PAY-04**: "+10" indicator next to enrollment fee amount when qualifying for $124 enrollment bonus
 
 ### Manager Dashboard
 
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CS-02 | Phase 18 | Pending |
 | CS-03 | Phase 18 | Pending |
 | CS-04 | Phase 18 | Pending |
-| PAY-01 | Phase 18 | Pending |
-| PAY-02 | Phase 18 | Pending |
-| PAY-03 | Phase 18 | Pending |
-| PAY-04 | Phase 18 | Pending |
+| PAY-01 | Phase 18 | Complete |
+| PAY-02 | Phase 18 | Complete |
+| PAY-03 | Phase 18 | Complete |
+| PAY-04 | Phase 18 | Complete |
 | MGR-01 | Phase 18 | Complete |
 | MGR-02 | Phase 18 | Complete |
 | MGR-03 | Phase 18 | Complete |
