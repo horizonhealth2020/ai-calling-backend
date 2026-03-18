@@ -1,188 +1,214 @@
 # Project Research Summary
 
-**Project:** Ops Platform — Payroll & Usability Overhaul
-**Domain:** Internal sales operations platform (commission management, payroll, real-time dashboards)
-**Researched:** 2026-03-14
+**Project:** Ops Platform v1.2 — Platform Polish & Integration
+**Domain:** Sales operations platform — insurance sales, payroll, chargebacks, agent KPIs
+**Researched:** 2026-03-18
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This is a sales operations platform overhaul focused on fixing a broken commission and payroll pipeline, then layering usability improvements on top. The platform is a Next.js 15 monorepo with an Express API, Prisma/PostgreSQL, and Socket.IO — a mature, sufficient stack that requires zero new dependencies. The recommended approach is to fix correctness issues first (sale creation crashes, wrong period assignment, fragile commission logic) before addressing any UI or feature work. Attempting to build new features on a broken data pipeline will compound defects and make testing impossible.
+v1.2 is an integration milestone, not a technology milestone. The platform already contains all the infrastructure it needs: Claude-powered call audits, Socket.IO for real-time events, Prisma models for chargebacks and pending terms, and client-side CSV export. The work is about connecting these isolated systems — CS data into payroll alerts, chargeback records into agent KPI tables, the audit pipeline into owner-visible scoring, and date range filtering across all six dashboards. Zero new npm packages are required. The only schema additions are one new `Alert` model and a handful of fields on `CsRepRoster`.
 
-The most important finding across all research dimensions is that the platform has 6 critical bugs that must be resolved before any other work proceeds. The most severe is a `memberState` reference in `payroll.ts` that causes a 500 error on every sale creation attempt — meaning the core action of the entire platform is completely broken today. Fixing this single bug unblocks all downstream testing, commission validation, payroll verification, and dashboard cascade work.
+The recommended approach is to build in dependency order: cross-dashboard date range infrastructure first (used by every downstream feature), Socket.IO events for CS next (unblocks the alert pipeline), then the chargeback-to-payroll alert pipeline (the core v1.2 value proposition), followed by AI scoring visibility and agent KPI aggregation. Standalone UI fixes — the INP bug, commission column removal, payroll card layout, paid/unpaid toggle, and "+10" indicator — can be parallelized at any point since they carry no API dependencies. This ordering ensures each phase produces testable value and avoids blocking chains.
 
-The primary risk is complexity accumulation in the commission engine: bundle detection via string matching, per-addon premium ambiguity, and inconsistent net-amount formulas across create/update paths all create a system that silently produces wrong pay. The mitigation strategy is to extract commission logic into pure, tested functions before wiring any UI on top of it.
+The top risks are financial safety and operational cost. The chargeback-to-payroll alert pipeline must use fuzzy matching with explicit manual confirmation — never auto-deduct payroll based on unreliable free-text member ID fields from paste-parsed carrier reports. The AI auto-scoring feature must ship with a daily budget cap and a DB-backed queue rather than the current in-memory array, which does not survive deploys and has no backpressure. The bidirectional payroll toggle must be restricted to OPEN periods only to avoid corrupting finalized payroll records.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack is fully sufficient — no new packages are needed. Every requirement maps cleanly to an already-installed library. See `.planning/research/STACK.md` for the full assessment.
+v1.2 requires no new npm packages. Every feature maps directly to existing capabilities: `@anthropic-ai/sdk` for call auditing, `socket.io` for real-time events, Prisma for data persistence, Zod for validation, and native `<input type="date">` for the date range picker (avoiding CSS conflicts with the inline CSSProperties pattern). The only infrastructure change is one Prisma migration: a new `Alert` model and three fields added to `CsRepRoster`. See [STACK.md](.planning/research/STACK.md) for the full feature-by-feature analysis.
 
-**Core technologies:**
-- Express 4.19.2: REST API layer — no change needed
-- Prisma 5.20.0 + PostgreSQL 15+: data persistence — schema changes needed, not ORM changes
-- Next.js 15 / React 18: all five frontend dashboards — no version changes
-- Socket.IO 4.8.3: real-time events — extend existing, do not replace
-- Zod 3.23.8: request validation — already in use, enforce consistently
-- Luxon 3.4.4: date/period arithmetic — already installed but underused; use for arrears period logic
-- Recharts 3.8.0: charting for KPI dashboards — already in place
-
-**What not to add:** decimal.js, React Hook Form, react-window, Redux/Zustand, TanStack Query, Tailwind — all are explicitly out of scope given codebase conventions and data scale.
+**Core technologies (no changes needed):**
+- `@anthropic-ai/sdk` 0.78.0: AI call audit pipeline — integrated in `callAudit.ts`; system prompt stored in `SalesBoardSetting`
+- `socket.io` 4.8.x: real-time cascade — extend existing pattern with `cs:changed` and `alert:created` events
+- Prisma 5.20.x: ORM — add `Alert` model and `CsRepRoster` fields via a single migration
+- Native `<input type="date">`: date range picker — no library; avoids inline CSSProperties conflicts
+- `fs.statfs()` (Node 20.x built-in): disk monitoring — zero-dependency solution
 
 ### Expected Features
 
-See `.planning/research/FEATURES.md` for the full feature table with complexity and dependency mapping.
+See [FEATURES.md](.planning/research/FEATURES.md) for the full feature table with complexity ratings and dependency mapping.
 
 **Must have (table stakes):**
-- Sale creation without errors — unblocks the entire platform
-- Multi-product selection per sale with per-product commission rules
-- Commission engine: bundle detection, arrears period assignment, enrollment fee rules, ACH delay
-- Payroll period workflow: Pending → Ready → Finalized with export
-- Dashboard cascade: sale creation updates manager tracker, sales board, payroll cards, and owner KPIs in real time
-- Scrollable payroll cards (currently breaks with many agents)
-- Form validation with visible error display
+- Custom date range CSV exports — preset-only system creates immediate friction for ops staff
+- Payroll paid/unpaid toggle (both directions) — one-way toggle has no recovery path for accidental marks
+- Edit button per sale in payroll view — staff see errors but must leave context to correct them
+- Chargeback alerts in payroll dashboard — the core v1.2 value; chargebacks directly affect agent pay
+- Fix AI config "INP not defined" bug — broken tab erodes trust in the entire owner dashboard
+- Remove commission column from agent tracker — user-requested; commission detail belongs in payroll only
+- Bonus/fronted/hold off sale rows, keep on agent card header — declutters per-sale view
 
 **Should have (differentiators):**
-- Live commission preview as products are selected (before submit)
-- Trend KPIs on owner dashboard (vs prior week/month)
-- Agent performance scoring beyond raw counts
-- Bulk sale import from CSV
+- AI call transcript auto-scoring — turns 1-2% manual QA into 100% call coverage using existing `callAudit.ts`
+- System prompt editor in owner dashboard — owners tune AI evaluation without developer intervention
+- Pending terms + chargebacks wired to agent KPIs — makes CS data actionable for managers and owners
+- Real-time Socket.IO for CS submissions — feature parity with the existing sale cascade
+- "+10" enrollment fee indicator — surfaces the existing $10 bonus rule inline on the payroll card
+- Rep checklist for round-robin assignment — formalizes distribution, prevents cherry-picking
+- Service agent sync between payroll and CS — single source of truth for rep lists
+- CS tracking: holder date records per date — audit trail for insurance term management compliance
 
-**Defer to v2+:**
-- Commission dispute workflow (high complexity, low urgency)
-- Automated payroll provider integration
-- Mobile native app
-- Custom report builder
-- Agent self-service portal
-- Automated clawback triggers
+**Defer:**
+- Storage alert with download/clearance — low urgency unless Railway plan is near capacity; build stats endpoint first, observe before alerting
+- Bulk chargeback auto-matching to sales — anti-feature; false positives create payroll errors; keep manual matching with "possible match" suggestions only
 
 ### Architecture Approach
 
-The architecture follows a clean hub-and-spoke model: `ops-api` is the authoritative hub for all financial writes, dashboards are spokes that read via HTTP and receive real-time notifications via Socket.IO. The key architectural principle is that commission calculation must be server-authoritative — the API calculates and persists, the UI only displays previews. The current architecture violates several of its own design intent through the bugs enumerated below. The fix strategy preserves the existing component boundaries while making the data flow actually correct. See `.planning/research/ARCHITECTURE.md` for the full target data flow.
+v1.2 adds an integration layer over the existing monorepo. Three new files are the only meaningful additions: `apps/ops-api/src/services/alerts.ts` (creates `Alert` records from domain events, emits `alert:created` via Socket.IO), `apps/ops-api/src/services/agentKpiAggregator.ts` (queries chargebacks and pending terms grouped by agent), and `packages/ui/src/components/DateRangeFilter.tsx` (shared date range picker with preset buttons and custom `from`/`to` ISO params). All other changes are route extensions, additions to existing dashboard pages, or new Socket.IO events in the existing `socket.ts`. See [ARCHITECTURE.md](.planning/research/ARCHITECTURE.md) for full data flow diagrams and schema additions.
 
 **Major components:**
-1. Payroll Service (`payroll.ts`) — commission calculation, period assignment; must be refactored into pure functions before UI work
-2. Socket.IO Layer — currently only emits audit events; needs `sale:created`, `payroll:updated`, `kpi:refresh` events added
-3. Manager Dashboard — primary sale entry point; needs multi-product form with commission preview
-4. Payroll Dashboard — period management and exports; needs scrollable cards and finalized-period write guards
-5. Owner Dashboard — KPI aggregation; needs standardized date ranges and Socket.IO refresh
-6. Product model — needs `isBundleQualifier` boolean flag to replace string-matching bundle detection
+1. `AlertService` (ops-api/services) — creates `Alert` records from chargeback events; emits `alert:created` to payroll dashboard
+2. `AgentKpiAggregator` (ops-api/services) — computes per-agent chargeback count, dollar total, and pending term count on read from existing tables
+3. `DateRangeFilter` (`@ops/ui`) — shared date picker with presets; extends the `dateRange()` helper to accept `from`/`to` ISO strings alongside existing preset params
+4. Updated `socket.ts` — adds `emitCSChanged` and `emitAlertCreated` following the existing `emitSaleChanged` pattern
+5. Owner dashboard AI tab — system prompt editor, aggregate score view, score distribution; reads from existing `CallAudit` data via a new aggregation endpoint
 
 ### Critical Pitfalls
 
-See `.planning/research/PITFALLS.md` for all 15 pitfalls with phase assignments.
+See [PITFALLS.md](.planning/research/PITFALLS.md) for all 15 pitfalls with phase assignments and detection strategies.
 
-1. **Sale creation 500 (`memberState` missing)** — Fix first. Every POST to `/api/sales` crashes. Either add the field via migration or remove the dead reference. Nothing else can be tested until this is resolved.
-2. **Week-in-arrears not implemented** — `getSundayWeekRange` maps to the current week, not the following week. Rewrite with +1 week offset (standard) and +2 weeks for ACH. Unit-test with boundary dates.
-3. **Floating-point commission rounding** — Prisma Decimal cast to Number before arithmetic accumulates drift. Apply `Math.round(value * 100) / 100` at each calculation step, not just at display.
-4. **String-matching bundle detection** — `product.name.includes("Compass VAB")` breaks silently on rename. Add `isBundleQualifier: Boolean` to the Product schema and check the flag.
-5. **Net amount desync (create vs update)** — Extract a single `calculateNetAmount(payout, adjustment, bonus, fronted)` function used by both create and update paths to prevent formula drift.
+1. **AI scoring queue has no backpressure or persistence (P1)** — `auditQueue.ts` is an in-memory array; designed for manual one-off audits. Auto-scoring all Convoso transcripts will grow it unbounded and lose jobs on restart. Replace with a DB-backed queue using a `scoring_status` column on `ConvosoCallLog`. Must be done before enabling auto-scoring.
+
+2. **Chargeback-to-payroll match creates phantom financial impact (P2)** — `ChargebackSubmission.memberId` is free-text from paste-parsed carrier reports, not a FK to `Sale.memberId`. Naive string matching produces false positives. Alerts must be informational-only with explicit payroll staff approval; never auto-deduct. Add a nullable `matchedSaleId` FK and match confidence score.
+
+3. **Auto-scoring cost spiral (P11)** — Claude + Whisper fees at 200 calls/day run $15-30/day with no current budget controls. Ship a configurable daily budget cap and a minimum call duration filter with auto-scoring. Show estimated monthly cost in the owner dashboard. Never ship auto-scoring without these controls.
+
+4. **Bidirectional toggle corrupts finalized periods (P4)** — Un-paying an entry in a LOCKED or FINALIZED period breaks `handleCommissionZeroing` logic and audit trail. Restrict PAID -> READY toggle to OPEN periods only; require an adjustment workflow for finalized periods.
+
+5. **Service agent sync creates identity split (P5)** — `ServiceAgent` (payroll) and `CsRepRoster` (CS) have no shared key. Round robin assignment depends on a single authoritative rep list. Consolidate before building round robin: add `serviceAgentId` FK on `CsRepRoster`, or use `ServiceAgent` with an `isCsRep` flag.
 
 ## Implications for Roadmap
 
-The feature dependency chain is unambiguous and dictates phase order: sale creation must work before commission accuracy can be verified, which must be verified before payroll period assignment can be trusted, which must be trusted before dashboard cascade can be meaningful, which must be working before reporting is useful.
+Based on combined research, a four-phase structure is recommended, with standalone UI fixes parallelizable throughout all phases.
 
-### Phase 1: Fix the Pipeline (Critical Bugs)
+### Phase 1: Foundation — Bug Fixes, UI Cleanup, and Date Range Infrastructure
 
-**Rationale:** Six critical bugs make the platform non-functional for its core purpose. No other work has value until sale creation succeeds and commissions are calculated correctly. This phase has no user-facing UI scope — it is pure correctness work.
-**Delivers:** A working sale creation flow with accurate commissions and correct period assignment.
-**Addresses:** Features 1–14 (sales entry + commission engine prerequisites)
-**Avoids:** P1 (sale 500), P2 (arrears logic), P3 (rounding), P4 (string matching), P5 (addon premium), P6 (net amount desync), P7 (UTC/timezone), P14 (fallback silencing errors)
-**Schema changes required:** Add `memberState` or remove reference; add `isBundleQualifier` to Product; clarify SaleAddon premium (per-product or shared)
+**Rationale:** Bug fixes restore trust and are the lowest-risk changes with immediate user impact. The shared `DateRangeFilter` component is horizontal infrastructure consumed by every downstream phase — export endpoints, KPI tables, and AI summary views all need date range support. Building it first prevents each later phase from solving the same problem independently.
 
-### Phase 2: Wire the Cascade (Real-Time Dashboard Updates)
+**Delivers:** Working owner dashboard AI tab (INP fix), clean manager agent tracker (commission column removed), correct payroll card layout (bonus/fronted/hold moved to header), bidirectional paid toggle restricted to OPEN periods, "+10" enrollment fee indicator, shared `DateRangeFilter` in `@ops/ui`, extended `dateRange()` helper with `from`/`to` params, custom date range CSV exports wired across all dashboards.
 
-**Rationale:** Once commissions and periods are correct, Socket.IO events can be added without risk of broadcasting wrong data. This phase makes the data flow observable across all dashboards.
-**Delivers:** Sale creation updates manager tracker, payroll cards, sales board leaderboard, and owner KPIs in real time — no manual refresh needed.
-**Addresses:** Features 20–23 (dashboard cascade)
-**Avoids:** P8 (sale edits skip recalculation), P9 (no socket events for sale CRUD)
-**Stack used:** Socket.IO room-based broadcasting — extend existing, no new library
+**Addresses:** Fix AI config INP error, remove commission column, bonus/fronted/hold layout, paid/unpaid toggle, "+10" indicator, custom date range exports (all table stakes)
 
-### Phase 3: Payroll UX (Period Workflow + Export)
+**Avoids:** P4 (period corruption) by restricting toggle to OPEN periods from day one; P6 (timezone inconsistency) by centralizing date boundary logic in a shared utility; P13 (CSV memory pressure) by adding a maximum selectable date range
 
-**Rationale:** With correct data flowing, payroll dashboard usability can be addressed: scrollable cards, period status transitions, finalized-period write guards, and CSV export.
-**Delivers:** Payroll team can manage full period lifecycle without workarounds, export finalized payroll to CSV.
-**Addresses:** Features 15–19 (period management, scrollable cards, export)
-**Avoids:** P10 (multi-product double-submit), P11 (writes to finalized periods)
-**Stack used:** Server-side CSV generation (string concatenation or `papaparse` — decide based on whether import is also needed)
+**Research flag:** Standard patterns — no phase research needed. All changes are frontend-only or minimal API extensions with well-documented patterns in the codebase.
 
-### Phase 4: Multi-Product Sale Form (Manager Dashboard)
+---
 
-**Rationale:** The multi-product form is the most complex UI work and depends on a stable commission engine (Phase 1) and working cascade (Phase 2). Building it earlier would require rebuilding against a moving target.
-**Delivers:** Managers can enter sales with multiple products, see live commission preview before submission, and select payment type with correct arrears implications.
-**Addresses:** Features 2–6 (multi-product, payment type, commission preview, sale edit)
-**Avoids:** P10 (double-submit idempotency)
-**Stack used:** `useReducer` with typed actions for form state; commission preview via API call, not client-side calculation
+### Phase 2: CS Real-Time and Chargeback-Payroll Alert Pipeline
 
-### Phase 5: Reporting + Owner KPIs
+**Rationale:** Socket.IO events for CS are a small code change (one new emit function in `socket.ts`) that must exist before the alert pipeline can be built. The chargeback-to-payroll alert pipeline is the stated core value of v1.2 — it makes CS submissions visible to payroll staff without requiring a dashboard context switch. This phase also includes the edit-per-sale in payroll (reuses the existing `SaleEditRequest` API) and CS holder date records (new model, replaces the vague "due within 7 days" filter).
 
-**Rationale:** Reporting is only trustworthy once Phases 1–4 produce correct data. This phase surfaces aggregated data for decision-making.
-**Delivers:** Per-agent commission totals, cost-per-sale, weekly/monthly period summaries, owner trend KPIs.
-**Addresses:** Features 24–27 (reporting), Feature 4 (trend KPIs) from differentiators
-**Avoids:** P12 (clawback period targeting for ACH), P15 (date range mixing in owner dashboard)
-**Stack used:** Luxon for standardized date range queries across routes
+**Delivers:** Real-time CS dashboard (no manual refresh for concurrent users), chargeback alerts in payroll with Socket.IO badge notification, approve/clear alert workflow with audit trail, edit-per-sale in payroll routed through existing `handleSaleEditApproval`, holder date records per pending term.
 
-### Phase 6: Polish + Performance
+**Addresses:** Chargeback alerts in payroll, edit button per sale, real-time Socket.IO for CS submissions, holder date records (table stakes + differentiators)
 
-**Rationale:** Final pass on form UX, error messages, validation consistency, and query performance once all features are stable.
-**Delivers:** Production-quality UI with consistent error handling and performant queries under load.
-**Addresses:** Features 28–29 (form validation, responsive layouts), leaderboard indexing
-**Avoids:** P13 (leaderboard query performance at scale)
+**Avoids:** P2 (phantom financial impact) by making all alerts informational-only with manual approval required; P7 (Socket.IO event explosion) by emitting one batch event per CS submission, not one per row; P9 (edit bypass) by routing payroll edits through the existing single edit path
+
+**Research flag:** Standard patterns for Socket.IO and alert pipeline — both extend proven existing patterns. The chargeback match quality (P2) requires testing the proposed fuzzy matching against historical production data before shipping. Run this validation before Phase 2 deploys.
+
+---
+
+### Phase 3: Agent KPIs and Service Agent Sync
+
+**Rationale:** Agent KPI aggregation requires the Phase 1 date range infrastructure (queries accept `from`/`to`). Service agent sync must be resolved before round robin assignment can be built — round robin needs a single authoritative rep list. These two features are grouped because they share the same architectural concern: consolidating distributed agent data into unified views.
+
+**Delivers:** Per-agent chargeback count, dollar total, and pending term count in manager and owner dashboards (computed on read, not snapshot); `serviceAgentId` FK linking `CsRepRoster` to `ServiceAgent`; rep checklist with availability toggles and round-robin auto-assignment using DB transactions for concurrency safety.
+
+**Addresses:** Pending terms + chargebacks to agent KPIs, service agent sync, rep checklist for round robin (differentiators)
+
+**Avoids:** P3 (KPI double-counting) by separating call-performance KPIs (Convoso snapshots) from retention KPIs (live-computed on read, clearly labeled with date range and "as of" timestamp); P5 (identity split) by adding FK before building round robin; P10 (round robin concurrency) by using `SELECT ... FOR UPDATE` for atomic index increment
+
+**Research flag:** Needs planning attention for agent matching strategy. `ChargebackSubmission.memberAgentId` may not map cleanly to `Agent.id` — the aggregator needs a defined matching strategy and an "Unmatched" fallback category before implementation begins. Validate against real data before committing to the schema.
+
+---
+
+### Phase 4: AI Scoring and Owner Visibility
+
+**Rationale:** AI scoring builds on the fixed owner dashboard (Phase 1). The auto-scoring pipeline requires a DB-backed queue and cost controls to be designed before a single trigger is wired. This phase unlocks the highest-value differentiator (100% call coverage QA) but is the highest operational risk due to queue stability and API cost exposure.
+
+**Delivers:** System prompt editor in owner dashboard with prompt version history, aggregate AI score view per agent with score trend, score distribution by call outcome, auto-scoring trigger on Convoso transcript ingestion (DB-backed queue, minimum call duration filter, configurable daily budget cap), "Re-audit" button for testing prompt changes against one existing transcript before saving.
+
+**Addresses:** System prompt editor, AI call transcript auto-scoring (differentiators)
+
+**Avoids:** P1 (queue memory/loss) by replacing in-memory array with DB-backed queue using `scoring_status` on `ConvosoCallLog`; P8 (prompt versioning) by creating a `prompt_version` field on `CallAudit` and an `AiPromptHistory` log in the same migration as the editor; P11 (cost spiral) by shipping budget cap and minimum duration filter as mandatory requirements alongside auto-scoring, never as follow-up work
+
+**Research flag:** Needs phase research. The DB-backed queue design (polling interval, retry logic, concurrency control), the cost monitoring schema (`AiUsageLog`), and budget enforcement timing all need detailed design before implementation begins.
+
+---
+
+### Phase 5 (Optional): Storage Monitoring
+
+**Rationale:** Low urgency. Defer unless Railway plan is approaching capacity. Build a stats endpoint first, observe actual growth for 1-2 weeks, then configure alert thresholds. Alert on growth rate, not absolute size, to avoid alert fatigue.
+
+**Delivers:** `/admin/storage-stats` endpoint reporting per-table row counts and sizes via `pg_total_relation_size()`; optional growth-rate alert banner in owner dashboard.
+
+**Avoids:** P12 (no baseline metrics) by requiring observation before alerting
+
+**Research flag:** Skip if not prioritized. Uses standard PostgreSQL functions via `prisma.$queryRaw` — no new patterns needed.
+
+---
 
 ### Phase Ordering Rationale
 
-- Phase 1 before everything: the 500 error on sale creation makes ALL other work untestable. This is non-negotiable.
-- Phase 2 before Phase 3 and 4: socket events should broadcast correct data; adding them before the commission engine is fixed would require re-testing cascade behavior after Phase 1 fixes.
-- Phase 3 before Phase 4: period finalization guards must exist before the multi-product form can submit sales that target specific periods.
-- Phase 5 after Phase 3: reports over finalized periods require finalization to work correctly.
-- Phase 6 last: polish is meaningless on broken functionality.
+- **Date range first** — the only true cross-cutting dependency; every phase either exports CSV or queries with date filters; solving it once prevents per-phase reimplementation
+- **CS Socket.IO events before alert pipeline** — the payroll alert pipeline listens on events that must exist first; this is a hard dependency, not a preference
+- **Service agent sync before round robin** — round robin needs a single authoritative rep list; building the checklist first and syncing after produces throwaway code
+- **AI scoring last** — highest operational risk (queue stability, billing exposure); isolating it to the final phase contains blast radius if a rollback is needed
+- **UI-only fixes** (INP bug, commission column removal, card layout, toggle, "+10") are parallelizable with every phase; no API dependencies
 
 ### Research Flags
 
-Phases that have well-documented patterns (no additional research needed during planning):
-- **Phase 2:** Socket.IO room-based broadcasting is standard; emit-then-refetch pattern is well established.
-- **Phase 3:** Server-side CSV export and status machine (Pending → Ready → Finalized) are standard patterns.
-- **Phase 6:** Query indexing and form polish are routine.
+Phases needing deeper research during planning:
+- **Phase 3 (Agent KPIs):** Agent matching strategy for `ChargebackSubmission.memberAgentId` to `Agent.id` must be validated against real production data before the schema is finalized
+- **Phase 4 (AI Scoring):** DB-backed queue design, cost enforcement timing, and prompt versioning schema require design documents before any implementation begins
 
-Phases that may benefit from deeper research during planning:
-- **Phase 1:** The SaleAddon premium ambiguity (P5) requires a business decision before the schema can be finalized. Clarify whether products on a sale share one premium or have per-product premiums. This is a requirements gap, not a technical gap.
-- **Phase 4:** The multi-product commission preview requires careful API design (preview endpoint vs. client-side approximation). The anti-feature list explicitly prohibits client-side calculation — confirm that a preview API endpoint with debounced calls is the accepted UX pattern.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (Foundation):** All changes are frontend-only or minimal API extensions with direct codebase precedents
+- **Phase 2 (CS Alerts):** Alert pipeline follows the existing `emitSaleChanged` + `SaleEditRequest` patterns exactly
+- **Phase 5 (Storage):** `pg_total_relation_size()` is standard PostgreSQL; no external dependencies or novel patterns
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Existing stack fully mapped to requirements; no external sources needed — codebase is the source of truth |
-| Features | MEDIUM-HIGH | Feature list derived from business rules in codebase + commission spec; SaleAddon premium business rule is an open question |
-| Architecture | HIGH | Bugs identified by direct code inspection; target flows are unambiguous derivations from requirements |
-| Pitfalls | HIGH | All critical pitfalls confirmed by reading actual code — not speculative; phase assignments match dependency chain |
+| Stack | HIGH | All features verified against actual codebase files; confirmed by reading `callAudit.ts`, `socket.ts`, `schema.prisma`, and `routes/index.ts` directly; zero new packages required |
+| Features | HIGH | Table stakes derived from explicit codebase gaps and user requests in PROJECT.md; differentiators validated against insurance ops domain sources |
+| Architecture | HIGH | All patterns extend proven existing patterns; new service files follow the `payroll.ts` model; schema additions are minimal and well-scoped |
+| Pitfalls | HIGH | All critical pitfalls confirmed by direct code inspection of `auditQueue.ts`, `payroll.ts`, `CsRepRoster` model, and `PayrollPeriod` lifecycle — not speculative |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **SaleAddon premium model:** Do all products on a sale share one `sale.premium`, or does each product have its own? This is an unresolved business requirement that affects the schema and commission engine. Resolve in Phase 1 planning before writing any schema migration.
-- **CSV vs Excel export:** CSV recommended (universal payroll import compatibility). If Excel is required, add `exceljs` server-side only. Confirm with stakeholders before Phase 3.
-- **Luxon timezone convention:** UTC vs local timezone must be standardized explicitly. Recommend UTC throughout with Luxon. Document the decision in code before Phase 1 arrears fix lands.
-- **Commission preview endpoint design:** Whether to add a `POST /api/sales/preview` endpoint or compute server-side on the existing create route (dry-run mode) should be decided before Phase 4 begins.
+- **Chargeback match quality (P2):** Before Phase 2 ships, run the proposed fuzzy matching logic against historical production data to measure match rate. If match rate is below 70%, adjust the "match candidates" UI to surface more context for manual resolution.
+- **"Storage monitoring" scope ambiguity:** The requirement does not specify whether this means database size, disk size, or recording storage volume. Clarify with stakeholders before Phase 5 planning. The `pg_database_size()` path is the most likely intent.
+- **AI scoring per-agent display location:** The exact UI placement (agent tracker row, separate tab, card overlay) needs a design decision during Phase 3/4 planning; the data shape is clear but the surface is not.
+- **`OWNER_VIEW` role for AI prompt write access:** `PUT /api/settings/ai-audit-prompt` currently requires MANAGER or SUPER_ADMIN. Extending write access to OWNER_VIEW is a one-line change but needs explicit confirmation that owners should be able to modify the prompt in production without MANAGER approval.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Codebase direct inspection (`apps/ops-api/src/services/payroll.ts`) — commission engine bugs, period assignment, net amount formula
-- Codebase direct inspection (`apps/ops-api/src/routes/index.ts`) — route structure, Zod schemas, middleware chain
-- Codebase direct inspection (`prisma/schema.prisma`) — model fields, relations, missing `memberState`
-- Codebase direct inspection (`apps/ops-api/src/socket.ts`) — current socket event coverage
-- `CLAUDE.md` — architecture conventions, stack constraints, known gotchas
+- Codebase: `apps/ops-api/src/services/callAudit.ts`, `auditQueue.ts`, `payroll.ts` — AI pipeline, queue design, commission logic
+- Codebase: `apps/ops-api/src/socket.ts` — Socket.IO event patterns
+- Codebase: `apps/ops-api/src/routes/index.ts` — existing endpoints, `dateRange()` helper
+- Codebase: `prisma/schema.prisma` — all current models and relations
+- [Node.js fs.statfs docs](https://nodejs.org/api/fs.html#fsstatfspath-options-callback) — native disk monitoring API
 
 ### Secondary (MEDIUM confidence)
-- Commission business rules inferred from existing code patterns and product naming conventions
-- Feature phasing derived from dependency chain analysis across FEATURES.md and ARCHITECTURE.md
+- [Insight7: LLM-Powered Call Scoring](https://insight7.io/how-llm-powered-conversation-ai-is-changing-call-scoring/) — AI scoring patterns, 100% call coverage value
+- [Plecto: Insurance KPIs](https://www.plecto.com/blog/insurance/insurance-kpis/) — "Percentage Pending" as top insurance KPI
+- [CloudTalk: Best AI Call Scoring Software 2026](https://www.cloudtalk.io/blog/best-ai-call-scoring-software/) — 30-45% improvement per McKinsey
+- [EverQuote: Insurance Agent Chargebacks](https://learn.everquote.com/insurance-agent-chargebacks) — chargeback workflow, commission clawback mechanics
+- [OneUptime: Socket.IO Real-Time Dashboards](https://oneuptime.com/blog/post/2026-01-26-socketio-realtime-dashboards/view) — alert pipeline patterns
+- [Everstage: Sales Performance Dashboard Guide](https://www.everstage.com/sales-performance/sales-performance-dashboard) — KPI dashboard layout patterns
+- [NN/g: Date-Input Form Fields](https://www.nngroup.com/articles/date-input/) — date range picker UX
 
 ### Tertiary (LOW confidence)
-- SaleAddon premium semantics — inferred from current code behavior, not confirmed against business specification; needs stakeholder validation
+- [Anthropic SDK on npm](https://www.npmjs.com/package/@anthropic-ai/sdk) — v0.79.0 availability (minor patch, not required for v1.2)
+- [check-disk-space on npm](https://www.npmjs.com/package/check-disk-space) — evaluated and rejected in favor of native Node 20 APIs
 
 ---
-*Research completed: 2026-03-14*
+*Research completed: 2026-03-18*
 *Ready for roadmap: yes*
