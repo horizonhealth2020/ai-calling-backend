@@ -53,7 +53,17 @@
   3. Owner can view, edit, and save the AI system prompt in the owner dashboard, and call transcripts are auto-scored with a configurable daily budget cap
   4. Manager and owner dashboards show per-agent chargeback count, dollar total, and pending term count — with chargebacks and pending terms within 30 days wired to new KPI tables
   5. All UX fixes are applied: paste-to-parse sale entry works end-to-end, payroll paid/unpaid toggle works both directions, "+10" indicator shows on qualifying enrollment fees, bonus/fronted/hold removed from sale rows, commission column removed from agent tracker, and service agents are synced between payroll and CS with round-robin assignment
-**Plans**: TBD
+**Plans:** 8 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — Foundation: schema migration, dateRange extension, DateRangeFilter component, Socket.IO events
+- [ ] 18-02-PLAN.md — Manager dashboard: paste-to-parse fix, preview card, form layout, commission column removal
+- [ ] 18-03-PLAN.md — Payroll UX: bidirectional toggle, edit button, card cleanup, enrollment indicator
+- [ ] 18-04-PLAN.md — Chargeback alert pipeline + CS real-time Socket.IO
+- [ ] 18-05-PLAN.md — Rep sync, round robin assignment, rep checklist
+- [ ] 18-06-PLAN.md — AI visibility: prompt editor, DB-backed queue, budget controls
+- [ ] 18-07-PLAN.md — Agent KPI table, permission matrix, storage monitoring, holdDate grouping
+- [ ] 18-08-PLAN.md — DateRangeFilter rollout to all dashboards + visual verification
 
 ## Progress
 
@@ -76,7 +86,7 @@
 | 15. Resolution & Polish | v1.1 | 4/4 | Complete | 2026-03-18 |
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
-| 18. Platform Polish & Integration | v1.2 | 0/? | Not started | - |
+| 18. Platform Polish & Integration | v1.2 | 0/8 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
