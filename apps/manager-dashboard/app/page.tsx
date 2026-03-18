@@ -170,6 +170,43 @@ const PREVIEW_LABEL: React.CSSProperties = {
   marginBottom: spacing[2],
 };
 
+const PARSE_PREVIEW_CARD: React.CSSProperties = {
+  background: colors.bgSurfaceRaised,
+  border: `1px solid ${colors.borderStrong}`,
+  borderRadius: 12,
+  padding: 16,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  marginTop: 12,
+};
+
+const PARSE_PREVIEW_ROW: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const PARSE_PREVIEW_LBL: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.06em",
+  color: colors.textTertiary,
+};
+
+const PARSE_PREVIEW_VAL: React.CSSProperties = {
+  fontSize: 14,
+  color: colors.textPrimary,
+};
+
+const PARSE_PREVIEW_ACTIONS: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  justifyContent: "flex-end",
+  marginTop: 8,
+};
+
 const EDIT_ROW_EXPANSION: React.CSSProperties = {
   background: colors.bgSurfaceRaised,
   borderTop: "1px solid rgba(255,255,255,0.04)",
@@ -691,6 +728,13 @@ function ManagerDashboardInner() {
   const [addonPremiums, setAddonPremiums] = useState<Record<string, string>>({});
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
+  const [parsedPreview, setParsedPreview] = useState<{
+    memberName?: string; memberId?: string; status?: string; saleDate?: string;
+    premium?: string; carrier?: string; enrollmentFee?: string; memberState?: string;
+    paymentType?: "CC" | "ACH"; coreProduct?: string; coreProductId?: string;
+    addonProductIds: string[]; addonMatches: { name: string; matched: boolean; productName?: string; productId?: string }[];
+    parsedProducts: ParsedProduct[];
+  } | null>(null);
 
   const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
@@ -1056,10 +1100,55 @@ function ManagerDashboardInner() {
       return { name, matched: !!match, productName: match?.name, productId: match?.id };
     });
     const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
-    const { addonNames: _, parsedProducts, enrollmentFee, paymentType: parsedPaymentType, ...formFields } = p;
-    setForm(f => ({ ...f, ...formFields, enrollmentFee: enrollmentFee ?? f.enrollmentFee, addonProductIds, productId: coreMatch?.id ?? "", paymentType: parsedPaymentType ?? f.paymentType }));
-    setParsedInfo({ enrollmentFee, premium: p.premium, coreProduct: coreMatch ? coreMatch.name : p.carrier, parsedProducts, addons: addonMatches });
+    // Show preview card instead of filling form directly
+    setParsedPreview({
+      memberName: p.memberName,
+      memberId: p.memberId,
+      status: p.status,
+      saleDate: p.saleDate,
+      premium: p.premium,
+      carrier: p.carrier,
+      enrollmentFee: p.enrollmentFee,
+      memberState: p.memberState,
+      paymentType: p.paymentType,
+      coreProduct: coreMatch ? coreMatch.name : p.carrier,
+      coreProductId: coreMatch?.id,
+      addonProductIds,
+      addonMatches,
+      parsedProducts: p.parsedProducts,
+    });
+  }
+
+  function confirmParseFill() {
+    if (!parsedPreview) return;
+    const { memberName, memberId, status, saleDate, premium, carrier, enrollmentFee, memberState, paymentType: parsedPaymentType, coreProductId, addonProductIds, addonMatches } = parsedPreview;
+    setForm(f => ({
+      ...f,
+      memberName: memberName ?? f.memberName,
+      memberId: memberId ?? f.memberId,
+      status: status ?? f.status,
+      saleDate: saleDate ?? f.saleDate,
+      premium: premium ?? f.premium,
+      carrier: carrier ?? f.carrier,
+      enrollmentFee: enrollmentFee ?? f.enrollmentFee,
+      memberState: memberState ?? f.memberState,
+      paymentType: parsedPaymentType ?? f.paymentType,
+      productId: coreProductId ?? "",
+      addonProductIds,
+    }));
+    setParsedInfo({
+      enrollmentFee: parsedPreview.enrollmentFee,
+      premium: parsedPreview.premium,
+      coreProduct: parsedPreview.coreProduct,
+      parsedProducts: parsedPreview.parsedProducts,
+      addons: addonMatches,
+    });
     setParsed(true);
+    setParsedPreview(null);
+  }
+
+  function discardParse() {
+    setParsedPreview(null);
   }
 
   function clearReceipt() {
@@ -1286,20 +1375,29 @@ function ManagerDashboardInner() {
                 </Select>
               </div>
               <div className="animate-fade-in-up stagger-1">
+                <label style={LBL}>Lead Source</label>
+                <select className="input-focus" style={baseInputStyle} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
+                  <option value="" disabled>Select lead source...</option>
+                  {leadSources.filter(ls => ls.active !== false).map(ls => (
+                    <option key={ls.id} value={ls.id}>{ls.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="animate-fade-in-up stagger-2">
                 <Input label="Member Name" error={fieldErrors.memberName} value={form.memberName} required onChange={e => { setForm(f => ({ ...f, memberName: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.memberName; return n; }); }} />
               </div>
               <div className="animate-fade-in-up stagger-2">
                 <label style={LBL}>Member ID</label>
                 <input className="input-focus" style={baseInputStyle} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} />
               </div>
-              <div className="animate-fade-in-up stagger-2">
+              <div className="animate-fade-in-up stagger-3">
                 <label style={LBL}>Member State</label>
                 <input className="input-focus" style={baseInputStyle} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
               </div>
               <div className="animate-fade-in-up stagger-3">
                 <Input label="Sale Date" error={fieldErrors.saleDate} type="date" value={form.saleDate} required onChange={e => { setForm(f => ({ ...f, saleDate: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.saleDate; return n; }); }} />
               </div>
-              <div className="animate-fade-in-up stagger-3">
+              <div className="animate-fade-in-up stagger-4">
                 <label style={LBL}>Effective Date</label>
                 <input className="input-focus" style={baseInputStyle} type="date" value={form.effectiveDate} required onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} />
               </div>
@@ -1308,15 +1406,6 @@ function ManagerDashboardInner() {
                   <option value="" disabled>Select product...</option>
                   {products.filter(p => p.active !== false && p.type === "CORE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </Select>
-              </div>
-              <div className="animate-fade-in-up stagger-4">
-                <label style={LBL}>Lead Source</label>
-                <select className="input-focus" style={baseInputStyle} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
-                  <option value="" disabled>Select lead source...</option>
-                  {leadSources.filter(ls => ls.active !== false).map(ls => (
-                    <option key={ls.id} value={ls.id}>{ls.name}</option>
-                  ))}
-                </select>
               </div>
               <div className="animate-fade-in-up stagger-5">
                 <label style={LBL}>Carrier</label>
@@ -1496,15 +1585,80 @@ function ManagerDashboardInner() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <Button type="button" variant="success" size="sm" onClick={handleParse}>
+                  <Button type="button" variant="success" size="sm" onClick={handleParse} disabled={!!parsedPreview}>
                     <Upload size={13} />Parse Receipt
                   </Button>
                   {receipt && (
-                    <Button type="button" variant="secondary" size="sm" onClick={clearReceipt}>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => { clearReceipt(); setParsedPreview(null); }}>
                       <X size={13} />Clear
                     </Button>
                   )}
                 </div>
+
+                {/* ParsePreviewCard -- shows parsed results before filling form */}
+                {parsedPreview && (
+                  <div className="animate-fade-in" style={PARSE_PREVIEW_CARD}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Edit3 size={14} />Parsed Sale Details
+                    </div>
+                    {parsedPreview.memberName && (
+                      <div style={PARSE_PREVIEW_ROW}>
+                        <span style={PARSE_PREVIEW_LBL}>Customer</span>
+                        <span style={PARSE_PREVIEW_VAL}>{parsedPreview.memberName}{parsedPreview.memberId ? ` (${parsedPreview.memberId})` : ""}</span>
+                      </div>
+                    )}
+                    {parsedPreview.parsedProducts.length > 0 && (
+                      <div style={PARSE_PREVIEW_ROW}>
+                        <span style={PARSE_PREVIEW_LBL}>Products</span>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {parsedPreview.parsedProducts.map((pp, i) => {
+                            const matched = matchProduct(pp.name, products);
+                            return (
+                              <Badge key={i} color={matched ? (pp.isAddon ? colors.info : colors.primary400) : colors.warning} variant="subtle" size="sm">
+                                {matched ? matched.name : pp.name}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {parsedPreview.memberState && (
+                      <div style={PARSE_PREVIEW_ROW}>
+                        <span style={PARSE_PREVIEW_LBL}>State</span>
+                        <span style={PARSE_PREVIEW_VAL}>{parsedPreview.memberState}</span>
+                      </div>
+                    )}
+                    {parsedPreview.status && (
+                      <div style={PARSE_PREVIEW_ROW}>
+                        <span style={PARSE_PREVIEW_LBL}>Status</span>
+                        <Badge color={parsedPreview.status === "RAN" ? colors.success : parsedPreview.status === "DECLINED" ? colors.danger : colors.textMuted} variant="subtle" size="sm">
+                          {STATUS_DISPLAY[parsedPreview.status] ?? parsedPreview.status}
+                        </Badge>
+                      </div>
+                    )}
+                    {parsedPreview.premium && (
+                      <div style={PARSE_PREVIEW_ROW}>
+                        <span style={PARSE_PREVIEW_LBL}>Premium</span>
+                        <span style={{ ...PARSE_PREVIEW_VAL, fontWeight: 700, color: colors.success }}>${parsedPreview.premium}</span>
+                      </div>
+                    )}
+                    {parsedPreview.enrollmentFee && (
+                      <div style={PARSE_PREVIEW_ROW}>
+                        <span style={PARSE_PREVIEW_LBL}>Enrollment Fee</span>
+                        <span style={{ ...PARSE_PREVIEW_VAL, color: colors.warning }}>${parsedPreview.enrollmentFee}</span>
+                      </div>
+                    )}
+                    <div style={PARSE_PREVIEW_ACTIONS}>
+                      <Button type="button" variant="ghost" size="sm" onClick={discardParse}>
+                        Discard Parse
+                      </Button>
+                      <Button type="button" variant="primary" size="sm" onClick={confirmParseFill}>
+                        Confirm &amp; Fill
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {parsed && (
                   <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                     <Check size={12} />Parsed — fields filled in form
@@ -1650,7 +1804,7 @@ function ManagerDashboardInner() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Cost / Sale", "Commission"].map((h, i) => (
+                    {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Cost / Sale"].map((h, i) => (
                       <th key={h} style={{ ...baseThStyle, textAlign: i >= 2 ? "right" : "left" }}>{h}</th>
                     ))}
                   </tr>
@@ -1708,15 +1862,12 @@ function ManagerDashboardInner() {
                             ? <AnimatedNumber value={Number(row.costPerSale)} prefix="$" decimals={2} />
                             : <span style={{ color: colors.textMuted }}>\u2014</span>}
                         </td>
-                        <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.accentTeal }}>
-                          {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
-                        </td>
                       </tr>
                     );
                   })}
                   {tracker.length === 0 && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={6}>
                         <EmptyState icon={<BarChart3 size={32} />} title="No sales data yet" description="Sales will appear here once agents submit entries." />
                       </td>
                     </tr>
