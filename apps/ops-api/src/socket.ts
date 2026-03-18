@@ -57,3 +57,27 @@ export interface SaleChangedPayload {
 export function emitSaleChanged(payload: SaleChangedPayload) {
   io?.emit("sale:changed", payload);
 }
+
+export interface CSChangedPayload {
+  type: "chargeback" | "pending_term";
+  batchId: string;
+  count: number;
+}
+
+export function emitCSChanged(payload: CSChangedPayload) {
+  io?.emit("cs:changed", payload);
+}
+
+export interface AlertCreatedPayload {
+  alertId: string;
+  agentName?: string;
+  amount?: number;
+}
+
+export function emitAlertCreated(payload: AlertCreatedPayload) {
+  io?.emit("alert:created", payload);
+}
+
+export function emitAlertResolved(data: { alertId: string; status: "APPROVED" | "CLEARED" }) {
+  io?.emit("alert:resolved", data);
+}

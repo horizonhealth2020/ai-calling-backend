@@ -27,9 +27,18 @@ function zodErr(ze: z.ZodError) {
 const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-/** Compute date‐range boundaries from a `range` query param. */
-function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
-  if (!range || !["today", "week", "month"].includes(range)) return undefined;
+/** Compute date-range boundaries from a `range` query param or custom from/to dates. */
+function dateRange(range?: string, from?: string, to?: string): { gte: Date; lt: Date } | undefined {
+  // Custom from/to takes precedence
+  if (from && to) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(from) || !dateRegex.test(to)) return undefined;
+    return {
+      gte: new Date(from + "T00:00:00.000Z"),
+      lt: new Date(to + "T23:59:59.999Z"),
+    };
+  }
+  if (!range) return undefined;
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (range === "today") {
@@ -38,20 +47,37 @@ function dateRange(range?: string): { gte: Date; lt: Date } | undefined {
     return { gte: todayStart, lt };
   }
   if (range === "week") {
-    // Sunday‑to‑Saturday week containing today
-    const day = now.getDay(); // 0=Sun … 6=Sat
+    // Sunday-to-Saturday week containing today
+    const day = now.getDay(); // 0=Sun ... 6=Sat
     const sunday = new Date(todayStart);
     sunday.setDate(todayStart.getDate() - day);
     const saturday = new Date(sunday);
     saturday.setDate(sunday.getDate() + 7); // exclusive upper bound (next Sunday 00:00)
     return { gte: sunday, lt: saturday };
   }
-  // month – rolling 30 days
-  const thirtyAgo = new Date(todayStart);
-  thirtyAgo.setDate(todayStart.getDate() - 30);
-  const lt = new Date(todayStart);
-  lt.setDate(lt.getDate() + 1);
-  return { gte: thirtyAgo, lt };
+  if (range === "7d") {
+    const start = new Date(todayStart);
+    start.setDate(start.getDate() - 7);
+    const lt = new Date(todayStart);
+    lt.setDate(lt.getDate() + 1);
+    return { gte: start, lt };
+  }
+  if (range === "30d") {
+    const start = new Date(todayStart);
+    start.setDate(start.getDate() - 30);
+    const lt = new Date(todayStart);
+    lt.setDate(lt.getDate() + 1);
+    return { gte: start, lt };
+  }
+  if (range === "month") {
+    // month - rolling 30 days
+    const thirtyAgo = new Date(todayStart);
+    thirtyAgo.setDate(todayStart.getDate() - 30);
+    const lt = new Date(todayStart);
+    lt.setDate(lt.getDate() + 1);
+    return { gte: thirtyAgo, lt };
+  }
+  return undefined;
 }
 
 router.post("/auth/login", asyncHandler(async (req, res) => {
@@ -459,7 +485,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
 }));
 
 router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined);
+  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
   const where = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
   const sales = await prisma.sale.findMany({
     where,
@@ -774,7 +800,7 @@ router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROL
 }));
 
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined);
+  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
   const callWhere: any = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
@@ -1142,7 +1168,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
 }));
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined);
+  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
 
   async function fetchSummaryData(range: { gte: Date; lt: Date } | undefined) {
     const saleWhere = range ? { status: 'RAN' as const, saleDate: { gte: range.gte, lt: range.lt } } : { status: 'RAN' as const };
@@ -1401,7 +1427,7 @@ router.post("/webhooks/convoso", requireWebhookSecret, asyncHandler(async (req, 
 
 // ── Call Recordings (sales with attached recording data) ─────────
 router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined);
+  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
   const where: any = { recordingUrl: { not: null } };
   if (dr) where.callDateTime = { gte: dr.gte, lt: dr.lt };
   const recordings = await prisma.sale.findMany({
@@ -1420,7 +1446,7 @@ router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"
 
 // ── Call Audits ─────────────────────────────────────────────────
 router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined);
+  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
   const where: any = {};
   if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
   if (req.query.agentId) where.agentId = req.query.agentId;
@@ -1477,7 +1503,7 @@ router.post("/call-audits/:id/re-audit", requireAuth, requireRole("MANAGER", "SU
 
 // ── Call Counts (Convoso aggregation) ───────────────────────────
 router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined);
+  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
   const where: any = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) where.callTimestamp = { gte: dr.gte, lt: dr.lt };
 

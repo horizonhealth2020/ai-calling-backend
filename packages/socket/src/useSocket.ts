@@ -7,15 +7,18 @@ export function useSocket(
   apiUrl: string,
   onSaleChanged: (payload: SaleChangedPayload) => void,
   onReconnect?: () => void,
+  additionalHandlers?: Record<string, (data: any) => void>,
 ) {
   const [disconnected, setDisconnected] = useState(false);
   const socketRef = useRef<SocketClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cbRef = useRef(onSaleChanged);
   const reconnectRef = useRef(onReconnect);
+  const handlersRef = useRef(additionalHandlers);
   const wasDisconnectedRef = useRef(false);
   cbRef.current = onSaleChanged;
   reconnectRef.current = onReconnect;
+  handlersRef.current = additionalHandlers;
 
   useEffect(() => {
     let mounted = true;
@@ -27,6 +30,14 @@ export function useSocket(
       socket.on("sale:changed", (data: SaleChangedPayload) => {
         cbRef.current(data);
       });
+
+      if (handlersRef.current) {
+        for (const [event, handler] of Object.entries(handlersRef.current)) {
+          socket.on(event, (data: any) => {
+            handlersRef.current?.[event]?.(data);
+          });
+        }
+      }
 
       socket.on("disconnect", () => {
         timerRef.current = setTimeout(() => {
