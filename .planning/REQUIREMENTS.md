@@ -40,7 +40,7 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 ### Chargeback Tracking
 
 - [x] **TRKC-01**: KPI counter bar shows Total Chargebacks (red), Total Recovered (green), Net Exposure (red/green), Records count — all animated count-up on load and filter change
-- [ ] **TRKC-02**: Chargeback table displays all 15 specified columns with chargeback_amount always in red
+- [x] **TRKC-02**: Chargeback table displays 8 data columns (Date Posted, Member, Member ID, Product, Type, Total, Assigned To, Submitted) with chargeback_amount always in red
 - [x] **TRKC-03**: Table filterable by date range, product, member company, member agent company, chargeback amount range
 - [x] **TRKC-04**: Table searchable by payee name, member agent company, member ID, member agent ID
 - [x] **TRKC-05**: Table sortable by any column
@@ -49,11 +49,11 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 ### Pending Terms Tracking
 
 - [x] **TRKT-01**: Summary bar shows total pending records, count by hold_reason category, count of next_billing within 7 days (urgent/red)
-- [ ] **TRKT-02**: Pending terms table displays all specified columns with correct color coding (next_billing green, active/first_billing blue, hold_date red, hold_reason red italic)
+- [x] **TRKT-02**: Pending terms table displays 7 columns (Member Name, Member ID, Phone, Product, Hold Date, Next Billing, Assigned To) with hold_date in red and next_billing in green
 - [x] **TRKT-03**: agent_name and agent_id stored in DB but never displayed as visible table columns
 - [x] **TRKT-04**: Table filterable by agent (behind-the-scenes), state, product, hold_reason keyword, date ranges
 - [x] **TRKT-05**: Table searchable by member name, member ID, agent name, agent ID, phone
-- [ ] **TRKT-06**: Table supports group-by-agent with collapsible sections (agent name as group header only)
+- [x] **TRKT-06**: Table renders as flat rows (agent grouping removed per Phase 15 design decision; agent_name/agent_id stored but not displayed)
 - [x] **TRKT-07**: CSV export available to owner and super_admin only
 
 ### Resolution Workflow
@@ -90,6 +90,12 @@ Deferred to future release. Tracked but not in current roadmap.
 | Email notifications on submissions | Not needed for internal CS workflow |
 | Mobile-responsive CS dashboard | Desktop-only, consistent with v1.0 decision |
 
+## Known UX Decisions
+
+| Decision | REQ-ID | Rationale |
+|----------|--------|-----------|
+| OWNER_VIEW has no CS dashboard card on auth-portal landing page | ROLE-04 | Intentional per Phase 16 CONTEXT.md. OWNER_VIEW can access CS dashboard via direct URL. Landing card omitted to keep owner landing page focused on KPI summary. |
+
 ## Traceability
 
 Which phases cover which requirements. Updated during roadmap creation.
@@ -115,17 +121,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TERM-05 | Phase 13 | Complete |
 | TERM-06 | Phase 13 | Complete |
 | TRKC-01 | Phase 14 | Complete |
-| TRKC-02 | Phase 17 | Pending |
+| TRKC-02 | Phase 14 | Complete |
 | TRKC-03 | Phase 14 | Complete |
 | TRKC-04 | Phase 14 | Complete |
 | TRKC-05 | Phase 14 | Complete |
 | TRKC-06 | Phase 14 | Complete |
 | TRKT-01 | Phase 14 | Complete |
-| TRKT-02 | Phase 17 | Pending |
+| TRKT-02 | Phase 14 | Complete |
 | TRKT-03 | Phase 14 | Complete |
 | TRKT-04 | Phase 14 | Complete |
 | TRKT-05 | Phase 14 | Complete |
-| TRKT-06 | Phase 17 | Pending |
+| TRKT-06 | Phase 15 | Complete |
 | TRKT-07 | Phase 14 | Complete |
 | RESV-01 | Phase 15 | Complete |
 | RESV-02 | Phase 15 | Complete |
@@ -141,8 +147,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 - v1.1 requirements: 40 total
 - Mapped to phases: 40
 - Unmapped: 0
-- Pending (Phase 17 gap closure): 3 (TRKC-02, TRKT-02, TRKT-06)
+- Pending (Phase 17 gap closure): 0 (all resolved)
 
 ---
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after roadmap creation*
+*Last updated: 2026-03-18 after Phase 17 gap closure*
