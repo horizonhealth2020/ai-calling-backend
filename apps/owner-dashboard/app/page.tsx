@@ -64,7 +64,7 @@ function computeTrend(current: number, prior: number): { value: number; directio
   return { value: Math.abs(pct), direction: pct > 0 ? "up" : "down" };
 }
 
-const ROLES = ["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN"] as const;
+const ROLES = ["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN", "CUSTOMER_SERVICE"] as const;
 
 const RANGE_LABELS: { value: Range; label: string }[] = [
   { value: "today", label: "Today" },
@@ -81,6 +81,7 @@ const ROLE_COLORS: Record<string, string> = {
   PAYROLL: "#d97706",
   SERVICE: "#64748b",
   ADMIN: "#0f766e",
+  CUSTOMER_SERVICE: "#f59e0b",
 };
 
 const RANK_COLORS = ["#fbbf24", "#94a3b8", "#d97706"] as const;
@@ -109,6 +110,10 @@ const SECTION_SUBTITLE: React.CSSProperties = {
   fontSize: typography.sizes.sm.fontSize,
   color: colors.textTertiary,
   margin: "4px 0 0",
+};
+
+const TD: React.CSSProperties = {
+  ...baseTdStyle,
 };
 
 /* ── Nav items ─────────────────────────────────────────────────── */
