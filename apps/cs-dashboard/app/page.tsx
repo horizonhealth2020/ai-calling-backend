@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import {
   PageShell,
   Card,
@@ -1435,6 +1435,91 @@ function TrackingTab() {
     return result;
   }, [chargebacks, searchTerm, cbFilters, cbSortKey, cbSortDir]);
 
+  // Pending terms filter + search + sort pipeline
+  const filteredPending = useMemo(() => {
+    let result = pendingTerms;
+
+    // Shared search (case-insensitive partial match)
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      result = result.filter((pt: any) =>
+        (pt.memberName || "").toLowerCase().includes(q) ||
+        (pt.memberId || "").toLowerCase().includes(q) ||
+        (pt.agentName || "").toLowerCase().includes(q) ||
+        (pt.agentIdField || "").toLowerCase().includes(q) ||
+        (pt.phone || "").toLowerCase().includes(q)
+      );
+    }
+
+    // Pending terms filters
+    if (ptFilters.agent) result = result.filter((pt: any) => (pt.agentName || "").toLowerCase().includes(ptFilters.agent.toLowerCase()));
+    if (ptFilters.state) result = result.filter((pt: any) => (pt.state || "").toLowerCase().includes(ptFilters.state.toLowerCase()));
+    if (ptFilters.product) result = result.filter((pt: any) => (pt.product || "").toLowerCase().includes(ptFilters.product.toLowerCase()));
+    if (ptFilters.holdReason) result = result.filter((pt: any) => (pt.holdReason || "").toLowerCase().includes(ptFilters.holdReason.toLowerCase()));
+    if (ptFilters.dateFrom) {
+      result = result.filter((pt: any) =>
+        (pt.holdDate && pt.holdDate.split("T")[0] >= ptFilters.dateFrom) ||
+        (pt.nextBilling && pt.nextBilling.split("T")[0] >= ptFilters.dateFrom)
+      );
+    }
+    if (ptFilters.dateTo) {
+      result = result.filter((pt: any) =>
+        (pt.holdDate && pt.holdDate.split("T")[0] <= ptFilters.dateTo) ||
+        (pt.nextBilling && pt.nextBilling.split("T")[0] <= ptFilters.dateTo)
+      );
+    }
+
+    // Sort within groups (sort individual records, grouping happens after)
+    if (ptSortKey) {
+      result = [...result].sort((a: any, b: any) => {
+        let aVal = a[ptSortKey] ?? "";
+        let bVal = b[ptSortKey] ?? "";
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return ptSortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [pendingTerms, searchTerm, ptFilters, ptSortKey, ptSortDir]);
+
+  // Group by agent name (alphabetical group order)
+  const groupedPending = useMemo(() => {
+    const map = new Map<string, any[]>();
+    filteredPending.forEach((pt: any) => {
+      const key = pt.agentName || "Unassigned";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(pt);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredPending]);
+
+  // Summary bar stats (computed from FULL unfiltered dataset, not filtered)
+  const ptSummary = useMemo(() => {
+    const total = pendingTerms.length;
+    const reasonCounts = new Map<string, number>();
+    let urgentCount = 0;
+    const now = new Date();
+    const sevenDaysOut = new Date(now);
+    sevenDaysOut.setDate(now.getDate() + 7);
+    const sevenDaysStr = sevenDaysOut.toISOString().split("T")[0];
+    const todayStr = now.toISOString().split("T")[0];
+
+    pendingTerms.forEach((pt: any) => {
+      const reason = pt.holdReason || "No Reason";
+      reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+      if (pt.nextBilling) {
+        const nb = pt.nextBilling.split("T")[0];
+        if (nb >= todayStr && nb <= sevenDaysStr) urgentCount++;
+      }
+    });
+
+    return {
+      total,
+      reasons: Array.from(reasonCounts.entries()).sort((a, b) => b[1] - a[1]),
+      urgentCount,
+    };
+  }, [pendingTerms]);
+
   // Delete handler
   const handleDeleteCb = async (id: string) => {
     try {
@@ -1443,6 +1528,16 @@ function TrackingTab() {
         setChargebacks((prev) => prev.filter((cb: any) => cb.id !== id));
         const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
         if (totalsRes.ok) setTotals(await totalsRes.json());
+      }
+    } catch { /* ignore */ }
+  };
+
+  // Delete pending term handler
+  const handleDeletePt = async (id: string) => {
+    try {
+      const res = await authFetch(`${API}/api/pending-terms/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) {
+        setPendingTerms((prev) => prev.filter((pt: any) => pt.id !== id));
       }
     } catch { /* ignore */ }
   };
@@ -1460,6 +1555,27 @@ function TrackingTab() {
   // Clear filters helper
   const hasCbFilters = Object.values(cbFilters).some(v => v !== "");
   const clearCbFilters = () => setCbFilters({ dateFrom: "", dateTo: "", product: "", memberCompany: "", memberAgentCompany: "", amountMin: "", amountMax: "" });
+
+  // Pending terms sort handler
+  const handlePtSort = (key: string) => {
+    if (ptSortKey === key) {
+      setPtSortDir(ptSortDir === "asc" ? "desc" : "asc");
+    } else {
+      setPtSortKey(key);
+      setPtSortDir("asc");
+    }
+  };
+
+  const hasPtFilters = Object.values(ptFilters).some(v => v !== "");
+  const clearPtFilters = () => setPtFilters({ agent: "", state: "", product: "", holdReason: "", dateFrom: "", dateTo: "" });
+
+  const toggleGroup = (agent: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(agent) ? next.delete(agent) : next.add(agent);
+      return next;
+    });
+  };
 
   // Role check
   const canExport = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
@@ -1494,7 +1610,17 @@ function TrackingTab() {
     rows.push([]);
     rows.push(["--- PENDING TERMS ---"]);
     rows.push(["Member Name", "Member ID", "Phone", "Product", "Hold Date", "Next Billing", "Assigned To"]);
-    // Pending terms rows will be added in Plan 02
+    filteredPending.forEach((pt: any) => {
+      rows.push([
+        esc(pt.memberName || "--"),
+        esc(pt.memberId || "--"),
+        esc(pt.phone || "--"),
+        esc(pt.product || "--"),
+        esc(fmtDate(pt.holdDate)),
+        esc(fmtDate(pt.nextBilling)),
+        esc(pt.assignedTo || "Unassigned"),
+      ]);
+    });
 
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" })),
@@ -1631,6 +1757,56 @@ function TrackingTab() {
         </div>
       )}
 
+      {/* Pending Terms Filter Panel */}
+      {ptFiltersOpen && (
+        <div style={{
+          background: colors.bgSurfaceInset,
+          borderRadius: radius.lg,
+          padding: `${spacing[4]}px`,
+          marginTop: `${spacing[2]}px`,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={baseLabelStyle}>Pending Terms Filters</span>
+            {hasPtFilters && (
+              <button onClick={clearPtFilters} style={{ background: "transparent", border: "none", color: colors.accentTeal, cursor: "pointer", fontSize: 12 }}>
+                Clear Filters
+              </button>
+            )}
+          </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: `${spacing[4]}px`,
+            marginTop: `${spacing[2]}px`,
+          }}>
+            <div>
+              <label style={baseLabelStyle}>Agent</label>
+              <input style={baseInputStyle} type="text" placeholder="Filter by agent" value={ptFilters.agent} onChange={e => setPtFilters({ ...ptFilters, agent: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>State</label>
+              <input style={baseInputStyle} type="text" placeholder="Filter by state" value={ptFilters.state} onChange={e => setPtFilters({ ...ptFilters, state: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Product</label>
+              <input style={baseInputStyle} type="text" placeholder="Filter by product" value={ptFilters.product} onChange={e => setPtFilters({ ...ptFilters, product: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Hold Reason</label>
+              <input style={baseInputStyle} type="text" placeholder="Keyword" value={ptFilters.holdReason} onChange={e => setPtFilters({ ...ptFilters, holdReason: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Date From</label>
+              <input style={baseInputStyle} type="date" value={ptFilters.dateFrom} onChange={e => setPtFilters({ ...ptFilters, dateFrom: e.target.value })} />
+            </div>
+            <div>
+              <label style={baseLabelStyle}>Date To</label>
+              <input style={baseInputStyle} type="date" value={ptFilters.dateTo} onChange={e => setPtFilters({ ...ptFilters, dateTo: e.target.value })} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chargeback Table */}
       <Card>
         <h3 style={SECTION_HEADING}>Chargeback Tracking</h3>
@@ -1695,19 +1871,133 @@ function TrackingTab() {
         )}
       </Card>
 
-      {/* Pending Terms Placeholder */}
+      {/* Pending Terms Summary Bar */}
+      <Card style={{ padding: `${spacing[4]}px` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: `${spacing[6]}px`, flexWrap: "wrap" }}>
+          {/* Total */}
+          <div>
+            <span style={TICKER_LABEL}>TOTAL PENDING</span>
+            <div style={{ fontSize: 22, fontWeight: 700, color: colors.textPrimary }}>{ptSummary.total}</div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 40, background: colors.borderSubtle }} />
+
+          {/* Hold reason categories */}
+          <div style={{ display: "flex", gap: `${spacing[2]}px`, flexWrap: "wrap", flex: 1 }}>
+            {ptSummary.reasons.map(([reason, count]) => (
+              <span key={reason} style={{
+                display: "inline-block",
+                padding: "4px 10px",
+                background: colors.bgSurfaceInset,
+                borderRadius: radius.md,
+                fontSize: 12,
+                color: colors.textSecondary,
+              }}>
+                {reason.toUpperCase()}: {count}
+              </span>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 40, background: colors.borderSubtle }} />
+
+          {/* Urgent */}
+          <div>
+            <span style={TICKER_LABEL}>DUE WITHIN 7 DAYS</span>
+            <div style={{ fontSize: 22, fontWeight: 700, color: colors.danger }}>{ptSummary.urgentCount}</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Pending Terms Table */}
       <Card>
         <h3 style={SECTION_HEADING}>Pending Terms Tracking</h3>
-        {pendingTerms.length === 0 ? (
-          <EmptyState
-            title="No Pending Terms Yet"
-            description="Pending terms records will appear here once submissions are processed."
-          />
+        {error ? (
+          <EmptyState title="Failed to Load Records" description="Check your connection and reload the page. If the problem continues, contact your administrator." />
+        ) : pendingTerms.length === 0 && !loading ? (
+          <EmptyState title="No Pending Terms Yet" description="Pending terms records will appear here once submissions are processed." />
+        ) : filteredPending.length === 0 && pendingTerms.length > 0 ? (
+          <EmptyState title="No Pending Terms Found" description="No pending terms match your current search or filters. Try adjusting your criteria." />
         ) : (
-          <EmptyState
-            title="Pending Terms"
-            description={`${pendingTerms.length} records loaded. Full table implementation coming in Plan 02.`}
-          />
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <SortHeader label="Member Name" sortKey="memberName" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <SortHeader label="Member ID" sortKey="memberId" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <SortHeader label="Phone" sortKey="phone" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <SortHeader label="Product" sortKey="product" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <SortHeader label="Hold Date" sortKey="holdDate" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <SortHeader label="Next Billing" sortKey="nextBilling" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
+                  <th style={{ ...baseThStyle, width: 50 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedPending.map(([agentName, records]) => (
+                  <Fragment key={agentName}>
+                    {/* Group header row */}
+                    <tr
+                      style={{ cursor: "pointer" }}
+                      onClick={() => toggleGroup(agentName)}
+                    >
+                      <td
+                        colSpan={8}
+                        style={{
+                          background: colors.bgSurfaceInset,
+                          padding: `${spacing[2]}px ${spacing[4]}px`,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: colors.textPrimary,
+                        }}
+                      >
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {collapsed.has(agentName)
+                            ? <ChevronRight size={14} />
+                            : <ChevronDown size={14} />
+                          }
+                          {agentName} ({records.length})
+                        </span>
+                      </td>
+                    </tr>
+                    {/* Data rows (hidden when collapsed) */}
+                    {!collapsed.has(agentName) && records.map((pt: any) => (
+                      <tr key={pt.id}>
+                        <td style={baseTdStyle}>{pt.memberName || "--"}</td>
+                        <td style={baseTdStyle}>{pt.memberId || "--"}</td>
+                        <td style={baseTdStyle}>{pt.phone || "--"}</td>
+                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
+                        <td style={{ ...baseTdStyle, color: colors.danger }}>{fmtDate(pt.holdDate)}</td>
+                        <td style={{ ...baseTdStyle, color: colors.success }}>{fmtDate(pt.nextBilling)}</td>
+                        <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
+                        <td style={baseTdStyle}>
+                          <button
+                            onClick={() => handleDeletePt(pt.id)}
+                            aria-label="Delete record"
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              color: colors.textMuted,
+                              padding: 4,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                            onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>
