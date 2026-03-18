@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
   // SUPER_ADMIN gets access to every dashboard
   const effectiveRoles = roles.includes("SUPER_ADMIN")
-    ? ["SUPER_ADMIN", "MANAGER", "PAYROLL"]
+    ? ["SUPER_ADMIN", "MANAGER", "PAYROLL", "CUSTOMER_SERVICE"]
     : roles;
 
   const base = process.env.AUTH_PORTAL_URL || req.url;

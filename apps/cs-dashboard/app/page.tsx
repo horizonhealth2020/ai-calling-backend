@@ -497,18 +497,16 @@ export default function CSDashboard() {
     })();
   }, []);
 
-  const isCSOnly = userRoles.includes("CUSTOMER_SERVICE")
-    && !userRoles.includes("SUPER_ADMIN")
-    && !userRoles.includes("OWNER_VIEW");
+  const canManageCS = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
 
-  const navItems = isCSOnly
-    ? [{ icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" }]
-    : [
+  const navItems = canManageCS
+    ? [
         { icon: <ClipboardList size={18} />, label: "Submissions", key: "submissions" },
         { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
-      ];
+      ]
+    : [{ icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" }];
 
-  const effectiveTab = isCSOnly ? "tracking" : tab;
+  const effectiveTab = canManageCS ? tab : "tracking";
 
   return (
     <PageShell
@@ -519,7 +517,7 @@ export default function CSDashboard() {
       onNavChange={(k) => setTab(k as Tab)}
     >
       {effectiveTab === "submissions" && <SubmissionsTab />}
-      {effectiveTab === "tracking" && <TrackingTab userRoles={userRoles} isCSOnly={isCSOnly} />}
+      {effectiveTab === "tracking" && <TrackingTab userRoles={userRoles} canManageCS={canManageCS} />}
     </PageShell>
   );
 }
@@ -1344,15 +1342,15 @@ function SortHeader({ label, sortKey, currentSort, currentDir, onSort }: {
 
 /* ── Tracking Tab ───────────────────────────────────────────────── */
 
-function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: boolean }) {
+function TrackingTab({ userRoles, canManageCS }: { userRoles: string[]; canManageCS: boolean }) {
   return (
     <ToastProvider>
-      <TrackingTabInner userRoles={userRoles} isCSOnly={isCSOnly} />
+      <TrackingTabInner userRoles={userRoles} canManageCS={canManageCS} />
     </ToastProvider>
   );
 }
 
-function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: boolean }) {
+function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; canManageCS: boolean }) {
   // Data
   const [chargebacks, setChargebacks] = useState<any[]>([]);
   const [pendingTerms, setPendingTerms] = useState<any[]>([]);
@@ -1688,7 +1686,7 @@ function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOn
 
 
   // Role check
-  const canExport = !isCSOnly && (userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW"));
+  const canExport = canManageCS;
 
   // Date format helper - uses shared formatDate from @ops/utils
 
@@ -2012,7 +2010,7 @@ function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOn
                               }}>Unresolve</button>
                             </div>
                           )}
-                          {!isCSOnly && !cb.resolvedAt && (
+                          {canManageCS && !cb.resolvedAt && (
                             <button
                               onClick={() => handleDeleteCb(cb.id)}
                               aria-label="Delete record"
@@ -2238,7 +2236,7 @@ function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOn
                               }}>Unresolve</button>
                             </div>
                           )}
-                          {!isCSOnly && !pt.resolvedAt && (
+                          {canManageCS && !pt.resolvedAt && (
                             <button
                               onClick={() => handleDeletePt(pt.id)}
                               aria-label="Delete record"
