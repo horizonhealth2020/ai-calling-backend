@@ -128,7 +128,7 @@ Plans:
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
-| 14. Tracking Tables | v1.1 | 2/2 | Complete | 2026-03-18 |
+| 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 | 15. Resolution & Polish | v1.1 | 0/? | Not started | - |
 
 ---
