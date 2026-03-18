@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 15-resolution-polish
 source: [15-01-SUMMARY.md, 15-02-SUMMARY.md, 15-03-SUMMARY.md]
 started: 2026-03-18T17:30:00Z
@@ -84,12 +84,29 @@ skipped: 1
   reason: "User reported: it does but why does it require a refresh when other kpi auto update"
   severity: major
   test: 7
-  artifacts: []
-  missing: []
+  root_cause: "handleResolveCb and handleUnresolveCb never re-fetch /api/chargebacks/totals after successful PATCH — handleDeleteCb does this but resolve/unresolve handlers were missing it"
+  artifacts:
+    - path: "apps/cs-dashboard/app/page.tsx"
+      issue: "handleResolveCb missing totals re-fetch after successful resolve"
+    - path: "apps/cs-dashboard/app/page.tsx"
+      issue: "handleUnresolveCb missing totals re-fetch after successful unresolve"
+  missing:
+    - "Add totals re-fetch (authFetch + setTotals) after successful PATCH in handleResolveCb"
+    - "Add totals re-fetch after successful PATCH in handleUnresolveCb"
 - truth: "CUSTOMER_SERVICE user can log in and see only the Tracking tab"
   status: failed
   reason: "User reported: FAIL. created service user cant login went to edit user an got a td is not defined error"
   severity: blocker
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "Two bugs: (1) CS_DASHBOARD_URL env var missing from auth-portal config — login succeeds but dashboard card goes nowhere. (2) TD style constant referenced but never defined in owner-dashboard edit mode — throws ReferenceError when editing any user."
+  artifacts:
+    - path: "apps/auth-portal/app/landing/page.tsx"
+      issue: "CS_DASHBOARD_URL defaults to empty string when env var not set"
+    - path: "apps/owner-dashboard/app/page.tsx"
+      issue: "TD style constant used in edit-mode td but never defined"
+    - path: "apps/owner-dashboard/app/page.tsx"
+      issue: "ROLES array and ROLE_COLORS missing CUSTOMER_SERVICE entry"
+  missing:
+    - "Add CS_DASHBOARD_URL to auth-portal .env.example"
+    - "Add TD style constant to owner-dashboard"
+    - "Add CUSTOMER_SERVICE to ROLES array and ROLE_COLORS map"
