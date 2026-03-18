@@ -94,7 +94,7 @@ Plans:
   9. CSV export button is visible only to owner and super_admin roles on both tables
 **Plans:** 2 plans
 Plans:
-- [ ] 14-01-PLAN.md — API totals endpoint + KPI bar + search/filter + sortable chargeback table + export button
+- [x] 14-01-PLAN.md — API totals endpoint + KPI bar + search/filter + sortable chargeback table + export button
 - [ ] 14-02-PLAN.md — Pending terms summary bar + grouped table + pending filters + CSV export wiring
 
 ### Phase 15: Resolution & Polish

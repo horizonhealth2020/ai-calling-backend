@@ -39,12 +39,12 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 
 ### Chargeback Tracking
 
-- [ ] **TRKC-01**: KPI counter bar shows Total Chargebacks (red), Total Recovered (green), Net Exposure (red/green), Records count — all animated count-up on load and filter change
-- [ ] **TRKC-02**: Chargeback table displays all 15 specified columns with chargeback_amount always in red
-- [ ] **TRKC-03**: Table filterable by date range, product, member company, member agent company, chargeback amount range
-- [ ] **TRKC-04**: Table searchable by payee name, member agent company, member ID, member agent ID
-- [ ] **TRKC-05**: Table sortable by any column
-- [ ] **TRKC-06**: CSV export available to owner and super_admin only
+- [x] **TRKC-01**: KPI counter bar shows Total Chargebacks (red), Total Recovered (green), Net Exposure (red/green), Records count — all animated count-up on load and filter change
+- [x] **TRKC-02**: Chargeback table displays all 15 specified columns with chargeback_amount always in red
+- [x] **TRKC-03**: Table filterable by date range, product, member company, member agent company, chargeback amount range
+- [x] **TRKC-04**: Table searchable by payee name, member agent company, member ID, member agent ID
+- [x] **TRKC-05**: Table sortable by any column
+- [x] **TRKC-06**: CSV export available to owner and super_admin only
 
 ### Pending Terms Tracking
 
@@ -114,12 +114,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TERM-04 | Phase 13 | Complete |
 | TERM-05 | Phase 13 | Complete |
 | TERM-06 | Phase 13 | Complete |
-| TRKC-01 | Phase 14 | Pending |
-| TRKC-02 | Phase 14 | Pending |
-| TRKC-03 | Phase 14 | Pending |
-| TRKC-04 | Phase 14 | Pending |
-| TRKC-05 | Phase 14 | Pending |
-| TRKC-06 | Phase 14 | Pending |
+| TRKC-01 | Phase 14 | Complete |
+| TRKC-02 | Phase 14 | Complete |
+| TRKC-03 | Phase 14 | Complete |
+| TRKC-04 | Phase 14 | Complete |
+| TRKC-05 | Phase 14 | Complete |
+| TRKC-06 | Phase 14 | Complete |
 | TRKT-01 | Phase 14 | Pending |
 | TRKT-02 | Phase 14 | Pending |
 | TRKT-03 | Phase 14 | Pending |

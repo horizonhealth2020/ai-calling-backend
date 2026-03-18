@@ -97,24 +97,24 @@ progress:
 
 ## Current Position
 
-**Phase:** 13 - Pending Terms Parser (complete)
-**Plan:** 02 complete (2/2)
-**Status:** Ready to plan
-**Last activity:** 2026-03-17 -- completed 13-02 (Pending Terms Parser UI)
+**Phase:** 14 - Tracking Tables (in progress)
+**Plan:** 01 complete (1/2)
+**Status:** Executing
+**Last activity:** 2026-03-18 -- completed 14-01 (Chargeback KPI Bar & Tracking Table)
 
 ```
-Progress: [############            ] 60% (3/5 phases complete)
-Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [     ] | Phase 15 [     ]
+Progress: [##############          ] 60% (3/5 phases complete)
+Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [##   ] | Phase 15 [     ]
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 7 |
-| Plans total | 7 (Phase 11: 2, Phase 12: 3, Phase 13: 2) |
-| Requirements done | 18/40 |
-| Phases done | 3/7 |
+| Plans completed | 8 |
+| Plans total | 9 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2) |
+| Requirements done | 24/40 |
+| Phases done | 3/5 |
 
 ## Accumulated Context
 
@@ -132,6 +132,9 @@ Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [     ] | Phas
 - Phase 12 and 13 (parsers) can run in parallel -- both depend only on Phase 11
 - Phase 14 (Tracking Tables) depends on 12+13 (both parsers must exist)
 - Phase 15 (Resolution & Polish) depends on 14 (tracking tables must exist)
+- KPI counters use global totals from /api/chargebacks/totals, never affected by search/filters
+- SortHeader extracted as reusable component for column sorting across tracking tables
+- Filter and search pipeline implemented client-side with useMemo for 200-record cap dataset
 
 ### Roadmap Evolution
 - v1.1 roadmap created with 7 phases covering 40 requirements
@@ -165,10 +168,10 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T13:59:32.505Z
-**Stopped at:** Phase 14 UI-SPEC approved
-**Next action:** Plan Phase 14 (Tracking Tables)
+**Last session:** 2026-03-18T14:19:33Z
+**Stopped at:** Completed 14-01-PLAN.md
+**Next action:** Execute Phase 14 Plan 02 (Pending Terms Table)
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-18*
