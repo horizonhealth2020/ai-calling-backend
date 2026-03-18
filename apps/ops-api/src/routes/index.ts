@@ -2059,7 +2059,7 @@ router.get("/cs-rep-roster", requireAuth, asyncHandler(async (_req, res) => {
 
 const csRepSchema = z.object({ name: z.string().min(1).max(100) });
 
-router.post("/cs-rep-roster", requireAuth, asyncHandler(async (req, res) => {
+router.post("/cs-rep-roster", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
   const parsed = csRepSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
@@ -2069,7 +2069,7 @@ router.post("/cs-rep-roster", requireAuth, asyncHandler(async (req, res) => {
 
 const csRepToggleSchema = z.object({ active: z.boolean() });
 
-router.patch("/cs-rep-roster/:id", requireAuth, asyncHandler(async (req, res) => {
+router.patch("/cs-rep-roster/:id", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
   const parsed = csRepToggleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
@@ -2080,7 +2080,7 @@ router.patch("/cs-rep-roster/:id", requireAuth, asyncHandler(async (req, res) =>
   return res.json(rep);
 }));
 
-router.delete("/cs-rep-roster/:id", requireAuth, asyncHandler(async (req, res) => {
+router.delete("/cs-rep-roster/:id", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
   await prisma.csRepRoster.delete({ where: { id: req.params.id } });
   return res.status(204).end();
 }));
