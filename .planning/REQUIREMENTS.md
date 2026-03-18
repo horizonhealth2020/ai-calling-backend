@@ -10,9 +10,9 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 ### Role & Access
 
 - [x] **ROLE-01**: New customer_service role added to AppRole enum and RBAC middleware
-- [ ] **ROLE-02**: customer_service can access Customer Service dashboard Tracking tab only
+- [x] **ROLE-02**: customer_service can access Customer Service dashboard Tracking tab only
 - [ ] **ROLE-03**: customer_service cannot access Submissions tab or any other dashboard
-- [ ] **ROLE-04**: owner and super_admin can access both Submissions and Tracking tabs
+- [x] **ROLE-04**: owner and super_admin can access both Submissions and Tracking tabs
 
 ### Database Schema
 
@@ -58,17 +58,17 @@ Requirements for Customer Service milestone. Each maps to roadmap phases.
 
 ### Resolution Workflow
 
-- [ ] **RESV-01**: Customer service can mark a chargeback record as resolved with a resolution note
-- [ ] **RESV-02**: Customer service can mark a pending term record as resolved with a resolution note
-- [ ] **RESV-03**: Resolved records show resolved status, resolved_by, resolved_at, and resolution note
-- [ ] **RESV-04**: Tracking tables can filter by status (open/resolved) with open as default view
+- [x] **RESV-01**: Customer service can mark a chargeback record as resolved with a resolution note
+- [x] **RESV-02**: Customer service can mark a pending term record as resolved with a resolution note
+- [x] **RESV-03**: Resolved records show resolved status, resolved_by, resolved_at, and resolution note
+- [x] **RESV-04**: Tracking tables can filter by status (open/resolved) with open as default view
 
 ### Dashboard & UI
 
 - [x] **DASH-01**: Customer Service dashboard app created following existing Next.js dashboard patterns
-- [ ] **DASH-02**: Dashboard has two tabs: Submissions and Tracking with role-gated visibility
+- [x] **DASH-02**: Dashboard has two tabs: Submissions and Tracking with role-gated visibility
 - [x] **DASH-03**: Auth portal redirects customer_service role to Customer Service dashboard
-- [ ] **DASH-04**: All counters, filters, and summaries update without page reload
+- [x] **DASH-04**: All counters, filters, and summaries update without page reload
 - [x] **DASH-05**: All dates displayed as M/D/YYYY, all dollar amounts formatted with commas and 2 decimal places
 
 ## v2 Requirements
@@ -97,9 +97,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ROLE-01 | Phase 11 | Pending |
-| ROLE-02 | Phase 15 | Pending |
+| ROLE-02 | Phase 15 | Complete |
 | ROLE-03 | Phase 15 | Pending |
-| ROLE-04 | Phase 15 | Pending |
+| ROLE-04 | Phase 15 | Complete |
 | SCHEMA-01 | Phase 11 | Pending |
 | SCHEMA-02 | Phase 11 | Pending |
 | CHBK-01 | Phase 12 | Complete |
@@ -127,14 +127,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRKT-05 | Phase 14 | Complete |
 | TRKT-06 | Phase 14 | Complete |
 | TRKT-07 | Phase 14 | Complete |
-| RESV-01 | Phase 15 | Pending |
-| RESV-02 | Phase 15 | Pending |
-| RESV-03 | Phase 15 | Pending |
-| RESV-04 | Phase 15 | Pending |
+| RESV-01 | Phase 15 | Complete |
+| RESV-02 | Phase 15 | Complete |
+| RESV-03 | Phase 15 | Complete |
+| RESV-04 | Phase 15 | Complete |
 | DASH-01 | Phase 11 | Complete |
-| DASH-02 | Phase 15 | Pending |
+| DASH-02 | Phase 15 | Complete |
 | DASH-03 | Phase 11 | Complete |
-| DASH-04 | Phase 15 | Pending |
+| DASH-04 | Phase 15 | Complete |
 | DASH-05 | Phase 15 | Complete |
 
 **Coverage:**

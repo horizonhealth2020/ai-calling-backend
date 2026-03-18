@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
-- [ ] **v1.1 Customer Service** — Phases 11-15
+- [x] **v1.1 Customer Service** — Phases 11-15 (shipped 2026-03-18)
 
 ## Phases
 
@@ -109,11 +109,11 @@ Plans:
   5. owner and super_admin roles see both Submissions and Tracking tabs
   6. All dates render as M/D/YYYY and all dollar amounts render with commas and 2 decimal places across the entire dashboard
   7. Counters, filters, and summary bars update without full page reload when data or filter state changes
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 15-01-PLAN.md — Schema migration + resolve/unresolve API endpoints + totals update + ROLE_ENUM fix
 - [x] 15-02-PLAN.md — Extract formatDollar/formatDate to @ops/utils + update all 5 dashboards
-- [ ] 15-03-PLAN.md — CS Dashboard resolve UX, status pills, role-gated tabs, remove agent grouping
+- [x] 15-03-PLAN.md — CS Dashboard resolve UX, status pills, role-gated tabs, remove agent grouping
 
 ## Progress
 
@@ -133,7 +133,7 @@ Plans:
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
-| 15. Resolution & Polish | v1.1 | 2/3 | In Progress | - |
+| 15. Resolution & Polish | v1.1 | 3/3 | Complete | 2026-03-18 |
 
 ---
 *Roadmap created: 2026-03-14*
