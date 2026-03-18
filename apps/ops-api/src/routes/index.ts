@@ -1989,6 +1989,18 @@ router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (_req, r
   });
 }));
 
+router.get("/chargebacks/totals", requireAuth, asyncHandler(async (_req, res) => {
+  const result = await prisma.chargebackSubmission.aggregate({
+    _sum: { chargebackAmount: true },
+    _count: { id: true },
+  });
+  return res.json({
+    totalChargebacks: result._sum.chargebackAmount ? Math.abs(Number(result._sum.chargebackAmount)) : 0,
+    totalRecovered: 0,
+    recordCount: result._count.id,
+  });
+}));
+
 // ─── CS Rep Roster ────────────────────────────────────────────────
 
 router.get("/cs-rep-roster", requireAuth, asyncHandler(async (_req, res) => {
