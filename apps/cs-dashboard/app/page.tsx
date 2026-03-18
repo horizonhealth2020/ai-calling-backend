@@ -1588,6 +1588,8 @@ function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOn
       if (!res.ok) throw new Error();
       const updated = await res.json();
       setChargebacks(cs => cs.map((cb: any) => cb.id === id ? { ...cb, ...updated } : cb));
+      const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
+      if (totalsRes.ok) setTotals(await totalsRes.json());
       toast("success", `Chargeback marked as ${resolveType}`);
     } catch {
       if (prev) setChargebacks(cs => cs.map((cb: any) => cb.id === id ? prev : cb));
@@ -1603,6 +1605,8 @@ function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOn
     try {
       const res = await authFetch(`${API}/api/chargebacks/${id}/unresolve`, { method: "PATCH" });
       if (!res.ok) throw new Error();
+      const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
+      if (totalsRes.ok) setTotals(await totalsRes.json());
       toast("success", "Resolution cleared");
     } catch {
       if (prev) setChargebacks(cs => cs.map((cb: any) => cb.id === id ? prev : cb));
