@@ -28,7 +28,7 @@
 - [x] **Phase 11: Foundation & Dashboard Shell** - Schema, role, app scaffold, auth redirect
 - [x] **Phase 12: Chargeback Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [x] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
-- [ ] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export
+- [x] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export (completed 2026-03-18)
 - [ ] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates
 
 ## Phase Details
@@ -92,10 +92,10 @@ Plans:
   7. agent_name and agent_id are stored in the database but never shown as visible table columns
   8. Pending terms table supports group-by-agent with collapsible sections using agent name as the group header
   9. CSV export button is visible only to owner and super_admin roles on both tables
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 14-01-PLAN.md — API totals endpoint + KPI bar + search/filter + sortable chargeback table + export button
-- [ ] 14-02-PLAN.md — Pending terms summary bar + grouped table + pending filters + CSV export wiring
+- [x] 14-02-PLAN.md — Pending terms summary bar + grouped table + pending filters + CSV export wiring
 
 ### Phase 15: Resolution & Polish
 **Goal**: Customer service staff can mark records as resolved, filter by status, and all formatting/role gating is consistent
@@ -128,7 +128,7 @@ Plans:
 | 11. Foundation & Dashboard Shell | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
-| 14. Tracking Tables | v1.1 | 0/2 | Not started | - |
+| 14. Tracking Tables | v1.1 | 2/2 | Complete | 2026-03-18 |
 | 15. Resolution & Polish | v1.1 | 0/? | Not started | - |
 
 ---

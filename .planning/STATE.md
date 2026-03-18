@@ -97,24 +97,24 @@ progress:
 
 ## Current Position
 
-**Phase:** 14 - Tracking Tables (in progress)
-**Plan:** 01 complete (1/2)
+**Phase:** 14 - Tracking Tables (complete)
+**Plan:** 02 complete (2/2)
 **Status:** Executing
-**Last activity:** 2026-03-18 -- completed 14-01 (Chargeback KPI Bar & Tracking Table)
+**Last activity:** 2026-03-18 -- completed 14-02 (Pending Terms Summary Bar, Grouped Table & CSV Export)
 
 ```
-Progress: [##############          ] 60% (3/5 phases complete)
-Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [##   ] | Phase 15 [     ]
+Progress: [####################    ] 80% (4/5 phases complete)
+Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phase 15 [     ]
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 8 |
+| Plans completed | 9 |
 | Plans total | 9 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2) |
-| Requirements done | 24/40 |
-| Phases done | 3/5 |
+| Requirements done | 31/40 |
+| Phases done | 4/5 |
 
 ## Accumulated Context
 
@@ -135,6 +135,9 @@ Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [##   ] | Phas
 - KPI counters use global totals from /api/chargebacks/totals, never affected by search/filters
 - SortHeader extracted as reusable component for column sorting across tracking tables
 - Filter and search pipeline implemented client-side with useMemo for 200-record cap dataset
+- Summary bar uses full unfiltered pendingTerms dataset for global counts (not filtered view)
+- Group headers use Fragment with key for React reconciliation in grouped pending terms table
+- Urgent count defined as nextBilling within 7 calendar days from today
 
 ### Roadmap Evolution
 - v1.1 roadmap created with 7 phases covering 40 requirements
@@ -168,9 +171,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T14:19:33Z
-**Stopped at:** Completed 14-01-PLAN.md
-**Next action:** Execute Phase 14 Plan 02 (Pending Terms Table)
+**Last session:** 2026-03-18T14:24:53Z
+**Stopped at:** Completed 14-02-PLAN.md
+**Next action:** Plan and execute Phase 15 (Resolution & Polish)
 
 ---
 *State initialized: 2026-03-14*
