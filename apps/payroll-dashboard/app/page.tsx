@@ -139,6 +139,23 @@ function isActiveEntry(e: Entry): boolean {
   return true;
 }
 
+/* ── Enrollment bonus constants ──────────────────────────────── */
+
+/** Enrollment fee >= this threshold triggers the enrollment bonus -- must match server-side constant */
+const ENROLLMENT_BONUS_THRESHOLD = 125;
+
+const ENROLLMENT_BADGE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  background: C.warningBg,
+  color: C.warning,
+  fontSize: 11,
+  fontWeight: 700,
+  borderRadius: 9999,
+  padding: "2px 6px",
+  marginLeft: 4,
+};
+
 /* ── Helpers ─────────────────────────────────────────────────── */
 
 function fmtDate(iso: string): string {
@@ -312,6 +329,9 @@ function EditableSaleRow({
         ) : (
           <span style={{ color: needsApproval ? C.danger : C.textSecondary, fontWeight: needsApproval ? 700 : 400 }}>
             {fee !== null ? formatDollar(fee) : "—"}
+            {fee !== null && fee >= ENROLLMENT_BONUS_THRESHOLD && (
+              <span style={ENROLLMENT_BADGE}>+10</span>
+            )}
           </span>
         )}
       </td>
@@ -320,57 +340,6 @@ function EditableSaleRow({
         <span style={{ color: C.textPrimary, fontWeight: 700 }}>
           {formatDollar(Number(entry.payoutAmount))}
         </span>
-      </td>
-
-      {/* Bonus — green bg when > 0 */}
-      <td style={{ ...tdRight, padding: "8px 6px" }}>
-        <input
-          className="input-focus"
-          disabled={isPaid}
-          style={{
-            ...SMALL_INP, width: 78,
-            background: Number(bonus) > 0 ? "rgba(52,211,153,0.10)" : SMALL_INP.background,
-            color: Number(bonus) > 0 ? C.success : C.textPrimary,
-            ...(isPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
-          }}
-          type="number" step="0.01" value={bonus}
-          onChange={e => setBonus(e.target.value)}
-          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0, Number(hold) || 0)}
-        />
-      </td>
-
-      {/* Fronted — red bg when > 0 */}
-      <td style={{ ...tdRight, padding: "8px 6px" }}>
-        <input
-          className="input-focus"
-          disabled={isPaid}
-          style={{
-            ...SMALL_INP, width: 78,
-            background: Number(fronted) > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
-            color: Number(fronted) > 0 ? C.danger : C.textPrimary,
-            ...(isPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
-          }}
-          type="number" step="0.01" value={fronted}
-          onChange={e => setFronted(e.target.value)}
-          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0, Number(hold) || 0)}
-        />
-      </td>
-
-      {/* Hold — amber bg when > 0 */}
-      <td style={{ ...tdRight, padding: "8px 6px" }}>
-        <input
-          className="input-focus"
-          disabled={isPaid}
-          style={{
-            ...SMALL_INP, width: 78,
-            background: Number(hold) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
-            color: Number(hold) > 0 ? C.warning : C.textPrimary,
-            ...(isPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
-          }}
-          type="number" step="0.01" value={hold}
-          onChange={e => setHold(e.target.value)}
-          onBlur={() => onBonusFrontedUpdate(entry.id, Number(bonus) || 0, Number(fronted) || 0, Number(hold) || 0)}
-        />
       </td>
 
       {/* Net — animated, color by sign */}
@@ -868,10 +837,18 @@ function AgentPayCard({
             <Printer size={11} /> Print
           </Button>
           {entries.every(e => e.status === "PAID") ? (
-            <Button variant="ghost" size="sm" onClick={onMarkUnpaid}
-              style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}>
-              <CheckCircle size={11} /> Paid
-            </Button>
+            period.status !== "OPEN" ? (
+              <Button variant="ghost" size="sm" disabled
+                title="Cannot unpay a closed period"
+                style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success, opacity: 0.5, cursor: "not-allowed" }}>
+                <CheckCircle size={11} /> Paid
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={onMarkUnpaid}
+                style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}>
+                <CheckCircle size={11} /> Mark Unpaid
+              </Button>
+            )
           ) : (
             <Button variant="ghost" size="sm" onClick={onMarkPaid}
               style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
@@ -971,9 +948,6 @@ function AgentPayCard({
               <th style={thStyle}>Product</th>
               <th style={thRight}>Enroll Fee</th>
               <th style={thRight}>Commission</th>
-              <th style={thRight}>Bonus</th>
-              <th style={thRight}>Fronted</th>
-              <th style={thRight}>Hold</th>
               <th style={thRight}>Net</th>
               <th style={thCenter}>Actions</th>
             </tr>
@@ -998,9 +972,6 @@ function AgentPayCard({
             <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
               <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
               <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.success }}>{formatDollar(totalBonus)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.danger }}>{formatDollar(totalFronted)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: C.warning }}>{formatDollar(totalHold)}</td>
               <td style={{ ...tdRight, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
                 <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
               </td>
@@ -1487,13 +1458,18 @@ function PayrollDashboardInner() {
   }
 
   async function markEntriesUnpaid(entryIds: string[], serviceEntryIds: string[], label: string) {
-    if (!window.confirm(`Mark ${label} as UNPAID?`)) return;
+    if (!window.confirm(`Mark this period as unpaid? This will revert the paid status for ${label}.`)) return;
     const res = await authFetch(`${API}/api/payroll/mark-unpaid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entryIds, serviceEntryIds }),
     });
-    if (res.ok) await refreshPeriods();
+    if (res.ok) {
+      await refreshPeriods();
+    } else {
+      const err = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+      alert(err.error || `Request failed (${res.status})`);
+    }
   }
 
   function filterPeriodsByRange(range: ExportRange): Period[] {
