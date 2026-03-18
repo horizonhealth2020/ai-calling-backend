@@ -53,11 +53,9 @@ All values from `@ops/ui` `typography` tokens. Phase 15 uses these specific role
 
 | Role | Size | Weight | Line Height | Usage in Phase 15 |
 |------|------|--------|-------------|-------------------|
-| Table cell | 13px (sm) | 400 (normal) | 1.5 | Tracking table data, resolution notes display |
-| Table header | 11px (xs) | 700 (bold) | 1.45 | Column headers (uppercase, caps tracking) |
-| Label | 11px (xs) | 700 (bold) | 1.45 | "Resolution Type", "Notes" field labels |
-| Body | 14px (base) | 400 (normal) | 1.6 | Resolution note textarea, panel body text |
-| Section heading | 16px (md) | 600 (semibold) | 1.5 | Status pill group label, panel heading |
+| Table header / Label | 11px (xs) | 700 (bold) | 1.45 | Column headers (uppercase, caps tracking), "Resolution Type" / "Notes" field labels |
+| Table cell / Body | 14px (base) | 400 (normal) | 1.6 | Tracking table data, resolution notes display, panel body text, textarea content |
+| Section heading | 16px (md) | 700 (bold) | 1.5 | Status pill group label, panel heading |
 | KPI value | 28px (2xl) | 700 (bold) | 1.2 | Animated KPI counter values (existing) |
 
 ---
@@ -103,8 +101,8 @@ Position: Above each tracking table, below KPI/summary bar, above filter panel.
 
 | State | Style |
 |-------|-------|
-| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: 600`, `fontSize: 13px`, `borderRadius: radius.full`, `padding: "6px 16px"` |
-| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault`, `fontWeight: 400`, `fontSize: 13px`, `borderRadius: radius.full`, `padding: "6px 16px"` |
+| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: 700`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "6px 16px"` |
+| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: 1px solid colors.borderDefault`, `fontWeight: 400`, `fontSize: 14px`, `borderRadius: radius.full`, `padding: "6px 16px"` |
 | Container | `display: "flex"`, `gap: spacing[2]`, `marginBottom: spacing[4]` |
 
 Pills: "Open" (default), "Resolved", "All"
@@ -124,7 +122,7 @@ Triggered by clicking "Resolve" button in a table row. Renders as a `<tr>` with 
 Panel contents:
 - Resolution type selector: Two radio-style buttons side by side
 - Resolution note: `<textarea>` using `baseInputStyle`, 3 rows minimum, `min-height: 80px`
-- Action row: "Save Resolution" (primary button) + "Cancel" (ghost button), `gap: spacing[2]`, right-aligned
+- Action row: "Save Resolution" (primary button) + "Discard" (ghost button), `gap: spacing[2]`, right-aligned
 
 #### 3. Resolution Type Selector
 
@@ -144,7 +142,7 @@ Two pill-shaped buttons for selecting resolution type before saving.
 | "Saved" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid colors.success` | Same as above |
 | "Cancelled" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid colors.danger` | Same as above |
 
-Both: `borderRadius: radius.full`, `padding: "6px 16px"`, `fontSize: 13px`, `fontWeight: 600`, `cursor: "pointer"`
+Both: `borderRadius: radius.full`, `padding: "6px 16px"`, `fontSize: 14px`, `fontWeight: 700`, `cursor: "pointer"`
 
 #### 4. Resolved Row Treatment
 
@@ -157,7 +155,7 @@ When a row's `resolvedAt` is set and it appears in the table (status filter = "a
 | Badge | Inline "Resolved" text badge after row action column |
 
 Badge styling:
-- `fontSize: 11px`, `fontWeight: 600`, `textTransform: "uppercase"`, `letterSpacing: typography.tracking.caps`
+- `fontSize: 11px`, `fontWeight: 700`, `textTransform: "uppercase"`, `letterSpacing: typography.tracking.caps`
 - For "Recovered"/"Saved": `color: colors.success`, `background: colors.successBg`
 - For "Closed"/"Cancelled": `color: colors.danger`, `background: colors.dangerBg`
 - `borderRadius: radius.full`, `padding: "2px 8px"`
@@ -170,7 +168,7 @@ Shown below the badge or in an expanded detail view for resolved records:
 |---------|-------|
 | resolved_by name | `fontSize: 11px`, `color: colors.textTertiary` |
 | resolved_at date | `fontSize: 11px`, `color: colors.textTertiary`, formatted as M/D/YYYY |
-| resolution_note | `fontSize: 13px`, `color: colors.textSecondary`, `fontStyle: "italic"` |
+| resolution_note | `fontSize: 14px`, `color: colors.textSecondary`, `fontStyle: "italic"` |
 | Separator | `"|"` between resolved_by and resolved_at |
 
 Format: `"Resolved by {name} on {date}"` on one line, note below.
@@ -179,8 +177,8 @@ Format: `"Resolved by {name} on {date}"` on one line, note below.
 
 | State | Label | Style |
 |-------|-------|-------|
-| Open record | "Resolve" | `color: colors.primary500`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: 13px`, `fontWeight: 600` |
-| Resolved record | "Unresolve" | `color: colors.textTertiary`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: 13px`, `fontWeight: 400` |
+| Open record | "Resolve" | `color: colors.primary500`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: 14px`, `fontWeight: 700` |
+| Resolved record | "Unresolve" | `color: colors.textTertiary`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: 14px`, `fontWeight: 400` |
 
 Both use text-only button style (no background, no border). Hover: `textDecoration: "underline"`.
 
@@ -251,7 +249,7 @@ Both use text-only button style (no background, no border). Hover: `textDecorati
 |---------|------|
 | Primary CTA (chargeback) | "Save Resolution" |
 | Primary CTA (pending term) | "Save Resolution" |
-| Cancel action | "Cancel" |
+| Dismiss action | "Discard" |
 | Resolve button (open record) | "Resolve" |
 | Unresolve button (resolved record) | "Unresolve" |
 | Resolution type label | "Resolution Type" |
@@ -275,7 +273,12 @@ Both use text-only button style (no background, no border). Hover: `textDecorati
 | Resolved badge text (pending saved) | "Saved" |
 | Resolved badge text (pending cancelled) | "Cancelled" |
 | Resolved metadata line | "Resolved by {name} on {M/D/YYYY}" |
-| Empty state heading (no records) | "No records found" |
+| Empty state heading (chargebacks, filter: open) | "No open chargebacks" |
+| Empty state heading (chargebacks, filter: resolved) | "No resolved chargebacks" |
+| Empty state heading (chargebacks, filter: all) | "All chargebacks resolved" |
+| Empty state heading (pending terms, filter: open) | "No pending terms to review" |
+| Empty state heading (pending terms, filter: resolved) | "No resolved pending terms" |
+| Empty state heading (pending terms, filter: all) | "No pending terms recorded" |
 | Empty state body (filtered empty) | "Try changing the status filter or adjusting your search criteria." |
 | Save disabled tooltip | "Select a resolution type and add a note" |
 
