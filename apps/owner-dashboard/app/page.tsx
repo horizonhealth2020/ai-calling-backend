@@ -42,11 +42,16 @@ import {
   UserPlus,
   Check,
   Clock,
+  Lock,
+  Database,
+  Activity,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-type ActiveSection = "dashboard" | "config" | "users";
+type ActiveSection = "dashboard" | "config" | "users" | "kpis";
 type Range = "today" | "week" | "month";
 type Summary = {
   salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number;
@@ -56,6 +61,11 @@ type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; t
 type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; periodStatus?: string };
 type User = { id: string; name: string; email: string; roles: string[]; active: boolean; createdAt: string };
 type AgentInfo = { id: string; name: string; email?: string; active?: boolean; auditEnabled?: boolean };
+type AgentKpi = { agentId: string; agentName: string; chargebackCount: number; chargebackTotal: number; pendingTermCount: number };
+type KpiData = { agents: AgentKpi[]; totals: { totalChargebackCount: number; totalChargebackDollars: number; totalPendingTermCount: number } };
+type PermUser = { id: string; name: string; roles: string[]; permissions: Record<string, { granted: boolean; isDefault: boolean; isOverride: boolean }> };
+type PermData = { users: PermUser[]; configurablePermissions: string[] };
+type StorageStats = { dbSizeMB: number; planLimitMB: number; usagePct: number; thresholdPct: number; alertActive: boolean };
 
 function computeTrend(current: number, prior: number): { value: number; direction: "up" | "down" | "flat" } {
   if (prior === 0) return current > 0 ? { value: 100, direction: "up" } : { value: 0, direction: "flat" };
@@ -87,6 +97,16 @@ const ROLE_COLORS: Record<string, string> = {
 const RANK_COLORS = ["#fbbf24", "#94a3b8", "#d97706"] as const;
 const RANK_LABELS = ["Gold", "Silver", "Bronze"] as const;
 
+const PERM_LABELS: Record<string, string> = {
+  "create:sale": "Sales",
+  "create:chargeback": "Chargebacks",
+  "create:pending_term": "Pending Terms",
+  "create:rep": "Reps",
+  "create:agent": "Agents",
+  "create:product": "Products",
+  "create:lead_source": "Lead Sources",
+};
+
 /* ── Inline style constants ─────────────────────────────────────── */
 
 const CARD: React.CSSProperties = {
@@ -116,6 +136,18 @@ const TD: React.CSSProperties = {
   ...baseTdStyle,
 };
 
+const STORAGE_ALERT: React.CSSProperties = {
+  background: "rgba(234, 179, 8, 0.08)",
+  borderLeft: `4px solid ${colors.warning ?? "#eab308"}`,
+  borderRadius: radius.lg,
+  padding: "12px 16px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 16,
+  gap: 12,
+};
+
 const INP: React.CSSProperties = {
   ...baseInputStyle,
   boxSizing: "border-box" as const,
@@ -125,6 +157,7 @@ const INP: React.CSSProperties = {
 
 const NAV_ITEMS_BASE = [
   { icon: <BarChart3 size={18} />, label: "Dashboard", key: "dashboard" },
+  { icon: <Activity size={18} />, label: "KPIs", key: "kpis" },
   { icon: <Settings size={18} />, label: "AI Config", key: "config" },
 ];
 
@@ -1103,6 +1136,324 @@ function ConfigSection({
   );
 }
 
+/* ── Agent KPI Table ────────────────────────────────────────────── */
+
+function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
+  const [sortCol, setSortCol] = useState<keyof AgentKpi>("chargebackTotal");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const toggleSort = (col: keyof AgentKpi) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("desc");
+    }
+  };
+
+  const sorted = kpiData
+    ? [...kpiData.agents].sort((a, b) => {
+        const av = a[sortCol];
+        const bv = b[sortCol];
+        if (typeof av === "number" && typeof bv === "number") {
+          return sortDir === "asc" ? av - bv : bv - av;
+        }
+        return sortDir === "asc"
+          ? String(av).localeCompare(String(bv))
+          : String(bv).localeCompare(String(av));
+      })
+    : [];
+
+  const SortIcon = ({ col }: { col: keyof AgentKpi }) => {
+    if (sortCol !== col) return null;
+    return sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
+  };
+
+  if (!kpiData) {
+    return (
+      <div style={{ ...CARD, padding: 24 }}>
+        <SkeletonTable rows={5} columns={4} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Summary stat cards */}
+      <div
+        className="grid-mobile-1"
+        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}
+      >
+        <StatCard
+          label="Total Chargebacks"
+          value={kpiData.totals.totalChargebackCount}
+          icon={<AlertTriangle size={18} />}
+          accent={colors.danger}
+          style={{ borderTop: `3px solid ${colors.danger}` }}
+        />
+        <StatCard
+          label="Chargeback Total"
+          value={formatDollar(kpiData.totals.totalChargebackDollars)}
+          icon={<DollarSign size={18} />}
+          accent={colors.warning ?? "#eab308"}
+          style={{ borderTop: `3px solid ${colors.warning ?? "#eab308"}` }}
+        />
+        <StatCard
+          label="Pending Terms"
+          value={kpiData.totals.totalPendingTermCount}
+          icon={<Clock size={18} />}
+          accent={colors.accentTeal}
+          style={{ borderTop: `3px solid ${colors.accentTeal}` }}
+        />
+      </div>
+
+      {/* Agent KPI table */}
+      <div className="animate-fade-in-up stagger-2" style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <Activity size={16} color={colors.textTertiary} />
+          <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+            Agent Retention KPIs (30-day window)
+          </span>
+        </div>
+
+        {sorted.length === 0 ? (
+          <EmptyState
+            icon={<Activity size={32} />}
+            title="No KPI data yet"
+            description="Agent chargeback and pending term metrics from the last 30 days will appear here."
+          />
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: colors.bgSurfaceInset }}>
+                  <th
+                    style={{ ...baseThStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => toggleSort("agentName")}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Agent Name <SortIcon col="agentName" /></span>
+                  </th>
+                  <th
+                    style={{ ...baseThStyle, cursor: "pointer", userSelect: "none", textAlign: "right" }}
+                    onClick={() => toggleSort("chargebackCount")}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Chargebacks <SortIcon col="chargebackCount" /></span>
+                  </th>
+                  <th
+                    style={{ ...baseThStyle, cursor: "pointer", userSelect: "none", textAlign: "right" }}
+                    onClick={() => toggleSort("chargebackTotal")}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Chargeback Total <SortIcon col="chargebackTotal" /></span>
+                  </th>
+                  <th
+                    style={{ ...baseThStyle, cursor: "pointer", userSelect: "none", textAlign: "right" }}
+                    onClick={() => toggleSort("pendingTermCount")}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Pending Terms <SortIcon col="pendingTermCount" /></span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((agent) => (
+                  <tr key={agent.agentId} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
+                    <td style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{agent.agentName}</td>
+                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackCount > 0 ? colors.danger : colors.textSecondary }}>
+                      {agent.chargebackCount}
+                    </td>
+                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackTotal > 0 ? colors.danger : colors.textSecondary }}>
+                      {formatDollar(agent.chargebackTotal)}
+                    </td>
+                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.pendingTermCount > 0 ? (colors.warning ?? "#eab308") : colors.textSecondary }}>
+                      {agent.pendingTermCount}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ── Permission Table ──────────────────────────────────────────── */
+
+function PermissionTable({
+  permData,
+  onSavePermissions,
+}: {
+  permData: PermData | null;
+  onSavePermissions: (overrides: { userId: string; permission: string; granted: boolean }[]) => Promise<void>;
+}) {
+  const [changes, setChanges] = useState<Record<string, Record<string, boolean>>>({});
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  if (!permData) {
+    return (
+      <div style={{ ...CARD, padding: 24, marginTop: 24 }}>
+        <SkeletonTable rows={5} columns={8} />
+      </div>
+    );
+  }
+
+  const hasChanges = Object.keys(changes).length > 0;
+
+  const handleToggle = (userId: string, perm: string, currentGranted: boolean) => {
+    setChanges((prev) => {
+      const userChanges = { ...(prev[userId] || {}) };
+      const newValue = !currentGranted;
+      // If toggling back to original, remove from changes
+      const original = permData.users.find((u) => u.id === userId)?.permissions[perm]?.granted;
+      if (newValue === original) {
+        delete userChanges[perm];
+        if (Object.keys(userChanges).length === 0) {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        }
+      } else {
+        userChanges[perm] = newValue;
+      }
+      return { ...prev, [userId]: userChanges };
+    });
+  };
+
+  const handleSave = async () => {
+    const overrides: { userId: string; permission: string; granted: boolean }[] = [];
+    for (const [userId, perms] of Object.entries(changes)) {
+      for (const [perm, granted] of Object.entries(perms)) {
+        overrides.push({ userId, permission: perm, granted });
+      }
+    }
+    if (overrides.length === 0) return;
+
+    setSaving(true);
+    try {
+      await onSavePermissions(overrides);
+      setChanges({});
+      toast("success", `Updated ${overrides.length} permission${overrides.length !== 1 ? "s" : ""}`);
+    } catch (e: unknown) {
+      toast("error", e instanceof Error ? e.message : "Failed to save permissions");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ ...CARD, padding: 0, overflow: "hidden", marginTop: 24 }}>
+      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Shield size={16} color={colors.textTertiary} />
+          <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+            Permission Management
+          </span>
+        </div>
+        {hasChanges && (
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Save size={14} />}
+            loading={saving}
+            onClick={handleSave}
+          >
+            Save Permissions
+          </Button>
+        )}
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: colors.bgSurfaceInset }}>
+              <th style={baseThStyle}>User</th>
+              {permData.configurablePermissions.map((p) => (
+                <th key={p} style={{ ...baseThStyle, textAlign: "center", fontSize: 11, padding: "10px 6px" }}>
+                  {PERM_LABELS[p] ?? p}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* Hard-coded locked rows */}
+            <tr style={{ background: `${colors.bgSurfaceInset}60` }}>
+              <td style={{ ...baseTdStyle, display: "flex", alignItems: "center", gap: 6 }}>
+                <Lock size={12} color={colors.textMuted} />
+                <span style={{ color: colors.textMuted, fontSize: 13 }}>Payroll Access</span>
+              </td>
+              {permData.configurablePermissions.map((p) => (
+                <td key={p} style={{ ...baseTdStyle, textAlign: "center" }}>
+                  <input type="checkbox" checked={false} disabled title="SUPER_ADMIN only" style={{ opacity: 0.3 }} />
+                </td>
+              ))}
+            </tr>
+            <tr style={{ background: `${colors.bgSurfaceInset}60` }}>
+              <td style={{ ...baseTdStyle, display: "flex", alignItems: "center", gap: 6 }}>
+                <Lock size={12} color={colors.textMuted} />
+                <span style={{ color: colors.textMuted, fontSize: 13 }}>User Creation</span>
+              </td>
+              {permData.configurablePermissions.map((p) => (
+                <td key={p} style={{ ...baseTdStyle, textAlign: "center" }}>
+                  <input type="checkbox" checked={false} disabled title="SUPER_ADMIN only" style={{ opacity: 0.3 }} />
+                </td>
+              ))}
+            </tr>
+
+            {/* User permission rows */}
+            {permData.users.map((user) => (
+              <tr key={user.id} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
+                <td style={baseTdStyle}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: 13 }}>{user.name}</span>
+                    <div style={{ display: "flex", gap: 3 }}>
+                      {user.roles.map((r) => (
+                        <Badge key={r} color={ROLE_COLORS[r] ?? colors.textTertiary} size="sm">
+                          {r}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </td>
+                {permData.configurablePermissions.map((perm) => {
+                  const userPerm = user.permissions[perm];
+                  const currentGranted = changes[user.id]?.[perm] ?? userPerm?.granted ?? false;
+                  const isOverrideOrChanged = userPerm?.isOverride || (changes[user.id] && perm in changes[user.id]);
+
+                  return (
+                    <td key={perm} style={{ ...baseTdStyle, textAlign: "center", position: "relative" }}>
+                      <input
+                        type="checkbox"
+                        checked={currentGranted}
+                        onChange={() => handleToggle(user.id, perm, currentGranted)}
+                        style={{ accentColor: colors.accentTeal, width: 15, height: 15, cursor: "pointer" }}
+                      />
+                      {isOverrideOrChanged && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: colors.accentTeal,
+                          }}
+                          title="Custom override"
+                        />
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ── Users section ──────────────────────────────────────────────── */
 
 function UsersSection({
@@ -1314,6 +1665,14 @@ function OwnerDashboardInner() {
   const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
   const [periods, setPeriods] = useState<PeriodSummary[]>([]);
 
+  // Storage, KPI, and permission state
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const [storageAlertDismissed, setStorageAlertDismissed] = useState(false);
+  const [kpiData, setKpiData] = useState<KpiData | null>(null);
+  const [kpiLoaded, setKpiLoaded] = useState(false);
+  const [permData, setPermData] = useState<PermData | null>(null);
+  const [permLoaded, setPermLoaded] = useState(false);
+
   // AI Prompts state
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
@@ -1334,6 +1693,9 @@ function OwnerDashboardInner() {
         if (payload?.roles?.includes("SUPER_ADMIN")) setIsSuperAdmin(true);
       }
     } catch { /* ignore */ }
+
+    // Fetch storage stats on mount
+    authFetch(`${API}/api/storage-stats`).then((r) => r.ok ? r.json() : null).then(setStorageStats).catch(() => {});
   }, []);
 
   const fetchData = useCallback((r: Range) => {
@@ -1434,7 +1796,19 @@ function OwnerDashboardInner() {
         .then((u) => { setUsers(u); setUsersLoaded(true); })
         .catch(() => { setUsers([]); setUsersLoaded(true); });
     }
-  }, [activeSection, isSuperAdmin, agentsLoaded, aiPromptLoaded, auditDurationLoaded, usersLoaded]);
+    if (activeSection === "users" && !permLoaded && isSuperAdmin) {
+      authFetch(`${API}/api/permissions`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { setPermData(d); setPermLoaded(true); })
+        .catch(() => { setPermLoaded(true); });
+    }
+    if (activeSection === "kpis" && !kpiLoaded) {
+      authFetch(`${API}/api/agent-kpis`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { setKpiData(d); setKpiLoaded(true); })
+        .catch(() => { setKpiLoaded(true); });
+    }
+  }, [activeSection, isSuperAdmin, agentsLoaded, aiPromptLoaded, auditDurationLoaded, usersLoaded, permLoaded, kpiLoaded]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {
     try {
@@ -1470,10 +1844,26 @@ function OwnerDashboardInner() {
     }
   }
 
+  async function savePermissions(overrides: { userId: string; permission: string; granted: boolean }[]): Promise<void> {
+    const res = await authFetch(`${API}/api/permissions`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ overrides }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? `Request failed (${res.status})`);
+    }
+    // Re-fetch permission data
+    const fresh = await authFetch(`${API}/api/permissions`).then((r) => r.ok ? r.json() : null);
+    if (fresh) setPermData(fresh);
+  }
+
   const navItems = isSuperAdmin ? NAV_ITEMS_ADMIN : NAV_ITEMS_BASE;
 
   const subtitleMap: Record<ActiveSection, string> = {
     dashboard: "Performance overview and agent leaderboard",
+    kpis: "Agent retention metrics and chargeback tracking",
     config: "AI audit settings and webhook configuration",
     users: "Platform users and role management",
   };
@@ -1487,6 +1877,38 @@ function OwnerDashboardInner() {
       onNavChange={(key) => setActiveSection(key as ActiveSection)}
     >
       {disconnected && <div style={DISCONNECT_BANNER}>Connection lost. Reconnecting...</div>}
+
+      {/* Storage Alert Banner */}
+      {storageStats?.alertActive && !storageAlertDismissed && (
+        <div style={STORAGE_ALERT}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+            <Database size={18} color={colors.warning ?? "#eab308"} />
+            <span style={{ fontSize: 13, color: colors.textPrimary }}>
+              Database storage at {storageStats.usagePct}% capacity ({storageStats.dbSizeMB} MB / {storageStats.planLimitMB} MB)
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="primary" size="sm" onClick={() => setActiveSection("config")}>
+              Manage Data
+            </Button>
+            <button
+              aria-label="Dismiss storage alert"
+              onClick={() => setStorageAlertDismissed(true)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: colors.textMuted,
+                cursor: "pointer",
+                padding: 4,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeSection === "dashboard" && (
         <div className="animate-fade-in">
@@ -1504,6 +1926,18 @@ function OwnerDashboardInner() {
               onPeriodViewChange={setPeriodView}
             />
           )}
+        </div>
+      )}
+
+      {activeSection === "kpis" && (
+        <div className="animate-fade-in">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div>
+              <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>Agent Retention KPIs</h2>
+              <p style={SECTION_SUBTITLE}>Per-agent chargeback and pending term metrics (30-day rolling window)</p>
+            </div>
+          </div>
+          <AgentKPITable kpiData={kpiData} />
         </div>
       )}
 
@@ -1532,6 +1966,7 @@ function OwnerDashboardInner() {
             onSave={saveUser}
             onDelete={deleteUser}
           />
+          <PermissionTable permData={permData} onSavePermissions={savePermissions} />
         </div>
       )}
     </PageShell>
