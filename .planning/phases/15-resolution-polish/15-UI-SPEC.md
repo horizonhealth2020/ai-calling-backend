@@ -43,24 +43,25 @@ Declared values from `@ops/ui` tokens (already established):
 | spacing[12] | 48px | Major section breaks |
 | spacing[16] | 64px | Page-level spacing |
 
-Exceptions: none -- use established token scale exclusively.
+Exceptions: `spacing[3]` (12px) and `spacing[5]` (20px) are inherited from the `@ops/ui` token system established across the entire monorepo. These values are not phase-15-specific inventions; they are part of the project's existing design system used by all phases. They are retained here for cross-phase consistency with the established token scale.
 
 ---
 
 ## Typography
 
-All values from `@ops/ui` `typography` tokens. Phase 15 uses these specific roles:
+All values from `@ops/ui` `typography` tokens. Phase 15 uses exactly 4 font sizes and 2 weights:
+
+**Font sizes (4):** 11px (`xs`), 13px (`sm`), 16px (`md`), 28px (`2xl`)
+**Font weights (2):** 400 (`normal`), 700 (`bold`)
 
 | Role | Size | Weight | Line Height | Usage in Phase 15 |
 |------|------|--------|-------------|-------------------|
 | Table header / Label | 11px (`xs`) | 700 (`bold`) | 1.45 | Column headers (via `baseThStyle`), "Resolution Type" / "Resolution Note" field labels (via `baseLabelStyle`), resolved badge text |
-| Table cell / Body | 13px (`sm`) | inherit (400) | 1.5 | Table data cells (via `baseTdStyle`), resolved metadata line |
-| Pill / Button text | 14px (`base`) | 700 (`bold`) for active/selected, 400 (`normal`) for inactive | 1.6 | Status pill labels, resolution type selector buttons, "Resolve"/"Unresolve" text buttons |
-| Textarea content | 14px (`base`) | 400 (`normal`) | 1.6 | Resolution note textarea (via `baseInputStyle`) |
+| Table cell / Body / Pill / Button / Textarea | 13px (`sm`) | 400 (`normal`) default; 700 (`bold`) for active pills, selected resolution type buttons, and action buttons | 1.5 | Table data cells (via `baseTdStyle`), resolved metadata line, status pill labels, resolution type selector buttons, "Resolve"/"Unresolve" text buttons, resolution note textarea (via `baseInputStyle`) |
 | Section heading | 16px (`md`) | 700 (`bold`) | 1.5 | Panel heading if needed |
 | KPI value | 28px (`2xl`) | 700 (`bold`) | 1.2 | Animated KPI counter values (existing, unchanged) |
 
-**Correction from baseline:** Table cell font size is 13px (matching `baseTdStyle.fontSize: 13`), not 14px. The baseline spec incorrectly listed 14px for table cells.
+**Note:** The codebase `baseTdStyle.fontSize` is 13px. All elements previously specified at 14px now use 13px for consistency with the established token system.
 
 ---
 
@@ -107,8 +108,8 @@ Position: Above each tracking table, below KPI/summary bar, above the collapsibl
 
 | State | Style |
 |-------|-------|
-| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: typography.weights.bold` (700), `fontSize: typography.sizes.base.fontSize` (14), `borderRadius: radius.full`, `padding: "8px 16px"`, `border: "1px solid transparent"`, `cursor: "pointer"` |
-| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: "1px solid " + colors.borderDefault`, `fontWeight: typography.weights.normal` (400), `fontSize: typography.sizes.base.fontSize` (14), `borderRadius: radius.full`, `padding: "8px 16px"`, `cursor: "pointer"` |
+| Active pill | `background: colors.primary500`, `color: colors.textInverse`, `fontWeight: typography.weights.bold` (700), `fontSize: typography.sizes.sm.fontSize` (13), `borderRadius: radius.full`, `padding: "8px 16px"`, `border: "1px solid transparent"`, `cursor: "pointer"` |
+| Inactive pill | `background: "transparent"`, `color: colors.textSecondary`, `border: "1px solid " + colors.borderDefault`, `fontWeight: typography.weights.normal` (400), `fontSize: typography.sizes.sm.fontSize` (13), `borderRadius: radius.full`, `padding: "8px 16px"`, `cursor: "pointer"` |
 | Container | `display: "flex"`, `gap: spacing[2]` (8px), `marginBottom: spacing[4]` (16px) |
 
 Pills: "Open" (default active), "Resolved", "All"
@@ -153,7 +154,7 @@ Two pill-shaped buttons side-by-side in a flex row with `gap: spacing[2]` (8px).
 | "Saved" | `background: colors.successBg`, `color: colors.success`, `border: 1px solid ${colors.success}` | Same as above |
 | "Cancelled" | `background: colors.dangerBg`, `color: colors.danger`, `border: 1px solid ${colors.danger}` | Same as above |
 
-Both types shared style: `borderRadius: radius.full`, `padding: "8px 16px"`, `fontSize: typography.sizes.base.fontSize` (14), `fontWeight: typography.weights.bold` (700), `cursor: "pointer"`, `transition: all ${motion.duration.fast} ${motion.easing.out}`
+Both types shared style: `borderRadius: radius.full`, `padding: "8px 16px"`, `fontSize: typography.sizes.sm.fontSize` (13), `fontWeight: typography.weights.bold` (700), `cursor: "pointer"`, `transition: all ${motion.duration.fast} ${motion.easing.out}`
 
 #### 4. Resolved Row Treatment
 
@@ -187,8 +188,8 @@ Format: `"Resolved by {name} | {M/D/YYYY}"` on one line, note on a second line b
 
 | State | Label | Style |
 |-------|-------|-------|
-| Open record | "Resolve" | `color: colors.primary500`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: typography.sizes.base.fontSize` (14), `fontWeight: typography.weights.bold` (700), `padding: 0` |
-| Resolved record | "Unresolve" | `color: colors.textTertiary`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: typography.sizes.base.fontSize` (14), `fontWeight: typography.weights.normal` (400), `padding: 0` |
+| Open record | "Resolve" | `color: colors.primary500`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: typography.sizes.sm.fontSize` (13), `fontWeight: typography.weights.bold` (700), `padding: 0` |
+| Resolved record | "Unresolve" | `color: colors.textTertiary`, `background: "transparent"`, `border: "none"`, `cursor: "pointer"`, `fontSize: typography.sizes.sm.fontSize` (13), `fontWeight: typography.weights.normal` (400), `padding: 0` |
 
 Both: hover adds `textDecoration: "underline"`. Transition: `color ${motion.duration.fast} ${motion.easing.out}`.
 
