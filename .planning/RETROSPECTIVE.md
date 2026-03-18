@@ -49,6 +49,56 @@
 
 ---
 
+## Milestone: v1.1 — Customer Service
+
+**Shipped:** 2026-03-18
+**Phases:** 7 | **Plans:** 15 | **Sessions:** ~4
+
+### What Was Built
+- Customer Service dashboard (6th app) with two-tab layout (Submissions + Tracking)
+- Chargeback paste-to-parse submission: raw text → client-side parser → editable preview → batch submit
+- Pending terms paste-to-parse submission: 3-line grouped parser with agent detection
+- Tracking tables with KPI counters (animated), filters, sort, search, and CSV export
+- Resolution workflow: resolve/unresolve with typed outcomes, status filtering, live KPI updates
+- Role-gated access: CUSTOMER_SERVICE (tracking-only), SUPER_ADMIN/OWNER_VIEW (full access)
+- Shared formatDollar/formatDate utilities extracted to @ops/utils across all 6 dashboards
+- Rep roster management with round-robin auto-assignment
+
+### What Worked
+- Discuss-phase → plan → execute cycle continued to deliver reliably, now well-practiced
+- UI-SPEC design contracts (Phases 14, 15) locked visual decisions early, preventing executor drift
+- Gap closure cycle caught 7 tech debt items efficiently — one cleanup phase resolved all
+- Milestone audit → gap closure → re-audit pattern proven: audit found debt, Phase 17 fixed it, re-audit confirmed clean
+- Client-side parser approach (no API round-trip for parse) gave instant preview feedback
+
+### What Was Inefficient
+- Summary one-liners still not populated by executors (same issue as v1.0)
+- Phase 14 VERIFICATION.md flagged stale requirement text but didn't auto-fix — debt accumulated until Phase 17
+- REQUIREMENTS.md text drifted from UI-SPEC decisions during execution (15 columns → 8, agent grouping removed) — caught only at milestone audit
+- Single-file cs-dashboard/page.tsx grew to ~2700 lines, continuing the pattern from v1.0
+
+### Patterns Established
+- canManageCS positive allowlist pattern (replaces negative isCSOnly)
+- Paste-to-parse with client-side parser → editable preview → batch submit
+- KPI counters use global totals endpoint, never filtered view totals
+- Status filter as first step in useMemo pipeline before other filters
+- TrackingTabInner pattern for ToastProvider wrapping
+- Round-robin assignment as session-scoped (resets per paste, not persisted)
+
+### Key Lessons
+1. Lock requirement text when design decisions override original scope — don't wait for milestone audit
+2. UI-SPEC contracts are valuable but must flow back to REQUIREMENTS.md immediately
+3. Single-file dashboards work but are approaching the limit — next milestone should consider component extraction
+4. Gap closure phases are cheap (1 plan, 2 tasks, ~3 minutes) — better to create them than to leave tech debt
+5. Milestone audit → gap closure → re-audit is a reliable pattern for clean milestone completion
+
+### Cost Observations
+- Model mix: ~65% opus (execution), ~25% sonnet (verification/checking), ~10% haiku (none)
+- Sessions: ~4 across 2 days
+- Notable: Phase 17 (gap closure) executed in under 4 minutes — documentation + permission fix is fast work
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -56,14 +106,19 @@
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
 | v1.0 | ~8 | 10 | First milestone — established discuss→plan→execute→verify cycle |
+| v1.1 | ~4 | 7 | UI-SPEC contracts, milestone audit→gap closure→re-audit pattern |
 
 ### Cumulative Quality
 
 | Milestone | Tests | Coverage | Gap Closures |
 |-----------|-------|----------|-------------|
 | v1.0 | 7 (reporting) + existing Morgan tests | Reporting service only | 1 (config form validation) |
+| v1.1 | 0 (client-side parsers, no new tests) | N/A | 2 (Phase 15.04 UAT gaps, Phase 17 tech debt) |
 
 ### Top Lessons (Verified Across Milestones)
 
 1. Fix the critical path first — everything downstream is blocked until it works
 2. Pure functions with TDD for business logic, manual verification for UI
+3. Gap closure cycles are consistently cheap and effective — use them freely
+4. Lock requirement text immediately when design decisions override scope
+5. Single-file dashboards work but don't scale — plan extraction before v1.2
