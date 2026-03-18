@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   PageShell,
   Card,
@@ -17,6 +17,7 @@ import {
   baseTdStyle,
   baseCardStyle,
   baseLabelStyle,
+  baseButtonStyle,
   radius,
 } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
@@ -1344,6 +1345,14 @@ function SortHeader({ label, sortKey, currentSort, currentDir, onSort }: {
 /* ── Tracking Tab ───────────────────────────────────────────────── */
 
 function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: boolean }) {
+  return (
+    <ToastProvider>
+      <TrackingTabInner userRoles={userRoles} isCSOnly={isCSOnly} />
+    </ToastProvider>
+  );
+}
+
+function TrackingTabInner({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: boolean }) {
   // Data
   const [chargebacks, setChargebacks] = useState<any[]>([]);
   const [pendingTerms, setPendingTerms] = useState<any[]>([]);
@@ -1374,6 +1383,17 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
   const [ptSortKey, setPtSortKey] = useState<string>("holdDate");
   const [ptSortDir, setPtSortDir] = useState<"asc" | "desc">("desc");
 
+  // Status filter (Open / Resolved / All)
+  type StatusFilter = "open" | "resolved" | "all";
+  const [cbStatusFilter, setCbStatusFilter] = useState<StatusFilter>("open");
+  const [ptStatusFilter, setPtStatusFilter] = useState<StatusFilter>("open");
+
+  // Resolve panel state
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [resolveNote, setResolveNote] = useState("");
+  const [resolveType, setResolveType] = useState<string>("");
+
+  const { toast } = useToast();
 
   // Data fetching
   const fetchData = useCallback(async () => {
@@ -1400,6 +1420,10 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
   // Chargeback filter/search/sort pipeline
   const filteredChargebacks = useMemo(() => {
     let result = chargebacks;
+
+    // Status filter (before other filters)
+    if (cbStatusFilter === "open") result = result.filter((cb: any) => !cb.resolvedAt);
+    else if (cbStatusFilter === "resolved") result = result.filter((cb: any) => !!cb.resolvedAt);
 
     // Search (case-insensitive partial match)
     if (searchTerm) {
@@ -1437,11 +1461,15 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
     }
 
     return result;
-  }, [chargebacks, searchTerm, cbFilters, cbSortKey, cbSortDir]);
+  }, [chargebacks, searchTerm, cbFilters, cbSortKey, cbSortDir, cbStatusFilter]);
 
   // Pending terms filter + search + sort pipeline
   const filteredPending = useMemo(() => {
     let result = pendingTerms;
+
+    // Status filter (before other filters)
+    if (ptStatusFilter === "open") result = result.filter((pt: any) => !pt.resolvedAt);
+    else if (ptStatusFilter === "resolved") result = result.filter((pt: any) => !!pt.resolvedAt);
 
     // Shared search (case-insensitive partial match)
     if (searchTerm) {
@@ -1484,7 +1512,7 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
     }
 
     return result;
-  }, [pendingTerms, searchTerm, ptFilters, ptSortKey, ptSortDir]);
+  }, [pendingTerms, searchTerm, ptFilters, ptSortKey, ptSortDir, ptStatusFilter]);
 
 
   // Summary bar stats (computed from FULL unfiltered dataset, not filtered)
@@ -1534,6 +1562,97 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
         setPendingTerms((prev) => prev.filter((pt: any) => pt.id !== id));
       }
     } catch { /* ignore */ }
+  };
+
+  // Resolve/Unresolve handlers
+  const handleResolveCb = async (id: string) => {
+    if (!resolveType || !resolveNote.trim()) return;
+    const prev = chargebacks.find((cb: any) => cb.id === id);
+    setChargebacks(cs => cs.map((cb: any) => cb.id === id ? {
+      ...cb,
+      resolvedAt: new Date().toISOString(),
+      resolvedBy: "you",
+      resolutionType: resolveType,
+      resolutionNote: resolveNote.trim(),
+      resolver: { name: "You" },
+    } : cb));
+    setExpandedRowId(null);
+    setResolveNote("");
+    setResolveType("");
+    try {
+      const res = await authFetch(`${API}/api/chargebacks/${id}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolutionType: resolveType, resolutionNote: resolveNote.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setChargebacks(cs => cs.map((cb: any) => cb.id === id ? { ...cb, ...updated } : cb));
+      toast("success", `Chargeback marked as ${resolveType}`);
+    } catch {
+      if (prev) setChargebacks(cs => cs.map((cb: any) => cb.id === id ? prev : cb));
+      toast("error", "Failed to resolve -- try again");
+    }
+  };
+
+  const handleUnresolveCb = async (id: string) => {
+    const prev = chargebacks.find((cb: any) => cb.id === id);
+    setChargebacks(cs => cs.map((cb: any) => cb.id === id ? {
+      ...cb, resolvedAt: null, resolvedBy: null, resolutionType: null, resolutionNote: null, resolver: null,
+    } : cb));
+    try {
+      const res = await authFetch(`${API}/api/chargebacks/${id}/unresolve`, { method: "PATCH" });
+      if (!res.ok) throw new Error();
+      toast("success", "Resolution cleared");
+    } catch {
+      if (prev) setChargebacks(cs => cs.map((cb: any) => cb.id === id ? prev : cb));
+      toast("error", "Failed to clear resolution -- try again");
+    }
+  };
+
+  const handleResolvePt = async (id: string) => {
+    if (!resolveType || !resolveNote.trim()) return;
+    const prev = pendingTerms.find((pt: any) => pt.id === id);
+    setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? {
+      ...pt,
+      resolvedAt: new Date().toISOString(),
+      resolvedBy: "you",
+      resolutionType: resolveType,
+      resolutionNote: resolveNote.trim(),
+      resolver: { name: "You" },
+    } : pt));
+    setExpandedRowId(null);
+    setResolveNote("");
+    setResolveType("");
+    try {
+      const res = await authFetch(`${API}/api/pending-terms/${id}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolutionType: resolveType, resolutionNote: resolveNote.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? { ...pt, ...updated } : pt));
+      toast("success", `Pending term marked as ${resolveType}`);
+    } catch {
+      if (prev) setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? prev : pt));
+      toast("error", "Failed to resolve -- try again");
+    }
+  };
+
+  const handleUnresolvePt = async (id: string) => {
+    const prev = pendingTerms.find((pt: any) => pt.id === id);
+    setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? {
+      ...pt, resolvedAt: null, resolvedBy: null, resolutionType: null, resolutionNote: null, resolver: null,
+    } : pt));
+    try {
+      const res = await authFetch(`${API}/api/pending-terms/${id}/unresolve`, { method: "PATCH" });
+      if (!res.ok) throw new Error();
+      toast("success", "Resolution cleared");
+    } catch {
+      if (prev) setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? prev : pt));
+      toast("error", "Failed to clear resolution -- try again");
+    }
   };
 
   // Sort toggle handler
@@ -1628,7 +1747,7 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
         <Card style={{ ...baseCardStyle, background: colors.successBg }}>
           <span style={TICKER_LABEL}>TOTAL RECOVERED</span>
           <div style={{ ...TICKER_VALUE, color: colors.success }}>
-            <AnimatedNumber value={0} decimals={2} prefix="$" duration={600} />
+            <AnimatedNumber value={totals?.totalRecovered ?? 0} decimals={2} prefix="$" duration={600} />
           </div>
           <span style={TICKER_SUB}>resolution tracking</span>
         </Card>
@@ -1792,12 +1911,39 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
       {/* Chargeback Table */}
       <Card>
         <h3 style={SECTION_HEADING}>Chargeback Tracking</h3>
+
+        {/* Status Pill Toggle */}
+        <div style={{ display: "flex", gap: spacing[2], marginBottom: spacing[4] }}>
+          {(["open", "resolved", "all"] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setCbStatusFilter(s)}
+              style={{
+                background: cbStatusFilter === s ? colors.primary500 : "transparent",
+                color: cbStatusFilter === s ? colors.textInverse : colors.textSecondary,
+                border: cbStatusFilter === s ? "1px solid transparent" : `1px solid ${colors.borderDefault}`,
+                fontWeight: cbStatusFilter === s ? typography.weights.bold : typography.weights.normal,
+                fontSize: typography.sizes.sm.fontSize,
+                borderRadius: radius.full,
+                padding: "8px 16px",
+                cursor: "pointer",
+                transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+              }}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+
         {error ? (
           <EmptyState title="Failed to Load Records" description="Check your connection and reload the page. If the problem continues, contact your administrator." />
         ) : chargebacks.length === 0 && !loading ? (
           <EmptyState title="No Chargebacks Yet" description="Chargeback records will appear here once submissions are processed." />
         ) : filteredChargebacks.length === 0 && chargebacks.length > 0 ? (
-          <EmptyState title="No Chargebacks Found" description="No chargebacks match your current search or filters. Try adjusting your criteria." />
+          <EmptyState
+            title={cbStatusFilter === "open" ? "No open chargebacks" : cbStatusFilter === "resolved" ? "No resolved chargebacks" : "No chargebacks recorded"}
+            description="Try changing the status filter or adjusting your search criteria."
+          />
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1811,44 +1957,140 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
                   <SortHeader label="Total" sortKey="chargebackAmount" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Submitted" sortKey="submittedAt" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
-                  {!isCSOnly && <th style={{ ...baseThStyle, width: 50 }}></th>}
+                  <th style={{ ...baseThStyle, width: 160 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredChargebacks.map((cb: any) => (
-                  <tr key={cb.id}>
-                    <td style={baseTdStyle}>{formatDate(cb.postedDate)}</td>
-                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.memberCompany || "--"}</td>
-                    <td style={baseTdStyle}>{cb.memberId || "--"}</td>
-                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.product || "--"}</td>
-                    <td style={baseTdStyle}>{cb.type || "--"}</td>
-                    <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
-                    <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
-                    <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
-                    {!isCSOnly && (
-                      <td style={baseTdStyle}>
-                        <button
-                          onClick={() => handleDeleteCb(cb.id)}
-                          aria-label="Delete record"
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            color: colors.textMuted,
-                            padding: 4,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
-                          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                {filteredChargebacks.map((cb: any) => {
+                  const cbColCount = 9;
+                  return (
+                    <React.Fragment key={cb.id}>
+                      <tr style={{ opacity: cb.resolvedAt ? 0.5 : 1 }}>
+                        <td style={baseTdStyle}>{formatDate(cb.postedDate)}</td>
+                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.memberCompany || "--"}</td>
+                        <td style={baseTdStyle}>{cb.memberId || "--"}</td>
+                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.product || "--"}</td>
+                        <td style={baseTdStyle}>{cb.type || "--"}</td>
+                        <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
+                        <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
+                        <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
+                        <td style={baseTdStyle}>
+                          {!cb.resolvedAt ? (
+                            <button
+                              onClick={() => { setExpandedRowId(expandedRowId === cb.id ? null : cb.id); setResolveNote(""); setResolveType(""); }}
+                              style={{ color: colors.primary500, background: "transparent", border: "none", cursor: "pointer", fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, padding: 0 }}
+                            >Resolve</button>
+                          ) : (
+                            <div>
+                              <span style={{
+                                fontSize: typography.sizes.xs.fontSize,
+                                fontWeight: typography.weights.bold,
+                                textTransform: "uppercase" as const,
+                                letterSpacing: "0.06em",
+                                borderRadius: radius.full,
+                                padding: "4px 8px",
+                                color: cb.resolutionType === "recovered" ? colors.success : colors.danger,
+                                background: cb.resolutionType === "recovered" ? colors.successBg : colors.dangerBg,
+                              }}>
+                                {cb.resolutionType}
+                              </span>
+                              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, lineHeight: typography.sizes.xs.lineHeight, marginTop: 4 }}>
+                                Resolved by {cb.resolver?.name || "Unknown"} | {formatDate(cb.resolvedAt)}
+                              </div>
+                              {cb.resolutionNote && (
+                                <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, fontStyle: "italic" }}>
+                                  {cb.resolutionNote}
+                                </div>
+                              )}
+                              <button onClick={() => handleUnresolveCb(cb.id)} style={{
+                                color: colors.textTertiary, background: "transparent", border: "none",
+                                cursor: "pointer", fontSize: typography.sizes.sm.fontSize, padding: 0, marginTop: 4,
+                              }}>Unresolve</button>
+                            </div>
+                          )}
+                          {!isCSOnly && !cb.resolvedAt && (
+                            <button
+                              onClick={() => handleDeleteCb(cb.id)}
+                              aria-label="Delete record"
+                              style={{
+                                background: "transparent", border: "none", cursor: "pointer",
+                                color: colors.textMuted, padding: 4, display: "inline-flex", alignItems: "center", marginLeft: 8,
+                              }}
+                              onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                              onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedRowId === cb.id && (
+                        <tr>
+                          <td colSpan={cbColCount} style={{ padding: 0, border: "none" }}>
+                            <div style={{
+                              padding: spacing[5],
+                              background: colors.bgSurfaceInset,
+                              borderTop: `1px solid ${colors.borderSubtle}`,
+                              display: "flex",
+                              flexDirection: "column" as const,
+                              gap: spacing[4],
+                            }}>
+                              <label style={baseLabelStyle}>Resolution Type</label>
+                              <div style={{ display: "flex", gap: spacing[2] }}>
+                                {["recovered", "closed"].map(t => (
+                                  <button key={t} onClick={() => setResolveType(t)} style={{
+                                    background: resolveType === t
+                                      ? (t === "recovered" ? colors.successBg : colors.dangerBg)
+                                      : "transparent",
+                                    color: resolveType === t
+                                      ? (t === "recovered" ? colors.success : colors.danger)
+                                      : colors.textSecondary,
+                                    border: resolveType === t
+                                      ? `1px solid ${t === "recovered" ? colors.success : colors.danger}`
+                                      : `1px solid ${colors.borderDefault}`,
+                                    borderRadius: radius.full,
+                                    padding: "8px 16px",
+                                    fontSize: typography.sizes.sm.fontSize,
+                                    fontWeight: typography.weights.bold,
+                                    cursor: "pointer",
+                                    transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                                  }}>
+                                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                                  </button>
+                                ))}
+                              </div>
+                              <label style={baseLabelStyle}>Resolution Note</label>
+                              <textarea
+                                value={resolveNote}
+                                onChange={e => setResolveNote(e.target.value)}
+                                placeholder="Describe the resolution outcome..."
+                                style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }}
+                              />
+                              <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2] }}>
+                                <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); }}
+                                  style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
+                                  Discard
+                                </button>
+                                <button
+                                  onClick={() => handleResolveCb(cb.id)}
+                                  disabled={!resolveType || !resolveNote.trim()}
+                                  style={{
+                                    ...baseButtonStyle,
+                                    background: (!resolveType || !resolveNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
+                                    color: (!resolveType || !resolveNote.trim()) ? colors.textMuted : colors.textInverse,
+                                    cursor: (!resolveType || !resolveNote.trim()) ? "not-allowed" : "pointer",
+                                    opacity: (!resolveType || !resolveNote.trim()) ? 0.5 : 1,
+                                  }}>
+                                  Save Resolution
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1897,12 +2139,39 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
       {/* Pending Terms Table */}
       <Card>
         <h3 style={SECTION_HEADING}>Pending Terms Tracking</h3>
+
+        {/* Status Pill Toggle */}
+        <div style={{ display: "flex", gap: spacing[2], marginBottom: spacing[4] }}>
+          {(["open", "resolved", "all"] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setPtStatusFilter(s)}
+              style={{
+                background: ptStatusFilter === s ? colors.primary500 : "transparent",
+                color: ptStatusFilter === s ? colors.textInverse : colors.textSecondary,
+                border: ptStatusFilter === s ? "1px solid transparent" : `1px solid ${colors.borderDefault}`,
+                fontWeight: ptStatusFilter === s ? typography.weights.bold : typography.weights.normal,
+                fontSize: typography.sizes.sm.fontSize,
+                borderRadius: radius.full,
+                padding: "8px 16px",
+                cursor: "pointer",
+                transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+              }}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+
         {error ? (
           <EmptyState title="Failed to Load Records" description="Check your connection and reload the page. If the problem continues, contact your administrator." />
         ) : pendingTerms.length === 0 && !loading ? (
           <EmptyState title="No Pending Terms Yet" description="Pending terms records will appear here once submissions are processed." />
         ) : filteredPending.length === 0 && pendingTerms.length > 0 ? (
-          <EmptyState title="No Pending Terms Found" description="No pending terms match your current search or filters. Try adjusting your criteria." />
+          <EmptyState
+            title={ptStatusFilter === "open" ? "No pending terms to review" : ptStatusFilter === "resolved" ? "No resolved pending terms" : "No pending terms recorded"}
+            description="Try changing the status filter or adjusting your search criteria."
+          />
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1915,43 +2184,139 @@ function TrackingTab({ userRoles, isCSOnly }: { userRoles: string[]; isCSOnly: b
                   <SortHeader label="Hold Date" sortKey="holdDate" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
                   <SortHeader label="Next Billing" sortKey="nextBilling" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
                   <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
-                  {!isCSOnly && <th style={{ ...baseThStyle, width: 50 }}></th>}
+                  <th style={{ ...baseThStyle, width: 160 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPending.map((pt: any) => (
-                  <tr key={pt.id}>
-                    <td style={baseTdStyle}>{pt.memberName || "--"}</td>
-                    <td style={baseTdStyle}>{pt.memberId || "--"}</td>
-                    <td style={baseTdStyle}>{pt.phone || "--"}</td>
-                    <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
-                    <td style={{ ...baseTdStyle, color: colors.danger }}>{formatDate(pt.holdDate)}</td>
-                    <td style={{ ...baseTdStyle, color: colors.success }}>{formatDate(pt.nextBilling)}</td>
-                    <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
-                    {!isCSOnly && (
-                      <td style={baseTdStyle}>
-                        <button
-                          onClick={() => handleDeletePt(pt.id)}
-                          aria-label="Delete record"
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            color: colors.textMuted,
-                            padding: 4,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
-                          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                {filteredPending.map((pt: any) => {
+                  const ptColCount = 8;
+                  return (
+                    <React.Fragment key={pt.id}>
+                      <tr style={{ opacity: pt.resolvedAt ? 0.5 : 1 }}>
+                        <td style={baseTdStyle}>{pt.memberName || "--"}</td>
+                        <td style={baseTdStyle}>{pt.memberId || "--"}</td>
+                        <td style={baseTdStyle}>{pt.phone || "--"}</td>
+                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
+                        <td style={{ ...baseTdStyle, color: colors.danger }}>{formatDate(pt.holdDate)}</td>
+                        <td style={{ ...baseTdStyle, color: colors.success }}>{formatDate(pt.nextBilling)}</td>
+                        <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
+                        <td style={baseTdStyle}>
+                          {!pt.resolvedAt ? (
+                            <button
+                              onClick={() => { setExpandedRowId(expandedRowId === pt.id ? null : pt.id); setResolveNote(""); setResolveType(""); }}
+                              style={{ color: colors.primary500, background: "transparent", border: "none", cursor: "pointer", fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, padding: 0 }}
+                            >Resolve</button>
+                          ) : (
+                            <div>
+                              <span style={{
+                                fontSize: typography.sizes.xs.fontSize,
+                                fontWeight: typography.weights.bold,
+                                textTransform: "uppercase" as const,
+                                letterSpacing: "0.06em",
+                                borderRadius: radius.full,
+                                padding: "4px 8px",
+                                color: pt.resolutionType === "saved" ? colors.success : colors.danger,
+                                background: pt.resolutionType === "saved" ? colors.successBg : colors.dangerBg,
+                              }}>
+                                {pt.resolutionType}
+                              </span>
+                              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, lineHeight: typography.sizes.xs.lineHeight, marginTop: 4 }}>
+                                Resolved by {pt.resolver?.name || "Unknown"} | {formatDate(pt.resolvedAt)}
+                              </div>
+                              {pt.resolutionNote && (
+                                <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, fontStyle: "italic" }}>
+                                  {pt.resolutionNote}
+                                </div>
+                              )}
+                              <button onClick={() => handleUnresolvePt(pt.id)} style={{
+                                color: colors.textTertiary, background: "transparent", border: "none",
+                                cursor: "pointer", fontSize: typography.sizes.sm.fontSize, padding: 0, marginTop: 4,
+                              }}>Unresolve</button>
+                            </div>
+                          )}
+                          {!isCSOnly && !pt.resolvedAt && (
+                            <button
+                              onClick={() => handleDeletePt(pt.id)}
+                              aria-label="Delete record"
+                              style={{
+                                background: "transparent", border: "none", cursor: "pointer",
+                                color: colors.textMuted, padding: 4, display: "inline-flex", alignItems: "center", marginLeft: 8,
+                              }}
+                              onMouseEnter={(e) => { (e.target as HTMLElement).style.color = colors.danger; }}
+                              onMouseLeave={(e) => { (e.target as HTMLElement).style.color = colors.textMuted; }}
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedRowId === pt.id && (
+                        <tr>
+                          <td colSpan={ptColCount} style={{ padding: 0, border: "none" }}>
+                            <div style={{
+                              padding: spacing[5],
+                              background: colors.bgSurfaceInset,
+                              borderTop: `1px solid ${colors.borderSubtle}`,
+                              display: "flex",
+                              flexDirection: "column" as const,
+                              gap: spacing[4],
+                            }}>
+                              <label style={baseLabelStyle}>Resolution Type</label>
+                              <div style={{ display: "flex", gap: spacing[2] }}>
+                                {["saved", "cancelled"].map(t => (
+                                  <button key={t} onClick={() => setResolveType(t)} style={{
+                                    background: resolveType === t
+                                      ? (t === "saved" ? colors.successBg : colors.dangerBg)
+                                      : "transparent",
+                                    color: resolveType === t
+                                      ? (t === "saved" ? colors.success : colors.danger)
+                                      : colors.textSecondary,
+                                    border: resolveType === t
+                                      ? `1px solid ${t === "saved" ? colors.success : colors.danger}`
+                                      : `1px solid ${colors.borderDefault}`,
+                                    borderRadius: radius.full,
+                                    padding: "8px 16px",
+                                    fontSize: typography.sizes.sm.fontSize,
+                                    fontWeight: typography.weights.bold,
+                                    cursor: "pointer",
+                                    transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                                  }}>
+                                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                                  </button>
+                                ))}
+                              </div>
+                              <label style={baseLabelStyle}>Resolution Note</label>
+                              <textarea
+                                value={resolveNote}
+                                onChange={e => setResolveNote(e.target.value)}
+                                placeholder="Describe the resolution outcome..."
+                                style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }}
+                              />
+                              <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2] }}>
+                                <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); }}
+                                  style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
+                                  Discard
+                                </button>
+                                <button
+                                  onClick={() => handleResolvePt(pt.id)}
+                                  disabled={!resolveType || !resolveNote.trim()}
+                                  style={{
+                                    ...baseButtonStyle,
+                                    background: (!resolveType || !resolveNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
+                                    color: (!resolveType || !resolveNote.trim()) ? colors.textMuted : colors.textInverse,
+                                    cursor: (!resolveType || !resolveNote.trim()) ? "not-allowed" : "pointer",
+                                    opacity: (!resolveType || !resolveNote.trim()) ? 0.5 : 1,
+                                  }}>
+                                  Save Resolution
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
