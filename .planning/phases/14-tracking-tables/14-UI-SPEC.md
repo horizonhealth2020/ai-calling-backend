@@ -285,7 +285,7 @@ Hidden fields (TRKT-03): `agentName` and `agentId` are used for grouping and sea
 - Group header: full-width row spanning all columns, styled as:
   - Background: `colors.bgSurfaceInset`
   - Font: 13px, weight 700 (bold), color `colors.textPrimary`
-  - Padding: `8px 14px` (using `spacing[2]` for vertical, matching `baseTdStyle` horizontal)
+  - Padding: `8px 16px` (using `spacing[2]` vertical, `spacing[4]` horizontal)
   - Cursor: `pointer`
   - Left icon: `ChevronRight` (14px) when collapsed, `ChevronDown` (14px) when expanded
   - Label: `"{agentName} ({count})"` where count is records in that group
