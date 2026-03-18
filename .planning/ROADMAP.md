@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
 - ✅ **v1.1 Customer Service** — Phases 11-17 (shipped 2026-03-18)
+- [ ] **v1.2 Platform Polish & Integration** — Phase 18
 
 ## Phases
 
@@ -36,6 +37,24 @@
 
 </details>
 
+### v1.2 Platform Polish & Integration
+
+- [ ] **Phase 18: Platform Polish & Integration** - Wire chargebacks into payroll alerts, integrate agent KPIs, add AI auto-scoring, custom date range exports, and fix accumulated UX issues across all dashboards
+
+## Phase Details
+
+### Phase 18: Platform Polish & Integration
+**Goal**: Platform systems are integrated end-to-end — chargebacks flow to payroll alerts, pending terms influence agent KPIs, AI scores calls automatically, and every dashboard exports with custom date ranges
+**Depends on**: Phases 1-17 (v1.0 + v1.1 complete)
+**Requirements**: EXPORT-01, EXPORT-02, EXPORT-03, AI-01, AI-02, AI-03, CS-01, CS-02, CS-03, CS-04, PAY-01, PAY-02, PAY-03, PAY-04, MGR-01, MGR-02, MGR-03, MGR-04, MGR-05, MGR-06, REP-01, REP-02, REP-03, REP-04
+**Success Criteria** (what must be TRUE):
+  1. User can select a custom date range (or preset) on any CSV export across all six dashboards and receive correctly filtered results
+  2. Payroll staff see chargeback alerts with approve/clear actions without leaving the payroll dashboard, and alerts arrive in real-time via Socket.IO
+  3. Owner can view, edit, and save the AI system prompt in the owner dashboard, and call transcripts are auto-scored with a configurable daily budget cap
+  4. Manager and owner dashboards show per-agent chargeback count, dollar total, and pending term count — with chargebacks and pending terms within 30 days wired to new KPI tables
+  5. All UX fixes are applied: paste-to-parse sale entry works end-to-end, payroll paid/unpaid toggle works both directions, "+10" indicator shows on qualifying enrollment fees, bonus/fronted/hold removed from sale rows, commission column removed from agent tracker, and service agents are synced between payroll and CS with round-robin assignment
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -57,7 +76,9 @@
 | 15. Resolution & Polish | v1.1 | 4/4 | Complete | 2026-03-18 |
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
+| 18. Platform Polish & Integration | v1.2 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
 *v1.1 shipped: 2026-03-18*
+*v1.2 roadmap added: 2026-03-18*

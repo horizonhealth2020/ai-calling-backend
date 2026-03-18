@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Platform Polish & Integration
-status: defining_requirements
+status: roadmap_complete
 stopped_at: null
-last_updated: "2026-03-18T23:00:00.000Z"
-last_activity: 2026-03-18 -- Milestone v1.2 started
+last_updated: "2026-03-18T23:30:00.000Z"
+last_activity: 2026-03-18 -- Roadmap created for v1.2 (1 phase, 24 requirements)
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -24,19 +24,21 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 18 -- Platform Polish & Integration
 Plan: --
-Status: Defining requirements
-Last activity: 2026-03-18 -- Milestone v1.2 started
+Status: Roadmap complete, awaiting plan-phase
+Last activity: 2026-03-18 -- Roadmap created for v1.2
+
+Progress: [....................] 0/1 phases | 0/? plans
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
 | Milestones shipped | 2 (v1.0, v1.1) |
-| Total phases | 17 |
-| Total plans | 46 |
-| Total requirements | 90 (50 v1.0 + 40 v1.1) |
+| Total phases | 18 (17 complete + 1 active) |
+| Total plans | 46 (all complete from prior milestones) |
+| Total requirements | 114 (50 v1.0 + 40 v1.1 + 24 v1.2) |
 | Timeline | 5 days (2026-03-14 → 2026-03-18) |
 
 ## Accumulated Context
@@ -50,6 +52,20 @@ Last activity: 2026-03-18 -- Milestone v1.2 started
 | 260317-dxw | Cron worker polling Convoso every 10 min for per-agent KPI snapshots | 2026-03-17 | 2083caa | [260317-dxw-cron-worker-polling-convoso-every-10-min](./quick/260317-dxw-cron-worker-polling-convoso-every-10-min/) |
 | 260317-e6a | Deduplicate Convoso call log processing to prevent KPI inflation | 2026-03-17 | b422e4b | [260317-e6a-deduplicate-convoso-call-logs-prevent-sa](./quick/260317-e6a-deduplicate-convoso-call-logs-prevent-sa/) |
 
+### Key Decisions (v1.2)
+
+| Decision | Rationale |
+|----------|-----------|
+| Single phase for all 24 requirements | User requested consolidation -- all v1.2 work is integration/polish, not new architecture |
+| Phase 18 numbering | Continues from v1.1 Phase 17 |
+
+### Research Flags (from SUMMARY.md)
+
+- **P1 (Critical):** AI scoring queue needs DB-backed persistence, not in-memory array -- design before implementing AI-03
+- **P2 (Critical):** Chargeback-to-payroll matching must be informational-only with manual approval -- never auto-deduct
+- **P4 (High):** Bidirectional payroll toggle must restrict un-pay to OPEN periods only
+- **P5 (High):** Service agent sync must resolve identity split before building round robin (REP-01 before REP-03)
+
 ### Open Questions
 
 - (none currently)
@@ -61,8 +77,8 @@ None currently.
 ## Session Continuity
 
 **Last session:** 2026-03-18
-**Stopped at:** v1.1 Customer Service milestone shipped
-**Next action:** /gsd:new-milestone to start next milestone
+**Stopped at:** Roadmap created for v1.2
+**Next action:** /gsd:plan-phase 18
 
 ---
 *State initialized: 2026-03-14*
