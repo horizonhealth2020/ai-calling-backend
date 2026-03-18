@@ -150,7 +150,7 @@ Plans:
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 | 15. Resolution & Polish | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
-| 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
+| 16. Auth & Permission Tightening | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 
 ---
 *Roadmap created: 2026-03-14*
