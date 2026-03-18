@@ -44,9 +44,9 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 ### Rep & Permission Management
 
-- [ ] **REP-01**: Service agents synced between payroll and CS dashboard
-- [ ] **REP-02**: CS reps creatable from either CS or payroll dashboard (requires OWNER_VIEW or PAYROLL role)
-- [ ] **REP-03**: Round robin checklist in reps for pending term and chargeback assignment
+- [x] **REP-01**: Service agents synced between payroll and CS dashboard
+- [x] **REP-02**: CS reps creatable from either CS or payroll dashboard (requires OWNER_VIEW or PAYROLL role)
+- [x] **REP-03**: Round robin checklist in reps for pending term and chargeback assignment
 - [ ] **REP-04**: Customizable permission table in owner dashboard users section for all create actions
 
 ## Future Requirements
@@ -93,9 +93,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MGR-04 | Phase 18 | Complete |
 | MGR-05 | Phase 18 | Complete |
 | MGR-06 | Phase 18 | Complete |
-| REP-01 | Phase 18 | Pending |
-| REP-02 | Phase 18 | Pending |
-| REP-03 | Phase 18 | Pending |
+| REP-01 | Phase 18 | Complete |
+| REP-02 | Phase 18 | Complete |
+| REP-03 | Phase 18 | Complete |
 | REP-04 | Phase 18 | Pending |
 
 **Coverage:**

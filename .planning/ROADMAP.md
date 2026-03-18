@@ -60,7 +60,7 @@ Plans:
 - [x] 18-02-PLAN.md — Manager dashboard: paste-to-parse fix, preview card, form layout, commission column removal
 - [x] 18-03-PLAN.md — Payroll UX: bidirectional toggle, edit button, card cleanup, enrollment indicator
 - [x] 18-04-PLAN.md — Chargeback alert pipeline + CS real-time Socket.IO
-- [ ] 18-05-PLAN.md — Rep sync, round robin assignment, rep checklist
+- [x] 18-05-PLAN.md — Rep sync, round robin assignment, rep checklist
 - [x] 18-06-PLAN.md — AI visibility: prompt editor, DB-backed queue, budget controls
 - [ ] 18-07-PLAN.md — Agent KPI table, permission matrix, storage monitoring, holdDate grouping
 - [ ] 18-08-PLAN.md — DateRangeFilter rollout to all dashboards + visual verification
