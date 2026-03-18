@@ -9,6 +9,7 @@ import {
   ProgressRing,
   ToastProvider,
   useToast,
+  DateRangeFilter,
   spacing,
   colors,
   typography,
@@ -21,6 +22,7 @@ import {
   baseButtonStyle,
   radius,
 } from "@ops/ui";
+import type { DateRangeFilterValue } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import { formatDollar, formatNegDollar, formatDate } from "@ops/utils";
 import { useSocket, DISCONNECT_BANNER } from "@ops/socket";
@@ -1711,6 +1713,34 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
   // Role check
   const canExport = canManageCS;
 
+  // Export date filter
+  const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "30d" });
+
+  function filterByDateRange<T extends Record<string, any>>(data: T[], dateField: string, filter: DateRangeFilterValue): T[] {
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (filter.preset === "custom" && filter.from && filter.to) {
+      from = new Date(filter.from + "T00:00:00");
+      to = new Date(filter.to + "T23:59:59.999");
+    } else if (filter.preset === "7d") {
+      from = new Date(); from.setDate(from.getDate() - 7); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    } else if (filter.preset === "30d") {
+      from = new Date(); from.setDate(from.getDate() - 30); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    } else if (filter.preset === "month") {
+      from = new Date(); from.setDate(1); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    }
+    if (!from || !to) return data;
+    return data.filter(item => {
+      const raw = item[dateField];
+      if (!raw) return false;
+      const d = new Date(raw);
+      return d >= from! && d <= to!;
+    });
+  }
+
   // Date format helper - uses shared formatDate from @ops/utils
 
   // CSV Export
@@ -1718,9 +1748,12 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
     const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
     const rows: string[][] = [];
 
+    const exportCbs = filterByDateRange(filteredChargebacks, "postedDate", exportDateFilter);
+    const exportPts = filterByDateRange(filteredPending, "holdDate", exportDateFilter);
+
     rows.push(["--- CHARGEBACKS ---"]);
     rows.push(["Date Posted", "Member", "Member ID", "Product", "Type", "Total", "Assigned To", "Submitted"]);
-    filteredChargebacks.forEach((cb: any) => {
+    exportCbs.forEach((cb: any) => {
       rows.push([
         esc(formatDate(cb.postedDate)),
         esc(cb.memberCompany || "--"),
@@ -1736,7 +1769,7 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
     rows.push([]);
     rows.push(["--- PENDING TERMS ---"]);
     rows.push(["Member Name", "Member ID", "Phone", "Product", "Hold Date", "Next Billing", "Assigned To"]);
-    filteredPending.forEach((pt: any) => {
+    exportPts.forEach((pt: any) => {
       rows.push([
         esc(pt.memberName || "--"),
         esc(pt.memberId || "--"),
@@ -1974,14 +2007,17 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
           {(cbFiltersOpen || ptFiltersOpen) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
-        {/* Export CSV */}
+        {/* Export date range + CSV */}
         {canExport && (
-          <button
-            onClick={exportCSV}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13 }}
-          >
-            <Download size={14} /> Export CSV
-          </button>
+          <>
+            <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} />
+            <button
+              onClick={exportCSV}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13, flexShrink: 0 }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
+          </>
         )}
       </div>
 
