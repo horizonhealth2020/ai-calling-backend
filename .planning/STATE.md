@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Customer Service
-status: in_progress
-stopped_at: Phase 16 context gathered
-last_updated: "2026-03-18T19:20:05.949Z"
+status: completed
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-03-18T21:00:00.000Z"
+last_activity: 2026-03-18 -- completed 16-01 (Replace isCSOnly with canManageCS positive allowlist)
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 ---
@@ -152,21 +153,21 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** Phase 16 — auth-permission-tightening
+**Current Focus:** v1.1 milestone complete
 
 ## Current Position
 
-Phase: 16 (auth-permission-tightening) — EXECUTING
-Plan: 1 of 1
+Phase: 16 (auth-permission-tightening) — COMPLETE
+Plan: 1 of 1 (complete)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 13 |
-| Plans total | 13 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2, Phase 15: 4) |
+| Plans completed | 14 |
+| Plans total | 14 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2, Phase 15: 4, Phase 16: 1) |
 | Requirements done | 40/40 |
-| Phases done | 5/5 |
+| Phases done | 6/6 |
 
 ## Accumulated Context
 
@@ -204,6 +205,8 @@ Plan: 1 of 1
 - TrackingTab wrapped in ToastProvider via TrackingTabInner pattern
 - TD constant wraps baseTdStyle matching existing CARD/LBL pattern in owner-dashboard
 - CUSTOMER_SERVICE amber color #f59e0b matches auth-portal DASHBOARD_MAP
+- Replaced isCSOnly negative check with canManageCS positive allowlist (SUPER_ADMIN or OWNER_VIEW)
+- CUSTOMER_SERVICE added to SUPER_ADMIN effectiveRoles so CS dashboard card renders on landing page
 
 ### Roadmap Evolution
 
@@ -242,9 +245,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T19:09:54.462Z
-**Stopped at:** Phase 16 context gathered
-**Next action:** v1.1 milestone complete -- all 5 phases, 13 plans (incl. gap closure), 40 requirements done
+**Last session:** 2026-03-18T21:00:00.000Z
+**Stopped at:** Completed 16-01-PLAN.md
+**Next action:** v1.1 milestone complete -- all 6 phases, 14 plans, 40 requirements done
 
 ---
 *State initialized: 2026-03-14*

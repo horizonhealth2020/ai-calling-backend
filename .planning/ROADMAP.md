@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
-- [ ] **v1.1 Customer Service** — Phases 11-16 (in progress)
+- [x] **v1.1 Customer Service** — Phases 11-16 (completed 2026-03-18)
 
 ## Phases
 
@@ -30,7 +30,7 @@
 - [x] **Phase 13: Pending Terms Parser** - Paste raw text, parse fields, editable preview, batch submit (completed 2026-03-17)
 - [x] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export (completed 2026-03-18)
 - [x] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates (completed 2026-03-18)
-- [ ] **Phase 16: Auth & Permission Tightening** - Fix SUPER_ADMIN effectiveRoles, gate Submissions tab and delete buttons by proper role
+- [x] **Phase 16: Auth & Permission Tightening** - Fix SUPER_ADMIN effectiveRoles, gate Submissions tab and delete buttons by proper role (completed 2026-03-18)
 
 ## Phase Details
 
@@ -127,9 +127,9 @@ Plans:
   2. Submissions tab is only visible to SUPER_ADMIN and OWNER_VIEW (not MANAGER, PAYROLL, ADMIN)
   3. Delete buttons on tracking tables are only visible to SUPER_ADMIN and OWNER_VIEW
   4. CUSTOMER_SERVICE role users still see only the Tracking tab (no regression)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 16-01-PLAN.md — Replace isCSOnly with canManageCS positive allowlist + add CUSTOMER_SERVICE to SUPER_ADMIN effectiveRoles
+- [x] 16-01-PLAN.md — Replace isCSOnly with canManageCS positive allowlist + add CUSTOMER_SERVICE to SUPER_ADMIN effectiveRoles
 
 ## Progress
 
@@ -150,7 +150,7 @@ Plans:
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 | 15. Resolution & Polish | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
-| 16. Auth & Permission Tightening | v1.1 | Not started | - | - |
+| 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 
 ---
 *Roadmap created: 2026-03-14*
