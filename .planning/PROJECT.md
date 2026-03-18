@@ -31,19 +31,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Reporting: per-agent metrics, period summaries, trend KPIs, CSV export — v1.0
 - ✓ Shared @ops/ui design system with form validation across all dashboards — v1.0
 - ✓ Audit logging for sensitive operations — existing
+- ✓ Customer Service dashboard with chargeback and pending terms parsers — v1.1
+- ✓ Chargeback and pending terms tracking tables with KPI counters, filters, CSV export — v1.1
+- ✓ Resolution workflow with typed outcomes and status filtering — v1.1
+- ✓ Role-gated tab access: Submissions (SUPER_ADMIN/OWNER_VIEW only), Tracking (+ CUSTOMER_SERVICE) — v1.1
+- ✓ Auth permission tightening: positive canManageCS allowlist, SUPER_ADMIN sees all dashboard cards — v1.1
 
 ### Active
 
-<!-- v1.1 scope — Customer Service Dashboard -->
-
-- [ ] New customer_service role with restricted dashboard access
-- [ ] Customer Service dashboard with Submissions and Tracking tabs
-- [ ] Chargeback parser: paste raw text, parse fields, editable preview, batch submit
-- [ ] Pending Terms parser: paste raw text, parse fields, editable preview, batch submit
-- [ ] Chargeback tracking: KPI counter bar, filterable/sortable table, CSV export
-- [ ] Pending Terms tracking: summary bar, filterable/sortable/groupable table, CSV export
-- [ ] Database tables: chargeback_submissions, pending_terms with audit trail
-- [ ] Role-gated tab access: Submissions (owner/super_admin only), Tracking (+ customer_service)
+<!-- No active requirements — v1.1 complete -->
 
 ## Current Milestone: v1.1 Customer Service
 
@@ -100,4 +96,4 @@ The platform is now fully operational: sales entry works end-to-end, commissions
 | Submit-only form validation | Per-field inline errors on submit, not on-blur or real-time | ✓ Good |
 
 ---
-*Last updated: 2026-03-17 after v1.1 milestone start*
+*Last updated: 2026-03-18 after v1.1 Phase 16 completion — milestone complete*
