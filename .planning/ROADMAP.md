@@ -127,7 +127,9 @@ Plans:
   2. Submissions tab is only visible to SUPER_ADMIN and OWNER_VIEW (not MANAGER, PAYROLL, ADMIN)
   3. Delete buttons on tracking tables are only visible to SUPER_ADMIN and OWNER_VIEW
   4. CUSTOMER_SERVICE role users still see only the Tracking tab (no regression)
-**Plans:** 0 plans (needs planning)
+**Plans:** 1 plan
+Plans:
+- [ ] 16-01-PLAN.md — Replace isCSOnly with canManageCS positive allowlist + add CUSTOMER_SERVICE to SUPER_ADMIN effectiveRoles
 
 ## Progress
 
