@@ -109,7 +109,7 @@ Plans:
   5. owner and super_admin roles see both Submissions and Tracking tabs
   6. All dates render as M/D/YYYY and all dollar amounts render with commas and 2 decimal places across the entire dashboard
   7. Counters, filters, and summary bars update without full page reload when data or filter state changes
-**Plans:** 4/4 plans complete (includes gap closure)
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 15-01-PLAN.md — Schema migration + resolve/unresolve API endpoints + totals update + ROLE_ENUM fix
 - [x] 15-02-PLAN.md — Extract formatDollar/formatDate to @ops/utils + update all 5 dashboards
