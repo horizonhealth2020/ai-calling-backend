@@ -113,22 +113,22 @@ progress:
 ## Current Position
 
 **Phase:** 15 - Resolution & Polish (in progress)
-**Plan:** 01 complete (1/3)
+**Plan:** 02 complete (2/3)
 **Status:** Executing
-**Last activity:** 2026-03-18 -- completed 15-01 (Resolution Backend Infrastructure)
+**Last activity:** 2026-03-18 -- completed 15-02 (Shared Formatting Helpers)
 
 ```
-Progress: [####################    ] 80% (4/5 phases complete, Phase 15: 1/3 plans)
-Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phase 15 [##   ]
+Progress: [######################  ] 90% (4/5 phases complete, Phase 15: 2/3 plans)
+Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phase 15 [###  ]
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 10 |
+| Plans completed | 11 |
 | Plans total | 12 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2, Phase 15: 3) |
-| Requirements done | 34/40 |
+| Requirements done | 35/40 |
 | Phases done | 4/5 |
 
 ## Accumulated Context
@@ -153,6 +153,8 @@ Phase 11 [#####] | Phase 12 [#####] | Phase 13 [#####] | Phase 14 [#####] | Phas
 - Summary bar uses full unfiltered pendingTerms dataset for global counts (not filtered view)
 - Group headers use Fragment with key for React reconciliation in grouped pending terms table
 - Urgent count defined as nextBilling within 7 calendar days from today
+- Shared formatDollar/formatNegDollar/formatDate in @ops/utils as single source of truth for all dashboards
+- Owner dashboard KPI cards keep Intl.NumberFormat with 0 decimals (intentional whole-dollar display)
 - Chargeback resolution types are "recovered" and "closed"
 - Pending term resolution types are "saved" and "cancelled"
 - Resolution endpoints require CUSTOMER_SERVICE, SUPER_ADMIN, or OWNER_VIEW roles
@@ -190,9 +192,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T15:59:34Z
-**Stopped at:** Completed 15-01-PLAN.md
-**Next action:** Execute 15-02-PLAN.md (shared formatting helpers)
+**Last session:** 2026-03-18T16:02:00Z
+**Stopped at:** Completed 15-02-PLAN.md
+**Next action:** Execute 15-03-PLAN.md (CS Dashboard resolve UX, status pills, role-gated tabs)
 
 ---
 *State initialized: 2026-03-14*

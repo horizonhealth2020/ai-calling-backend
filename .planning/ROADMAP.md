@@ -112,7 +112,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 15-01-PLAN.md — Schema migration + resolve/unresolve API endpoints + totals update + ROLE_ENUM fix
-- [ ] 15-02-PLAN.md — Extract formatDollar/formatDate to @ops/utils + update all 5 dashboards
+- [x] 15-02-PLAN.md — Extract formatDollar/formatDate to @ops/utils + update all 5 dashboards
 - [ ] 15-03-PLAN.md — CS Dashboard resolve UX, status pills, role-gated tabs, remove agent grouping
 
 ## Progress
@@ -133,7 +133,7 @@ Plans:
 | 12. Chargeback Parser | 3/3 | Complete    | 2026-03-17 | - |
 | 13. Pending Terms Parser | v1.1 | Complete    | 2026-03-17 | 2026-03-17 |
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
-| 15. Resolution & Polish | v1.1 | 1/3 | In Progress | - |
+| 15. Resolution & Polish | v1.1 | 2/3 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*
