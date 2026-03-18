@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: between_milestones
-stopped_at: v1.1 Customer Service shipped
-last_updated: "2026-03-18T22:00:00.000Z"
-last_activity: 2026-03-18 -- v1.1 milestone completed and archived
+milestone: v1.2
+milestone_name: Platform Polish & Integration
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-18T23:00:00.000Z"
+last_activity: 2026-03-18 -- Milestone v1.2 started
 progress:
   total_phases: 0
   completed_phases: 0
@@ -20,11 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Planning next milestone
+**Current focus:** v1.2 Platform Polish & Integration
 
 ## Current Position
 
-Between milestones. v1.0 MVP and v1.1 Customer Service both shipped.
+Phase: Not started (defining requirements)
+Plan: --
+Status: Defining requirements
+Last activity: 2026-03-18 -- Milestone v1.2 started
 
 ## Performance Metrics
 

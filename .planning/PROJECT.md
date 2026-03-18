@@ -40,7 +40,37 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- No active requirements — planning next milestone -->
+<!-- Current scope: v1.2 Platform Polish & Integration -->
+
+- [ ] Custom date range picker on all CSV exports across all dashboards
+- [ ] AI auto-scoring of call transcripts from Convoso
+- [ ] System prompt visible and editable in owner dashboard AI tab
+- [ ] Chargebacks create alerts in payroll with approve/clear options
+- [ ] Pending terms + chargebacks within 30 days wired to agent KPIs (new KPI tables)
+- [ ] Real-time Socket.IO for CS submissions
+- [ ] CS tracking: remove "due within 7 days", add holder date records per date in pending terms
+- [ ] Payroll paid/unpaid toggle works both directions
+- [ ] Edit button per sale record in payroll
+- [ ] Bonus/fronted/hold removed from sale rows, kept on agent card header only
+- [ ] "+10" indicator on enrollment fee when qualifying for $124 bonus
+- [ ] Remove commission column from agent tracker (manager dashboard)
+- [ ] Fix AI config "INP not defined" error (owner dashboard)
+- [ ] Sync service agents between payroll and CS dashboard reps
+- [ ] Rep checklist for pending term + chargeback round robin
+
+## Current Milestone: v1.2 Platform Polish & Integration
+
+**Goal:** Wire chargebacks/pending terms into payroll and agent KPIs, add date range exports across all dashboards, surface AI call scoring, and fix accumulated UX issues.
+
+**Target features:**
+- Cross-dashboard date range CSV exports
+- AI call transcript scoring with visible/editable system prompt
+- Chargeback → payroll alert pipeline
+- Pending terms + chargeback → agent KPI integration
+- Real-time Socket.IO for CS submissions
+- Payroll UX fixes (toggle, edit, card cleanup)
+- Service agent sync between payroll and CS
+- Manager dashboard cleanup
 
 ## Current State
 
@@ -107,4 +137,4 @@ Shipped v1.0 MVP in 4 days (10 phases, 31 plans) and v1.1 Customer Service in 2 
 | Shared formatDollar/formatDate in @ops/utils | Extracted from dashboards to shared package for consistency | ✓ Good |
 
 ---
-*Last updated: 2026-03-18 after v1.1 milestone completion*
+*Last updated: 2026-03-18 after v1.2 milestone start*
