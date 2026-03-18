@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Customer Service
-status: in_progress
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-18T19:28:41.073Z"
+status: completed
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-18T19:51:10.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 14
-  completed_plans: 14
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 15
+  completed_plans: 15
 ---
 
 ---
@@ -152,21 +152,21 @@ progress:
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
 
-**Current Focus:** v1.1 milestone complete
+**Current Focus:** Phase 17 — documentation-permission-cleanup (COMPLETED)
 
 ## Current Position
 
-Phase: 16 (auth-permission-tightening) — COMPLETE
-Plan: 1 of 1 (complete)
+Phase: 17 (documentation-permission-cleanup) — COMPLETED
+Plan: 1 of 1 (done)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 14 |
-| Plans total | 14 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2, Phase 15: 4, Phase 16: 1) |
+| Plans completed | 15 |
+| Plans total | 15 (Phase 11: 2, Phase 12: 3, Phase 13: 2, Phase 14: 2, Phase 15: 4, Phase 16: 1, Phase 17: 1) |
 | Requirements done | 40/40 |
-| Phases done | 6/6 |
+| Phases done | 7/7 |
 
 ## Accumulated Context
 
@@ -206,6 +206,8 @@ Plan: 1 of 1 (complete)
 - CUSTOMER_SERVICE amber color #f59e0b matches auth-portal DASHBOARD_MAP
 - Replaced isCSOnly negative check with canManageCS positive allowlist (SUPER_ADMIN or OWNER_VIEW)
 - CUSTOMER_SERVICE added to SUPER_ADMIN effectiveRoles so CS dashboard card renders on landing page
+- OWNER_VIEW landing card gap documented as intentional UX decision (not a bug)
+- GET /cs-rep-roster kept open to all authenticated users for assignment dropdown access
 
 ### Roadmap Evolution
 
@@ -244,9 +246,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T21:00:00.000Z
-**Stopped at:** Completed 16-01-PLAN.md
-**Next action:** v1.1 milestone complete -- all 6 phases, 14 plans, 40 requirements done
+**Last session:** 2026-03-18T19:51:10.000Z
+**Stopped at:** Completed 17-01-PLAN.md
+**Next action:** v1.1 milestone fully complete -- all 7 phases, 15 plans, 40 requirements done
 
 ---
 *State initialized: 2026-03-14*

@@ -31,7 +31,7 @@
 - [x] **Phase 14: Tracking Tables** - Chargeback + pending terms KPI bars, filterable/sortable/groupable tables, CSV export (completed 2026-03-18)
 - [x] **Phase 15: Resolution & Polish** - Mark resolved with notes, status filtering, date/dollar formatting, role gating, live updates (completed 2026-03-18)
 - [x] **Phase 16: Auth & Permission Tightening** - Fix SUPER_ADMIN effectiveRoles, gate Submissions tab and delete buttons by proper role (completed 2026-03-18)
-- [ ] **Phase 17: Documentation & Permission Cleanup** - Fix stale requirement text, traceability table, and add requireRole to rep roster endpoints
+- [x] **Phase 17: Documentation & Permission Cleanup** - Fix stale requirement text, traceability table, and add requireRole to rep roster endpoints (completed 2026-03-18)
 
 ## Phase Details
 
@@ -144,9 +144,9 @@ Plans:
   4. ROLE-01, SCHEMA-01, SCHEMA-02 traceability table entries show "Complete" (not "Pending")
   5. POST/PATCH/DELETE /cs-rep-roster endpoints have requireRole guard
   6. OWNER_VIEW landing card gap documented as intentional known UX decision
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 17-01-PLAN.md — Fix stale requirement text, update traceability, add requireRole to rep roster, document OWNER_VIEW gap
+- [x] 17-01-PLAN.md — Fix stale requirement text, update traceability, add requireRole to rep roster, document OWNER_VIEW gap
 
 ## Progress
 
@@ -168,7 +168,7 @@ Plans:
 | 14. Tracking Tables | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 | 15. Resolution & Polish | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
 | 16. Auth & Permission Tightening | v1.1 | Complete    | 2026-03-18 | 2026-03-18 |
-| 17. Documentation & Permission Cleanup | v1.1 | Not Started | — | — |
+| 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 
 ---
 *Roadmap created: 2026-03-14*
