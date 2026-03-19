@@ -52,7 +52,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- No active milestone — ready for v1.3 planning -->
+<!-- Current milestone: v1.3 Dashboard Consolidation & Uniform Date Ranges -->
+
+- [ ] Consolidate auth-portal, manager, payroll, owner, and CS dashboards into a single unified Next.js app
+- [ ] Role-gated tab navigation (Manager, Payroll, Owner, CS) with SUPER_ADMIN seeing all tabs
+- [ ] Login lands directly on user's default tab based on role
+- [ ] Uniform date range picker component (Current Week / Last Week / 30 Days / Custom) for all KPI sections
+- [ ] Apply date range filtering to CS tracker KPIs
+- [ ] Apply date range filtering to manager tracker KPIs
+- [ ] Apply date range filtering to owner performance overview KPIs
+- [ ] Apply date range filtering to payroll dashboard KPIs
+- [ ] Sales board remains standalone (unchanged)
 
 ### Out of Scope
 
@@ -64,6 +74,16 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Data archival with restore capability — beyond simple CSV export (deferred from v1.2)
 - AI scoring dashboard with trend analysis — deferred from v1.2
 - Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
+
+## Current Milestone: v1.3 Dashboard Consolidation & Uniform Date Ranges
+
+**Goal:** Merge all internal dashboards into a single unified app with role-gated tabs and add uniform date range filtering to all KPI sections.
+
+**Target features:**
+- Unified dashboard app (auth + manager + payroll + owner + CS → single Next.js app)
+- Role-gated tab navigation with login → default tab routing
+- Uniform date range picker (Current Week / Last Week / 30 Days / Custom) on all KPI counters
+- Sales board remains standalone
 
 ## Current State
 
@@ -125,4 +145,4 @@ Shipped 3 milestones in 6 days (18 phases, 54 plans). Tech stack: Next.js 15, Ex
 | Parse auto-fills form directly | No preview step needed — user edits fields after parse | ✓ Good |
 
 ---
-*Last updated: 2026-03-19 after v1.2 milestone completion*
+*Last updated: 2026-03-19 after v1.3 milestone started*
