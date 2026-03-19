@@ -26,6 +26,28 @@ export async function createSyncedRep(name: string, basePay: number = 0, userId:
 }
 
 /**
+ * Ensure every ServiceAgent has a corresponding CsRepRoster entry.
+ * For each ServiceAgent that has no linked CsRepRoster row, create one.
+ * This is the primary sync path: payroll adds ServiceAgents, CS dashboard
+ * calls this on load to pull them all into the roster automatically.
+ */
+export async function syncServiceAgentsToCsRoster(): Promise<{ created: number }> {
+  const allServiceAgents = await prisma.serviceAgent.findMany({
+    include: { csRepRoster: true },
+  });
+  const unlinked = allServiceAgents.filter((sa) => !sa.csRepRoster);
+
+  let created = 0;
+  for (const sa of unlinked) {
+    await prisma.csRepRoster.create({
+      data: { name: sa.name, serviceAgentId: sa.id },
+    });
+    created++;
+  }
+  return { created };
+}
+
+/**
  * Sync existing unlinked reps -- find CsRepRoster entries without serviceAgentId
  * and ServiceAgent entries without a linked CsRepRoster, match by name.
  */

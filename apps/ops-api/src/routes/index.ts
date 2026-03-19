@@ -13,7 +13,7 @@ import { createAlertFromChargeback, getPendingAlerts, approveAlert, clearAlert }
 import { computeTrend, shiftRange } from "../services/reporting";
 import { fetchConvosoCallLogs, enrichWithTiers, filterByCallLength, filterByTier, buildKpiSummary, CallLengthTier } from "../services/convosoCallLogs";
 import { getAgentRetentionKpis } from "../services/agentKpiAggregator";
-import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps } from "../services/repSync";
+import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
 
 const router = Router();
 
@@ -2152,6 +2152,9 @@ router.get("/reps/checklist", requireAuth, requireRole("CUSTOMER_SERVICE", "OWNE
 // ─── CS Rep Roster ────────────────────────────────────────────────
 
 router.get("/cs-rep-roster", requireAuth, asyncHandler(async (_req, res) => {
+  // Sync: ensure all ServiceAgents have a CsRepRoster entry
+  await syncServiceAgentsToCsRoster();
+
   // On-access pruning: remove inactive reps older than 30 days
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
