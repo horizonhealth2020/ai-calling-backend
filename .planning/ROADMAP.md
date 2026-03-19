@@ -83,7 +83,7 @@ Plans:
 - [x] 19-04-PLAN.md — Owner dashboard migration (4 sub-tabs)
 - [x] 19-05-PLAN.md — Payroll dashboard migration (5 sub-tabs)
 - [x] 19-06-PLAN.md — Manager dashboard migration (5 sub-tabs)
-- [ ] 19-07-PLAN.md — Date range API wiring + CSV export presets
+- [x] 19-07-PLAN.md — Date range API wiring + CSV export presets
 - [ ] 19-08-PLAN.md — Deployment cleanup (CORS, Docker, remove old apps, verify)
 
 ## Progress
@@ -108,7 +108,7 @@ Plans:
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
-| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 6/8 | In Progress | - |
+| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 7/8 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*
