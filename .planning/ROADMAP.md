@@ -74,7 +74,17 @@
   16. Docker runs one unified container instead of five
   17. Old standalone dashboard app directories removed
   18. Sales board remains standalone and fully functional
-**Plans**: TBD
+**Plans:** 8 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — App shell foundation (login, middleware, tab bar, SocketProvider, DateRangeContext)
+- [ ] 19-02-PLAN.md — Shared package updates (DateRangeFilter presets, decodeTokenPayload export, last_week)
+- [ ] 19-03-PLAN.md — CS dashboard migration (2 sub-tabs)
+- [ ] 19-04-PLAN.md — Owner dashboard migration (4 sub-tabs)
+- [ ] 19-05-PLAN.md — Payroll dashboard migration (5 sub-tabs)
+- [ ] 19-06-PLAN.md — Manager dashboard migration (5 sub-tabs)
+- [ ] 19-07-PLAN.md — Date range API wiring + CSV export presets
+- [ ] 19-08-PLAN.md — Deployment cleanup (CORS, Docker, remove old apps, verify)
 
 ## Progress
 
@@ -98,7 +108,7 @@
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
-| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 0/? | Not started | - |
+| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 0/8 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
