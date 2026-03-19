@@ -31,27 +31,22 @@ services:
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       PORT: "8080"
       NODE_ENV: production
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3011,http://localhost:3012,http://localhost:3013,http://localhost:3014,http://localhost:3019,http://localhost:3026}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3011,http://localhost:3013}
     ports:
       - "8080:8080"
 
-  auth-portal:
+  ops-dashboard:
     build:
       context: .
       dockerfile: Dockerfile.nextjs
       args:
-        APP_NAME: auth-portal
+        APP_NAME: ops-dashboard
         NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
     restart: unless-stopped
     depends_on:
       - ops-api
     environment:
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3011}
-      MANAGER_DASHBOARD_URL: ${MANAGER_DASHBOARD_URL:-http://localhost:3019}
-      PAYROLL_DASHBOARD_URL: ${PAYROLL_DASHBOARD_URL:-http://localhost:3012}
-      OWNER_DASHBOARD_URL: ${OWNER_DASHBOARD_URL:-http://localhost:3026}
-      CS_DASHBOARD_URL: ${CS_DASHBOARD_URL:-http://localhost:3014}
     ports:
       - "3011:3000"
 
@@ -67,58 +62,6 @@ services:
       - ops-api
     ports:
       - "3013:3000"
-
-  manager-dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.nextjs
-      args:
-        APP_NAME: manager-dashboard
-        NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
-    restart: unless-stopped
-    depends_on:
-      - ops-api
-    ports:
-      - "3019:3000"
-
-  owner-dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.nextjs
-      args:
-        APP_NAME: owner-dashboard
-        NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
-    restart: unless-stopped
-    depends_on:
-      - ops-api
-    ports:
-      - "3026:3000"
-
-  payroll-dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.nextjs
-      args:
-        APP_NAME: payroll-dashboard
-        NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
-    restart: unless-stopped
-    depends_on:
-      - ops-api
-    ports:
-      - "3012:3000"
-
-  cs-dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.nextjs
-      args:
-        APP_NAME: cs-dashboard
-        NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
-    restart: unless-stopped
-    depends_on:
-      - ops-api
-    ports:
-      - "3014:3000"
 
 volumes:
   pgdata:

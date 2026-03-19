@@ -20,7 +20,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3011,http://localhost:3012,http://localhost:3013,http://localhost:3019,http://localhost:3026").split(",").map(s => s.trim());
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3011,http://localhost:3013").split(",").map(s => s.trim());
 app.use(
   cors({
     origin: (origin, callback) => {
