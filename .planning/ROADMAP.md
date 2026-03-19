@@ -77,7 +77,7 @@
 **Plans:** 8 plans
 
 Plans:
-- [ ] 19-01-PLAN.md — App shell foundation (login, middleware, tab bar, SocketProvider, DateRangeContext)
+- [x] 19-01-PLAN.md — App shell foundation (login, middleware, tab bar, SocketProvider, DateRangeContext)
 - [x] 19-02-PLAN.md — Shared package updates (DateRangeFilter presets, decodeTokenPayload export, last_week)
 - [ ] 19-03-PLAN.md — CS dashboard migration (2 sub-tabs)
 - [ ] 19-04-PLAN.md — Owner dashboard migration (4 sub-tabs)
@@ -108,7 +108,7 @@ Plans:
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
-| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 1/8 | In Progress | - |
+| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 2/8 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*

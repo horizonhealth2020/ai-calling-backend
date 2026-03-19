@@ -9,11 +9,11 @@ Requirements for Dashboard Consolidation & Uniform Date Ranges. Each maps to roa
 
 ### App Shell
 
-- [ ] **SHELL-01**: User sees a single unified dashboard app with top-level tab navigation
-- [ ] **SHELL-02**: Tab visibility is gated by user's role (MANAGER sees Manager, PAYROLL sees Payroll, etc.)
-- [ ] **SHELL-03**: SUPER_ADMIN sees all tabs (Manager, Payroll, Owner, CS)
-- [ ] **SHELL-04**: User logs in and lands directly on their default tab based on role
-- [ ] **SHELL-05**: Socket.IO connection is shared at layout level — no reconnection when switching tabs
+- [x] **SHELL-01**: User sees a single unified dashboard app with top-level tab navigation
+- [x] **SHELL-02**: Tab visibility is gated by user's role (MANAGER sees Manager, PAYROLL sees Payroll, etc.)
+- [x] **SHELL-03**: SUPER_ADMIN sees all tabs (Manager, Payroll, Owner, CS)
+- [x] **SHELL-04**: User logs in and lands directly on their default tab based on role
+- [x] **SHELL-05**: Socket.IO connection is shared at layout level — no reconnection when switching tabs
 
 ### Dashboard Migration
 
@@ -74,11 +74,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHELL-01 | Phase 19 | Pending |
-| SHELL-02 | Phase 19 | Pending |
-| SHELL-03 | Phase 19 | Pending |
-| SHELL-04 | Phase 19 | Pending |
-| SHELL-05 | Phase 19 | Pending |
+| SHELL-01 | Phase 19 | Complete |
+| SHELL-02 | Phase 19 | Complete |
+| SHELL-03 | Phase 19 | Complete |
+| SHELL-04 | Phase 19 | Complete |
+| SHELL-05 | Phase 19 | Complete |
 | MIG-01 | Phase 19 | Pending |
 | MIG-02 | Phase 19 | Pending |
 | MIG-03 | Phase 19 | Pending |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Dashboard Consolidation & Uniform Date Ranges
 status: executing
-stopped_at: Completed 19-02-PLAN.md
-last_updated: "2026-03-19T19:08:00.000Z"
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-03-19T19:09:34.000Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 19 (dashboard-consolidation-uniform-date-ranges) — EXECUTING
-Plan: 2 of 8 (plan 02 complete)
+Plan: 3 of 8 (plans 01, 02 complete)
 
 ## Performance Metrics
 
@@ -55,6 +55,9 @@ Plan: 2 of 8 (plan 02 complete)
 | Route-segment-per-dashboard | Prevents monster file anti-pattern; enables per-route code splitting |
 | SocketProvider in shared layout | Avoids connect/disconnect churn on tab switches |
 | DateRangeContext in shared layout | Persists date range selection across tab navigation |
+| Same-origin login in unified dashboard | /api/login returns relative redirect instead of cross-domain URL |
+| Middleware verifies tokens directly | verifySessionToken called in middleware instead of HTTP verify call |
+| tsconfig needs explicit baseUrl for Next.js | Monorepo base tsconfig baseUrl overrides app-level paths without explicit override |
 
 ### Research Flags (from SUMMARY.md)
 
@@ -72,8 +75,8 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T19:08:00.000Z
-**Stopped at:** Completed 19-02-PLAN.md
+**Last session:** 2026-03-19T19:09:34.000Z
+**Stopped at:** Completed 19-01-PLAN.md
 **Next action:** Execute 19-03-PLAN.md (CS dashboard migration)
 
 ---
