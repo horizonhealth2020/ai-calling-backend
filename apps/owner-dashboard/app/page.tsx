@@ -865,7 +865,7 @@ function ConfigSection({
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>AI Configuration</h2>
-        <p style={SECTION_SUBTITLE}>Manage call audit prompts, agent settings, and webhook configuration</p>
+        <p style={SECTION_SUBTITLE}>Manage call audit prompts, agent settings, and AI scoring</p>
       </div>
 
       {/* AI Audit Prompt */}
@@ -1013,50 +1013,6 @@ function ConfigSection({
           <Button variant="success" icon={<Save size={14} />} loading={savingDuration} onClick={handleSaveDuration}>
             Save Filter
           </Button>
-        </div>
-      </div>
-
-      {/* Webhook Configuration */}
-      <div className="animate-fade-in-up stagger-4" style={CARD}>
-        <div style={{ marginBottom: 16 }}>
-          <h3 style={SECTION_TITLE}>Webhook Configuration</h3>
-          <p style={{ ...SECTION_SUBTITLE, marginTop: 4 }}>
-            Configure Convoso to POST to this endpoint after each call.
-          </p>
-        </div>
-        <div
-          style={{
-            background: colors.bgSurfaceInset,
-            borderRadius: radius.lg,
-            padding: "14px 16px",
-            fontFamily: typography.fontMono,
-            fontSize: 13,
-            color: colors.success,
-            wordBreak: "break-all",
-            border: `1px solid ${colors.borderSubtle}`,
-            marginBottom: 16,
-          }}
-        >
-          POST {API || "https://your-api-domain.com"}/api/webhooks/convoso
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr",
-            gap: "8px 12px",
-            fontSize: 13,
-            lineHeight: 1.6,
-            color: colors.textSecondary,
-          }}
-        >
-          <span style={{ fontWeight: typography.weights.semibold, color: colors.textTertiary, whiteSpace: "nowrap" }}>Header:</span>
-          <code style={{ fontFamily: typography.fontMono, fontSize: 12, color: colors.primary300 }}>
-            x-webhook-secret: your-secret
-          </code>
-          <span style={{ fontWeight: typography.weights.semibold, color: colors.textTertiary, whiteSpace: "nowrap" }}>Body:</span>
-          <code style={{ fontFamily: typography.fontMono, fontSize: 12, color: colors.primary300, wordBreak: "break-all" }}>
-            {`{ "agent_user": "crm-user-id", "list_id": "crm-list-id", "recording_url": "https://...", "call_timestamp": "ISO-8601", "call_duration_seconds": 120 }`}
-          </code>
         </div>
       </div>
 
@@ -1881,7 +1837,7 @@ function OwnerDashboardInner() {
   const subtitleMap: Record<ActiveSection, string> = {
     dashboard: "Performance overview and agent leaderboard",
     kpis: "Agent retention metrics and chargeback tracking",
-    config: "AI audit settings and webhook configuration",
+    config: "AI audit settings and scoring controls",
     users: "Platform users and role management",
   };
 
