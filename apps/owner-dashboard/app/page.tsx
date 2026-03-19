@@ -1696,12 +1696,6 @@ function OwnerDashboardInner() {
 
     // Fetch storage stats on mount
     authFetch(`${API}/api/storage-stats`).then((r) => r.ok ? r.json() : null).then(setStorageStats).catch(() => {});
-
-    // Load AI audit system prompt on mount so it is always available in the editor
-    authFetch(`${API}/api/settings/ai-audit-prompt`)
-      .then((r) => r.ok ? r.json() : { prompt: "" })
-      .then((d) => { setAiPrompt(d.prompt); setAiPromptLoaded(true); })
-      .catch(() => { setAiPromptLoaded(true); });
   }, []);
 
   const fetchData = useCallback((r: Range) => {
@@ -1791,6 +1785,12 @@ function OwnerDashboardInner() {
     if (activeSection === "config" && !auditDurationLoaded) {
       authFetch(`${API}/api/settings/audit-duration`).then((r) => r.ok ? r.json() : { minSeconds: 0, maxSeconds: 0 }).then((d) => { setAuditMinSec(d.minSeconds); setAuditMaxSec(d.maxSeconds); }).catch(() => {});
       setAuditDurationLoaded(true);
+    }
+    if (activeSection === "config" && !aiPromptLoaded) {
+      authFetch(`${API}/api/settings/ai-audit-prompt`)
+        .then((r) => r.ok ? r.json() : { prompt: "" })
+        .then((d) => { setAiPrompt(d.prompt ?? ""); setAiPromptLoaded(true); })
+        .catch(() => { setAiPromptLoaded(true); });
     }
     if (activeSection === "users" && !usersLoaded && isSuperAdmin) {
       authFetch(`${API}/api/users`)
