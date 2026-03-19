@@ -300,7 +300,9 @@ function EditableSaleRow({
             <div style={{ display: "flex", flexDirection: "column" }}>
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
               {entry.sale?.premium != null && (
-                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>{formatDollar(Number(entry.sale.premium))}</span>
+                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                  {formatDollar(Number(entry.sale.premium) - (entry.sale.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : 0))}
+                </span>
               )}
             </div>
             {/* Addon & AD&D products side by side */}
@@ -352,7 +354,7 @@ function EditableSaleRow({
 
       {/* Actions */}
       <td style={tdCenter}>
-        {isPaid ? null : editSale ? (
+        {editSale ? (
           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
             <Button
               variant="success"
@@ -2263,7 +2265,9 @@ function PayrollDashboardInner() {
                         return {
                           name,
                           entries: ents,
-                          net: active.reduce((s, e) => s + Number(e.netAmount), 0),
+                          // Sum netAmount across ALL entries so bonus/fronted/hold on zeroed
+                          // or zero-commission entries still affect the agent's net payout.
+                          net: ents.reduce((s, e) => s + Number(e.netAmount), 0),
                           gross: active.reduce((s, e) => s + Number(e.payoutAmount), 0),
                           activeCount: active.length,
                         };
