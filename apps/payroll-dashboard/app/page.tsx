@@ -839,7 +839,7 @@ function AgentPayCard({
           >
             <Printer size={11} /> Print
           </Button>
-          {entries.every(e => e.status === "PAID") ? (
+          {allPaid ? (
             period.status !== "OPEN" ? (
               <Button variant="ghost" size="sm" disabled
                 title="Cannot unpay a closed period"
@@ -1499,13 +1499,20 @@ function PayrollDashboardInner() {
     holdAmount: number,
   ) {
     try {
-      await authFetch(`${API}/api/payroll/entries/${entryId}`, {
+      const res = await authFetch(`${API}/api/payroll/entries/${entryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bonusAmount, frontedAmount, holdAmount }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
       await refreshPeriods();
-    } catch { /* silent — values will refresh on next load */ }
+    } catch (e: any) {
+      toast("error", `Error: Unable to reach API — ${e.message ?? "network error"}`);
+      await refreshPeriods();
+    }
   }
 
   async function toggleApproval(saleId: string, approved: boolean) {
