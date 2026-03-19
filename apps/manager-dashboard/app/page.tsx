@@ -61,7 +61,6 @@ import {
   Lightbulb,
   MessageSquare,
   Download,
-  Clock,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
@@ -77,7 +76,6 @@ type Product = {
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
-type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; periodStatus?: string };
 type AuditIssue = { category: string; timestamp_hint?: string; what_happened: string; agent_quote: string; customer_quote: string; why_its_a_problem: string; recommended_response: string };
 type AuditWin = { what_happened: string; agent_quote: string; why_it_worked: string };
 type MissedOpportunity = { moment: string; what_should_have_happened: string; suggested_script: string };
@@ -722,8 +720,6 @@ function ManagerDashboardInner() {
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [callCountsLoaded, setCallCountsLoaded] = useState(false);
 
-  const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
-  const [periods, setPeriods] = useState<PeriodSummary[]>([]);
 
   /* ── Commission preview state ── */
   const previewTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -842,21 +838,12 @@ function ManagerDashboardInner() {
       authFetch(`${API}/api/lead-sources`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).catch(() => []),
-      authFetch(`${API}/api/reporting/periods?view=weekly`).then(r => r.ok ? r.json() : { periods: [] }).catch(() => ({ periods: [] })),
-    ]).then(([a, p, ls, tr, sl, periodData]) => {
+    ]).then(([a, p, ls, tr, sl]) => {
       setAgents(a); setProducts(p); setLeadSources(ls); setTracker(tr); setSalesList(sl);
-      setPeriods(periodData.periods ?? []);
       setForm(f => ({ ...f, agentId: "", productId: "", leadSourceId: "" }));
       setLoading(false);
     });
   }, []);
-
-  useEffect(() => {
-    authFetch(`${API}/api/reporting/periods?view=${periodView}`)
-      .then(res => res.ok ? res.json() : { periods: [] })
-      .then(data => setPeriods(data.periods ?? []))
-      .catch(() => {});
-  }, [periodView]);
 
   /* ── Commission preview trigger ── */
   function triggerPreview(immediate = false) {
@@ -1803,61 +1790,6 @@ function ManagerDashboardInner() {
             </div>
           </Card>
 
-          {/* Period Summary */}
-          <Card style={{ padding: 0, overflow: "hidden", marginTop: 24 }}>
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Clock size={18} color={colors.accentTeal} />
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: colors.textPrimary }}>Period Summary</h3>
-                  <p style={{ fontSize: 13, color: colors.textTertiary, margin: "4px 0 0" }}>Aggregate totals by pay period</p>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {(["weekly", "monthly"] as const).map(v => (
-                  <button
-                    key={v}
-                    onClick={() => setPeriodView(v)}
-                    style={{
-                      padding: "6px 14px", borderRadius: radius.md, border: "none", cursor: "pointer",
-                      fontSize: 12, fontWeight: 600, textTransform: "capitalize",
-                      background: periodView === v ? colors.primary500 : colors.bgSurfaceInset,
-                      color: periodView === v ? "#fff" : colors.textSecondary,
-                    }}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: colors.bgSurfaceInset }}>
-                    <th style={baseThStyle}>Period</th>
-                    <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
-                    <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
-                    <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
-                    {periodView === "weekly" && <th style={baseThStyle}>Status</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {periods.length === 0 && (
-                    <tr><td colSpan={periodView === "weekly" ? 5 : 4} style={{ ...baseTdStyle, textAlign: "center", color: colors.textMuted, padding: 32 }}>No period data available</td></tr>
-                  )}
-                  {periods.map(p => (
-                    <tr key={p.period} className="row-hover">
-                      <td style={baseTdStyle}>{p.period}</td>
-                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700 }}>{p.salesCount}</td>
-                      <td style={{ ...baseTdStyle, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
-                      <td style={{ ...baseTdStyle, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
-                      {periodView === "weekly" && <td style={baseTdStyle}>{p.periodStatus}</td>}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
           </>
         );
       })()}
