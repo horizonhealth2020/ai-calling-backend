@@ -6,7 +6,6 @@ import {
   Button,
   EmptyState,
   AnimatedNumber,
-  ProgressRing,
   ToastProvider,
   useToast,
   DateRangeFilter,
@@ -26,7 +25,7 @@ import type { DateRangeFilterValue } from "@ops/ui";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import { formatDollar, formatNegDollar, formatDate } from "@ops/utils";
 import { useSocket, DISCONNECT_BANNER } from "@ops/socket";
-import { ClipboardList, BarChart3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Search, Filter, Download, Users } from "lucide-react";
+import { ClipboardList, BarChart3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -1396,22 +1395,8 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
   const [resolveNote, setResolveNote] = useState("");
   const [resolveType, setResolveType] = useState<string>("");
 
-  // Rep checklist state
-  const [checklist, setChecklist] = useState<any[]>([]);
-  const [checklistOpen, setChecklistOpen] = useState(false);
-  const [expandedRep, setExpandedRep] = useState<string | null>(null);
 
   const { toast } = useToast();
-
-  // Fetch rep checklist
-  const fetchChecklist = useCallback(async () => {
-    try {
-      const res = await authFetch(`${API}/api/reps/checklist`);
-      if (res.ok) setChecklist(await res.json());
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => { fetchChecklist(); }, [fetchChecklist]);
 
   // Data fetching
   const fetchData = useCallback(async () => {
@@ -1542,26 +1527,14 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
   const ptSummary = useMemo(() => {
     const total = pendingTerms.length;
     const reasonCounts = new Map<string, number>();
-    let urgentCount = 0;
-    const now = new Date();
-    const sevenDaysOut = new Date(now);
-    sevenDaysOut.setDate(now.getDate() + 7);
-    const sevenDaysStr = sevenDaysOut.toISOString().split("T")[0];
-    const todayStr = now.toISOString().split("T")[0];
-
     pendingTerms.forEach((pt: any) => {
       const reason = pt.holdReason || "No Reason";
       reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
-      if (pt.nextBilling) {
-        const nb = pt.nextBilling.split("T")[0];
-        if (nb >= todayStr && nb <= sevenDaysStr) urgentCount++;
-      }
     });
 
     return {
       total,
       reasons: Array.from(reasonCounts.entries()).sort((a, b) => b[1] - a[1]),
-      urgentCount,
     };
   }, [pendingTerms]);
 
@@ -1829,151 +1802,6 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
           <span style={TICKER_SUB}>all submissions</span>
         </Card>
       </div>
-
-      {/* Rep Checklist */}
-      {checklist.length > 0 && (
-        <Card>
-          <div
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
-            onClick={() => setChecklistOpen(!checklistOpen)}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-              <Users size={16} />
-              <h3 style={{ ...SECTION_HEADING, margin: 0 }}>Rep Checklist</h3>
-              <span style={{ ...typography.sizes.xs, color: colors.textMuted }}>
-                ({checklist.length} reps)
-              </span>
-            </div>
-            {checklistOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </div>
-          {checklistOpen && (
-            <div style={{ marginTop: spacing[4], display: "flex", flexDirection: "column", gap: 8 }}>
-              {checklist.map((entry: any) => {
-                const isExpanded = expandedRep === entry.rep.id;
-                const items = [...(entry.chargebacks || []), ...(entry.pendingTerms || [])];
-                return (
-                  <div
-                    key={entry.rep.id}
-                    style={{
-                      background: colors.bgSurface,
-                      borderRadius: 12,
-                      border: `1px solid ${colors.borderSubtle}`,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {/* Rep Header */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: 16,
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setExpandedRep(isExpanded ? null : entry.rep.id)}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
-                        <ProgressRing progress={entry.completionPct} size={36} strokeWidth={3} />
-                        <div>
-                          <span style={{ ...typography.sizes.sm, fontWeight: 600, color: colors.textPrimary }}>
-                            {entry.rep.name}
-                          </span>
-                          <span style={{ ...typography.sizes.xs, color: colors.textMuted, display: "block" }}>
-                            {entry.totalCompleted}/{entry.totalAssigned} completed
-                          </span>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-                        <span style={{
-                          ...typography.sizes.xs,
-                          background: colors.bgSurfaceRaised,
-                          padding: "2px 8px",
-                          borderRadius: 12,
-                          color: colors.textSecondary,
-                        }}>
-                          {entry.totalAssigned} assigned
-                        </span>
-                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      </div>
-                    </div>
-                    {/* Expanded Items */}
-                    {isExpanded && items.length > 0 && (
-                      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-                        {items.map((item: any) => (
-                          <div
-                            key={`${item.type}-${item.id}`}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              padding: "8px 12px",
-                              background: colors.bgSurfaceRaised,
-                              borderRadius: 8,
-                            }}
-                          >
-                            {/* Completion indicator */}
-                            <div style={{
-                              width: 16,
-                              height: 16,
-                              borderRadius: 4,
-                              border: `2px solid ${item.completed ? colors.success : colors.borderDefault}`,
-                              background: item.completed ? colors.success : "transparent",
-                              flexShrink: 0,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}>
-                              {item.completed && (
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              )}
-                            </div>
-                            {/* Type badge */}
-                            <span style={{
-                              ...typography.sizes.xs,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: item.type === "chargeback" ? colors.dangerBg : colors.warningBg,
-                              color: item.type === "chargeback" ? colors.danger : colors.warning,
-                              whiteSpace: "nowrap" as const,
-                            }}>
-                              {item.type === "chargeback" ? "Chargeback" : "Pending Term"}
-                            </span>
-                            {/* Label */}
-                            <span style={{
-                              ...typography.sizes.sm,
-                              color: item.completed ? colors.textMuted : colors.textPrimary,
-                              textDecoration: item.completed ? "line-through" : "none",
-                              flex: 1,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap" as const,
-                            }}>
-                              {item.label}
-                            </span>
-                            {/* Amount */}
-                            {item.amount != null && (
-                              <span style={{ ...typography.sizes.xs, color: colors.textMuted }}>
-                                {formatDollar(Math.abs(parseFloat(item.amount)))}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {isExpanded && items.length === 0 && (
-                      <div style={{ padding: "0 16px 16px" }}>
-                        <span style={{ ...typography.sizes.xs, color: colors.textMuted }}>No items assigned</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-      )}
 
       {/* Search + Filter + Export row */}
       <div style={{ display: "flex", gap: `${spacing[2]}px`, alignItems: "center" }}>
@@ -2332,14 +2160,6 @@ function TrackingTabInner({ userRoles, canManageCS }: { userRoles: string[]; can
             ))}
           </div>
 
-          {/* Divider */}
-          <div style={{ width: 1, height: 40, background: colors.borderSubtle }} />
-
-          {/* Urgent */}
-          <div>
-            <span style={TICKER_LABEL}>DUE WITHIN 7 DAYS</span>
-            <div style={{ fontSize: 22, fontWeight: 700, color: colors.danger }}>{ptSummary.urgentCount}</div>
-          </div>
         </div>
       </Card>
 

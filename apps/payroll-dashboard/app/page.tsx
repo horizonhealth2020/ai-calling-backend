@@ -213,7 +213,7 @@ function EditableSaleRow({
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
   const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
   const isApproved = entry.sale?.commissionApproved && fee !== null && fee < 99;
-  const net = Number(entry.netAmount);
+  const net = Number(entry.payoutAmount);
   const saleStatus = entry.sale?.status ?? "RAN";
   const isZeroed = !isActiveEntry(entry);
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
@@ -346,7 +346,7 @@ function EditableSaleRow({
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "—"}</Badge>
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
-                  {formatDollar(Number(entry.sale.premium) - (entry.sale.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : 0))}
+                  {formatDollar(Number(entry.sale.premium))}
                 </span>
               )}
             </div>
@@ -1301,7 +1301,7 @@ function PayrollDashboardInner() {
             commissionApproved: false,
             status: payload.sale.status,
             product: payload.sale.product,
-            addons: payload.sale.addons,
+            addons: payload.sale.addons?.map((a: any) => ({ productId: a.product?.id ?? "", premium: a.premium ?? null, product: a.product })),
           },
           agent: { name: payload.sale.agent.name },
         };
