@@ -531,6 +531,7 @@ function SubmissionsTab() {
   const [rawText, setRawText] = useState("");
   const [records, setRecords] = useState<ConsolidatedRecord[]>([]);
   const [reps, setReps] = useState<RepRoster[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [newRepName, setNewRepName] = useState("");
@@ -556,6 +557,7 @@ function SubmissionsTab() {
 
   useEffect(() => {
     fetchReps();
+    authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
   }, [fetchReps]);
 
   const handleTextChange = (text: string) => {
@@ -623,6 +625,7 @@ function SubmissionsTab() {
         onPtRecordsChange={setPtRecords}
         onPtSubmittingChange={setPtSubmitting}
         onPtRawPasteClear={() => { setPtRawPaste(""); setPtRecords([]); }}
+        agents={agents}
       />
     </ToastProvider>
   );
@@ -653,6 +656,7 @@ interface SubmissionsContentProps {
   onPtRecordsChange: (records: ConsolidatedPendingRecord[]) => void;
   onPtSubmittingChange: (v: boolean) => void;
   onPtRawPasteClear: () => void;
+  agents: { id: string; name: string }[];
 }
 
 function SubmissionsContent({
@@ -678,6 +682,7 @@ function SubmissionsContent({
   onPtRecordsChange,
   onPtSubmittingChange,
   onPtRawPasteClear,
+  agents,
 }: SubmissionsContentProps) {
   const { toast } = useToast();
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
@@ -870,6 +875,7 @@ function SubmissionsContent({
                     <th style={baseThStyle}>Member</th>
                     <th style={{ ...baseThStyle, width: 110 }}>Member ID</th>
                     <th style={baseThStyle}>Product</th>
+                    <th style={{ ...baseThStyle, width: 140 }}>Agent</th>
                     <th style={{ ...baseThStyle, width: 160 }}>Transaction Type</th>
                     <th style={{ ...baseThStyle, width: 110 }}>Total</th>
                     <th style={{ ...baseThStyle, width: 140 }}>Assigned To</th>
@@ -925,6 +931,23 @@ function SubmissionsContent({
                         >
                           {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
                         </span>
+                      </td>
+                      {/* Agent */}
+                      <td style={baseTdStyle}>
+                        <select
+                          style={{ ...COMPACT_INPUT, color: rec.memberAgentCompany ? colors.textPrimary : colors.textMuted }}
+                          value={rec.memberAgentCompany ?? ""}
+                          onChange={(e) => updateRecord(idx, "memberAgentCompany", e.target.value)}
+                          disabled={submitting}
+                        >
+                          <option value="">Unknown</option>
+                          {agents.map((a) => (
+                            <option key={a.id} value={a.name}>{a.name}</option>
+                          ))}
+                          {rec.memberAgentCompany && !agents.some(a => a.name === rec.memberAgentCompany) && (
+                            <option value={rec.memberAgentCompany}>{rec.memberAgentCompany}</option>
+                          )}
+                        </select>
                       </td>
                       {/* Transaction Type */}
                       <td style={baseTdStyle}>
