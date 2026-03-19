@@ -213,7 +213,6 @@ function EditableSaleRow({
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
   const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
   const isApproved = entry.sale?.commissionApproved && fee !== null && fee < 99;
-  const net = Number(entry.payoutAmount);
   const saleStatus = entry.sale?.status ?? "RAN";
   const isZeroed = !isActiveEntry(entry);
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
@@ -392,13 +391,6 @@ function EditableSaleRow({
       <td style={tdRight}>
         <span style={{ color: C.textPrimary, fontWeight: 700 }}>
           {formatDollar(Number(entry.payoutAmount))}
-        </span>
-      </td>
-
-      {/* Net — animated, color by sign */}
-      <td style={tdRight}>
-        <span style={{ fontWeight: 700, color: net >= 0 ? C.success : C.danger }}>
-          <AnimatedNumber value={net} prefix="$" decimals={2} />
         </span>
       </td>
 
@@ -1016,7 +1008,6 @@ function AgentPayCard({
               <th style={thStyle}>Product</th>
               <th style={thRight}>Enroll Fee</th>
               <th style={thRight}>Commission</th>
-              <th style={thRight}>Net</th>
               <th style={thCenter}>Actions</th>
             </tr>
           </thead>
@@ -1040,14 +1031,6 @@ function AgentPayCard({
             <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
               <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
               <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
-              {(() => {
-                const footerNet = agentGross + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
-                return (
-                  <td style={{ ...tdRight, fontWeight: 700, color: footerNet >= 0 ? C.success : C.danger }}>
-                    <AnimatedNumber value={footerNet} prefix="$" decimals={2} />
-                  </td>
-                );
-              })()}
               <td />
             </tr>
           </tbody>

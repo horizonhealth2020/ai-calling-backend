@@ -109,14 +109,13 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
 
   if (hasCoreInSale) {
     // --- CORE + ADDON BUNDLE ---
-    // ADDONs with bundledCommission = null: fold into bundlePremium and earn the core rate.
-    // ADDONs with bundledCommission set: excluded from bundlePremium; earn their own rate (see loop below).
-    // isBundleQualifier ADDONs: excluded from bundlePremium; always earn their own bundledCommission rate.
+    // ADDONs with bundledCommission = null OR isBundleQualifier: fold into bundlePremium and earn the core rate.
+    // ADDONs with bundledCommission set AND NOT isBundleQualifier: excluded from bundlePremium; earn their own rate.
+    // isBundleQualifier ADDONs always fold into bundle premium (their flag only prevents halving penalty).
     const bundlePremium = allEntries
       .filter(e =>
         (e.product.type === "CORE" || e.product.type === "ADDON") &&
-        !e.product.isBundleQualifier &&
-        e.product.bundledCommission === null
+        (e.product.bundledCommission === null || e.product.isBundleQualifier)
       )
       .reduce((sum, e) => sum + e.premium, 0);
 
@@ -140,10 +139,10 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     }
 
     // --- ADDONs with their own bundledCommission rate (separate calculation) ---
-    // Covers: regular ADDONs with bundledCommission set AND isBundleQualifier ADDONs.
-    // ADDONs with bundledCommission = null were already folded into bundlePremium above.
+    // Only ADDONs with bundledCommission set AND NOT isBundleQualifier.
+    // isBundleQualifier ADDONs were folded into bundlePremium above.
     for (const entry of allEntries.filter(
-      e => e.product.type === "ADDON" && e.product.bundledCommission !== null
+      e => e.product.type === "ADDON" && e.product.bundledCommission !== null && !e.product.isBundleQualifier
     )) {
       const addonRate = Number(entry.product.bundledCommission ?? 0);
       totalCommission += entry.premium * (addonRate / 100);
