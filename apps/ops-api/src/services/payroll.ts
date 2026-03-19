@@ -77,13 +77,16 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  * Calculate commission for a sale using bundle aggregation logic.
  *
  * When a core product exists:
- *   1. Sum bundle premium = core premium + regular addon premiums (exclude qualifier premiums)
- *   2. Apply core product's rate (above/below threshold) to the combined bundle premium
- *   3. Calculate AD&D commission separately using bundledCommission rate
- *   4. If no bundle qualifier (isBundleQualifier) and not commissionApproved: halve entire total
+ *   1. ADDONs with bundledCommission = null: fold premium into bundlePremium, earn core rate.
+ *      bundlePremium = core premium + those addon premiums (isBundleQualifier ADDONs excluded).
+ *      Core rate = commissionAbove if bundlePremium >= premiumThreshold, else commissionBelow.
+ *   2. ADDONs with bundledCommission set: calculated separately at their own bundledCommission rate.
+ *      isBundleQualifier ADDONs (e.g. AD&D) always use their own bundledCommission rate.
+ *   3. AD&D products always use their own bundledCommission rate (separate calculation).
+ *   4. If no bundle qualifier (isBundleQualifier) and not commissionApproved: halve entire total.
  *
- * When no core (standalone):
- *   - Each product uses its standaloneCommission rate x its own premium
+ * When no core (standalone addons only):
+ *   - Each ADDON/AD&D uses its standaloneCommission rate x its own premium.
  *
  * Null commission rates produce $0 (no hardcoded fallbacks).
  * Final result rounded to 2 decimal places.
@@ -106,9 +109,9 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
 
   if (hasCoreInSale) {
     // --- CORE + ADDON BUNDLE ---
-    // ADDONs with bundledCommission set use their own rate (calculated separately below).
-    // ADDONs with bundledCommission null fold into bundlePremium and earn the core rate.
-    // isBundleQualifier ADDONs are excluded from bundlePremium but earn their bundledCommission.
+    // ADDONs with bundledCommission = null: fold into bundlePremium and earn the core rate.
+    // ADDONs with bundledCommission set: excluded from bundlePremium; earn their own rate (see loop below).
+    // isBundleQualifier ADDONs: excluded from bundlePremium; always earn their own bundledCommission rate.
     const bundlePremium = allEntries
       .filter(e =>
         (e.product.type === "CORE" || e.product.type === "ADDON") &&
@@ -136,8 +139,9 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
       totalCommission += bundlePremium * (rate / 100);
     }
 
-    // --- ADDON with own bundledCommission rate (separate calculation) ---
-    // Includes both regular ADDONs with bundledCommission set AND isBundleQualifier ADDONs.
+    // --- ADDONs with their own bundledCommission rate (separate calculation) ---
+    // Covers: regular ADDONs with bundledCommission set AND isBundleQualifier ADDONs.
+    // ADDONs with bundledCommission = null were already folded into bundlePremium above.
     for (const entry of allEntries.filter(
       e => e.product.type === "ADDON" && e.product.bundledCommission !== null
     )) {
