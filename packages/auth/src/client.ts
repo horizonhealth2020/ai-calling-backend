@@ -36,7 +36,7 @@ export function clearToken(): void {
 }
 
 /** Decode JWT payload without a library (base64url decode). */
-function decodeTokenPayload(token: string): { exp?: number } | null {
+export function decodeTokenPayload(token: string): Record<string, any> | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;

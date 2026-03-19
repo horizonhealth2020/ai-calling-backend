@@ -58,6 +58,14 @@ function dateRange(range?: string, from?: string, to?: string): { gte: Date; lt:
     saturday.setDate(sunday.getDate() + 7); // exclusive upper bound (next Sunday 00:00)
     return { gte: sunday, lt: saturday };
   }
+  if (range === "last_week") {
+    const day = now.getDay(); // 0=Sun ... 6=Sat
+    const thisSunday = new Date(todayStart);
+    thisSunday.setDate(todayStart.getDate() - day);
+    const lastSunday = new Date(thisSunday);
+    lastSunday.setDate(thisSunday.getDate() - 7);
+    return { gte: lastSunday, lt: thisSunday }; // previous Sun 00:00 to this Sun 00:00
+  }
   if (range === "7d") {
     const start = new Date(todayStart);
     start.setDate(start.getDate() - 7);
