@@ -12,6 +12,7 @@ export interface DateRangeFilterValue {
 export interface DateRangeFilterProps {
   value: DateRangeFilterValue;
   onChange: (value: DateRangeFilterValue) => void;
+  presets?: Array<{ key: string; label: string }>;
 }
 
 const ROW: React.CSSProperties = {
@@ -47,17 +48,25 @@ const DATE_INPUT: React.CSSProperties = {
   outline: "none",
 };
 
-const presets = [
+const DEFAULT_PRESETS = [
   { key: "7d", label: "Last 7 days" },
   { key: "30d", label: "Last 30 days" },
   { key: "month", label: "This month" },
   { key: "custom", label: "Custom" },
 ];
 
-export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
+export const KPI_PRESETS = [
+  { key: "week", label: "Current Week" },
+  { key: "last_week", label: "Last Week" },
+  { key: "30d", label: "30 Days" },
+  { key: "custom", label: "Custom" },
+];
+
+export function DateRangeFilter({ value, onChange, presets }: DateRangeFilterProps) {
+  const activePresets = presets ?? DEFAULT_PRESETS;
   return (
     <div style={ROW}>
-      {presets.map((p) => (
+      {activePresets.map((p) => (
         <Button
           key={p.key}
           variant={value.preset === p.key ? "primary" : "ghost"}
