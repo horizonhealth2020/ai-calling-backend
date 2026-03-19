@@ -1070,6 +1070,10 @@ function ManagerDashboardInner() {
     });
     const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
 
+    // Detect core product: first parsed product that is NOT an add-on
+    const coreProductEntry = p.parsedProducts.find(pp => !pp.isAddon);
+    const coreProductMatch = coreProductEntry ? matchProduct(coreProductEntry.name, products) : undefined;
+
     // Calculate premium as product lines only — exclude enrollment fee from the Amount total
     let effectivePremium = p.premium;
     if (p.premium && p.enrollmentFee) {
@@ -1079,7 +1083,7 @@ function ManagerDashboardInner() {
       }
     }
 
-    // Fill form directly — no preview step, no core product auto-selection
+    // Fill form — auto-select core product if a match was found in the products list
     setForm(f => ({
       ...f,
       memberName: p.memberName ?? f.memberName,
@@ -1091,7 +1095,8 @@ function ManagerDashboardInner() {
       enrollmentFee: p.enrollmentFee ?? f.enrollmentFee,
       memberState: p.memberState ?? f.memberState,
       paymentType: p.paymentType ?? f.paymentType,
-      // productId intentionally NOT set — user selects manually
+      // Set productId only when a core product match is found; otherwise leave unchanged
+      ...(coreProductMatch ? { productId: coreProductMatch.id } : {}),
       addonProductIds,
     }));
     setParsedInfo({
