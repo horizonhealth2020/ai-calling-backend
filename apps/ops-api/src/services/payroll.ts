@@ -106,12 +106,18 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
 
   if (hasCoreInSale) {
     // --- CORE + ADDON BUNDLE ---
-    // Sum premiums: core + non-qualifier addons (exclude qualifier premiums like Compass VAB)
+    // ADDONs with bundledCommission set use their own rate (calculated separately below).
+    // ADDONs with bundledCommission null fold into bundlePremium and earn the core rate.
+    // isBundleQualifier ADDONs are excluded from bundlePremium but earn their bundledCommission.
     const bundlePremium = allEntries
-      .filter(e => (e.product.type === "CORE" || e.product.type === "ADDON") && !e.product.isBundleQualifier)
+      .filter(e =>
+        (e.product.type === "CORE" || e.product.type === "ADDON") &&
+        !e.product.isBundleQualifier &&
+        e.product.bundledCommission === null
+      )
       .reduce((sum, e) => sum + e.premium, 0);
 
-    // Apply core product's rate based on threshold
+    // Apply core product's rate to the combined bundle premium
     const threshold = Number(coreEntry.product.premiumThreshold ?? 0);
     const aboveRate = coreEntry.product.commissionAbove;
     const belowRate = coreEntry.product.commissionBelow;
@@ -130,6 +136,15 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
       totalCommission += bundlePremium * (rate / 100);
     }
 
+    // --- ADDON with own bundledCommission rate (separate calculation) ---
+    // Includes both regular ADDONs with bundledCommission set AND isBundleQualifier ADDONs.
+    for (const entry of allEntries.filter(
+      e => e.product.type === "ADDON" && e.product.bundledCommission !== null
+    )) {
+      const addonRate = Number(entry.product.bundledCommission ?? 0);
+      totalCommission += entry.premium * (addonRate / 100);
+    }
+
     // --- AD&D (separate calculation, bundled rate) ---
     for (const entry of allEntries.filter(e => e.product.type === "AD_D")) {
       if (entry.product.bundledCommission === null) {
@@ -139,7 +154,7 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
       totalCommission += entry.premium * (addDRate / 100);
     }
 
-    // --- COMPASS VAB HALVING ---
+    // --- BUNDLE QUALIFIER HALVING ---
     // If no bundle qualifier present and not manually approved: halve entire sale commission
     if (!qualifierExists && !sale.commissionApproved) {
       totalCommission /= 2;

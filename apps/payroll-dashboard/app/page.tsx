@@ -1656,7 +1656,7 @@ function PayrollDashboardInner() {
     filtered.forEach(p => {
       const active = p.entries.filter(isActiveEntry);
       const gross = active.reduce((s, e) => s + Number(e.payoutAmount), 0);
-      const net   = active.reduce((s, e) => s + Number(e.netAmount), 0);
+      const net   = p.entries.reduce((s, e) => s + Number(e.netAmount), 0);
       rows.push([p.weekStart, p.weekEnd, p.quarterLabel, p.status, String(active.length), gross.toFixed(2), net.toFixed(2)]);
     });
     const a = Object.assign(document.createElement("a"), {
@@ -2182,7 +2182,9 @@ function PayrollDashboardInner() {
             const totalBonus   = activeEntries.reduce((s, e) => s + Number(e.bonusAmount ?? 0), 0);
             const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount ?? 0), 0);
             const totalHold    = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
-            const net          = activeEntries.reduce((s, e) => s + Number(e.netAmount), 0);
+            // Sum netAmount across ALL entries (not just active) so fronted/hold on zeroed
+            // entries still reduces the agent's net payout, allowing it to go negative.
+            const net          = p.entries.reduce((s, e) => s + Number(e.netAmount), 0);
             const svcTotal     = (p.serviceEntries ?? []).reduce((s, e) => s + Number(e.totalPay), 0);
             const expanded     = expandedPeriod === p.id;
             const statusCfg    = STATUS_BADGE[p.status] ?? { color: C.textSecondary, label: p.status };
