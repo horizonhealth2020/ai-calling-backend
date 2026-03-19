@@ -1280,7 +1280,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
   // Fetch all RAN sales for the current week
   const sales = await prisma.sale.findMany({
     where: { status: 'RAN', saleDate: { gte: monday, lt: sunday } },
-    select: { agentId: true, saleDate: true, premium: true },
+    select: { agentId: true, saleDate: true, premium: true, addons: { select: { premium: true } } },
   });
 
   // Build per-day, per-agent breakdown for weekly view
@@ -1301,9 +1301,10 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
         const name = agentMap.get(s.agentId) ?? s.agentId;
         if (!daySales[name]) daySales[name] = { count: 0, premium: 0 };
         daySales[name].count++;
-        daySales[name].premium += Number(s.premium ?? 0);
+        const saleTotalPremium = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+        daySales[name].premium += saleTotalPremium;
         totalSales++;
-        totalPremium += Number(s.premium ?? 0);
+        totalPremium += saleTotalPremium;
       }
     }
 
@@ -1318,9 +1319,9 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
     const name = agentMap.get(s.agentId) ?? s.agentId;
     if (!weeklyTotals[name]) weeklyTotals[name] = { count: 0, premium: 0 };
     weeklyTotals[name].count++;
-    weeklyTotals[name].premium += Number(s.premium ?? 0);
+    weeklyTotals[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
     grandTotalSales++;
-    grandTotalPremium += Number(s.premium ?? 0);
+    grandTotalPremium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
   }
 
   // Daily view: today stats per agent
@@ -1331,7 +1332,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
       const name = agentMap.get(s.agentId) ?? s.agentId;
       if (!todayStats[name]) todayStats[name] = { count: 0, premium: 0 };
       todayStats[name].count++;
-      todayStats[name].premium += Number(s.premium ?? 0);
+      todayStats[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
     }
   }
 

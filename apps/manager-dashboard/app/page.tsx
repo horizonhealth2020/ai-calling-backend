@@ -749,7 +749,7 @@ function ManagerDashboardInner() {
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
   const [parsedInfo, setParsedInfo] = useState<{
-    enrollmentFee?: string; premium?: string; coreProduct?: string;
+    enrollmentFee?: string; premium?: string; totalPremium?: string; coreProduct?: string;
     parsedProducts: ParsedProduct[];
     addons: { name: string; matched: boolean; productName?: string; productId?: string }[];
   }>({ addons: [], parsedProducts: [] });
@@ -1118,9 +1118,13 @@ function ManagerDashboardInner() {
       addonProductIds,
     }));
     setAddonPremiums(parsedAddonPremiums);
+    // Total premium = core + all addon premiums (no enrollment fee)
+    const addonTotal = addonMatches.reduce((sum, a) => sum + (a.price ? Number(a.price) : 0), 0);
+    const totalPrem = (corePremium ? Number(corePremium) : 0) + addonTotal;
     setParsedInfo({
       enrollmentFee: p.enrollmentFee,
       premium: corePremium,
+      totalPremium: totalPrem > 0 ? totalPrem.toFixed(2) : undefined,
       coreProduct: p.carrier,
       parsedProducts: p.parsedProducts,
       addons: addonMatches,
@@ -1601,10 +1605,10 @@ function ManagerDashboardInner() {
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {parsedInfo.premium && (
+                      {parsedInfo.totalPremium && (
                         <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(52,211,153,0.15)`, flex: 1, minWidth: 100 }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>PREMIUM</div>
-                          <div style={{ fontWeight: 800, fontSize: 16, color: colors.success }}>${parsedInfo.premium}</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>TOTAL PREMIUM</div>
+                          <div style={{ fontWeight: 800, fontSize: 16, color: colors.success }}>${parsedInfo.totalPremium}</div>
                         </div>
                       )}
                       {parsedInfo.enrollmentFee && (

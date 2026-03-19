@@ -989,9 +989,14 @@ function AgentPayCard({
         </div>
         <div style={{ marginLeft: "auto" }}>
           <div style={HEADER_LBL}>Net</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
-            <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
-          </div>
+          {(() => {
+            const liveNet = agentGross + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
+            return (
+              <div style={{ fontSize: 16, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
+                <AnimatedNumber value={liveNet} prefix="$" decimals={2} />
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -1035,9 +1040,14 @@ function AgentPayCard({
             <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
               <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
               <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
-              <td style={{ ...tdRight, fontWeight: 700, color: agentNet >= 0 ? C.success : C.danger }}>
-                <AnimatedNumber value={agentNet} prefix="$" decimals={2} />
-              </td>
+              {(() => {
+                const footerNet = agentGross + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
+                return (
+                  <td style={{ ...tdRight, fontWeight: 700, color: footerNet >= 0 ? C.success : C.danger }}>
+                    <AnimatedNumber value={footerNet} prefix="$" decimals={2} />
+                  </td>
+                );
+              })()}
               <td />
             </tr>
           </tbody>

@@ -752,7 +752,7 @@ export default function SalesBoard() {
     setData(prev => {
       if (!prev) return prev;
 
-      const premium = payload.sale.premium;
+      const premium = payload.sale.premium + (payload.sale.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
 
       // Patch todayStats
       const todayStats = { ...prev.todayStats };
