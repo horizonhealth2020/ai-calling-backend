@@ -877,6 +877,19 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
   }));
 }));
 
+// ── Toggle period status (OPEN ↔ LOCKED) ───────────────────────
+router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({ status: z.enum(["OPEN", "LOCKED"]) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const period = await prisma.payrollPeriod.findUnique({ where: { id: req.params.id } });
+  if (!period) return res.status(404).json({ error: "Period not found" });
+  if (period.status === "FINALIZED") return res.status(400).json({ error: "Finalized periods cannot be changed" });
+  const updated = await prisma.payrollPeriod.update({ where: { id: req.params.id }, data: { status: parsed.data.status } });
+  await logAudit(req.user!.id, "UPDATE", "PayrollPeriod", req.params.id, { status: parsed.data.status });
+  res.json(updated);
+}));
+
 router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const { entryIds, serviceEntryIds } = z.object({
     entryIds: z.array(z.string()).optional().default([]),

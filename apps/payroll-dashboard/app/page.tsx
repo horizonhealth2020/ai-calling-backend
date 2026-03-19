@@ -113,7 +113,7 @@ const tdCenter: React.CSSProperties = { ...tdStyle, textAlign: "center" };
 
 const STATUS_BADGE: Record<string, { color: string; label: string }> = {
   OPEN:      { color: C.accentTeal,  label: "Open" },
-  LOCKED:    { color: C.warning,     label: "Locked" },
+  LOCKED:    { color: C.danger,      label: "Closed" },
   FINALIZED: { color: C.success,     label: "Finalized" },
 };
 
@@ -2197,8 +2197,10 @@ function PayrollDashboardInner() {
               if (!byAgent.has(agent.name)) byAgent.set(agent.name, []);
             }
 
+            const hasUnpaidInClosed = p.status === "LOCKED" && p.entries.some(e => e.status === "PENDING");
+
             return (
-              <Card key={p.id} style={{ borderRadius: R["2xl"] }} className="animate-fade-in-up">
+              <Card key={p.id} style={{ borderRadius: R["2xl"], ...(hasUnpaidInClosed ? { border: `2px solid ${C.danger}`, boxShadow: "0 0 12px rgba(239,68,68,0.15)" } : {}) }} className="animate-fade-in-up">
                 {/* Period header — clickable to collapse/expand */}
                 <div
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: S[5] }}
@@ -2209,7 +2211,34 @@ function PayrollDashboardInner() {
                       {fmtDate(p.weekStart)} – {fmtDate(p.weekEnd)}
                     </span>
                     <span style={{ fontSize: 13, color: C.textMuted }}>{p.quarterLabel}</span>
-                    <Badge color={statusCfg.color} dot>{statusCfg.label}</Badge>
+                    {p.status !== "FINALIZED" ? (
+                      <span
+                        style={{ cursor: "pointer" }}
+                        title={p.status === "OPEN" ? "Click to close period" : "Click to reopen period"}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const newStatus = p.status === "OPEN" ? "LOCKED" : "OPEN";
+                          const label = newStatus === "LOCKED" ? "close" : "reopen";
+                          if (!window.confirm(`Are you sure you want to ${label} this period?`)) return;
+                          const res = await authFetch(`${API}/api/payroll/periods/${p.id}/status`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ status: newStatus }),
+                          });
+                          if (res.ok) refreshPeriods();
+                        }}
+                      >
+                        <Badge color={statusCfg.color} dot>{statusCfg.label}</Badge>
+                      </span>
+                    ) : (
+                      <Badge color={statusCfg.color} dot>{statusCfg.label}</Badge>
+                    )}
+                    {hasUnpaidInClosed && (
+                      <Badge color={C.danger}>
+                        <AlertTriangle size={10} style={{ marginRight: 3 }} />
+                        Unpaid agents
+                      </Badge>
+                    )}
                     {needsApproval.length > 0 && (
                       <Badge color={C.danger}>
                         <AlertTriangle size={10} style={{ marginRight: 3 }} />
