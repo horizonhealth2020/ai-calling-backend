@@ -99,6 +99,54 @@
 
 ---
 
+## Milestone: v1.2 — Platform Polish & Integration
+
+**Shipped:** 2026-03-19
+**Phases:** 1 | **Plans:** 8 | **Sessions:** ~3
+
+### What Was Built
+- Cross-dashboard DateRangeFilter on all CSV exports (payroll, manager, CS)
+- Chargeback alert pipeline: CS → payroll with approve/clear actions via Socket.IO
+- AI call audit scoring with editable system prompt, budget controls, and auto-seed
+- Agent KPI tables with 30-day rolling chargeback/pending term metrics
+- Permission override matrix in owner dashboard with atomic batch saves
+- Commission bundling fix: isBundleQualifier addons fold into core rate
+- Period status toggle (Open ↔ Closed) with unpaid agent highlight
+- Sales board leaderboard with day/week toggle and addon-inclusive premium
+- Agent dropdown on CS chargeback submission preview
+
+### What Worked
+- Single-phase consolidation (all 24 requirements in Phase 18) worked well for integration/polish work
+- UAT-driven fixes during checkpoint verification caught real issues (premium display, commission calc, payroll layout)
+- Auto-seed pattern for AI prompt eliminated seed dependency
+- Iterative fix commits during verification (7 fix commits during 18-08) were efficient — ship fast, fix in place
+
+### What Was Inefficient
+- Commission bundling bug wasn't caught until UAT — isBundleQualifier logic was subtly wrong across 3 iterations
+- Premium display had enrollment fee subtracted in payroll — hidden deep in display code, not caught by type checking
+- Multiple round-trips to get payroll layout right (net column removed, re-added, removed again based on user feedback)
+
+### Patterns Established
+- Period status toggle via clickable badge (Open ↔ Closed) — simple UX pattern
+- Auto-seed defaults on first API access (no seed dependency)
+- Live net calculation from header input state (works even with 0 entries)
+- Total premium = core + addons displayed everywhere (sales board, manager parse)
+- Agent dropdown with "Unknown" default for parsed-but-unmatched agents
+
+### Key Lessons
+1. Commission calculation is still the highest-risk code — every iteration reveals edge cases
+2. Display-layer bugs (enrollment subtraction from premium) are invisible to type checkers — UAT catches them
+3. User feedback during verification is the most efficient way to converge on correct layout
+4. Consolidating polish work into one phase keeps context tight but makes the phase large (8 plans)
+5. Auto-seeding defaults eliminates a whole class of "missing data" bugs
+
+### Cost Observations
+- Model mix: ~75% opus (execution + checkpoint fixes), ~25% sonnet (verification)
+- Sessions: ~3 across 2 days
+- Notable: UAT-driven fixes were more efficient than upfront specification — real usage reveals real issues
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -107,6 +155,7 @@
 |-----------|----------|--------|------------|
 | v1.0 | ~8 | 10 | First milestone — established discuss→plan→execute→verify cycle |
 | v1.1 | ~4 | 7 | UI-SPEC contracts, milestone audit→gap closure→re-audit pattern |
+| v1.2 | ~3 | 1 | Single-phase consolidation, UAT-driven iterative fixes |
 
 ### Cumulative Quality
 
@@ -114,6 +163,7 @@
 |-----------|-------|----------|-------------|
 | v1.0 | 7 (reporting) + existing Morgan tests | Reporting service only | 1 (config form validation) |
 | v1.1 | 0 (client-side parsers, no new tests) | N/A | 2 (Phase 15.04 UAT gaps, Phase 17 tech debt) |
+| v1.2 | 15 UAT tests (all passed) | Full dashboard UAT | 0 (fixes applied inline during verification) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -121,4 +171,6 @@
 2. Pure functions with TDD for business logic, manual verification for UI
 3. Gap closure cycles are consistently cheap and effective — use them freely
 4. Lock requirement text immediately when design decisions override scope
-5. Single-file dashboards work but don't scale — plan extraction before v1.2
+5. Single-file dashboards work but don't scale — consider component extraction
+6. UAT-driven iterative fixes are more efficient than upfront specification for UI/UX work
+7. Auto-seeding defaults on first access eliminates "missing data" bugs reliably

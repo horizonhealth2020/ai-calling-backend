@@ -1,5 +1,15 @@
 # Milestones
 
+## v1.2 Platform Polish & Integration (Shipped: 2026-03-19)
+
+**Phases completed:** 1 phases, 8 plans, 12 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v1.1 Customer Service (Shipped: 2026-03-18)
 
 **Phases completed:** 7 phases, 15 plans
