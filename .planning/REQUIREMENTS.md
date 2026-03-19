@@ -9,8 +9,8 @@ Requirements for v1.2 milestone. All mapped to a single phase.
 
 ### Exports & Reporting
 
-- [ ] **EXPORT-01**: User can select date range (from/to) on any CSV export across all dashboards
-- [ ] **EXPORT-02**: User can choose relative presets (Last 7 days, Last 30 days, This month) alongside custom range
+- [x] **EXPORT-01**: User can select date range (from/to) on any CSV export across all dashboards
+- [x] **EXPORT-02**: User can choose relative presets (Last 7 days, Last 30 days, This month) alongside custom range
 - [x] **EXPORT-03**: System alerts when database storage is near capacity with option to download CSVs and clear old data
 
 ### AI & Call Auditing
@@ -73,8 +73,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXPORT-01 | Phase 18 | Pending |
-| EXPORT-02 | Phase 18 | Pending |
+| EXPORT-01 | Phase 18 | Complete |
+| EXPORT-02 | Phase 18 | Complete |
 | EXPORT-03 | Phase 18 | Complete |
 | AI-01 | Phase 18 | Complete |
 | AI-02 | Phase 18 | Complete |
@@ -105,4 +105,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-19 -- all 24 requirements complete (v1.2 shipped)*

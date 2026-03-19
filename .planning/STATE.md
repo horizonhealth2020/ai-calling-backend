@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Platform Polish & Integration
-status: executing
-stopped_at: Completed 18-04-PLAN.md
-last_updated: "2026-03-18T21:57:00Z"
+status: complete
+stopped_at: Completed 18-08-PLAN.md (all plans done)
+last_updated: "2026-03-19T12:00:00Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,22 +19,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 18 — platform-polish-integration
+**Current focus:** v1.2 complete -- all 24 requirements shipped
 
 ## Current Position
 
-Phase: 18 (platform-polish-integration) — EXECUTING
-Plan: 8 of 8
+Phase: 18 (platform-polish-integration) — COMPLETE
+Plan: 8 of 8 (all complete)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 2 (v1.0, v1.1) |
-| Total phases | 18 (17 complete + 1 active) |
-| Total plans | 46 (all complete from prior milestones) |
+| Milestones shipped | 3 (v1.0, v1.1, v1.2) |
+| Total phases | 18 (all complete) |
+| Total plans | 54 (46 prior + 8 Phase 18) |
 | Total requirements | 114 (50 v1.0 + 40 v1.1 + 24 v1.2) |
-| Timeline | 5 days (2026-03-14 → 2026-03-18) |
+| Timeline | 6 days (2026-03-14 → 2026-03-19) |
 
 ## Accumulated Context
 
@@ -66,6 +66,9 @@ Plan: 8 of 8
 | Agent KPI matching uses case-insensitive name comparison | ChargebackSubmission.memberAgentId is free-text, matched by name |
 | Permission overrides use upsert with compound unique key | Clean override pattern: role defaults + per-user overrides |
 | Storage plan limit defaults 1 GB with 80% alert threshold | Configurable via SalesBoardSetting without code changes |
+| Bundle qualifier addons fold into core commission rate | Simplifies commission calc -- bundle premium uses single rate |
+| Net column removed from sale rows, kept on agent card header | Avoids confusion between per-sale and aggregate net |
+| AI system prompt auto-seeds default on first access | Prevents errors when no prompt exists in database |
 
 ### Research Flags (from SUMMARY.md)
 
@@ -84,10 +87,10 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-18T22:00:00Z
-**Stopped at:** Completed 18-07-PLAN.md
-**Next action:** Execute 18-08-PLAN.md
+**Last session:** 2026-03-19T12:00:00Z
+**Stopped at:** Completed 18-08-PLAN.md (Phase 18 complete, v1.2 shipped)
+**Next action:** None -- milestone v1.2 complete
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-19*
