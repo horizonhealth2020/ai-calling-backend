@@ -1066,7 +1066,9 @@ function ManagerDashboardInner() {
     const p = parseReceipt(receipt);
     const addonMatches = p.addonNames.map(name => {
       const match = matchProduct(name, products);
-      return { name, matched: !!match, productName: match?.name, productId: match?.id };
+      // Find the parsed product entry for this addon to get its individual price
+      const parsedEntry = p.parsedProducts.find(pp => pp.isAddon && pp.name.toLowerCase() === name.toLowerCase());
+      return { name, matched: !!match, productName: match?.name, productId: match?.id, price: parsedEntry?.price };
     });
     const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
 
@@ -1074,14 +1076,30 @@ function ManagerDashboardInner() {
     const coreProductEntry = p.parsedProducts.find(pp => !pp.isAddon);
     const coreProductMatch = coreProductEntry ? matchProduct(coreProductEntry.name, products) : undefined;
 
-    // Calculate premium as product lines only — exclude enrollment fee from the Amount total
-    let effectivePremium = p.premium;
-    if (p.premium && p.enrollmentFee) {
-      const productOnlyPremium = Number(p.premium) - Number(p.enrollmentFee);
-      if (productOnlyPremium > 0) {
-        effectivePremium = productOnlyPremium.toFixed(2);
+    // Use the core product's individual line-item price as sale.premium (core only).
+    // Fall back to Amount-minus-enrollment if no per-product breakdown was parsed.
+    let corePremium: string | undefined;
+    if (coreProductEntry?.price) {
+      corePremium = coreProductEntry.price;
+    } else {
+      // Fallback: subtract enrollment fee from the receipt Amount total
+      let effectivePremium = p.premium;
+      if (p.premium && p.enrollmentFee) {
+        const productOnlyPremium = Number(p.premium) - Number(p.enrollmentFee);
+        if (productOnlyPremium > 0) {
+          effectivePremium = productOnlyPremium.toFixed(2);
+        }
       }
+      corePremium = effectivePremium;
     }
+
+    // Build addonPremiums from each matched addon's individual parsed price
+    const parsedAddonPremiums: Record<string, string> = {};
+    addonMatches.forEach(a => {
+      if (a.productId && a.price) {
+        parsedAddonPremiums[a.productId] = a.price;
+      }
+    });
 
     // Fill form — auto-select core product if a match was found in the products list
     setForm(f => ({
@@ -1090,7 +1108,7 @@ function ManagerDashboardInner() {
       memberId: p.memberId ?? f.memberId,
       status: p.status ?? f.status,
       saleDate: p.saleDate ?? f.saleDate,
-      premium: effectivePremium ?? f.premium,
+      premium: corePremium ?? f.premium,
       carrier: p.carrier ?? f.carrier,
       enrollmentFee: p.enrollmentFee ?? f.enrollmentFee,
       memberState: p.memberState ?? f.memberState,
@@ -1099,9 +1117,10 @@ function ManagerDashboardInner() {
       ...(coreProductMatch ? { productId: coreProductMatch.id } : {}),
       addonProductIds,
     }));
+    setAddonPremiums(parsedAddonPremiums);
     setParsedInfo({
       enrollmentFee: p.enrollmentFee,
-      premium: effectivePremium,
+      premium: corePremium,
       coreProduct: p.carrier,
       parsedProducts: p.parsedProducts,
       addons: addonMatches,
