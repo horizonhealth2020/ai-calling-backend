@@ -1787,10 +1787,25 @@ function OwnerDashboardInner() {
       setAuditDurationLoaded(true);
     }
     if (activeSection === "config" && !aiPromptLoaded) {
-      authFetch(`${API}/api/settings/ai-audit-prompt`)
-        .then((r) => r.ok ? r.json() : { prompt: "" })
-        .then((d) => { setAiPrompt(d.prompt ?? ""); setAiPromptLoaded(true); })
-        .catch(() => { setAiPromptLoaded(true); });
+      const loadPrompt = (attempt: number) => {
+        authFetch(`${API}/api/settings/ai-audit-prompt`)
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+          })
+          .then((d: { prompt?: string }) => {
+            setAiPrompt(d.prompt ?? "");
+            setAiPromptLoaded(true);
+          })
+          .catch(() => {
+            if (attempt < 2) {
+              setTimeout(() => loadPrompt(attempt + 1), 1000);
+            } else {
+              setAiPromptLoaded(true);
+            }
+          });
+      };
+      loadPrompt(0);
     }
     if (activeSection === "users" && !usersLoaded && isSuperAdmin) {
       authFetch(`${API}/api/users`)
@@ -1810,7 +1825,7 @@ function OwnerDashboardInner() {
         .then((d) => { setKpiData(d); setKpiLoaded(true); })
         .catch(() => { setKpiLoaded(true); });
     }
-  }, [activeSection, isSuperAdmin, agentsLoaded, auditDurationLoaded, usersLoaded, permLoaded, kpiLoaded]);
+  }, [activeSection, isSuperAdmin, agentsLoaded, auditDurationLoaded, aiPromptLoaded, usersLoaded, permLoaded, kpiLoaded]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {
     try {
