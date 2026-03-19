@@ -15,6 +15,7 @@
     "owner:dev": "npm --prefix apps/owner-dashboard run dev",
     "salesboard:dev": "npm --prefix apps/sales-board run dev",
     "cs:dev": "npm --prefix apps/cs-dashboard run dev",
+    "dashboard:dev": "npm run dev --workspace=apps/ops-dashboard",
     "db:migrate": "npm --prefix apps/ops-api run prisma:migrate",
     "db:seed": "npm --prefix apps/ops-api run prisma:seed",
     "test:ops": "jest --config apps/ops-api/jest.config.ts"
