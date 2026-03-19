@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Left vertical stroke -->
+  <rect x="10" y="8" width="8" height="48" rx="2" fill="#14b8a6"/>
+  <!-- Right vertical stroke -->
+  <rect x="46" y="8" width="8" height="48" rx="2" fill="#14b8a6"/>
+  <!-- Heartbeat crossbar -->
+  <polyline
+    points="18,32 24,32 28,20 32,44 36,28 40,36 46,32"
+    fill="none"
+    stroke="#14b8a6"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

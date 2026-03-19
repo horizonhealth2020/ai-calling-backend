@@ -4,9 +4,23 @@
     "jsx": "preserve",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@/*": ["./*"],
+      "@ops/db": ["../../packages/db/src"],
+      "@ops/auth": ["../../packages/auth/src"],
+      "@ops/auth/client": ["../../packages/auth/src/client"],
+      "@ops/types": ["../../packages/types/src"],
+      "@ops/utils": ["../../packages/utils/src"],
+      "@ops/ui": ["../../packages/ui/src"]
+    },
+    "allowJs": true,
+    "noEmit": true,
+    "incremental": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "isolatedModules": true,
+    "plugins": [{ "name": "next" }]
   },
-  "include": ["**/*.ts", "**/*.tsx", "next-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "next-env.d.ts"],
+  "exclude": ["node_modules"]
 }
