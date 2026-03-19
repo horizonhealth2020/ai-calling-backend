@@ -53,7 +53,7 @@ Plan: 8 of 8
 |----------|-----------|
 | Single phase for all 24 requirements | User requested consolidation -- all v1.2 work is integration/polish, not new architecture |
 | Phase 18 numbering | Continues from v1.1 Phase 17 |
-| Parse flow shows preview card before filling form | Prevents accidental form population from paste-to-parse |
+| Parse flow auto-fills form directly, user edits fields after | Simpler UX — no extra confirm step needed |
 | Status mapping defaults to RAN for unrecognized values | Safer than failing with invalid enum errors |
 | Core product never auto-selected unless parsed | Explicit matching only -- no assumptions |
 | Enrollment threshold is 125 not 124 | Matched actual server logic in applyEnrollmentFee |
