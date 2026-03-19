@@ -418,6 +418,16 @@ function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highl
     whiteSpace: "nowrap" as const,
   };
 
+  if (sorted.length === 0) {
+    return (
+      <EmptyState
+        icon={<Users size={32} />}
+        title="No Agents Yet"
+        description="Add agents in the Manager Dashboard to start tracking the leaderboard."
+      />
+    );
+  }
+
   return (
     <div
       className="animate-fade-in"
@@ -710,7 +720,19 @@ export default function SalesBoard() {
   async function refresh() {
     const res = await fetch(`${API}/api/sales-board/detailed`).catch(() => null);
     if (res?.ok) {
-      setData(await res.json());
+      const json: DetailedData = await res.json();
+      // Merge in any agent names that appear in sales data but are not in the
+      // active-agents list (e.g. inactive agents who still have sales this week).
+      const salesAgents = new Set<string>([
+        ...Object.keys(json.weeklyTotals),
+        ...Object.keys(json.todayStats),
+      ]);
+      for (const name of salesAgents) {
+        if (!json.agents.includes(name)) {
+          json.agents.push(name);
+        }
+      }
+      setData(json);
       setLastUpdated(new Date().toLocaleTimeString());
     }
   }
@@ -1119,19 +1141,6 @@ export default function SalesBoard() {
       {/* ── Content area ─────────────────────────────────────────── */}
       {!data ? (
         <LoadingSkeleton />
-      ) : data.agents.length === 0 ? (
-        <div
-          style={{
-            ...baseCardStyle,
-            padding: `${spacing[16]}px ${spacing[8]}px`,
-          }}
-        >
-          <EmptyState
-            icon={<Users size={32} />}
-            title="No Agents Yet"
-            description="Add agents in the Manager Dashboard to start tracking the leaderboard."
-          />
-        </div>
       ) : view === "weekly" ? (
         <WeeklyView key="weekly" data={data} highlightedAgentNames={highlightedAgentNames} />
       ) : (
