@@ -863,7 +863,7 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
     include: {
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { product: { select: { id: true, name: true, type: true } } } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } } } },
           agent: { select: { name: true } },
         },
       },
@@ -1004,10 +1004,9 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const entry = await prisma.payrollEntry.findUnique({ where: { id: req.params.id } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
-  // Guard: reject edits if agent is already marked paid in this period
-  const agentPaid = await isAgentPaidInPeriod(entry.agentId, entry.payrollPeriodId);
-  if (agentPaid) {
-    return res.status(400).json({ error: "Agent already marked paid for this period" });
+  // Guard: reject edits if this specific entry has already been paid
+  if (entry.status === "PAID") {
+    return res.status(400).json({ error: "This entry has already been marked paid and cannot be edited" });
   }
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);

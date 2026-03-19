@@ -17,7 +17,7 @@ import {
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
-type SaleAddonInfo = { product: { id: string; name: string; type: string } };
+type SaleAddonInfo = { productId: string; premium: number | null; product: { id: string; name: string; type: string } };
 type SaleInfo = {
   id: string; memberName: string; memberId?: string; carrier: string;
   premium: number; enrollmentFee: number | null; commissionApproved: boolean;
@@ -202,6 +202,9 @@ function EditableSaleRow({
     notes: entry.sale?.notes ?? "",
     productId: entry.sale?.product?.id ?? "",
   });
+  const [addonItems, setAddonItems] = useState<{ productId: string; premium: string }[]>(
+    () => (entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") }))
+  );
   const [bonus, setBonus] = useState(String(entry.bonusAmount ?? 0));
   const [fronted, setFronted] = useState(String(entry.frontedAmount ?? 0));
   const [hold, setHold] = useState(String(entry.holdAmount ?? 0));
@@ -274,25 +277,67 @@ function EditableSaleRow({
 
       <td style={tdStyle}>
         {editSale ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <select
-              className="input-focus"
-              style={{ ...SMALL_INP, width: 140, textAlign: "left" }}
-              value={saleData.productId}
-              onChange={e => setSaleData(d => ({ ...d, productId: e.target.value }))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* Core product row */}
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <select
+                className="input-focus"
+                style={{ ...SMALL_INP, width: 140, textAlign: "left" }}
+                value={saleData.productId}
+                onChange={e => setSaleData(d => ({ ...d, productId: e.target.value }))}
+              >
+                <option value="">— Core product —</option>
+                {products.filter(p => p.active).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <input
+                className="input-focus"
+                style={{ ...SMALL_INP, width: 82 }}
+                type="number" step="0.01" placeholder="Premium"
+                value={saleData.premium}
+                onChange={e => setSaleData(d => ({ ...d, premium: e.target.value }))}
+              />
+            </div>
+            {/* Addon rows */}
+            {addonItems.map((addon, idx) => (
+              <div key={idx} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <select
+                  className="input-focus"
+                  style={{ ...SMALL_INP, width: 140, textAlign: "left" }}
+                  value={addon.productId}
+                  onChange={e => setAddonItems(prev => prev.map((a, i) => i === idx ? { ...a, productId: e.target.value } : a))}
+                >
+                  <option value="">— Add-on —</option>
+                  {products.filter(p => p.active && p.type !== "CORE").map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <input
+                  className="input-focus"
+                  style={{ ...SMALL_INP, width: 82 }}
+                  type="number" step="0.01" placeholder="Premium"
+                  value={addon.premium}
+                  onChange={e => setAddonItems(prev => prev.map((a, i) => i === idx ? { ...a, premium: e.target.value } : a))}
+                />
+                <button
+                  type="button"
+                  onClick={() => setAddonItems(prev => prev.filter((_, i) => i !== idx))}
+                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", borderRadius: 4, padding: "3px 6px", cursor: "pointer", fontSize: 11, lineHeight: 1 }}
+                  title="Remove add-on"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+            {/* Add product button */}
+            <button
+              type="button"
+              onClick={() => setAddonItems(prev => [...prev, { productId: "", premium: "" }])}
+              style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14b8a6", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 11, width: "fit-content" }}
             >
-              <option value="">— Select —</option>
-              {products.filter(p => p.active).map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            <input
-              className="input-focus"
-              style={{ ...SMALL_INP, width: 90 }}
-              type="number" step="0.01" placeholder="Premium"
-              value={saleData.premium}
-              onChange={e => setSaleData(d => ({ ...d, premium: e.target.value }))}
-            />
+              <Plus size={10} /> Add Product
+            </button>
           </div>
         ) : (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -306,7 +351,7 @@ function EditableSaleRow({
               )}
             </div>
             {/* Addon & AD&D products side by side */}
-            {entry.sale?.addons?.map((addon: { product: { id: string; name: string; type: string } }) => (
+            {entry.sale?.addons?.map((addon) => (
               <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
                 <Badge
                   color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
@@ -314,6 +359,11 @@ function EditableSaleRow({
                 >
                   {addon.product.name}
                 </Badge>
+                {addon.premium != null && (
+                  <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                    {formatDollar(Number(addon.premium))}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -362,6 +412,11 @@ function EditableSaleRow({
               disabled={saving}
               onClick={async () => {
                 setSaving(true);
+                const addonProductIds = addonItems.filter(a => a.productId).map(a => a.productId);
+                const addonPremiums: Record<string, number> = {};
+                addonItems.filter(a => a.productId).forEach(a => {
+                  addonPremiums[a.productId] = a.premium ? Number(a.premium) : 0;
+                });
                 await onSaleUpdate(entry.sale!.id, {
                   memberName: saleData.memberName,
                   memberId: saleData.memberId || null,
@@ -369,6 +424,8 @@ function EditableSaleRow({
                   notes: saleData.notes || null,
                   productId: saleData.productId || undefined,
                   premium: saleData.premium ? Number(saleData.premium) : undefined,
+                  addonProductIds,
+                  addonPremiums,
                 });
                 setEditSale(false); setSaving(false);
               }}
@@ -378,7 +435,10 @@ function EditableSaleRow({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setEditSale(false)}
+              onClick={() => {
+                setEditSale(false);
+                setAddonItems((entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") })));
+              }}
             >
               <X size={12} />
             </Button>
@@ -839,7 +899,7 @@ function AgentPayCard({
           >
             <Printer size={11} /> Print
           </Button>
-          {allPaid ? (
+          {entries.length > 0 && (allPaid ? (
             period.status !== "OPEN" ? (
               <Button variant="ghost" size="sm" disabled
                 title="Cannot unpay a closed period"
@@ -857,7 +917,7 @@ function AgentPayCard({
               style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
               <XCircle size={11} /> Unpaid
             </Button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -1533,13 +1593,23 @@ function PayrollDashboardInner() {
   }
 
   async function markEntriesPaid(entryIds: string[], serviceEntryIds: string[], label: string) {
+    if (entryIds.length === 0 && serviceEntryIds.length === 0) return;
     if (!window.confirm(`Mark ${label} as PAID?`)) return;
-    const res = await authFetch(`${API}/api/payroll/mark-paid`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entryIds, serviceEntryIds }),
-    });
-    if (res.ok) await refreshPeriods();
+    try {
+      const res = await authFetch(`${API}/api/payroll/mark-paid`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryIds, serviceEntryIds }),
+      });
+      if (res.ok) {
+        await refreshPeriods();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error ?? `Request failed (${res.status})`);
+      }
+    } catch (e: any) {
+      toast("error", `Unable to reach API — ${e.message ?? "network error"}`);
+    }
   }
 
   async function markEntriesUnpaid(entryIds: string[], serviceEntryIds: string[], label: string) {
