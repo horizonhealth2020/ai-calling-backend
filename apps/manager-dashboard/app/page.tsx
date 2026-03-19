@@ -182,42 +182,6 @@ const PREVIEW_LABEL: React.CSSProperties = {
   marginBottom: spacing[2],
 };
 
-const PARSE_PREVIEW_CARD: React.CSSProperties = {
-  background: colors.bgSurfaceRaised,
-  border: `1px solid ${colors.borderStrong}`,
-  borderRadius: 12,
-  padding: 16,
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-  marginTop: 12,
-};
-
-const PARSE_PREVIEW_ROW: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const PARSE_PREVIEW_LBL: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.06em",
-  color: colors.textTertiary,
-};
-
-const PARSE_PREVIEW_VAL: React.CSSProperties = {
-  fontSize: 14,
-  color: colors.textPrimary,
-};
-
-const PARSE_PREVIEW_ACTIONS: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  justifyContent: "flex-end",
-  marginTop: 8,
-};
 
 const EDIT_ROW_EXPANSION: React.CSSProperties = {
   background: colors.bgSurfaceRaised,
@@ -741,13 +705,6 @@ function ManagerDashboardInner() {
   const [addonPremiums, setAddonPremiums] = useState<Record<string, string>>({});
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
-  const [parsedPreview, setParsedPreview] = useState<{
-    memberName?: string; memberId?: string; status?: string; saleDate?: string;
-    premium?: string; carrier?: string; enrollmentFee?: string; memberState?: string;
-    paymentType?: "CC" | "ACH"; coreProduct?: string; coreProductId?: string;
-    addonProductIds: string[]; addonMatches: { name: string; matched: boolean; productName?: string; productId?: string }[];
-    parsedProducts: ParsedProduct[];
-  } | null>(null);
 
   const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
   const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
@@ -1107,61 +1064,44 @@ function ManagerDashboardInner() {
   function handleParse() {
     if (!receipt.trim()) return;
     const p = parseReceipt(receipt);
-    const coreMatch = p.carrier ? matchProduct(p.carrier, products) : undefined;
     const addonMatches = p.addonNames.map(name => {
       const match = matchProduct(name, products);
       return { name, matched: !!match, productName: match?.name, productId: match?.id };
     });
     const addonProductIds = addonMatches.filter(a => a.productId).map(a => a.productId!);
-    // Show preview card instead of filling form directly
-    setParsedPreview({
-      memberName: p.memberName,
-      memberId: p.memberId,
-      status: p.status,
-      saleDate: p.saleDate,
-      premium: p.premium,
-      carrier: p.carrier,
-      enrollmentFee: p.enrollmentFee,
-      memberState: p.memberState,
-      paymentType: p.paymentType,
-      coreProduct: coreMatch ? coreMatch.name : p.carrier,
-      coreProductId: coreMatch?.id,
-      addonProductIds,
-      addonMatches,
-      parsedProducts: p.parsedProducts,
-    });
-  }
 
-  function confirmParseFill() {
-    if (!parsedPreview) return;
-    const { memberName, memberId, status, saleDate, premium, carrier, enrollmentFee, memberState, paymentType: parsedPaymentType, coreProductId, addonProductIds, addonMatches } = parsedPreview;
+    // Calculate premium as product lines only — exclude enrollment fee from the Amount total
+    let effectivePremium = p.premium;
+    if (p.premium && p.enrollmentFee) {
+      const productOnlyPremium = Number(p.premium) - Number(p.enrollmentFee);
+      if (productOnlyPremium > 0) {
+        effectivePremium = productOnlyPremium.toFixed(2);
+      }
+    }
+
+    // Fill form directly — no preview step, no core product auto-selection
     setForm(f => ({
       ...f,
-      memberName: memberName ?? f.memberName,
-      memberId: memberId ?? f.memberId,
-      status: status ?? f.status,
-      saleDate: saleDate ?? f.saleDate,
-      premium: premium ?? f.premium,
-      carrier: carrier ?? f.carrier,
-      enrollmentFee: enrollmentFee ?? f.enrollmentFee,
-      memberState: memberState ?? f.memberState,
-      paymentType: parsedPaymentType ?? f.paymentType,
-      productId: coreProductId ?? "",
+      memberName: p.memberName ?? f.memberName,
+      memberId: p.memberId ?? f.memberId,
+      status: p.status ?? f.status,
+      saleDate: p.saleDate ?? f.saleDate,
+      premium: effectivePremium ?? f.premium,
+      carrier: p.carrier ?? f.carrier,
+      enrollmentFee: p.enrollmentFee ?? f.enrollmentFee,
+      memberState: p.memberState ?? f.memberState,
+      paymentType: p.paymentType ?? f.paymentType,
+      // productId intentionally NOT set — user selects manually
       addonProductIds,
     }));
     setParsedInfo({
-      enrollmentFee: parsedPreview.enrollmentFee,
-      premium: parsedPreview.premium,
-      coreProduct: parsedPreview.coreProduct,
-      parsedProducts: parsedPreview.parsedProducts,
+      enrollmentFee: p.enrollmentFee,
+      premium: effectivePremium,
+      coreProduct: p.carrier,
+      parsedProducts: p.parsedProducts,
       addons: addonMatches,
     });
     setParsed(true);
-    setParsedPreview(null);
-  }
-
-  function discardParse() {
-    setParsedPreview(null);
   }
 
   function clearReceipt() {
@@ -1598,79 +1538,15 @@ function ManagerDashboardInner() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <Button type="button" variant="success" size="sm" onClick={handleParse} disabled={!!parsedPreview}>
+                  <Button type="button" variant="success" size="sm" onClick={handleParse}>
                     <Upload size={13} />Parse Receipt
                   </Button>
                   {receipt && (
-                    <Button type="button" variant="secondary" size="sm" onClick={() => { clearReceipt(); setParsedPreview(null); }}>
+                    <Button type="button" variant="secondary" size="sm" onClick={clearReceipt}>
                       <X size={13} />Clear
                     </Button>
                   )}
                 </div>
-
-                {/* ParsePreviewCard -- shows parsed results before filling form */}
-                {parsedPreview && (
-                  <div className="animate-fade-in" style={PARSE_PREVIEW_CARD}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, display: "flex", alignItems: "center", gap: 6 }}>
-                      <Edit3 size={14} />Parsed Sale Details
-                    </div>
-                    {parsedPreview.memberName && (
-                      <div style={PARSE_PREVIEW_ROW}>
-                        <span style={PARSE_PREVIEW_LBL}>Customer</span>
-                        <span style={PARSE_PREVIEW_VAL}>{parsedPreview.memberName}{parsedPreview.memberId ? ` (${parsedPreview.memberId})` : ""}</span>
-                      </div>
-                    )}
-                    {parsedPreview.parsedProducts.length > 0 && (
-                      <div style={PARSE_PREVIEW_ROW}>
-                        <span style={PARSE_PREVIEW_LBL}>Products</span>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {parsedPreview.parsedProducts.map((pp, i) => {
-                            const matched = matchProduct(pp.name, products);
-                            return (
-                              <Badge key={i} color={matched ? (pp.isAddon ? colors.info : colors.primary400) : colors.warning} variant="subtle" size="sm">
-                                {matched ? matched.name : pp.name}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    {parsedPreview.memberState && (
-                      <div style={PARSE_PREVIEW_ROW}>
-                        <span style={PARSE_PREVIEW_LBL}>State</span>
-                        <span style={PARSE_PREVIEW_VAL}>{parsedPreview.memberState}</span>
-                      </div>
-                    )}
-                    {parsedPreview.status && (
-                      <div style={PARSE_PREVIEW_ROW}>
-                        <span style={PARSE_PREVIEW_LBL}>Status</span>
-                        <Badge color={parsedPreview.status === "RAN" ? colors.success : parsedPreview.status === "DECLINED" ? colors.danger : colors.textMuted} variant="subtle" size="sm">
-                          {STATUS_DISPLAY[parsedPreview.status] ?? parsedPreview.status}
-                        </Badge>
-                      </div>
-                    )}
-                    {parsedPreview.premium && (
-                      <div style={PARSE_PREVIEW_ROW}>
-                        <span style={PARSE_PREVIEW_LBL}>Premium</span>
-                        <span style={{ ...PARSE_PREVIEW_VAL, fontWeight: 700, color: colors.success }}>${parsedPreview.premium}</span>
-                      </div>
-                    )}
-                    {parsedPreview.enrollmentFee && (
-                      <div style={PARSE_PREVIEW_ROW}>
-                        <span style={PARSE_PREVIEW_LBL}>Enrollment Fee</span>
-                        <span style={{ ...PARSE_PREVIEW_VAL, color: colors.warning }}>${parsedPreview.enrollmentFee}</span>
-                      </div>
-                    )}
-                    <div style={PARSE_PREVIEW_ACTIONS}>
-                      <Button type="button" variant="ghost" size="sm" onClick={discardParse}>
-                        Discard Parse
-                      </Button>
-                      <Button type="button" variant="primary" size="sm" onClick={confirmParseFill}>
-                        Confirm &amp; Fill
-                      </Button>
-                    </div>
-                  </div>
-                )}
 
                 {parsed && (
                   <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
