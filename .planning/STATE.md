@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Dashboard Consolidation & Uniform Date Ranges
 status: executing
-stopped_at: Completed 19-04-PLAN.md
-last_updated: "2026-03-19T19:19:00.000Z"
+stopped_at: Completed 19-06-PLAN.md
+last_updated: "2026-03-19T19:24:00.000Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 6
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 19 (dashboard-consolidation-uniform-date-ranges) — EXECUTING
-Plan: 5 of 8 (plans 01, 02, 03, 04 complete)
+Plan: 7 of 8 (plans 01, 02, 03, 04, 05, 06 complete)
 
 ## Performance Metrics
 
@@ -60,6 +60,9 @@ Plan: 5 of 8 (plans 01, 02, 03, 04 complete)
 | tsconfig needs explicit baseUrl for Next.js | Monorepo base tsconfig baseUrl overrides app-level paths without explicit override |
 | Self-contained sub-tab components for Owner | Each sub-tab manages own state/fetching; no shared state in orchestrator |
 | Socket events via prop instead of useSocket | Unified app uses SocketProvider context; sub-tabs bind events on socket prop |
+| Payroll orchestrator owns shared state | Periods, products, agents, alerts loaded once at orchestrator level; sub-tabs receive as props |
+| Manager orchestrator owns shared state | agents, products, leadSources fetched once in page.tsx; passed as props to all 5 sub-tabs |
+| Socket sale:changed at page level for Manager | Patches tracker and salesList simultaneously for cross-tab real-time updates |
 
 ### Research Flags (from SUMMARY.md)
 
@@ -77,9 +80,9 @@ None currently.
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T19:19:00.000Z
-**Stopped at:** Completed 19-04-PLAN.md
-**Next action:** Execute 19-05-PLAN.md (Payroll dashboard migration)
+**Last session:** 2026-03-19T19:25:00.000Z
+**Stopped at:** Completed 19-06-PLAN.md
+**Next action:** Execute 19-07-PLAN.md (Date range API wiring + CSV export presets)
 
 ---
 *State initialized: 2026-03-14*
