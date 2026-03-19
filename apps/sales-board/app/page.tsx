@@ -286,14 +286,17 @@ function RaceBar({
 /* ── DailyView ────────────────────────────────────────────────── */
 
 function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highlightedAgentNames: Set<string> }) {
-  const { agents, todayStats } = data;
+  const [lbMode, setLbMode] = useState<"day" | "week">("day");
+  const { agents, todayStats, weeklyTotals } = data;
+
+  const stats = lbMode === "day" ? todayStats : weeklyTotals;
 
   // Sort all agents by premium (descending) for the race
   const sorted = [...agents].sort(
-    (a, b) => (todayStats[b]?.premium ?? 0) - (todayStats[a]?.premium ?? 0)
+    (a, b) => (stats[b]?.premium ?? 0) - (stats[a]?.premium ?? 0)
   );
 
-  const maxPremium = Math.max(...sorted.map((a) => todayStats[a]?.premium ?? 0), 0);
+  const maxPremium = Math.max(...sorted.map((a) => stats[a]?.premium ?? 0), 0);
   const orders = buildRaceOrder(sorted.length);
 
   // Only award medals when there are clear leaders with actual sales
@@ -334,6 +337,25 @@ function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highli
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${colors.borderDefault})` }} />
           </div>
 
+          {/* Day / Week toggle */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: spacing[5] }}>
+            {(["day", "week"] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => setLbMode(m)}
+                style={{
+                  padding: "6px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+                  fontSize: 12, fontWeight: 600, textTransform: "capitalize",
+                  background: lbMode === m ? colors.primary500 : colors.bgSurfaceInset,
+                  color: lbMode === m ? "#fff" : colors.textSecondary,
+                  transition: "all 150ms ease-out",
+                }}
+              >
+                {m === "day" ? "Today" : "This Week"}
+              </button>
+            ))}
+          </div>
+
           {/* Race bars container — flex fills screen width */}
           <div
             style={{
@@ -348,7 +370,7 @@ function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highli
             }}
           >
             {sorted.map((agent, i) => {
-              const stat = todayStats[agent];
+              const stat = stats[agent];
               const premium = stat?.premium ?? 0;
               const count = stat?.count ?? 0;
               const fillPercent = maxPremium > 0 ? Math.max((premium / maxPremium) * 100, count > 0 ? 10 : 0) : 0;
@@ -1130,8 +1152,8 @@ export default function SalesBoard() {
       <div className="animate-fade-in stagger-3" style={{ marginBottom: spacing[6] }}>
         <TabNav
           tabs={[
-            { key: "daily", label: "Daily View", icon: <Users size={14} /> },
-            { key: "weekly", label: "Weekly View", icon: <Calendar size={14} /> },
+            { key: "daily", label: "Leaderboard", icon: <Users size={14} /> },
+            { key: "weekly", label: "Weekly Breakdown", icon: <Calendar size={14} /> },
           ]}
           active={view}
           onChange={(k) => setView(k as "daily" | "weekly")}
