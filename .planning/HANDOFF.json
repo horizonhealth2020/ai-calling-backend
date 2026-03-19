@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-03-19T20:54:29.684Z",
+  "phase": "19",
+  "phase_name": "dashboard-consolidation-uniform-date-ranges",
+  "phase_dir": ".planning/phases/19-dashboard-consolidation-uniform-date-ranges",
+  "plan": 8,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "plan": "19-01", "name": "Unified app shell", "status": "done", "commit": "6251ce6"},
+    {"id": 2, "plan": "19-02", "name": "Shared package updates", "status": "done", "commit": "16bd4c4"},
+    {"id": 3, "plan": "19-03", "name": "CS dashboard migration", "status": "done", "commit": "5ad7967"},
+    {"id": 4, "plan": "19-04", "name": "Owner dashboard migration", "status": "done", "commit": "718709f"},
+    {"id": 5, "plan": "19-05", "name": "Payroll dashboard migration", "status": "done", "commit": "94cf7b9"},
+    {"id": 6, "plan": "19-06", "name": "Manager dashboard migration", "status": "done", "commit": "9c1afff"},
+    {"id": 7, "plan": "19-07", "name": "Uniform date range wiring", "status": "done", "commit": "a14c695"},
+    {"id": 8, "plan": "19-08", "name": "Deployment config & cleanup", "status": "in_progress", "progress": "Tasks 1-2 done (CORS/Docker update, old apps deleted). Task 3 (verification checkpoint) paused — deploying to Railway."}
+  ],
+  "remaining_tasks": [
+    {"id": 3, "plan": "19-08", "name": "End-to-end verification checkpoint", "status": "in_progress"}
+  ],
+  "blockers": [
+    {
+      "description": "ops-dashboard Railway build fails with 'secret AUTH_JWT_SECRET: not found' — Railpack secret detection issue",
+      "type": "technical",
+      "workaround": "Set AUTH_JWT_SECRET=temp in build command prefix: AUTH_JWT_SECRET=temp npm install && AUTH_JWT_SECRET=temp npm run build --workspace=apps/ops-dashboard"
+    },
+    {
+      "description": "Login returns 'Invalid credentials' despite seed running — bcrypt hash was corrupted by shell $-interpolation during Railway seed. Hash manually updated via SQL but login still failing with no error (silent redirect loop)",
+      "type": "technical",
+      "workaround": "Need to verify: 1) ops-api start command is 'npm run start --workspace=apps/ops-api', 2) AUTH_JWT_SECRET matches between ops-api and ops-dashboard, 3) middleware can verify JWT tokens"
+    }
+  ],
+  "human_actions_pending": [
+    {"action": "Fix Railway ops-dashboard build (AUTH_JWT_SECRET secret detection)", "context": "Railpack treats env vars as Docker secrets", "blocking": true},
+    {"action": "Fix login flow — verify AUTH_JWT_SECRET matches across services", "context": "Token signs on ops-api, verifies on ops-dashboard middleware", "blocking": true},
+    {"action": "Change ops-api start command back to 'npm run start --workspace=apps/ops-api' (remove seed prefix)", "context": "Seed was temporarily added to start command", "blocking": false},
+    {"action": "Seed remaining users (Nick D, Mike F, Payroll User) if needed", "context": "Only juan.a@horizon.com was manually inserted", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Consolidated 5 dashboard apps into 1 unified ops-dashboard", "rationale": "Reduces Railway services from 5 to 1, simplifies deployment", "phase": "19"},
+    {"decision": "Sales board remains standalone", "rationale": "Public/no-auth, different deployment requirements", "phase": "19"},
+    {"decision": "ops-dashboard runs on port 3011 (auth-portal's old port)", "rationale": "Minimal URL change for existing users", "phase": "19"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Fix Railway deployment: 1) Resolve AUTH_JWT_SECRET build secret issue, 2) Ensure ops-api start command is correct, 3) Verify AUTH_JWT_SECRET matches between services, 4) Test login flow end-to-end",
+  "context_notes": "All 8 plans executed and code committed. Plans 19-01 through 19-07 fully complete with SUMMARYs. Plan 19-08 has 2/3 tasks committed — stuck on Task 3 (verification checkpoint) due to Railway deployment issues. The code itself is complete — the blocker is purely deployment configuration. The 'no error' login behavior suggests the middleware JWT verification is failing silently (mismatched AUTH_JWT_SECRET between ops-api and ops-dashboard, or the secret not being available at runtime)."
+}
