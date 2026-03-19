@@ -1,8 +1,10 @@
 import { prisma } from "@ops/db";
 
-export async function getAgentRetentionKpis() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+export async function getAgentRetentionKpis(dateWindow?: { gte: Date; lt: Date }) {
+  const fallback = new Date();
+  fallback.setDate(fallback.getDate() - 30);
+  const gte = dateWindow?.gte ?? fallback;
+  const lt = dateWindow?.lt ?? new Date();
 
   // Get all active agents
   const agents = await prisma.agent.findMany({
@@ -14,7 +16,7 @@ export async function getAgentRetentionKpis() {
   const chargebacks = await prisma.chargebackSubmission.groupBy({
     by: ["memberAgentId"],
     where: {
-      submittedAt: { gte: thirtyDaysAgo },
+      submittedAt: { gte, lt },
       memberAgentId: { not: null },
     },
     _count: true,
@@ -25,7 +27,7 @@ export async function getAgentRetentionKpis() {
   const pendingTerms = await prisma.pendingTerm.groupBy({
     by: ["agentName"],
     where: {
-      submittedAt: { gte: thirtyDaysAgo },
+      submittedAt: { gte, lt },
       agentName: { not: null },
     },
     _count: true,

@@ -2132,43 +2132,61 @@ router.patch("/chargebacks/:id/unresolve", requireAuth, requireRole("CUSTOMER_SE
   return res.json(record);
 }));
 
-router.get("/chargebacks", requireAuth, asyncHandler(async (_req, res) => {
+router.get("/chargebacks", requireAuth, asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
   const records = await prisma.chargebackSubmission.findMany({
     orderBy: { submittedAt: "desc" },
     take: 200,
+    where: dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : undefined,
     include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
   });
   return res.json(records);
 }));
 
-router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (_req, res) => {
-  const { weekStart, weekEnd } = getSundayWeekRange(new Date());
-  const nextSunday = new Date(weekEnd);
-  nextSunday.setDate(nextSunday.getDate() + 1);
+router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  let gte: Date, lt: Date, wsIso: string, weIso: string;
+  if (dr) {
+    gte = dr.gte;
+    lt = dr.lt;
+    wsIso = gte.toISOString();
+    weIso = lt.toISOString();
+  } else {
+    const { weekStart, weekEnd } = getSundayWeekRange(new Date());
+    const nextSunday = new Date(weekEnd);
+    nextSunday.setDate(nextSunday.getDate() + 1);
+    gte = weekStart;
+    lt = nextSunday;
+    wsIso = weekStart.toISOString();
+    weIso = weekEnd.toISOString();
+  }
 
   const result = await prisma.chargebackSubmission.aggregate({
     _sum: { chargebackAmount: true },
     _count: { id: true },
-    where: { submittedAt: { gte: weekStart, lt: nextSunday } },
+    where: { submittedAt: { gte, lt } },
   });
 
   return res.json({
     total: result._sum.chargebackAmount ?? 0,
     count: result._count.id,
-    weekStart: weekStart.toISOString(),
-    weekEnd: weekEnd.toISOString(),
+    weekStart: wsIso,
+    weekEnd: weIso,
   });
 }));
 
-router.get("/chargebacks/totals", requireAuth, asyncHandler(async (_req, res) => {
+router.get("/chargebacks/totals", requireAuth, asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const dateFilter = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
   const [totalResult, recoveredResult] = await Promise.all([
     prisma.chargebackSubmission.aggregate({
       _sum: { chargebackAmount: true },
       _count: { id: true },
+      where: dateFilter,
     }),
     prisma.chargebackSubmission.aggregate({
       _sum: { chargebackAmount: true },
-      where: { resolutionType: "recovered" },
+      where: { ...dateFilter, resolutionType: "recovered" },
     }),
   ]);
   return res.json({
@@ -2322,16 +2340,19 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
 }));
 
 router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const dateFilter = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
+
   // Support holdDate grouping for CS dashboard (CS-03)
   if (req.query.groupBy === "holdDate") {
     const grouped = await prisma.pendingTerm.groupBy({
       by: ["holdDate"],
-      where: { resolvedAt: null },
+      where: { resolvedAt: null, ...dateFilter },
       _count: true,
       orderBy: { holdDate: "asc" },
     });
     const records = await prisma.pendingTerm.findMany({
-      where: { resolvedAt: null },
+      where: { resolvedAt: null, ...dateFilter },
       orderBy: { holdDate: "asc" },
       include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
     });
@@ -2341,6 +2362,7 @@ router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {
   const records = await prisma.pendingTerm.findMany({
     orderBy: { submittedAt: "desc" },
     take: 200,
+    where: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
     include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
   });
   return res.json(records);
@@ -2449,8 +2471,9 @@ router.put("/ai/budget", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), 
 
 // ─── Agent KPI Aggregation ──────────────────────────────────────
 
-router.get("/agent-kpis", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
-  const kpis = await getAgentRetentionKpis();
+router.get("/agent-kpis", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const kpis = await getAgentRetentionKpis(dr);
   res.json(kpis);
 }));
 
