@@ -5,6 +5,8 @@ import {
   StatCard,
   EmptyState,
   SkeletonTable,
+  DateRangeFilter,
+  KPI_PRESETS,
   colors,
   radius,
   typography,
@@ -13,7 +15,9 @@ import {
   baseThStyle,
   baseTdStyle,
 } from "@ops/ui";
+import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
+import { useDateRange } from "@/lib/DateRangeContext";
 import {
   DollarSign,
   AlertTriangle,
@@ -188,25 +192,37 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
   );
 }
 
+/* -- Date range helper -- */
+
+function buildDateParams(dr: DateRangeFilterValue): string {
+  if (dr.preset === "custom" && dr.from && dr.to) return `from=${dr.from}&to=${dr.to}`;
+  if (dr.preset && dr.preset !== "custom") return `range=${dr.preset}`;
+  return "";
+}
+
 /* -- OwnerKPIs -- */
 
 export default function OwnerKPIs({ API }: { API: string }) {
+  const { value: dateRange, onChange: setDateRange } = useDateRange();
   const [kpiData, setKpiData] = useState<KpiData | null>(null);
 
   useEffect(() => {
-    authFetch(`${API}/api/agent-kpis`)
+    const dp = buildDateParams(dateRange);
+    const qs = dp ? `?${dp}` : "";
+    authFetch(`${API}/api/agent-kpis${qs}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { setKpiData(d); })
       .catch(() => {});
-  }, [API]);
+  }, [API, dateRange]);
 
   return (
     <div className="animate-fade-in">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>Agent Retention KPIs</h2>
-          <p style={SECTION_SUBTITLE}>Per-agent chargeback and pending term metrics (30-day rolling window)</p>
+          <p style={SECTION_SUBTITLE}>Per-agent chargeback and pending term metrics</p>
         </div>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} presets={KPI_PRESETS} />
       </div>
       <AgentKPITable kpiData={kpiData} />
     </div>

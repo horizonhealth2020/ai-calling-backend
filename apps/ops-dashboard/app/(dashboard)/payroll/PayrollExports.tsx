@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Button, Card, DateRangeFilter } from "@ops/ui";
+import { Button, Card, DateRangeFilter, KPI_PRESETS } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { colors, spacing, radius, baseLabelStyle } from "@ops/ui";
 import { Download } from "lucide-react";
@@ -58,7 +58,7 @@ export interface PayrollExportsProps {
 /* ── Component ──────────────────────────────────────────────── */
 
 export default function PayrollExports({ API, periods }: PayrollExportsProps) {
-  const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "30d" });
+  const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "week" });
   const [exporting, setExporting] = useState(false);
 
   function filterPeriodsByDateRange(filter: DateRangeFilterValue): Period[] {
@@ -67,6 +67,17 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
     if (filter.preset === "custom" && filter.from && filter.to) {
       from = new Date(filter.from + "T00:00:00");
       to = new Date(filter.to + "T23:59:59.999");
+    } else if (filter.preset === "week") {
+      const now = new Date();
+      const day = now.getDay();
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    } else if (filter.preset === "last_week") {
+      const now = new Date();
+      const day = now.getDay();
+      const thisSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      from = new Date(thisSunday); from.setDate(from.getDate() - 7);
+      to = new Date(thisSunday); to.setMilliseconds(-1);
     } else if (filter.preset === "7d") {
       from = new Date(); from.setDate(from.getDate() - 7); from.setHours(0, 0, 0, 0);
       to = new Date(); to.setHours(23, 59, 59, 999);
@@ -170,7 +181,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
         {/* Date range selector */}
         <div style={{ marginBottom: S[6] }}>
           <label style={LBL}>Date Range</label>
-          <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} />
+          <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} presets={KPI_PRESETS} />
         </div>
 
         {/* Export actions */}

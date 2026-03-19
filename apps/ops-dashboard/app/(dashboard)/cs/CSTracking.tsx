@@ -7,6 +7,7 @@ import {
   ToastProvider,
   useToast,
   DateRangeFilter,
+  KPI_PRESETS,
   spacing,
   colors,
   typography,
@@ -22,6 +23,7 @@ import {
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
+import { useDateRange } from "@/lib/DateRangeContext";
 import { ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
 
 type SocketClient = import("socket.io-client").Socket;
@@ -94,6 +96,14 @@ function SortHeader({ label, sortKey, currentSort, currentDir, onSort }: {
   );
 }
 
+/* -- Date range helper -- */
+
+function buildDateParams(dr: DateRangeFilterValue): string {
+  if (dr.preset === "custom" && dr.from && dr.to) return `&range=custom&from=${dr.from}&to=${dr.to}`;
+  if (dr.preset && dr.preset !== "custom") return `&range=${dr.preset}`;
+  return "";
+}
+
 /* -- Main Component -- */
 
 export default function CSTracking({ socket, API, userRoles, canManageCS }: CSTrackingProps) {
@@ -105,6 +115,7 @@ export default function CSTracking({ socket, API, userRoles, canManageCS }: CSTr
 }
 
 function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingProps) {
+  const { value: dateRange, onChange: setDateRange } = useDateRange();
   // Data
   const [chargebacks, setChargebacks] = useState<any[]>([]);
   const [pendingTerms, setPendingTerms] = useState<any[]>([]);
@@ -151,11 +162,12 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(false);
+    const dp = buildDateParams(dateRange);
     try {
       const [totalsRes, cbRes, ptRes] = await Promise.all([
-        authFetch(`${API}/api/chargebacks/totals`),
-        authFetch(`${API}/api/chargebacks`),
-        authFetch(`${API}/api/pending-terms`),
+        authFetch(`${API}/api/chargebacks/totals?_=1${dp}`),
+        authFetch(`${API}/api/chargebacks?_=1${dp}`),
+        authFetch(`${API}/api/pending-terms?_=1${dp}`),
       ]);
       if (totalsRes.ok) setTotals(await totalsRes.json());
       if (cbRes.ok) setChargebacks(await cbRes.json());
@@ -165,7 +177,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     } finally {
       setLoading(false);
     }
-  }, [API]);
+  }, [API, dateRange]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -444,6 +456,17 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     if (filter.preset === "custom" && filter.from && filter.to) {
       from = new Date(filter.from + "T00:00:00");
       to = new Date(filter.to + "T23:59:59.999");
+    } else if (filter.preset === "week") {
+      const now = new Date();
+      const day = now.getDay();
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      to = new Date(); to.setHours(23, 59, 59, 999);
+    } else if (filter.preset === "last_week") {
+      const now = new Date();
+      const day = now.getDay();
+      const thisSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      from = new Date(thisSunday); from.setDate(from.getDate() - 7);
+      to = new Date(thisSunday); to.setMilliseconds(-1);
     } else if (filter.preset === "7d") {
       from = new Date(); from.setDate(from.getDate() - 7); from.setHours(0, 0, 0, 0);
       to = new Date(); to.setHours(23, 59, 59, 999);
@@ -510,6 +533,9 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: `${spacing[6]}px` }}>
+      {/* Date Range Filter */}
+      <DateRangeFilter value={dateRange} onChange={setDateRange} presets={KPI_PRESETS} />
+
       {/* KPI Bar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: `${spacing[4]}px` }}>
         {/* Total Chargebacks */}
@@ -584,7 +610,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
         {/* Export date range + CSV */}
         {canExport && (
           <>
-            <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} />
+            <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} presets={KPI_PRESETS} />
             <button
               onClick={exportCSV}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13, flexShrink: 0 }}

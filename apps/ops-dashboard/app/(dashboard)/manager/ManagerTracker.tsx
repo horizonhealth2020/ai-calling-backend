@@ -6,6 +6,7 @@ import {
   AnimatedNumber,
   EmptyState,
   DateRangeFilter,
+  KPI_PRESETS,
   colors,
   spacing,
   radius,
@@ -16,6 +17,7 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
+import { useDateRange } from "@/lib/DateRangeContext";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import {
   Trophy,
@@ -94,16 +96,22 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 /* -- Component -- */
 
 export default function ManagerTracker({ API, tracker, setTracker, highlightedAgentNames }: ManagerTrackerProps) {
-  const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "30d" });
+  const { value: dateRangeCtx, onChange: setDateRangeCtx } = useDateRange();
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [callCountsLoaded, setCallCountsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!callCountsLoaded) {
-      authFetch(`${API}/api/call-counts?range=week`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => {});
-      setCallCountsLoaded(true);
-    }
-  }, [API, callCountsLoaded]);
+    const dp = buildDateParams(dateRangeCtx);
+    authFetch(`${API}/api/call-counts${dp ? `?${dp}` : "?range=week"}`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => {});
+    setCallCountsLoaded(true);
+  }, [API, dateRangeCtx]);
+
+  // Re-fetch tracker data when date range changes
+  useEffect(() => {
+    const dp = buildDateParams(dateRangeCtx);
+    const url = `${API}/api/tracker/summary${dp ? `?${dp}` : ""}`;
+    authFetch(url).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+  }, [API, dateRangeCtx, setTracker]);
 
   const callCountByAgent = new Map<string, number>();
   for (const cc of callCounts) {
@@ -117,13 +125,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing[5] }}>
         <SectionHeader icon={<Trophy size={18} />} title="Agent Performance" count={sorted.length} />
         <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
-          <DateRangeFilter value={exportDateFilter} onChange={async (v) => {
-            setExportDateFilter(v);
-            const dp = buildDateParams(v);
-            const url = `${API}/api/tracker/summary${dp ? `?${dp}` : ""}`;
-            const res = await authFetch(url);
-            if (res.ok) setTracker(await res.json());
-          }} />
+          <DateRangeFilter value={dateRangeCtx} onChange={setDateRangeCtx} presets={KPI_PRESETS} />
           <button
             onClick={() => exportAgentPerformanceCSV(tracker)}
             style={{

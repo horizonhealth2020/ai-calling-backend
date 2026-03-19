@@ -7,16 +7,19 @@ import {
   AnimatedNumber,
   EmptyState,
   SkeletonCard,
+  DateRangeFilter,
+  KPI_PRESETS,
   colors,
   radius,
   typography,
   motion,
-  shadows,
   baseCardStyle,
   baseThStyle,
   baseTdStyle,
 } from "@ops/ui";
+import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
+import { useDateRange } from "@/lib/DateRangeContext";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
 import {
@@ -29,7 +32,6 @@ import {
 
 type SocketClient = import("socket.io-client").Socket;
 
-type Range = "today" | "week" | "month";
 type Summary = {
   salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number;
   trends: { salesCount: { priorWeek: number; priorMonth: number }; premiumTotal: { priorWeek: number; priorMonth: number }; clawbacks: { priorWeek: number; priorMonth: number } } | null;
@@ -44,13 +46,13 @@ function computeTrend(current: number, prior: number): { value: number; directio
   return { value: Math.abs(pct), direction: pct > 0 ? "up" : "down" };
 }
 
-const RANGE_LABELS: { value: Range; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-];
-
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+function buildDateParams(dr: DateRangeFilterValue): string {
+  if (dr.preset === "custom" && dr.from && dr.to) return `from=${dr.from}&to=${dr.to}`;
+  if (dr.preset && dr.preset !== "custom") return `range=${dr.preset}`;
+  return "";
+}
 
 const RANK_COLORS = ["#fbbf24", "#94a3b8", "#d97706"] as const;
 const RANK_LABELS = ["Gold", "Silver", "Bronze"] as const;
@@ -76,45 +78,6 @@ const SECTION_SUBTITLE: React.CSSProperties = {
   margin: "4px 0 0",
 };
 
-/* -- RangePicker -- */
-
-function RangePicker({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 2,
-        background: colors.bgSurfaceInset,
-        borderRadius: radius.lg,
-        padding: 3,
-        border: `1px solid ${colors.borderSubtle}`,
-      }}
-    >
-      {RANGE_LABELS.map((r) => (
-        <button
-          key={r.value}
-          onClick={() => onChange(r.value)}
-          className="btn-hover"
-          style={{
-            padding: "6px 16px",
-            fontSize: 12,
-            fontWeight: typography.weights.semibold,
-            border: "none",
-            cursor: "pointer",
-            borderRadius: radius.md,
-            background: value === r.value ? colors.bgSurfaceOverlay : "transparent",
-            color: value === r.value ? colors.textPrimary : colors.textMuted,
-            boxShadow: value === r.value ? shadows.sm : "none",
-            transition: `all ${motion.duration.fast} ${motion.easing.out}`,
-          }}
-        >
-          {r.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /* -- DashboardSkeleton -- */
 
 function DashboardSkeleton() {
@@ -135,8 +98,8 @@ function DashboardSkeleton() {
 function DashboardSection({
   summary,
   tracker,
-  range,
-  onRangeChange,
+  dateRange,
+  onDateRangeChange,
   highlightedCards,
   periods,
   periodView,
@@ -144,8 +107,8 @@ function DashboardSection({
 }: {
   summary: Summary | null;
   tracker: TrackerEntry[];
-  range: Range;
-  onRangeChange: (r: Range) => void;
+  dateRange: DateRangeFilterValue;
+  onDateRangeChange: (v: DateRangeFilterValue) => void;
   highlightedCards: Set<string>;
   periods: PeriodSummary[];
   periodView: "weekly" | "monthly";
@@ -161,7 +124,7 @@ function DashboardSection({
           <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>Performance Overview</h2>
           <p style={SECTION_SUBTITLE}>Real-time sales metrics and agent leaderboard</p>
         </div>
-        <RangePicker value={range} onChange={onRangeChange} />
+        <DateRangeFilter value={dateRange} onChange={onDateRangeChange} presets={KPI_PRESETS} />
       </div>
 
       {/* KPI stat cards */}
@@ -370,15 +333,15 @@ function DashboardSection({
 /* -- OwnerOverview -- */
 
 export default function OwnerOverview({ socket, API }: { socket: SocketClient | null; API: string }) {
-  const [range, setRange] = useState<Range>("today");
+  const { value: dateRange, onChange: setDateRange } = useDateRange();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
   const [periods, setPeriods] = useState<PeriodSummary[]>([]);
   const [highlightedCards, setHighlightedCards] = useState<Set<string>>(new Set());
-  const rangeRef = useRef(range);
-  rangeRef.current = range;
+  const dateRangeRef = useRef(dateRange);
+  dateRangeRef.current = dateRange;
 
   const highlightCard = (cardKey: string) => {
     setHighlightedCards(prev => new Set(prev).add(cardKey));
@@ -387,11 +350,13 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     }, 100);
   };
 
-  const fetchData = useCallback((r: Range) => {
+  const fetchData = useCallback((dr: DateRangeFilterValue) => {
     setLoading(true);
+    const dp = buildDateParams(dr);
+    const qs = dp ? `?${dp}` : "";
     Promise.all([
-      authFetch(`${API}/api/owner/summary?range=${r}`).then((res) => res.ok ? res.json() : null).catch(() => null),
-      authFetch(`${API}/api/tracker/summary?range=${r}`).then((res) => res.ok ? res.json() : []).catch(() => []),
+      authFetch(`${API}/api/owner/summary${qs}`).then((res) => res.ok ? res.json() : null).catch(() => null),
+      authFetch(`${API}/api/tracker/summary${qs}`).then((res) => res.ok ? res.json() : []).catch(() => []),
       authFetch(`${API}/api/reporting/periods?view=${periodView}`).then(res => res.ok ? res.json() : { periods: [] }).catch(() => ({ periods: [] })),
     ]).then(([s, t, periodData]) => {
       setSummary(s);
@@ -401,7 +366,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     });
   }, [API, periodView]);
 
-  useEffect(() => { fetchData(range); }, [range, fetchData]);
+  useEffect(() => { fetchData(dateRange); }, [dateRange, fetchData]);
 
   useEffect(() => {
     authFetch(`${API}/api/reporting/periods?view=${periodView}`)
@@ -454,7 +419,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
   // Refetch on reconnect
   useEffect(() => {
     if (!socket) return;
-    const handleReconnect = () => fetchData(rangeRef.current);
+    const handleReconnect = () => fetchData(dateRangeRef.current);
     socket.on("connect", handleReconnect);
     return () => { socket.off("connect", handleReconnect); };
   }, [socket, fetchData]);
@@ -467,8 +432,8 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
         <DashboardSection
           summary={summary}
           tracker={tracker}
-          range={range}
-          onRangeChange={(r) => setRange(r)}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
           highlightedCards={highlightedCards}
           periods={periods}
           periodView={periodView}
