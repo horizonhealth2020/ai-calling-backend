@@ -1,539 +1,451 @@
-# Architecture Patterns
+# Architecture Patterns: Dashboard Consolidation & Uniform Date Ranges
 
-**Domain:** Sales Operations Platform — v1.2 Integration Layer
-**Researched:** 2026-03-18
-**Overall confidence:** HIGH
+**Domain:** Multi-dashboard monorepo consolidation into single unified app
+**Researched:** 2026-03-19
+**Confidence:** HIGH (analysis based on direct codebase inspection of all 5 apps, shared packages, auth flow, and deployment configs)
 
-## Current System Architecture
-
-The platform is a monorepo with 6 Next.js 15 apps (App Router), 1 Express API, and 6 shared `@ops/*` packages. All frontend apps communicate with `ops-api` via HTTP (`authFetch`) and Socket.IO (`@ops/socket`). The API uses a single flat routes file (`routes/index.ts`, ~2200 lines) with Prisma ORM for PostgreSQL.
+## Current Architecture (Before)
 
 ```
-                        +------------------+
-                        |   PostgreSQL     |
-                        +--------+---------+
-                                 |
-                        +--------+---------+
-                        |    ops-api       |
-                        |  (Express+SIO)   |
-                        +--+--+--+--+--+---+
-                       /   |  |  |  |   \
-                      /    |  |  |  |    \
-              auth  mgr  pay  sb  own   cs
-              3011  3019 3012 3013 3026  (port TBD)
+Browser
+  |
+  auth-portal (:3011)     login -> /landing role picker -> opens dashboard in new tab
+  |           \          \          \
+  manager (:3019)  payroll (:3012)  owner (:3026)  cs (:3014)  sales-board (:3013)
+  |           |          |          |               |
+  +---------- authFetch (Bearer token) -----------+
+  |                                                |
+  ops-api (:8080) ------ CORS whitelist: 5 origins |
+  |                                                |
+  PostgreSQL                                       |
+  |                                                |
+  Socket.IO ------ 5 independent connections ------+
 ```
 
-### Existing Integration Points
+**5 separate Next.js apps** each with their own:
+- `package.json`, `next.config.js`, `tsconfig.json`
+- Single `app/page.tsx` (all UI in one file per app)
+- `captureTokenFromUrl()` call on mount
+- `PageShell` wrapper with sidebar nav for sub-tabs
+- Independent Socket.IO connection
 
-| System | Integration | Current State |
-|--------|------------|---------------|
-| Convoso | Cron poller (10min) + webhook endpoint | Working — populates ConvosoCallLog, AgentCallKpi |
-| Claude API | Call audit pipeline via auditQueue | Working — transcribe + audit with structured tool output |
-| OpenAI API | Fallback for call audits | Working — legacy JSON response format |
-| Whisper API | Transcription service | Working — external Whisper endpoint |
-| Socket.IO | Real-time sale cascade | Working — `sale:changed` event to all dashboards |
-| Socket.IO | Audit progress | Working — `processing_started`, `audit_status`, `new_audit`, `processing_failed` |
+**Line counts:**
+| App | Lines | Sub-tabs |
+|-----|-------|----------|
+| manager-dashboard | 2,702 | entry, tracker, sales, audits, config |
+| payroll-dashboard | 3,030 | periods, chargebacks, exports, products, service |
+| owner-dashboard | 1,957 | dashboard, kpis, config, users |
+| cs-dashboard | 2,377 | submissions, tracking |
+| auth-portal | 502 | login, change-password, landing |
+| **Total** | **10,568** | |
 
-### Current Data Flow Patterns
+### Current Auth Flow (Critical Path)
 
-**Sale entry flow:** Manager Dashboard -> POST /api/sales -> calculateCommission -> upsertPayrollEntry -> emitSaleChanged -> all dashboards update via Socket.IO
+1. User visits `auth-portal:3011/` -- sees login form
+2. Login form POSTs to `/api/login` (Next.js route handler)
+3. Route handler proxies to `ops-api:8080/api/auth/login`
+4. ops-api returns `{ token, roles }` -- JWT contains `{ id, email, name, roles }`
+5. Route handler builds redirect: `/landing?session_token=TOKEN&roles=ROLE1,ROLE2`
+6. Landing page reads roles from URL, shows dashboard cards with env-var URLs
+7. User clicks card -- `window.open(DASHBOARD_URL?session_token=TOKEN, "_blank")`
+8. Dashboard app runs `captureTokenFromUrl()` -- stores token in localStorage, cleans URL
+9. All subsequent API calls use `authFetch()` which reads token from localStorage
 
-**Audit flow:** Convoso webhook -> enqueueAuditJob -> downloadRecording (retry up to 10x) -> Whisper transcribe -> Claude audit (structured tool) -> persist CallAudit -> emitAuditComplete
+**Key observation:** Each dashboard is a completely separate origin. Token passes via URL query param across origins. This is the fragile part that consolidation eliminates.
 
-**CS submission flow:** CS Dashboard -> POST /api/chargebacks or /api/pending-terms -> persist batch -> return. No Socket.IO events emitted. No connection to payroll.
+### Current Cross-Origin Dependencies
 
-**Date filtering:** All list endpoints accept `?range=today|week|month`. Custom date ranges not supported. The `dateRange()` helper in routes returns `{ gte, lt }` boundaries.
+| Env Var | Set On | Value |
+|---------|--------|-------|
+| `MANAGER_DASHBOARD_URL` | auth-portal | `http://localhost:3019` |
+| `PAYROLL_DASHBOARD_URL` | auth-portal | `http://localhost:3012` |
+| `OWNER_DASHBOARD_URL` | auth-portal | `http://localhost:3026` |
+| `CS_DASHBOARD_URL` | auth-portal | `http://localhost:3014` |
+| `AUTH_PORTAL_URL` | auth-portal | `http://localhost:3011` |
+| `ALLOWED_ORIGINS` | ops-api | All 5 dashboard origins |
 
----
+**After consolidation:** All of these env vars become unnecessary. One origin, one CORS entry.
 
-## Recommended Architecture: v1.2 Integration Layer
+## Recommended Architecture (After)
 
-### New Component Map
-
-| Component | Type | Responsibility | Communicates With |
-|-----------|------|---------------|-------------------|
-| **DateRangeFilter** | @ops/ui component | Shared date picker with presets + custom range | All dashboard pages |
-| **AlertService** | ops-api service | Create/query/clear alerts from domain events | Routes, ChargebackService |
-| **AgentKpiAggregator** | ops-api service | Merge chargeback + pending term data into agent KPI views | Routes, Prisma |
-| **CS Socket Events** | ops-api socket.ts | Emit `chargeback:changed`, `pending-term:changed` on mutations | CS dashboard, payroll dashboard |
-| **AI Scoring Display** | owner-dashboard page | View/edit system prompt, view aggregate scores | ops-api (existing endpoints) |
-| **RepChecklist** | ops-api + CS dashboard | Round-robin assignment tracking | Prisma, CS dashboard |
-
-### Component Boundaries (Updated)
-
-| Component | Responsibility | Talks To |
-|-----------|---------------|----------|
-| Manager Dashboard | Sale entry, agent tracker, call audits, config | ops-api (HTTP + SIO) |
-| Payroll Dashboard | Period mgmt, commission review, **alert inbox**, exports | ops-api (HTTP + SIO) |
-| Owner Dashboard | KPI summary, **AI scoring tab**, trend analysis | ops-api (HTTP) |
-| Sales Board | Leaderboard display | ops-api (HTTP + SIO) |
-| CS Dashboard | Chargeback/pending term submission, tracking, **rep checklist** | ops-api (HTTP + **SIO**) |
-| ops-api Routes | Request validation, auth, routing | Services, Prisma, Socket.IO |
-| Payroll Service | Commission calculation, period assignment | Prisma |
-| **Alert Service** | Create alerts from chargebacks, surface in payroll | Prisma |
-| **AgentKpiAggregator** | Combine chargeback/pending term counts per agent | Prisma |
-| Socket.IO Layer | Real-time events: sales, audits, **CS submissions**, **alerts** | All dashboards |
-| Prisma/PostgreSQL | Data persistence | ops-api |
-| Auth System | JWT, RBAC, session management | All components |
-
----
-
-## New Data Flows
-
-### 1. Chargeback -> Payroll Alert Pipeline
-
-This is the most architecturally significant new feature. When a chargeback is submitted or resolved, an alert must appear in the payroll dashboard.
+### Single Unified App: `apps/dashboard`
 
 ```
-CS Dashboard -> POST /api/chargebacks
-  -> Create ChargebackSubmission records
-  -> AlertService.createAlert({
-       type: "CHARGEBACK_SUBMITTED",
-       entityType: "ChargebackSubmission",
-       entityId: batchId,
-       targetRole: "PAYROLL",
-       metadata: { count, totalAmount, submittedBy }
-     })
-  -> emitCSChanged({ type: "chargeback_batch", batchId })
-  -> emitAlert({ type: "CHARGEBACK_SUBMITTED", ... })
-  -> Payroll Dashboard receives alert via SIO, shows in alert inbox
-  -> Payroll user clicks alert -> sees linked chargebacks
-  -> Payroll user approves/clears alert -> AlertService.clearAlert(id)
+Browser
+  |
+  dashboard (:3011)
+  |  /              -- login page
+  |  /manager       -- manager content
+  |  /payroll       -- payroll content
+  |  /owner         -- owner content
+  |  /cs            -- CS content
+  |
+  +-- authFetch (Bearer token, same origin) --+
+  |                                           |
+  ops-api (:8080) -- CORS: 2 origins ---------+
+  |                                           |
+  PostgreSQL                                  |
+  |                                           |
+  Socket.IO -- 1 connection at a time --------+
+
+  sales-board (:3013)  -- unchanged, standalone
 ```
 
-**New schema required:**
-
-```prisma
-model Alert {
-  id         String   @id @default(cuid())
-  type       String                          // CHARGEBACK_SUBMITTED, CHARGEBACK_RESOLVED, etc.
-  entityType String   @map("entity_type")    // ChargebackSubmission, PendingTerm
-  entityId   String?  @map("entity_id")      // batch ID or record ID
-  targetRole UserRole                        // PAYROLL, MANAGER, etc.
-  metadata   Json?
-  read       Boolean  @default(false)
-  clearedAt  DateTime? @map("cleared_at")
-  clearedBy  String?  @map("cleared_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  @@index([targetRole, read])
-  @@map("alerts")
-}
-```
-
-**Why an Alert model vs. just querying chargebacks:** Alerts are cross-domain notifications. Payroll needs to see "new chargebacks submitted" without polling the chargeback table. Alerts also support approve/clear workflows that are independent of the chargeback resolution status.
-
-### 2. Cross-Dashboard Date Range CSV Exports
-
-The current `dateRange()` helper only supports `today|week|month` presets. Every dashboard needs custom date range selection.
+### File Structure
 
 ```
-Current: GET /api/sales?range=week
-Target:  GET /api/sales?from=2026-03-01&to=2026-03-15
-         GET /api/chargebacks?from=2026-03-01&to=2026-03-15
-         GET /api/pending-terms?from=2026-03-01&to=2026-03-15
-         GET /api/payroll/periods?from=2026-03-01&to=2026-03-15
+apps/dashboard/
+  app/
+    layout.tsx                  -- root layout: html, body, font, metadata
+    page.tsx                    -- login page (from auth-portal/app/page.tsx)
+    api/
+      login/route.ts            -- proxy to ops-api (from auth-portal)
+      verify/route.ts           -- JWT verification (from auth-portal)
+      change-password/route.ts  -- password change (from auth-portal)
+    (dashboard)/                -- route group: no URL segment, just auth boundary
+      layout.tsx                -- DashboardShell: role-gated top-level sidebar + user info
+      manager/page.tsx          -- manager content (2,702 lines, keeps internal sub-tabs)
+      payroll/page.tsx          -- payroll content (3,030 lines, keeps internal sub-tabs)
+      owner/page.tsx            -- owner content (1,957 lines, keeps internal sub-tabs)
+      cs/page.tsx               -- CS content (2,377 lines, keeps internal sub-tabs)
+  lib/
+    auth.ts                     -- JWT verification for middleware (from auth-portal/lib/auth.ts)
+    roles.ts                    -- role-to-tab mapping, default tab resolution
+  middleware.ts                 -- protect (dashboard)/* routes, redirect to / if unauthenticated
+  next.config.js
+  package.json
+  tsconfig.json
 ```
 
-**Pattern: Extend `dateRange()` to accept `from` and `to` query params alongside existing presets.**
+### Component Boundaries
+
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `app/page.tsx` (login) | Login form + change-password | `/api/login` route handler |
+| `app/api/login/route.ts` | Proxy auth to ops-api, return redirect path | ops-api `/api/auth/login` |
+| `middleware.ts` | Verify JWT on `/(dashboard)/*`, redirect to `/` if invalid | `/api/verify` |
+| `(dashboard)/layout.tsx` | Top-level sidebar with role-gated tabs, user name display, logout | Reads JWT claims client-side |
+| `(dashboard)/manager/page.tsx` | Manager tab: entry, tracker, sales, audits, config sub-tabs | ops-api via `authFetch`, Socket.IO |
+| `(dashboard)/payroll/page.tsx` | Payroll tab: periods, chargebacks, exports, products, service sub-tabs | ops-api via `authFetch`, Socket.IO |
+| `(dashboard)/owner/page.tsx` | Owner tab: dashboard, kpis, config, users sub-tabs | ops-api via `authFetch`, Socket.IO |
+| `(dashboard)/cs/page.tsx` | CS tab: submissions, tracking sub-tabs | ops-api via `authFetch`, Socket.IO |
+
+### Data Flow
+
+**Login (simplified -- same origin):**
+```
+1. User visits /                        -- login page renders
+2. User submits credentials
+3. POST /api/login                      -- Next.js route handler
+4.   -> ops-api /api/auth/login         -- validates credentials
+5.   <- { token, roles }
+6.   <- { redirect: "/manager?session_token=TOKEN" }  -- path, not URL
+7. Browser navigates to /manager?session_token=TOKEN
+8. middleware.ts verifies JWT            -- passes
+9. (dashboard)/layout.tsx renders        -- decodes JWT for roles, shows nav
+10. captureTokenFromUrl() stores token   -- cleans URL to /manager
+11. manager/page.tsx renders content
+```
+
+**Tab navigation (client-side, no reload):**
+```
+1. User clicks "Payroll" in sidebar
+2. Next.js Link navigates to /payroll   -- client-side transition
+3. manager/page.tsx unmounts             -- Socket.IO disconnects
+4. payroll/page.tsx mounts               -- Socket.IO connects
+5. Token already in localStorage         -- authFetch works immediately
+```
+
+**Key improvement:** No cross-origin redirects. No `window.open`. No env vars for dashboard URLs. Token stays in localStorage on the same origin.
+
+### Role-to-Tab Mapping
 
 ```typescript
-// Updated dateRange helper
-function dateRange(query: { range?: string; from?: string; to?: string }): { gte: Date; lt: Date } | undefined {
-  if (query.from && query.to) {
-    return {
-      gte: new Date(query.from),
-      lt: new Date(new Date(query.to).getTime() + 86400000), // inclusive end
-    };
+// lib/roles.ts
+import type { AppRole } from "@ops/types";
+
+interface TabConfig {
+  path: string;
+  label: string;
+  iconKey: string; // resolved to React element in layout
+}
+
+const TAB_CONFIG: TabConfig[] = [
+  { path: "/manager", label: "Manager", iconKey: "users" },
+  { path: "/payroll", label: "Payroll", iconKey: "dollar" },
+  { path: "/owner",   label: "Owner",   iconKey: "chart" },
+  { path: "/cs",      label: "Customer Service", iconKey: "headphones" },
+];
+
+const ROLE_TO_TABS: Record<string, string[]> = {
+  MANAGER:          ["/manager"],
+  PAYROLL:          ["/payroll"],
+  OWNER_VIEW:       ["/owner"],
+  CUSTOMER_SERVICE: ["/cs"],
+  SUPER_ADMIN:      ["/manager", "/payroll", "/owner", "/cs"], // all tabs
+};
+
+export function getTabsForRoles(roles: string[]): TabConfig[] {
+  const allowed = new Set<string>();
+  for (const role of roles) {
+    for (const path of ROLE_TO_TABS[role] ?? []) {
+      allowed.add(path);
+    }
   }
-  // ... existing preset logic
+  return TAB_CONFIG.filter(t => allowed.has(t.path));
+}
+
+export function getDefaultTab(roles: string[]): string {
+  // Priority: manager > payroll > owner > cs
+  const tabs = getTabsForRoles(roles);
+  return tabs[0]?.path ?? "/manager";
 }
 ```
 
-**Shared UI component:** A `DateRangeFilter` component in `@ops/ui` that provides preset buttons (Today, This Week, This Month) plus a custom date range picker. All dashboards import this single component. The component passes `from` and `to` query params to `authFetch` calls.
+### Two-Level Navigation Architecture
 
-### 3. Pending Terms + Chargebacks -> Agent KPI Tables
+**Top level (route-based, in layout.tsx):** Manager | Payroll | Owner | CS
+- Implemented as Next.js `<Link>` navigation between routes
+- Role-gated: only tabs the user has access to appear
+- Persists across page transitions (layout does not remount)
 
-Chargebacks and pending terms must appear per-agent in new KPI tables. This requires aggregation queries, not schema changes.
+**Sub level (state-based, in each page.tsx):** e.g., Entry | Tracker | Sales | Audits | Config
+- Implemented with `useState` inside each page component (unchanged from today)
+- Resets when navigating away and back (acceptable -- matches current behavior)
 
-```
-Owner/Manager Dashboard -> GET /api/agents/kpi-summary?from=...&to=...
-  -> AgentKpiAggregator.buildSummary(dateRange)
-     -> Query chargebacks grouped by memberAgentId/memberAgentCompany
-     -> Query pending terms grouped by agentName
-     -> Match against Agent records (fuzzy: agent name or agent ID field)
-     -> Return per-agent: { chargebackCount, chargebackTotal, pendingTermCount, pendingTermTotal, within30Days }
-```
+**PageShell modification:** The existing `PageShell` component renders a full sidebar with logo, title, and nav items. For the unified app:
 
-**Agent matching challenge:** ChargebackSubmission has `memberAgentId` and `memberAgentCompany` fields, while PendingTerm has `agentName` and `agentIdField`. These may not directly map to Agent.id or Agent.name. The aggregator must do best-effort matching:
+**Recommended approach: Split PageShell into two components.**
 
-1. Exact match on `memberAgentId` -> `Agent.id` (unlikely — different ID systems)
-2. Exact match on agent name fields -> `Agent.name`
-3. If no match, group under "Unmatched" with raw field values
+1. **`DashboardShell`** (new, in `@ops/ui` or in `apps/dashboard`): Renders the outer sidebar with top-level role-gated tabs, user info, logout button. This is the `(dashboard)/layout.tsx`.
 
-**No new tables needed.** This is a read-side aggregation endpoint.
+2. **`SubTabBar`** (new, extracted from PageShell): Renders a horizontal tab bar for in-page sub-navigation. Each dashboard page uses this for its internal tabs.
 
-### 4. Real-Time Socket.IO for CS Submissions
+This avoids nested sidebars and gives a clean separation. The existing `PageShell` continues to work for sales-board (which remains standalone).
 
-Currently CS submissions have no real-time events. Add two new event types.
+## Migration Path (Detailed)
 
-```typescript
-// In socket.ts — new emitters
-export function emitCSChanged(payload: {
-  type: "chargeback_batch" | "chargeback_resolved" | "pending_term_batch" | "pending_term_resolved";
-  batchId?: string;
-  recordId?: string;
-}) {
-  io?.emit("cs:changed", payload);
-}
+### Phase 1: Create App Shell + Login
 
-export function emitAlertCreated(payload: { type: string; targetRole: string; metadata: any }) {
-  io?.emit("alert:created", payload);
-}
-```
+**New files:**
+- `apps/dashboard/package.json` -- dependencies from auth-portal + any dashboard (union of all transpilePackages)
+- `apps/dashboard/next.config.js` -- standard config with `transpilePackages: ["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`
+- `apps/dashboard/tsconfig.json` -- extends `../../tsconfig.base.json`
+- `apps/dashboard/app/layout.tsx` -- root layout (html/body/metadata)
+- `apps/dashboard/app/page.tsx` -- login page (copy from auth-portal)
+- `apps/dashboard/app/api/login/route.ts` -- copy from auth-portal, change redirect from `/landing` to `/(dashboard)/[default-tab]`
+- `apps/dashboard/app/api/verify/route.ts` -- copy from auth-portal
+- `apps/dashboard/app/api/change-password/route.ts` -- copy from auth-portal
 
-**CS dashboard** listens for `cs:changed` to refresh tracking tables when another user submits/resolves.
-**Payroll dashboard** listens for `alert:created` where `targetRole === "PAYROLL"` to show new alert badge.
+**Modified files:**
+- `package.json` (root) -- add `"dashboard:dev": "npm run dev -w apps/dashboard"`
 
-### 5. AI Scoring Visibility in Owner Dashboard
+**Validation:** Login works, redirects to a placeholder dashboard page.
 
-The existing `callAudit.ts` already produces structured scoring via Claude's tool-use pattern. The `CallAudit` model stores `aiScore`, `aiSummary`, `callOutcome`, `issues`, `wins`, `missedOpportunities`, `suggestedCoaching`, `managerSummary`.
+### Phase 2: Auth Middleware + Dashboard Layout
 
-The owner dashboard AI tab needs:
-1. **Aggregate score view:** Average `aiScore` per agent, trend over time
-2. **System prompt editor:** Already exists at `GET/PUT /api/settings/ai-audit-prompt` (reads from `SalesBoardSetting` where key = `ai_audit_system_prompt`). Currently only accessible to MANAGER/SUPER_ADMIN. Extend access to OWNER_VIEW.
-3. **Score distribution:** Count of audits by outcome (sold/lost/callback/etc.)
+**New files:**
+- `apps/dashboard/middleware.ts` -- protect `/(dashboard)/*` routes, redirect to `/` if no valid JWT
+- `apps/dashboard/app/(dashboard)/layout.tsx` -- DashboardShell with role-gated top-level tabs
+- `apps/dashboard/lib/auth.ts` -- JWT verification helpers (from auth-portal)
+- `apps/dashboard/lib/roles.ts` -- role-to-tab mapping
 
-**No new services needed.** Add new aggregation endpoints:
-- `GET /api/call-audits/summary?from=...&to=...` -> aggregate scores
-- Modify role access on existing prompt settings endpoints
+**New in @ops/ui (or local):**
+- `SubTabBar` component for in-page sub-navigation
 
-### 6. Service Agent Sync Between Payroll and CS
+**Validation:** Login redirects to correct default tab. Sidebar shows role-appropriate tabs. Clicking tabs navigates between routes. Unauthorized users see only their permitted tabs.
 
-Currently, `ServiceAgent` (payroll) and `CsRepRoster` (CS) are separate tables with no link. The v1.2 requirement is to sync them so adding a rep in one place reflects in the other.
+### Phase 3: Migrate CS Dashboard (simplest)
 
-**Recommended approach: Single source of truth.**
+**New files:**
+- `apps/dashboard/app/(dashboard)/cs/page.tsx` -- content from `apps/cs-dashboard/app/page.tsx`
 
-Make `CsRepRoster` reference `ServiceAgent` or vice versa. Since `ServiceAgent` has more fields (basePay), it should be the primary. Add a `csRepRosterId` to `ServiceAgent` or simply use `ServiceAgent` directly in CS workflows and deprecate `CsRepRoster`.
+**Changes to content:**
+1. Remove `captureTokenFromUrl()` useEffect (layout handles it)
+2. Replace outer `<PageShell>` with `<SubTabBar>` for submissions/tracking sub-tabs
+3. Keep all internal state, fetch logic, Socket.IO connection unchanged
+4. Role-based tab visibility (`canManageCS`) stays in the page (reads JWT roles)
 
-**Simplest path:** Add a `serviceAgentId` field to `CsRepRoster` (optional, for linking). When creating a CS rep, optionally link to an existing service agent. When creating a service agent, optionally create a matching CS rep. This avoids breaking either dashboard's existing data model.
+**Validation:** CS tab works with submissions and tracking. Socket.IO real-time updates work.
 
-### 7. Rep Checklist for Round Robin
+### Phase 4: Migrate Owner Dashboard
 
-A round-robin assignment system for chargebacks and pending terms.
+**New files:**
+- `apps/dashboard/app/(dashboard)/owner/page.tsx`
 
-```
-CS Dashboard -> POST /api/cs-rep-roster/:id/check-in
-  -> Update CsRepRoster.lastCheckIn, CsRepRoster.isAvailable
-  -> When new batch submitted, auto-assign based on round-robin:
-     1. Get all active, available reps
-     2. Order by least recent assignment (lastAssignedAt ASC)
-     3. Distribute records evenly
-```
+**Changes:** Same pattern as Phase 3. Owner has role-dependent sub-tabs (SUPER_ADMIN sees "Users" tab) -- this logic stays in the page.
 
-**New fields on CsRepRoster:**
-```prisma
-model CsRepRoster {
-  // ... existing fields
-  lastAssignedAt DateTime? @map("last_assigned_at")
-  assignmentCount Int      @default(0) @map("assignment_count")
-  isAvailable    Boolean   @default(true) @map("is_available")
-}
-```
+### Phase 5: Migrate Payroll Dashboard
 
-The checklist UI shows each rep with their current assignment count, a toggle for availability, and a visual indicator of who is "next up."
+**New files:**
+- `apps/dashboard/app/(dashboard)/payroll/page.tsx`
 
----
+**Changes:** Same pattern. Payroll has badge counts on sub-tabs (approval needed) -- this stays in the page.
 
-## Patterns to Follow
+### Phase 6: Migrate Manager Dashboard
 
-### Pattern 1: Service Layer for Cross-Domain Logic
+**New files:**
+- `apps/dashboard/app/(dashboard)/manager/page.tsx`
 
-**What:** Extract business logic that spans multiple entities into dedicated service files under `ops-api/src/services/`.
+**Changes:** Same pattern. Manager is the most complex with 5 sub-tabs and cross-tab shared state (agents, products, lead sources loaded once and used across tabs). All of this stays within the single page component.
 
-**When:** Logic involves more than one Prisma model or triggers side effects (alerts, socket events).
+### Phase 7: Uniform Date Range Picker
 
-**Example:** The AlertService should be a standalone module:
+**Modified files:**
+- Each migrated page.tsx -- add `DateRangeFilter` component to KPI sections
+- `DateRangeFilter` already exists in `@ops/ui` (added in v1.2 for CSV exports)
 
-```typescript
-// apps/ops-api/src/services/alerts.ts
-import { prisma } from "@ops/db";
-import { emitAlertCreated } from "../socket";
+**New behavior:** The `DateRangeFilter` component gets applied to KPI counters/cards, not just CSV exports. Each page manages its own date range state. Options: Current Week, Last Week, 30 Days, Custom.
 
-export async function createAlert(params: {
-  type: string;
-  entityType: string;
-  entityId?: string;
-  targetRole: string;
-  metadata?: Record<string, any>;
-}) {
-  const alert = await prisma.alert.create({ data: params });
-  emitAlertCreated({ type: params.type, targetRole: params.targetRole, metadata: params.metadata });
-  return alert;
-}
+The `DateRangeFilter` component and `DateRangeFilterValue` type already exist in `@ops/ui` -- they were added in v1.2. The work is wiring them to KPI fetch calls in each dashboard.
 
-export async function getUnreadAlerts(role: string) {
-  return prisma.alert.findMany({
-    where: { targetRole: role as any, read: false, clearedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-}
+### Phase 8: Update Deployment + Remove Old Apps
 
-export async function clearAlert(id: string, userId: string) {
-  return prisma.alert.update({
-    where: { id },
-    data: { clearedAt: new Date(), clearedBy: userId, read: true },
-  });
-}
-```
+**Modified files:**
+- `docker-compose.yml` -- replace 5 dashboard services with 1, update ALLOWED_ORIGINS
+- `.env.example` files -- remove dashboard URL vars
+- ops-api `ALLOWED_ORIGINS` -- reduce to 2 origins
 
-### Pattern 2: Shared Date Range Component
+**Deleted:**
+- `apps/auth-portal/` (entire directory)
+- `apps/manager-dashboard/` (entire directory)
+- `apps/payroll-dashboard/` (entire directory)
+- `apps/owner-dashboard/` (entire directory)
+- `apps/cs-dashboard/` (entire directory)
 
-**What:** A single `DateRangeFilter` component in `@ops/ui` that all dashboards use.
-
-**When:** Any dashboard page that displays filtered data or exports CSV.
-
-**Example:**
-
-```typescript
-// packages/ui/src/components/DateRangeFilter.tsx
-export function DateRangeFilter({ onRangeChange }: {
-  onRangeChange: (from: string, to: string) => void;
-}) {
-  // Preset buttons: Today, This Week, This Month, Custom
-  // Custom shows two date inputs
-  // Calls onRangeChange with ISO date strings
-}
-```
-
-### Pattern 3: Socket Event Namespacing
-
-**What:** Group Socket.IO events by domain with a colon-separated namespace.
-
-**When:** Adding any new real-time event.
-
-**Example:** Existing pattern uses `sale:changed`. Extend with `cs:changed`, `alert:created`, `payroll:updated`.
-
-```typescript
-// Event naming convention:
-// {domain}:{action}
-// sale:changed, cs:changed, alert:created, payroll:entry_updated
-```
-
-### Pattern 4: Date Range Backward Compatibility
-
-**What:** The updated `dateRange()` helper must continue to accept the `range` preset parameter while also supporting `from`/`to`. This ensures existing dashboard code works without changes until migrated.
-
-**When:** Modifying the date range helper.
-
----
+**Railway:** Delete 5 services, create 1 dashboard service.
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Alert Polling from Frontend
+### Anti-Pattern 1: Global State Manager for Auth
+**What:** Adding Redux/Zustand/Context to share auth state across tabs.
+**Why bad:** Over-engineered. Token is in localStorage; each page reads it via `getToken()`. The JWT contains roles. No synchronization needed.
+**Instead:** Keep `localStorage` + `getToken()` / `authFetch()`. Decode JWT for roles where needed.
 
-**What:** Having dashboards poll `GET /api/alerts` on an interval to check for new alerts.
+### Anti-Pattern 2: Single Mega Page
+**What:** Putting all 4 dashboards into one giant page.tsx with top-level tab state.
+**Why bad:** 10,000+ line file. No code splitting. Every tab's code loads on first visit.
+**Instead:** Use Next.js file-based routing. Each dashboard is a separate route with automatic code splitting.
 
-**Why bad:** Wastes bandwidth, creates N+1 request patterns, and alerts arrive with latency equal to poll interval.
+### Anti-Pattern 3: Converting Sub-Tabs to Nested Routes
+**What:** Making manager/entry, manager/tracker, manager/sales into separate Next.js routes.
+**Why bad:** Each dashboard page has deeply shared state (agents list, products, lead sources loaded once and used across all sub-tabs). Breaking into routes forces lifting all shared state into a layout, which is far more complex than the current useState approach.
+**Instead:** Keep sub-tabs as React state within each page. Only top-level dashboard tabs use Next.js routing.
 
-**Instead:** Push alerts via Socket.IO. The `alert:created` event tells payroll dashboard to fetch updated alert list once.
+### Anti-Pattern 4: Keeping Auth-Portal Separate
+**What:** Running auth-portal alongside the unified dashboard, redirecting between them.
+**Why bad:** Cross-origin token passing via URL params is fragile. Adds CORS complexity. Defeats the purpose of consolidation.
+**Instead:** Login is `app/page.tsx` in the unified app. Same origin throughout.
 
-### Anti-Pattern 2: Duplicating Agent Data Across CS and Payroll
+### Anti-Pattern 5: Dynamic Imports for Dashboard Pages
+**What:** Using `next/dynamic` to lazy-load each dashboard page component.
+**Why bad:** Next.js App Router already code-splits by route automatically. Dynamic imports add complexity and break the built-in splitting.
+**Instead:** Let file-based routing handle code splitting naturally.
 
-**What:** Maintaining two separate agent tables (ServiceAgent + CsRepRoster) with manual sync.
+### Anti-Pattern 6: URL-Based Date Range State Across Top-Level Tabs
+**What:** Persisting date range selection in URL search params so it survives navigation between /manager and /payroll.
+**Why bad:** Different dashboards have different KPI sections with different date range semantics. A "Last Week" filter on payroll means payroll week; on manager it means sales week. Sharing creates confusion.
+**Instead:** Each page manages its own date range state. Navigating away resets it (matches current behavior where each app was independent).
 
-**Why bad:** Data drift — a name change in one table won't propagate to the other. Creates confusion about which is authoritative.
+## New vs Modified vs Removed
 
-**Instead:** Link with a foreign key. Either CsRepRoster references ServiceAgent, or consolidate into one table with a `csActive` flag.
+### New Components
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `DashboardShell` | `apps/dashboard/app/(dashboard)/layout.tsx` | Role-gated sidebar with top-level tabs |
+| `SubTabBar` | `@ops/ui` or `apps/dashboard/lib/` | Horizontal tab bar for in-page sub-navigation |
+| `useUserRoles` | `apps/dashboard/lib/roles.ts` | Decode JWT to extract roles array |
+| `getTabsForRoles` | `apps/dashboard/lib/roles.ts` | Map roles to permitted top-level tabs |
+| `getDefaultTab` | `apps/dashboard/lib/roles.ts` | Determine post-login redirect path |
 
-### Anti-Pattern 3: Embedding Complex Aggregation in Route Handlers
+### Modified Components
+| Component | Change |
+|-----------|--------|
+| `@ops/auth/client` | Export `decodeTokenPayload` (currently private function) |
+| Each dashboard page.tsx | Remove `captureTokenFromUrl()`, remove outer `PageShell`, use `SubTabBar` for sub-tabs |
+| `apps/dashboard/app/api/login/route.ts` | Redirect to `/{default-tab}?session_token=TOKEN` instead of `/landing?...&roles=...` |
 
-**What:** Writing 50-line Prisma queries directly inside `asyncHandler` callbacks in routes/index.ts.
+### Removed
+| Component | Replaced By |
+|-----------|-------------|
+| `auth-portal/app/landing/page.tsx` | Role-gated tabs in dashboard layout |
+| `auth-portal/middleware.ts` | `dashboard/middleware.ts` |
+| All 4 dashboard `next.config.js` | Single `apps/dashboard/next.config.js` |
+| All 4 dashboard `package.json` | Single `apps/dashboard/package.json` |
+| `MANAGER_DASHBOARD_URL` env var | Not needed (same origin) |
+| `PAYROLL_DASHBOARD_URL` env var | Not needed |
+| `OWNER_DASHBOARD_URL` env var | Not needed |
+| `CS_DASHBOARD_URL` env var | Not needed |
+| `AUTH_PORTAL_URL` env var | Not needed |
 
-**Why bad:** The routes file is already ~2200 lines. Adding agent KPI aggregation, alert queries, and date-range exports inline makes it unmaintainable.
+### Unchanged
+| Component | Why |
+|-----------|-----|
+| `@ops/ui PageShell` | Still used by sales-board (standalone) |
+| `@ops/auth` (server) | JWT signing/verification unchanged |
+| `@ops/socket` | `useSocket` hook works identically per-page |
+| `@ops/utils` | No changes |
+| `@ops/types` | No changes (AppRole enum stays) |
+| `ops-api` | No API changes. Only CORS origin list simplified. |
+| `sales-board` | Remains standalone, unchanged |
 
-**Instead:** Create service files (`alerts.ts`, `agentKpiAggregator.ts`) and call them from thin route handlers.
+## Deployment Impact
 
-### Anti-Pattern 4: Client-Side CSV Generation for Large Datasets
+| Aspect | Before | After |
+|--------|--------|-------|
+| Next.js services | 6 (auth + 4 dashboards + sales-board) | 2 (dashboard + sales-board) |
+| Docker containers | 8 (postgres + api + 6 Next.js) | 4 (postgres + api + 2 Next.js) |
+| Railway services | 7 | 3 |
+| CORS origins | 5-6 | 2 |
+| Cross-service env vars | 5 dashboard URLs | 0 |
+| Build time | 6 parallel Next.js builds | 2 builds (1 larger) |
+| Runtime memory | ~6 Node.js processes | ~2 Node.js processes |
+| Cold start surface | 6 independent cold starts | 2 cold starts |
 
-**What:** Fetching all records to the browser and generating CSV client-side.
+### Docker Compose (After)
 
-**Why bad:** For large date ranges, this could mean thousands of records transferred as JSON, then transformed to CSV in the browser.
+```yaml
+dashboard:
+  build:
+    context: .
+    dockerfile: Dockerfile.nextjs
+    args:
+      APP_NAME: dashboard
+      NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
+  restart: unless-stopped
+  depends_on:
+    - ops-api
+  environment:
+    AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+  ports:
+    - "3011:3000"  # keep same port for minimal infra change
 
-**Instead:** Add server-side CSV streaming endpoints (`GET /api/exports/sales?from=...&to=...&format=csv`) that set `Content-Type: text/csv` and stream rows. For the current scale (hundreds of records), client-side CSV is acceptable, but design the API to support server-side export for when data grows.
-
----
-
-## Data Flow: Complete v1.2 Integration
-
-```
-CS Dashboard
-  |
-  POST /api/chargebacks (batch)
-  |
-  +-> Create ChargebackSubmission records
-  +-> AlertService.createAlert(CHARGEBACK_SUBMITTED, targetRole: PAYROLL)
-  +-> emitCSChanged({ type: "chargeback_batch" })
-  |     |
-  |     +-> CS Dashboard (other tabs refresh)
-  |
-  +-> emitAlertCreated({ type: CHARGEBACK_SUBMITTED, targetRole: PAYROLL })
-        |
-        +-> Payroll Dashboard (alert badge appears)
-              |
-              GET /api/alerts?role=PAYROLL
-              |
-              +-> Show alert inbox with chargeback details
-              +-> User approves/clears -> PATCH /api/alerts/:id/clear
-
-Agent KPI Tables
-  |
-  GET /api/agents/kpi-summary?from=...&to=...
-  |
-  +-> AgentKpiAggregator queries:
-  |     ChargebackSubmission (grouped by agent)
-  |     PendingTerm (grouped by agent)
-  |     Sale counts per agent
-  |
-  +-> Returns per-agent summary with chargeback/pending term counts
-  |
-  +-> Owner Dashboard + Manager Dashboard render KPI tables
-```
-
-## Schema Changes Required
-
-### New Models
-
-```prisma
-model Alert {
-  id         String    @id @default(cuid())
-  type       String                          // CHARGEBACK_SUBMITTED, CHARGEBACK_RESOLVED
-  entityType String    @map("entity_type")
-  entityId   String?   @map("entity_id")
-  targetRole UserRole
-  metadata   Json?
-  read       Boolean   @default(false)
-  clearedAt  DateTime? @map("cleared_at")
-  clearedBy  String?   @map("cleared_by")
-  createdAt  DateTime  @default(now()) @map("created_at")
-
-  @@index([targetRole, read])
-  @@map("alerts")
-}
-```
-
-### Modified Models
-
-```prisma
-model CsRepRoster {
-  // Add fields:
-  serviceAgentId  String?   @map("service_agent_id")
-  lastAssignedAt  DateTime? @map("last_assigned_at")
-  assignmentCount Int       @default(0) @map("assignment_count")
-  isAvailable     Boolean   @default(true) @map("is_available")
-
-  serviceAgent ServiceAgent? @relation(fields: [serviceAgentId], references: [id])
-}
-
-model ServiceAgent {
-  // Add relation:
-  csRepRoster CsRepRoster[]
-}
+# Remove: auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, cs-dashboard
 ```
 
-### No Schema Changes Needed For
+ops-api `ALLOWED_ORIGINS` changes to: `http://localhost:3011,http://localhost:3013`
 
-- Date range exports (query param change only)
-- AI scoring display (data already in CallAudit)
-- Agent KPI aggregation (read-side queries on existing tables)
-- Socket.IO CS events (code change only)
-- Payroll UX fixes (frontend only)
+## Build Order Summary
 
-## New API Endpoints
+| Step | What | Validates | Depends On |
+|------|------|-----------|------------|
+| 1 | App shell + login page | Login works on single origin | Nothing |
+| 2 | Middleware + dashboard layout + role nav | Auth boundary, tab navigation | Step 1 |
+| 3 | Migrate CS dashboard | Migration pattern works | Step 2 |
+| 4 | Migrate owner dashboard | Role-dependent sub-tabs work | Step 2 |
+| 5 | Migrate payroll dashboard | Complex sub-tabs + badges work | Step 2 |
+| 6 | Migrate manager dashboard | Full feature set works | Step 2 |
+| 7 | Uniform date range on all KPI sections | Date filtering works per-page | Steps 3-6 |
+| 8 | Deployment update + old app removal | Production-ready | Steps 1-7 |
 
-| Endpoint | Method | Purpose | Dashboard |
-|----------|--------|---------|-----------|
-| `/api/alerts` | GET | List alerts for role | Payroll |
-| `/api/alerts/:id/clear` | PATCH | Clear/approve alert | Payroll |
-| `/api/alerts/:id/read` | PATCH | Mark alert as read | Payroll |
-| `/api/agents/kpi-summary` | GET | Agent KPI with chargeback/pending term data | Owner, Manager |
-| `/api/call-audits/summary` | GET | Aggregate AI scores per agent | Owner |
-| `/api/cs-rep-roster/:id/toggle-available` | PATCH | Toggle rep availability | CS |
-| `/api/cs-rep-roster/round-robin` | POST | Auto-assign batch to reps | CS |
-
-### Modified Endpoints (date range support)
-
-All existing list/export endpoints gain `?from=YYYY-MM-DD&to=YYYY-MM-DD` support:
-- `GET /api/sales`
-- `GET /api/chargebacks`
-- `GET /api/pending-terms`
-- `GET /api/payroll/periods`
-- `GET /api/tracker/summary`
-- `GET /api/owner/summary`
-- `GET /api/call-audits`
-- `GET /api/call-logs`
-- `GET /api/call-logs/kpi`
-
-### Modified Endpoints (role access)
-
-- `GET /api/settings/ai-audit-prompt` — add OWNER_VIEW access
-- `PUT /api/settings/ai-audit-prompt` — add OWNER_VIEW access
-
-## New Socket.IO Events
-
-| Event | Payload | Emitted When | Consumed By |
-|-------|---------|-------------|-------------|
-| `cs:changed` | `{ type, batchId?, recordId? }` | Chargeback/pending term created or resolved | CS Dashboard |
-| `alert:created` | `{ type, targetRole, metadata }` | Alert created | Payroll Dashboard |
-
-## New Files
-
-| File | Type | Purpose |
-|------|------|---------|
-| `apps/ops-api/src/services/alerts.ts` | Service | Alert CRUD + Socket.IO emit |
-| `apps/ops-api/src/services/agentKpiAggregator.ts` | Service | Cross-table agent KPI queries |
-| `packages/ui/src/components/DateRangeFilter.tsx` | Component | Shared date range picker |
-
-## Build Order (Dependency Chain)
-
-| Phase | What | Why This Order | Dependencies |
-|-------|------|---------------|--------------|
-| 1 | Cross-dashboard date range (dateRange helper + DateRangeFilter UI) | Foundational — every other feature needs date filtering for testing and export | None |
-| 2 | CS Socket.IO events | Small change, unblocks real-time CS + alert pipeline | None |
-| 3 | Alert model + AlertService + payroll alert inbox | Requires Socket.IO events (phase 2) | Phase 2 |
-| 4 | Chargeback -> alert pipeline wiring | Connects CS submissions to payroll alerts | Phase 3 |
-| 5 | Agent KPI aggregation (chargeback + pending term per agent) | Requires date range filtering (phase 1) | Phase 1 |
-| 6 | AI scoring display in owner dashboard | Uses existing data, just needs new aggregation endpoint + UI | Phase 1 (date range) |
-| 7 | Service agent sync (CsRepRoster <-> ServiceAgent) | Schema migration, independent of other features | None |
-| 8 | Rep checklist / round robin | Requires CsRepRoster schema changes (phase 7) | Phase 7 |
-| 9 | Payroll UX fixes (toggle, edit per sale, card layout, +10 indicator) | Pure frontend, no API dependencies | None (can parallel with any phase) |
-| 10 | Manager dashboard cleanup (remove commission column, fix INP error) | Pure frontend, no API dependencies | None (can parallel with any phase) |
-
-**Phase ordering rationale:**
-- Date range is horizontal infrastructure used by every dashboard — build first
-- Socket.IO for CS is a 15-minute change that unblocks the alert pipeline
-- Alert pipeline is the biggest architectural addition and most complex integration
-- KPI aggregation and AI scoring are read-only query additions — lower risk
-- Service agent sync and rep checklist are self-contained
-- UI-only fixes (phases 9-10) can be done in parallel with anything
-
-## Scalability Considerations
-
-| Concern | Current Scale | At 10K records | Mitigation |
-|---------|--------------|----------------|------------|
-| Alert table growth | Dozens/week | Thousands | Add TTL cleanup (archive alerts older than 90 days) |
-| KPI aggregation query | Fast (hundreds of chargebacks) | Slow without indexes | Ensure indexes on `memberAgentId`, `agentName`, `createdAt` |
-| Date range exports | Fine (client-side CSV) | Large JSON payloads | Add server-side CSV streaming endpoint as escape hatch |
-| Socket.IO connections | ~6 dashboards open | Same | Not a concern — internal tool, fixed user count |
-| Routes file size | ~2200 lines | ~2500 lines | Extract into domain-grouped route files in v1.3 if needed |
+**Ordering rationale:** Steps 1-2 create the foundation. Steps 3-6 are independent of each other (can be done in any order) but CS is simplest so it validates the pattern first. Step 7 can be done incrementally as each page is migrated. Step 8 is last because old apps remain functional until all pages are migrated.
 
 ## Sources
 
-- Codebase analysis: `apps/ops-api/src/` (routes, services, socket, workers)
-- Schema: `prisma/schema.prisma`
-- Socket patterns: `packages/socket/src/` (useSocket, types)
-- AI pipeline: `apps/ops-api/src/services/callAudit.ts`, `auditQueue.ts`
-- Payroll engine: `apps/ops-api/src/services/payroll.ts`
+- Direct codebase analysis of all 5 dashboard apps, auth flow, shared packages, and deployment config
+- Next.js App Router route groups documentation (HIGH confidence -- well-established pattern since Next.js 13)
+- Existing `@ops/auth/client` token handling pattern (direct code inspection)
+- Existing `@ops/ui` PageShell component API (direct code inspection)
 
 ---
-*Research completed: 2026-03-18 — v1.2 Platform Polish & Integration*
+*Research completed: 2026-03-19 -- v1.3 Dashboard Consolidation & Uniform Date Ranges*

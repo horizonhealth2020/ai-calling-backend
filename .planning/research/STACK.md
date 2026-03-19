@@ -1,274 +1,266 @@
 # Technology Stack
 
-**Project:** Ops Platform v1.2 -- Platform Polish & Integration
-**Researched:** 2026-03-18
-
-## Existing Stack (DO NOT change)
-
-Already validated and shipping. Listed for reference only.
-
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Next.js | 15 | All 6 dashboard apps |
-| Express.js | 4.19.x | ops-api REST server |
-| Prisma | 5.20.x | ORM + migrations |
-| PostgreSQL | -- | Primary database |
-| Socket.IO | 4.8.x | Real-time dashboard cascade |
-| Zod | 3.23.x | Request validation |
-| Luxon | 3.4.x | Timezone-aware date handling |
-| @anthropic-ai/sdk | 0.78.0 | AI call audit (Claude) |
-| OpenAI SDK | 4.73.x | Legacy fallback auditor |
-| Recharts | 3.8.x | Dashboard charts |
-| Lucide React | 0.577.x | Icons |
-
-## Recommended Stack Additions for v1.2
-
-### ZERO new npm packages needed
-
-v1.2 does NOT require any new libraries. Every feature maps to existing capabilities. This is the key finding.
-
-Here is the feature-by-feature analysis:
-
----
-
-### 1. AI Call Transcript Scoring (visible/editable system prompt)
-
-**What exists:** `@anthropic-ai/sdk` v0.78.0 is installed and fully integrated in `apps/ops-api/src/services/callAudit.ts`. The system prompt is already stored in `SalesBoardSetting` (key: `ai_audit_system_prompt`) and loaded dynamically before each audit. Routes for GET/PUT of the system prompt exist in `routes/index.ts` (lines ~1502-1516). The audit pipeline downloads recordings, transcribes via Whisper API, runs structured analysis via Claude tool-use, stores results in `CallAudit` with both legacy fields and structured JSON fields (issues, wins, missed_opportunities, suggested_coaching).
-
-**What v1.2 needs:**
-- Owner dashboard UI tab to display and edit the system prompt (frontend only -- API already exists)
-- Fix the "INP not defined" error in owner dashboard (CSS constant bug, not a library issue)
-- Optionally bump `@anthropic-ai/sdk` from 0.78.0 to 0.79.0 (latest) -- minor patch, not required
-
-**New libraries needed:** NONE
-
-**Confidence:** HIGH -- verified by reading `callAudit.ts`, `auditQueue.ts`, and route definitions directly.
-
-| Decision | Rationale |
-|----------|-----------|
-| Keep @anthropic-ai/sdk 0.78.0 | Working in production, 0.79.0 is a minor bump with no breaking changes. Upgrade opportunistically, not as a blocker. |
-| Keep OpenAI as fallback | Already coded as fallback when ANTHROPIC_API_KEY is missing. No reason to remove. |
-| Keep SalesBoardSetting for prompt storage | Already works. A dedicated `SystemConfig` table would be over-engineering for a single key-value pair. |
-
----
-
-### 2. Cross-Dashboard Date Range CSV Exports
-
-**What exists:** CSV exports are 100% client-side. The payroll dashboard builds CSV strings in-browser from already-fetched data and triggers downloads via `URL.createObjectURL` + invisible `<a>` tag click. The API has a `dateRange()` helper that accepts `range=today|week|month` query params and computes `{ gte, lt }` boundaries.
-
-**What v1.2 needs:**
-- Extend the `dateRange()` API helper to accept custom ISO date strings (e.g., `from=2026-01-01&to=2026-01-31`) alongside the existing preset ranges
-- Add a date range picker UI component to each dashboard's export section
-- The date picker is a standard HTML `<input type="date">` -- no library needed with the inline CSSProperties pattern
-
-**New libraries needed:** NONE
-
-**Confidence:** HIGH -- verified by reading `dateRange()` function (routes/index.ts lines 30-55) and payroll CSV export code.
-
-| Decision | Rationale |
-|----------|-----------|
-| Use native `<input type="date">` | Project uses inline CSSProperties, no CSS framework. A date picker library (react-datepicker, etc.) would add styling conflicts. Native date inputs work in all modern browsers and match the existing form pattern. |
-| Extend `dateRange()` server-side | Adding `from`/`to` params to the existing helper is ~10 lines. Client can pass custom ranges or presets. |
-| Keep client-side CSV generation | Data is already fetched for display. Generating CSV server-side would duplicate logic and add download endpoints for every dashboard. |
-
----
-
-### 3. Chargeback-to-Payroll Alert Pipeline
-
-**What exists:** `ChargebackSubmission` and `Clawback` models in Prisma. Payroll entries with `adjustmentAmount` (allows negatives for chargebacks). Socket.IO event infrastructure (`emitSaleChanged`).
-
-**What v1.2 needs:**
-- New `PayrollAlert` Prisma model (type, sourceId, status, message, createdAt) -- schema change only
-- API endpoint to create alert when chargeback is submitted (or resolved)
-- API endpoint to list/approve/clear alerts for payroll dashboard
-- Socket.IO event for new alerts (`payroll:alert`)
-- Payroll dashboard UI for alert list with approve/clear actions
-
-**New libraries needed:** NONE
-
-**Confidence:** HIGH -- this is a standard CRUD + event pattern using existing Prisma + Socket.IO + Express.
-
-| Decision | Rationale |
-|----------|-----------|
-| New Prisma model, not a JSON column | Alerts need querying (unread count, filtering by status). A dedicated table with proper indexes is correct. |
-| Socket.IO for real-time alerts | Already used for sale cascading. Same pattern: server emits on creation, dashboard listens. |
-| No external notification service | Alerts are in-app only (payroll dashboard). No email/SMS/Slack needed for internal ops tool. |
-
----
-
-### 4. Pending Terms + Chargebacks within 30 Days to Agent KPIs
-
-**What exists:** `PendingTerm` and `ChargebackSubmission` models with `memberId`, `agentName` fields. `AgentCallKpi` model for call-based KPIs. Sales linked to agents via `agentId`.
-
-**What v1.2 needs:**
-- Server-side query joining chargebacks/pending terms to agents (via member ID matching to sales, or direct agent name)
-- New API endpoint returning per-agent chargeback/pending-term counts and amounts within a rolling 30-day window
-- KPI table components in manager and owner dashboards
-- No new models needed -- these are computed views over existing data
-
-**New libraries needed:** NONE
-
-**Confidence:** HIGH -- pure Prisma queries and frontend tables.
-
-| Decision | Rationale |
-|----------|-----------|
-| Computed at query time, not materialized | Volume is low (dozens of agents, hundreds of chargebacks). Real-time accuracy matters more than query optimization. |
-| Match via memberId on Sale | ChargebackSubmission has `memberId`, Sale has `memberId` + `agentId`. Join through Sale to get agent. |
-
----
-
-### 5. Storage Monitoring / Alerting with CSV Download
-
-**What exists:** Nothing for storage monitoring. The project runs on Railway (cloud PaaS) and Docker.
-
-**What v1.2 needs:** Clarification on what "storage" means in this context:
-
-- **If database storage (PostgreSQL):** Query `pg_database_size()` via Prisma raw query (`prisma.$queryRaw`). No library needed.
-- **If disk storage (server filesystem):** Use Node.js built-in `fs.statfs()` (available since Node 18.15, stable in Node 20.x). No external library needed.
-- **If recording storage (Convoso audio files):** These are external URLs, not stored locally. Monitoring would mean tracking row counts/sizes in the database.
-
-**New libraries needed:** NONE (Node 20.x `fs.statfs` covers disk checks natively)
-
-**Confidence:** MEDIUM -- "storage alerting" is ambiguous in the requirements. Need to clarify whether this means database size, disk usage, or data volume tracking.
-
-| Decision | Rationale |
-|----------|-----------|
-| Use `fs.statfs()` for disk monitoring | Native Node 20.x API. No dependency needed. Returns free/total bytes. |
-| Use `pg_database_size()` for DB monitoring | Standard PostgreSQL function, callable via `prisma.$queryRaw`. |
-| CSV download of storage data | Same client-side CSV pattern as existing exports. |
-
----
-
-### 6. Real-Time Socket.IO for CS Submissions
-
-**What exists:** Socket.IO server in `apps/ops-api/src/socket.ts` with typed emit functions: `emitSaleChanged`, `emitAuditStatus`, `emitAuditComplete`. CS dashboard exists at `apps/cs-dashboard`.
-
-**What v1.2 needs:**
-- Add `emitCSSubmission` function to `socket.ts` (same pattern as `emitSaleChanged`)
-- Emit after chargeback/pending term creation in routes
-- CS dashboard connects to Socket.IO and listens for new submissions
-
-**New libraries needed:** NONE -- `socket.io` (server) already installed in ops-api, `socket.io-client` already used by other dashboards.
-
-**Confidence:** HIGH -- exact same pattern as existing sale cascade events.
-
----
-
-### 7. Rep Checklist for Round Robin Assignment
-
-**What exists:** `CsRepRoster` model with `name`, `active` fields. `assignedTo` field on both `ChargebackSubmission` and `PendingTerm`.
-
-**What v1.2 needs:**
-- Add `assignmentCount` to `CsRepRoster` for round-robin tracking
-- Server-side function to pick next rep (least-assigned among active reps)
-- UI checklist component showing active reps with toggle
-
-**New libraries needed:** NONE
-
-**Confidence:** HIGH -- trivial state tracking on an existing model.
-
----
-
-## What NOT to Add
-
-| Library | Why You Might Think to Add It | Why NOT To |
-|---------|-------------------------------|------------|
-| react-datepicker | Date range picker for exports | Native `<input type="date">` works. Adding a date picker library introduces CSS conflicts with the inline CSSProperties pattern. No globals.css allowed. |
-| @tanstack/react-query | Data fetching + caching | Existing `authFetch()` wrapper works. Adding a query library to 6 dashboards mid-project is a rewrite, not an enhancement. |
-| node-cron (new jobs) | Scheduled storage checks | Already installed at root. If periodic storage checks are needed, add a cron job to the existing pattern. No new package. |
-| check-disk-space | Disk monitoring | Node 20.x has native `fs.statfs()`. Zero-dependency solution. |
-| bull / bullmq | Job queue for alerts | The in-memory audit queue (`auditQueue.ts`) works for the scale of this app. Alert creation is synchronous -- no queue needed. |
-| nodemailer | Email notifications | Out of scope. Alerts are in-app only. |
-| winston / pino | Structured logging | `@ops/utils` already has `logEvent`/`logError`. Don't split logging infrastructure. |
-| prisma-json-types-generator | Typed JSON columns | Nice-to-have but adds build complexity. Cast with `as any` like existing code does for `issues`, `wins`, etc. |
-
-## Version Pinning Strategy
-
-No version bumps are required. If choosing to bump opportunistically:
-
-| Package | Current | Latest | Risk | Recommendation |
-|---------|---------|--------|------|----------------|
-| @anthropic-ai/sdk | 0.78.0 | 0.79.0 | Low (patch) | Bump if convenient, not blocking |
-| Prisma | 5.20.0 | 5.x latest | Low | Stay on 5.20.x unless a specific feature is needed |
-| Socket.IO | 4.8.3 | 4.8.x | Low | No action needed |
-
-## New Prisma Schema Additions
-
-These are the only infrastructure changes needed:
-
-```prisma
-model PayrollAlert {
-  id              String   @id @default(cuid())
-  type            String   // "chargeback", "pending_term", "storage"
-  sourceType      String   @map("source_type") // "ChargebackSubmission", "PendingTerm"
-  sourceId        String   @map("source_id")
-  agentName       String?  @map("agent_name")
-  message         String
-  amount          Decimal? @db.Decimal(12, 2)
-  status          String   @default("pending") // "pending", "approved", "cleared"
-  reviewedBy      String?  @map("reviewed_by")
-  reviewedAt      DateTime? @map("reviewed_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  @@index([status])
-  @@index([createdAt])
-  @@map("payroll_alerts")
+**Project:** v1.3 Dashboard Consolidation & Uniform Date Ranges
+**Researched:** 2026-03-19
+
+## Executive Summary
+
+This milestone requires **zero new npm dependencies**. The existing stack already contains every library needed for consolidation and date range filtering. The work is architectural (merging 5 Next.js apps into 1) and component-level (extending the existing `DateRangeFilter` with KPI-specific presets), not a technology adoption exercise.
+
+The key decision is creating a new unified Next.js app (`apps/unified-dashboard`) that absorbs auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, and cs-dashboard -- while sales-board remains standalone.
+
+## Recommended Stack (Changes Only)
+
+### No New Dependencies Required
+
+The unified app uses the exact same dependency set as the existing dashboards:
+
+| Technology | Version | Already In Use | Role in v1.3 |
+|------------|---------|----------------|---------------|
+| Next.js | 15.3.9 | Yes (all apps) | Single unified app with App Router |
+| React | 18.3.1 | Yes (all apps) | Component rendering |
+| @ops/ui (PageShell) | internal | Yes | Sidebar nav with role-gated items |
+| @ops/ui (DateRangeFilter) | internal | Yes (CSV exports) | Extended for KPI sections |
+| @ops/ui (TabNav) | internal | Yes (CS dashboard) | Sub-tab navigation within sections |
+| @ops/auth/client | internal | Yes | Token capture, authFetch, role decoding |
+| @ops/socket | internal | Yes | Real-time updates (unchanged) |
+| @ops/utils | internal | Yes | formatDollar, formatDate |
+| @ops/types | internal | Yes | AppRole, SessionUser types |
+| Luxon | 3.4.4 | Yes (root) | Date range calculation (week boundaries, 30-day) |
+| lucide-react | 0.577.0 | Yes | Icons for nav items |
+| socket.io-client | 4.8.3 | Yes | WebSocket connection |
+
+### What NOT to Add
+
+| Library | Why Tempting | Why Wrong |
+|---------|-------------|-----------|
+| next-auth / auth.js | "Proper" auth for Next.js | Auth already handled via @ops/auth with JWT + localStorage. Adding next-auth would require rewriting the entire auth flow for zero user-facing benefit. |
+| react-router | Client-side routing for tabs | Next.js App Router already handles this. Use file-system routes for top-level sections, `useState` for sub-tabs. |
+| react-datepicker / date-fns | Date picker component | `DateRangeFilter` already exists in @ops/ui with native HTML date inputs. It works, matches the design system, and needs only preset changes. |
+| zustand / jotai | State management for shared date range | React Context is sufficient for a single date range value shared across KPI sections within one page. |
+| tailwindcss | Faster styling | Violates project constraint. All styling is inline React.CSSProperties. |
+| @tanstack/react-query | Data fetching with caching | Each dashboard page already manages its own fetch + state pattern with authFetch. Adding react-query for one milestone is churn. |
+| next/navigation middleware | Auth guards | A layout-level `useEffect` with `getToken()` already works across all dashboards. Server-side middleware would require `edge` runtime and cookie-based auth -- a full rewrite of the auth strategy. |
+
+## Architecture Decisions for Stack
+
+### 1. New App: `apps/unified-dashboard`
+
+**Why a new app instead of expanding auth-portal:**
+- Auth-portal has a fundamentally different structure (login form + landing page, no PageShell sidebar)
+- Starting fresh avoids breaking the existing apps during migration
+- Can run both old and new in parallel during transition
+- Clean `next.config.js` inheriting the same pattern as other dashboards
+
+**Package.json -- superset of all dashboard dependencies:**
+```json
+{
+  "name": "@ops/unified-dashboard",
+  "dependencies": {
+    "@ops/auth": "*",
+    "@ops/socket": "*",
+    "@ops/ui": "*",
+    "@ops/utils": "*",
+    "lucide-react": "^0.577.0",
+    "next": "15.3.9",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "socket.io-client": "^4.8.3"
+  }
 }
 ```
 
-And modifications to existing models:
+### 2. Role-Gated Navigation via PageShell
 
-```prisma
-// Add to CsRepRoster:
-  assignmentCount Int @default(0) @map("assignment_count")
+The existing `PageShell` component already supports:
+- `navItems: NavItem[]` -- sidebar navigation items with icon, label, key, badge
+- `activeNav: string` -- which item is selected
+- `onNavChange: (key: string) => void` -- callback for tab switching
+- Desktop sidebar (240px fixed) + mobile bottom nav (< 1024px breakpoint)
+
+**No new component needed.** The unified app's dashboard layout reads the user's roles from the JWT (via `@ops/auth/client` `getToken()` + manual base64 decode, already patterned in `ensureTokenFresh`) and filters `navItems` to only show role-permitted sections.
+
+**Role-to-tab mapping:**
+
+| Role | Visible Tabs |
+|------|-------------|
+| SUPER_ADMIN | Manager, Payroll, Owner, CS (all) |
+| MANAGER | Manager |
+| PAYROLL | Payroll |
+| OWNER_VIEW | Owner |
+| CUSTOMER_SERVICE | CS |
+
+### 3. Date Range Picker Enhancement
+
+The existing `DateRangeFilter` uses presets: `7d`, `30d`, `month`, `custom`.
+
+**v1.3 requires:** `Current Week`, `Last Week`, `30 Days`, `Custom`.
+
+This is a preset change + Luxon-powered date calculation. The `DateRangeFilterValue` interface (`{ preset: string; from?: string; to?: string }`) already supports this -- just change the preset keys.
+
+**Approach:** Add a new variant or prop to `DateRangeFilter` for KPI presets rather than modifying the existing CSV export presets. Both use cases coexist:
+
+```typescript
+// New KPI presets (add alongside existing export presets)
+const KPI_PRESETS = [
+  { key: "current-week", label: "Current Week" },
+  { key: "last-week", label: "Last Week" },
+  { key: "30d", label: "30 Days" },
+  { key: "custom", label: "Custom" },
+];
 ```
 
-## New Socket.IO Events
+**Date calculation uses Luxon (already in root package.json):**
+- Current Week: `DateTime.now().setZone('America/New_York').startOf('week')` to `.endOf('week')` -- Sun-Sat, matching existing payroll week logic
+- Last Week: Same, minus 7 days
+- 30 Days: `DateTime.now().minus({ days: 30 })` to now
+- Custom: User-selected `from`/`to` dates
 
-| Event | Payload | Emitter | Listener |
-|-------|---------|---------|----------|
-| `cs:submission` | `{ type, id, agentName, memberName }` | ops-api on chargeback/pending term create | cs-dashboard |
-| `payroll:alert` | `{ id, type, message, amount }` | ops-api on alert create | payroll-dashboard |
+**API integration:** The `dateRange()` helper in `ops-api/src/routes/index.ts` already accepts query params. Each KPI fetch just passes `from` and `to` ISO strings. No API changes needed if the existing `dateRange()` helper already supports custom dates (added in v1.2).
 
-## New API Endpoints
+### 4. Login Flow Change
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/payroll-alerts` | List alerts (filterable by status) |
-| PUT | `/api/payroll-alerts/:id/approve` | Approve alert |
-| PUT | `/api/payroll-alerts/:id/clear` | Clear/dismiss alert |
-| GET | `/api/agents/:id/kpis` | Agent KPIs including chargeback/pending term counts |
-| GET | `/api/storage/status` | Database size + optional disk usage |
+**Current flow:** Login (auth-portal:3011) -> Landing page -> Opens dashboard in new browser tab (different port/app)
+
+**New flow:** Login page (unified-dashboard:3020) -> JWT decoded -> Client-side redirect to `/dashboard` -> App reads roles from token, renders default tab
+
+The unified app absorbs the login page directly. The auth-portal landing page with its multi-dashboard card grid is no longer needed -- the role-gated sidebar replaces it entirely.
+
+**Token handling stays identical:** `captureTokenFromUrl()` on mount, `localStorage` storage, `authFetch()` for API calls.
+
+### 5. Next.js App Router Structure
+
+```
+apps/unified-dashboard/
+  app/
+    layout.tsx              -- ThemeProvider, global inline styles, font
+    page.tsx                -- Login page (absorbed from auth-portal)
+    api/
+      login/route.ts        -- Proxy to ops-api (from auth-portal)
+      verify/route.ts       -- Token verification
+      change-password/route.ts
+    dashboard/
+      layout.tsx            -- Auth guard + PageShell with role-gated nav
+      page.tsx              -- Redirect to default tab based on role
+      manager/page.tsx      -- Manager dashboard content (from manager-dashboard/app/page.tsx)
+      payroll/page.tsx      -- Payroll dashboard content
+      owner/page.tsx        -- Owner dashboard content
+      cs/page.tsx           -- CS dashboard content
+    access-denied/page.tsx  -- Unauthorized access page
+  next.config.js            -- Same transpilePackages pattern
+```
+
+**Why file-system routing for top-level sections (not useState):**
+- Browser back/forward navigation between sections
+- Direct URL sharing (`/dashboard/payroll`)
+- Code splitting per section (each page.tsx is a separate chunk)
+- Auth guard in `dashboard/layout.tsx` protects all sections uniformly
+- Role checking can happen at the layout level before rendering any section
+
+**Within each section**, existing sub-tab navigation (e.g., manager's entry/tracker/sales/audits/config tabs) remains as `useState`-driven, exactly as today. No change to the inner page logic.
+
+### 6. Auth Guard Pattern
+
+The `dashboard/layout.tsx` will:
+1. Call `captureTokenFromUrl()` on mount
+2. Decode the JWT to extract roles
+3. If no token, redirect to `/` (login)
+4. If token but no roles for current route, redirect to `/access-denied`
+5. Pass roles via React Context to child pages for conditional rendering
+
+This matches how each dashboard currently guards itself, just centralized in one layout.
+
+## Existing Components Reused Without Changes
+
+| Component | Source | Reuse |
+|-----------|--------|-------|
+| `PageShell` | @ops/ui | Wraps entire dashboard with sidebar nav |
+| `TabNav` | @ops/ui | Sub-tabs within each section (e.g., CS submissions/tracking) |
+| `DateRangeFilter` | @ops/ui | Extended with KPI presets via new `presets` prop |
+| `Card`, `Button`, `Input`, `Select` | @ops/ui | All form elements |
+| `AnimatedNumber`, `Badge`, `StatCard` | @ops/ui | KPI display |
+| `ToastProvider` | @ops/ui | Notifications |
+| `SkeletonCard` | @ops/ui | Loading states |
+| `EmptyState` | @ops/ui | No-data states |
+| `authFetch`, `captureTokenFromUrl`, `getToken`, `clearToken` | @ops/auth/client | Auth flow |
+| `useSocket` | @ops/socket | Real-time updates |
+| `formatDollar`, `formatDate` | @ops/utils | Display formatting |
+
+## Components Needing Modification
+
+| Component | Change | Scope |
+|-----------|--------|-------|
+| `DateRangeFilter` | Add `presets` prop to allow custom preset arrays (currently hardcoded). Default to existing `7d/30d/month/custom` for backward compatibility. | @ops/ui -- minor, backward-compatible |
+| `PageShell` | No changes needed. NavItem array is already dynamic. | None |
+| `@ops/types` | No changes needed. `AppRole` and `SessionUser` already cover all roles. | None |
+
+## Port Assignment
+
+| App | Port | Status |
+|-----|------|--------|
+| unified-dashboard | 3020 | NEW -- replaces auth(3011) + manager(3019) + payroll(3012) + owner(3026) + cs(3014) |
+| sales-board | 3013 | UNCHANGED -- remains standalone |
+| ops-api | 8080 | UNCHANGED |
+
+The old dashboard apps remain in the repo but are no longer deployed after v1.3 is validated.
+
+## Deployment Impact
+
+### Railway
+- **Reduction:** 6 services (5 dashboards + auth-portal) down to 2 (unified-dashboard + sales-board) + 1 API
+- Same build/start pattern: `next build && next start`
+- `NEXT_PUBLIC_OPS_API_URL` still baked at build time
+- `ALLOWED_ORIGINS` in ops-api needs the unified dashboard URL; old dashboard URLs can be removed post-migration
+
+### Docker
+- Same `Dockerfile.nextjs` with `APP_NAME=unified-dashboard`
+- Removes 4-5 service definitions from `docker-compose.yml`
+- Significant resource reduction (4 fewer Node.js processes)
+
+### CORS
+- ops-api `ALLOWED_ORIGINS` needs new unified dashboard origin added
+- Old origins can be kept during parallel-running transition, then removed
 
 ## Installation
 
 ```bash
-# No new packages to install.
-# Only Prisma migration needed:
-npx prisma migrate dev --name add-payroll-alerts-and-rep-tracking
+# No new packages to install -- all deps already in workspace
+# Just create the app directory and package.json, then:
+npm install  # Workspace linking picks up the new app automatically
 ```
 
-## Summary
+Add to root `package.json` scripts:
+```json
+{
+  "dashboard:dev": "npm --prefix apps/unified-dashboard run dev"
+}
+```
 
-v1.2 is an integration milestone, not a technology milestone. Every feature builds on existing infrastructure:
+## Confidence Assessment
 
-- **AI scoring:** Already built (callAudit.ts). Need frontend exposure only.
-- **Date range exports:** Extend existing `dateRange()` helper + native date inputs.
-- **Alert pipeline:** New Prisma model + Socket.IO event (existing patterns).
-- **Agent KPIs:** Prisma queries over existing data.
-- **Storage monitoring:** Node.js native APIs.
-- **CS real-time:** Same Socket.IO pattern as sale cascade.
-- **Round robin:** Counter field on existing model.
-
-Zero new npm dependencies. One new Prisma model. Two new Socket.IO events. Five new API endpoints.
+| Decision | Confidence | Rationale |
+|----------|------------|-----------|
+| No new dependencies | HIGH | Inspected all existing packages, component code, and feature requirements |
+| PageShell for nav | HIGH | Already supports navItems, activeNav, onNavChange -- inspected source |
+| DateRangeFilter extension | HIGH | Component exists with flexible interface, only presets change |
+| App Router file routing for sections | HIGH | Standard Next.js 15 pattern, each dashboard is a single page.tsx today |
+| Luxon for date calc | HIGH | Already used for payroll week boundaries (America/New_York, Sun-Sat) |
+| Port 3020 | MEDIUM | Arbitrary -- any unused port works, avoids conflicts with existing 3011-3026 range |
+| No next-auth | HIGH | Existing JWT + localStorage pattern is simple and working; migration cost far exceeds benefit |
 
 ## Sources
 
-- [Anthropic SDK on npm](https://www.npmjs.com/package/@anthropic-ai/sdk) -- v0.79.0 latest (MEDIUM confidence)
-- [check-disk-space on npm](https://www.npmjs.com/package/check-disk-space) -- evaluated and rejected in favor of native Node 20 APIs
-- [Node.js fs.statfs docs](https://nodejs.org/api/fs.html#fsstatfspath-options-callback) -- native disk monitoring (HIGH confidence)
-- Codebase verification: `apps/ops-api/src/services/callAudit.ts`, `apps/ops-api/src/socket.ts`, `apps/ops-api/src/routes/index.ts`, `prisma/schema.prisma` (HIGH confidence)
+- Inspected: `packages/ui/src/index.tsx` -- PageShell with NavItem interface, sidebar/bottom nav patterns
+- Inspected: `packages/ui/src/components/DateRangeFilter.tsx` -- existing presets (`7d`, `30d`, `month`, `custom`) and `DateRangeFilterValue` interface
+- Inspected: `packages/ui/src/components/TabNav.tsx` -- sub-tab component with indicator animation
+- Inspected: `packages/auth/src/client.ts` -- token management, JWT decode, authFetch with auto-refresh
+- Inspected: `packages/types/src/index.ts` -- AppRole enum (7 roles), SessionUser type
+- Inspected: `apps/auth-portal/app/api/login/route.ts` -- login flow, SUPER_ADMIN role expansion, redirect with session_token
+- Inspected: `apps/auth-portal/app/landing/page.tsx` -- role-based dashboard routing via DASHBOARD_MAP, token passing
+- Inspected: `apps/manager-dashboard/next.config.js` -- transpilePackages pattern, conditional standalone output
+- Inspected: `apps/manager-dashboard/app/page.tsx` -- Tab type, existing imports showing full dependency surface
+- Inspected: `apps/ops-api/src/middleware/auth.ts` -- requireAuth + requireRole with SUPER_ADMIN bypass
+- Inspected: All dashboard `package.json` files -- confirmed identical dependency patterns
 
 ---
-*Research completed: 2026-03-18*
+*Research completed: 2026-03-19*

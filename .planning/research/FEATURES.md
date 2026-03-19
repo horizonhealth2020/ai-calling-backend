@@ -1,167 +1,175 @@
 # Feature Landscape
 
-**Domain:** Sales operations platform — insurance sales, payroll, chargebacks, agent KPIs
-**Milestone:** v1.2 Platform Polish & Integration
-**Researched:** 2026-03-18
+**Domain:** Dashboard consolidation (multi-app to single app) with uniform date range filtering
+**Researched:** 2026-03-19
+**Context:** Existing 5 dashboard apps + 1 standalone sales board, all Next.js 15, merging into single unified app
 
 ## Table Stakes
 
-Features users expect. Missing = product feels incomplete or broken.
+Features users expect from a consolidated dashboard. Missing = feels broken or confusing.
 
 | Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|-------------|-------|
-| Custom date range CSV exports | Every ops dashboard since 2020 has date pickers on exports. Current system only offers "week/month/quarter" presets — users will ask for custom ranges immediately | Medium | All 6 dashboards, ops-api routes | Client-side CSV generation already exists in payroll (`exportCSV`, `exportDetailedCSV`). Need shared DateRangePicker component in @ops/ui, then wire to each dashboard. API needs `startDate`/`endDate` query params on data endpoints |
-| Payroll paid/unpaid toggle (both directions) | Payroll staff need to undo mistakes. One-way toggle is a daily friction point — no recovery path for accidental marks | Low | Payroll dashboard, ops-api payroll routes | Toggle already works one direction. Add reverse mutation with audit log. Guard against toggling within FINALIZED periods. Standard pattern: toggle button with confirmation modal for un-paying |
-| Edit button per sale in payroll view | Payroll staff see errors but must leave context to fix them. Inline editing is standard in payroll tools (Gusto, Rippling, ADP) | Medium | Payroll dashboard, existing sale edit request API (`SaleEditRequest` model) | Reuse existing sale edit request flow. Modal overlay with editable fields. Must recalculate commission on save via `upsertPayrollEntryForSale()` |
-| Chargeback alerts in payroll | Chargebacks directly affect agent pay. Payroll staff need visibility without switching to CS dashboard. In insurance ops, chargebacks always surface in payroll views | High | `ChargebackSubmission` model, payroll dashboard, Socket.IO, new PayrollAlert DB model | Alert pipeline: chargeback created -> alert record -> Socket.IO event -> payroll banner with approve/clear workflow. This is the core v1.2 value proposition |
-| Fix AI config "INP not defined" error | Broken feature = broken trust. Bug fixes are always table stakes | Low | Owner dashboard AI tab | Missing style constant (`INP` for input CSSProperties). All dashboards use inline style constants — this one was missed. Inspect, define, done |
-| Remove commission column from agent tracker | User-requested removal. Column creates confusion — commission details live in payroll, not manager view | Low | Manager dashboard agent tracker component | Pure UI removal. Delete column from table header and row rendering |
-| Bonus/fronted/hold off sale rows, keep on agent card header | Declutters per-sale view. These are agent-level aggregates, not per-sale data. Showing per-row implies sale-specific values, which misleads payroll staff | Low | Payroll dashboard pay card component | UI-only change. Remove three columns from sale row rendering. Agent card header already displays these aggregates |
+|---------|--------------|------------|--------------|-------|
+| Role-gated tab navigation | Users currently see only their dashboard; consolidation must preserve this isolation | Medium | @ops/types AppRole, existing PageShell navItems pattern | Each role maps to a tab. SUPER_ADMIN sees all tabs. CS role sees CS tab only. Tab visibility is the new access control boundary. |
+| Login lands on correct default tab | Current auth-portal redirects to the right app URL; unified app must replicate this with tab selection | Low | Auth login route, role-to-tab mapping | Replace URL redirect with in-app tab routing. Role priority order: SUPER_ADMIN > MANAGER > PAYROLL > OWNER_VIEW > CUSTOMER_SERVICE |
+| Preserved feature parity per tab | Every feature in every current dashboard must work identically in its tab | High | All existing page.tsx files (~11k LOC across 4 dashboards) | This is the bulk of the work. Each dashboard page becomes a tab component. No features can regress. |
+| Shared auth state across tabs | Token capture and authFetch must work once for the entire app, not per-tab | Low | @ops/auth/client captureTokenFromUrl, existing pattern | Already solved -- single app means single token capture in root layout. Simpler than current cross-domain token passing. |
+| URL-based tab routing | Users expect browser back/forward to work with tabs, and direct links to specific tabs | Medium | Next.js App Router | Use path segments (e.g., /manager, /payroll, /owner, /cs) or searchParams. Path segments are better for bookmarkability. |
+| Date range picker on all KPI sections | PROJECT.md explicitly requires uniform date range filtering across all KPI counters | Medium | Existing DateRangeFilter component in @ops/ui, existing dateRange() server utility | Component exists but is only used for CSV exports currently. Need to wire it to KPI data fetches. |
+| Current Week preset in date picker | PROJECT.md specifies "Current Week / Last Week / 30 Days / Custom" -- existing component has "Last 7 days / Last 30 days / This month / Custom" | Low | DateRangeFilter component update | Presets need updating: add "Current Week" (Sun-Sat) and "Last Week", keep "30 Days" and "Custom". Drop "This month" and "Last 7 days". |
+| Date range persists across tab switches | Picking a date range on one tab should carry to other tabs | Low | Shared React state in parent, or URL searchParams | Lift dateRange state to app-level. All tabs receive same range. Natural UX for "show me everything from last week". |
+| Sales board remains standalone | PROJECT.md explicitly states sales board is unchanged | None | No work needed | Do NOT consolidate sales-board app. It has no auth requirement. |
 
 ## Differentiators
 
-Features that set this product apart from generic sales dashboards.
+Features that improve the experience beyond what separate apps provided. Not strictly required but high value for effort.
 
 | Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|-------------|-------|
-| AI call transcript auto-scoring | Existing `callAudit.ts` already does Claude-powered structured audits with tool-use. Auto-scoring means running this pipeline on every Convoso transcript automatically — turns manual QA (1-2% of calls) into 100% coverage. McKinsey cites 30-45% improvement from automated scoring | High | `ANTHROPIC_API_KEY`, Convoso ingestion, existing `callAudit.ts`, `ConvosoCallLog` model | Infrastructure exists: `auditWithClaude()`, `deriveScore()`, structured tool output. Need: auto-trigger when `ConvosoCallLog` gets a transcription, rate limiting (cost control), score surfacing in agent views. `deriveScore()` already maps outcomes to 0-100 |
-| System prompt editor in owner dashboard | Owners tune AI evaluation without developer intervention. See bad audit -> adjust prompt -> re-audit. Competitive advantage over tools requiring vendor support for criteria changes | Medium | Owner dashboard (fix INP error first), `SalesBoardSetting` model (key: `ai_audit_system_prompt`), `reAuditCall()` | Storage exists — `SalesBoardSetting` already stores the prompt. Need: textarea in AI tab, GET/PUT endpoints, "Re-audit" button. Show `DEFAULT_AUDIT_PROMPT` as placeholder when no custom prompt saved |
-| Pending terms + chargebacks wired to agent KPIs | Transforms CS data from isolated tracking into actionable performance metrics. Managers see which agents generate chargebacks. High-chargeback agents get flagged before they become expensive. Standard in insurance ops — "percentage pending" is a top-15 insurance KPI per industry benchmarks | High | New KPI aggregation tables, `Agent` model, `ChargebackSubmission`, `PendingTerm`, API endpoints | New model(s): `AgentRetentionKpi` with chargeback count, dollar total, pending term count, 30-day flag. Aggregate on chargeback/term creation and resolution. Display in agent tracker and owner KPI views |
-| Real-time Socket.IO for CS submissions | CS reps working simultaneously see each other's submissions without refresh. Already have Socket.IO for sales cascade — extending to CS is incremental and creates feature parity | Medium | Socket.IO (exists in `socket.ts`), CS dashboard, ops-api CS endpoints | Pattern exists: `emitSaleChanged()`. Add `emitChargebackSubmitted()` and `emitPendingTermSubmitted()`. CS dashboard subscribes and appends to tracking tables. Use Socket.IO rooms to target only CS dashboard clients |
-| "+10" indicator on enrollment fee for $124 bonus | Visual affordance making the bonus rule visible. Reduces "why did I get $124 extra?" questions from agents and "why is this bonus here?" from payroll | Low | Commission calculation logic, payroll pay card UI | Display-only. Check if enrollment fee >= `enrollFeeThreshold` during render. Show "+10" badge next to fee amount. Do not change calculation — just surface existing business rule |
-| Rep checklist for pending term + chargeback round robin | Formalizes distribution workflow. Without it, reps cherry-pick or forget assignments. Round robin ensures even workload and accountability | Medium | `CsRepRoster` model (exists), `ChargebackSubmission.assignedTo`, `PendingTerm.assignedTo` | Auto-distribution already exists for chargebacks via `CsRepRoster`. Extend to pending terms. New piece: checklist view grouped by rep showing open assignments and completion status |
-| Service agent sync between payroll and CS | Two separate registries (`ServiceAgent` for payroll, `CsRepRoster` for CS) create data drift. Sync means one source of truth | Medium | `ServiceAgent` model, `CsRepRoster` model | Recommend: add `serviceAgentId` FK to `CsRepRoster`, sync on ServiceAgent CRUD. Do not merge tables — destructive merge risks breaking existing `ServicePayrollEntry` relations |
-| CS tracking: holder date records per date | Replaces vague "due within 7 days" with actual date-based contact records. Creates audit trail for insurance term management compliance | Medium | `PendingTerm` model, new `HolderDateRecord` model, CS dashboard tracking UI | New model: `HolderDateRecord { id, pendingTermId, contactDate, notes, recordedBy }`. Display as expandable sub-rows under pending terms. Remove "due within 7 days" filter |
-| Storage alert with download + clearance | Proactive warning before database fills up. Railway/small plans have storage limits | Low | ops-api health endpoint, owner dashboard | Periodic check via `pg_database_size()`. Compare against threshold. Alert banner in owner dashboard. "Export and Clear" for old periods using existing CSV export |
+|---------|-------------------|------------|--------------|-------|
+| Cross-tab KPI summary header | A top-level KPI bar showing aggregated numbers across all user-visible dashboards | Medium | API endpoints for summary stats | Currently each dashboard loads its own KPIs independently. A unified header showing "Total Sales / Total Payroll / Open Chargebacks" gives instant cross-functional context. |
+| Tab badges with live counts | Show notification badges on tabs (e.g., "3" on Payroll for pending approvals, "5" on CS for unresolved chargebacks) | Low | Existing Socket.IO events, PageShell already supports badge prop on NavItem | PageShell NavItem type already has `badge?: number`. Wire Socket.IO events to tab badge counts. Low effort, high polish. |
+| Keyboard shortcuts for tab switching | Ctrl+1/2/3/4 to jump between tabs | Low | Client-side keydown listener | Power users managing multiple areas will appreciate fast switching. 20 lines of code. |
+| Deep link support with date range in URL | URLs like /payroll?range=week preserve both tab and date context for sharing | Low | Already using searchParams pattern | Enables "here's what I'm looking at" sharing between team members. |
+| Unified loading skeleton | Single skeleton pattern while any tab's data loads, rather than per-dashboard loading states | Low | Existing SkeletonCard component in @ops/ui | Smoother perceived performance when switching tabs. |
 
 ## Anti-Features
 
-Features to explicitly NOT build.
+Features to explicitly NOT build during this milestone.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Client-side commission recalculation | Commission logic must be server-authoritative. Client-side calc creates payroll discrepancies. Already noted as out of scope in PROJECT.md | Keep all commission in `apps/ops-api/src/services/payroll.ts`. UI previews via API, never calculates locally |
-| Real-time collaborative sale editing | Multiple users editing same sale adds OT/CRDT complexity. Edit request queue handles concurrent access safely | Keep the edit request queue. Add optimistic locking (`updatedAt` check) if stale edits arise |
-| Custom report builder | Drag-and-drop report builder is a product in itself (Metabase territory). CSV exports let power users use Excel | Offer comprehensive CSV exports with date range filtering. For custom reports, connect a BI tool to the database |
-| Mobile-responsive redesign | Desktop is primary for internal ops staff at workstations. Mobile adds testing surface for minimal user value | Keep desktop-first inline CSSProperties. Mobile is a separate initiative if ever needed |
-| Bulk chargeback auto-matching to sales | Matching chargebacks to original sales by member ID has high false-positive risk. Insurance member IDs can be reused, names have variants. Wrong matches create payroll errors | Keep manual matching. Surface "possible match" suggestions (search by member ID) but require human confirmation |
-| Per-agent notification preferences | Over-engineering for <50 internal users. Everyone gets the same alerts | All alerts go to dashboard. Global email toggle later if needed |
-| Automated clawback triggers from chargebacks | Auto-deducting from agent pay without human review is legally and operationally risky. Chargeback -> alert -> manual review -> clawback is the safe pipeline | Build the alert pipeline. Payroll staff decide whether to create a clawback from a chargeback alert. Never auto-deduct |
+| Multi-tab visible simultaneously (split view) | Adds massive complexity for minimal value; internal ops tool, not a trading dashboard | One tab at a time with fast switching |
+| Custom dashboard layout / drag-and-drop widgets | Over-engineering for a team of < 20 users; every role has well-defined needs | Fixed layout per tab, optimized for each role's workflow |
+| Tab customization / ordering preferences | Premature personalization; roles define what you see | Fixed tab order based on role hierarchy |
+| Merge sales board into unified app | PROJECT.md explicitly excludes it; sales board is public-facing (no auth) | Keep as standalone app at port 3013 |
+| Real-time date range auto-refresh | Socket.IO already handles real-time sale events; adding polling for date-filtered KPIs adds complexity without clear value | Manual refresh or re-select date range to update; Socket.IO continues to handle live sale cascade |
+| Date range on individual table rows | Tables already have their own filters (status, agent, etc.); mixing date range into row-level filters creates UX confusion | Date range applies to KPI counters/cards only; table data uses its existing filter patterns |
+| Global search across all tabs | Nice to have but not part of this milestone; each tab has its own search/filter patterns | Keep existing per-tab search and filter mechanisms |
+| Merge auth-portal completely | Auth-portal still handles login form, password change, access-denied pages; these should move but keep as separate concern within unified app | Login page is a route in the unified app (/login), not a tab |
 
 ## Feature Dependencies
 
 ```
-[Standalone — no dependencies]
-  Fix AI config "INP not defined" error
-  Remove commission column from agent tracker
-  Bonus/fronted/hold off sale rows
-  Payroll paid/unpaid toggle both directions
-  "+10" enrollment fee indicator
+DateRangeFilter component update (new presets)
+  --> Wire to KPI fetches on Manager tab
+  --> Wire to KPI fetches on Payroll tab
+  --> Wire to KPI fetches on Owner tab
+  --> Wire to KPI fetches on CS tab
 
-[Cross-cutting infrastructure]
-  Shared DateRangePicker in @ops/ui
-    -> Custom date range CSV exports (all dashboards)
+Auth consolidation (single token capture)
+  --> Role-gated tab navigation
+  --> Login-to-default-tab routing
 
-[Payroll integration chain]
-  Edit button per sale in payroll
-    -> Reuses existing SaleEditRequest API + upsertPayrollEntryForSale()
+PageShell adaptation (app-level tabs vs per-dashboard tabs)
+  --> Each dashboard becomes a tab component
+  --> Sub-tabs within each dashboard tab remain unchanged
+       (e.g., Manager keeps entry/tracker/sales/audits/config)
+       (e.g., CS keeps submissions/tracking)
 
-  ChargebackSubmission (exists)
-    -> Chargeback alerts in payroll (new PayrollAlert model + Socket.IO)
-      -> Pending terms + chargebacks -> agent KPIs (new aggregation tables)
-
-[AI chain]
-  Fix AI config "INP not defined"
-    -> System prompt editor in owner dashboard
-      -> AI call transcript auto-scoring (auto-trigger on transcript ingestion)
-
-[CS workflow chain]
-  Real-time Socket.IO for CS submissions
-    (extends existing socket.ts pattern)
-
-  HolderDateRecord model (new)
-    -> CS tracking: holder date records per date
-      -> Pending terms -> agent KPIs (needs complete term data)
-
-  ServiceAgent sync
-    -> CsRepRoster linked via FK
-      -> Rep checklist for round robin (needs authoritative rep list)
-
-[Monitoring]
-  Storage alert -> owner dashboard (standalone, defer)
+API dateRange() utility (already exists, lines 33-82 in routes/index.ts)
+  --> KPI endpoints need to accept range/from/to query params
+  --> Currently only CSV export endpoints use date params
+  --> KPI-producing endpoints need updates to accept optional date range
 ```
 
 ## MVP Recommendation
 
-**Priority 1 — Bug fixes and quick UI wins (1-2 days):**
-1. Fix AI config "INP not defined" error
-2. Remove commission column from agent tracker
-3. Bonus/fronted/hold off sale rows, keep on agent card header
-4. Payroll paid/unpaid toggle both directions
-5. "+10" enrollment fee indicator
+### Phase 1: Unified App Shell + Auth (do first)
 
-**Priority 2 — Cross-cutting infrastructure (2-3 days):**
-6. Shared DateRangePicker component in @ops/ui
-7. Custom date range CSV exports across all dashboards
-8. Real-time Socket.IO for CS submissions
+1. **New unified-dashboard Next.js app** with role-gated tab navigation
+2. **Auth consolidation** -- login route returns tab selection instead of external URL redirect
+3. **Move each dashboard page.tsx into a tab component** (mechanical migration, no feature changes)
+4. **Retire auth-portal landing page** (replaced by tab navigation)
 
-**Priority 3 — Core v1.2 value: chargeback-to-payroll pipeline (3-4 days):**
-9. Chargeback alerts in payroll (new PayrollAlert model, Socket.IO, approve/clear UX)
-10. Edit button per sale in payroll
-11. CS tracking: holder date records per date (new model, remove "due within 7 days")
-12. Service agent sync between payroll and CS
+Rationale: This is the structural change. Everything else depends on having one app with working tab switching. The risk is regression in ~11k LOC of existing functionality across 4 dashboard page.tsx files (manager: 2702 LOC, payroll: 3030 LOC, owner: 1957 LOC, CS: 2377 LOC).
 
-**Priority 4 — AI and KPI integration (3-4 days):**
-13. System prompt editor in owner dashboard
-14. AI call transcript auto-scoring (auto-trigger pipeline)
-15. Pending terms + chargebacks wired to agent KPIs (new aggregation tables)
-16. Rep checklist for round robin
+### Phase 2: Uniform Date Range (do second)
 
-**Defer:**
-- Storage alert: Low urgency unless Railway plan is near capacity
-- Bulk chargeback auto-matching: Anti-feature, do not build
+1. **Update DateRangeFilter presets** to Current Week / Last Week / 30 Days / Custom
+2. **Lift date range state to app level** so it persists across tabs
+3. **Wire date range to KPI fetches** on each tab (CS tracker, manager tracker, owner overview, payroll)
+4. **Update API KPI endpoints** to accept optional range/from/to query params (reuse existing `dateRange()` utility)
 
-**Ordering rationale:** Bug fixes first because broken features erode trust. Date range picker is cross-cutting infrastructure that unblocks all dashboard exports. Chargeback-to-payroll is the core v1.2 value — makes CS data actionable for payroll staff. AI features build on the fixed owner dashboard. KPI integration comes last because it needs the most new schema and depends on chargeback and pending term data pipelines being complete.
+Rationale: Date range depends on having a single app (phase 1) because the "persists across tabs" behavior requires shared state. Lower risk than phase 1 -- adding query params to existing fetches.
 
-## UX Conventions for Key Patterns
+### Defer to Post-MVP
 
-### Date Range Filtering
-- Dual-calendar picker (start + end) positioned horizontally on desktop
-- Preset buttons alongside custom range: "This Week", "Last 7 Days", "This Month", "Last 30 Days", "This Quarter"
-- Text input fallback for precise dates (users going far back in time)
-- Selected range displayed as pill/chip above the data table
-- Export button inherits the active date range automatically
+- Cross-tab KPI summary header (nice but not in PROJECT.md requirements)
+- Tab badges with live counts (low effort, can add during polish)
+- Keyboard shortcuts (trivial, add anytime)
+- Deep link with date range in URL (add once core flow works)
 
-### KPI Dashboard Layout
-- 5-7 KPIs maximum per role view (McKinsey recommendation)
-- Top row: summary cards with large numbers + trend arrows (up/down vs prior period)
-- Agent KPIs: chargeback count, chargeback dollar total, pending term count, composite quality score
-- Color coding: green (improving), red (declining), gray (neutral)
-- Drill-down: click a KPI card to see the underlying records
+## Key Complexity Notes
 
-### Alert Pipeline UX
-- Alert banner at top of payroll dashboard (not modal — non-blocking)
-- Badge count on navigation tab showing unread alerts
-- Alert list view: newest first, with chargeback details, agent name, dollar amount
-- Actions per alert: "View Details", "Create Clawback", "Dismiss"
-- Dismissed alerts move to a "Cleared" section, not deleted (audit trail)
+### Dashboard Consolidation is Mostly Mechanical but Large
 
-### AI-Assisted Scoring Display
-- Score shown as 0-100 with color band (red <40, yellow 40-70, green >70)
-- Expandable card showing issues, wins, missed opportunities
-- Manager summary visible without expanding (the "10-second read")
-- "Re-audit" button for when prompt changes need to be tested
+Each dashboard is a single massive page.tsx (700-3000 lines). The consolidation pattern is:
+1. Create `components/ManagerTab.tsx`, `components/PayrollTab.tsx`, etc.
+2. Move page content into each component
+3. Share auth state (token, user roles) from parent
+4. Share Socket.IO connection from parent
+5. Share date range state from parent
+
+The risk is not technical complexity -- it is **regression risk** across ~11k lines of working code. Each tab must be tested thoroughly after migration.
+
+### Two-Level Tab Navigation
+
+The unified app needs two levels of navigation:
+1. **App-level tabs**: Manager | Payroll | Owner | CS (role-gated by user roles)
+2. **Dashboard-level sub-tabs**: Within Manager tab, sub-tabs for Entry | Tracker | Sales | Audits | Config; within CS, sub-tabs for Submissions | Tracking
+
+PageShell already supports navItems with activeNav. Recommendation: use PageShell for app-level tabs, then a secondary tab bar component within each dashboard tab for sub-navigation. Do NOT nest two PageShells.
+
+### Date Range on KPIs Requires API Changes
+
+Current state of date range support:
+- **CSV export endpoints**: Already accept `range`, `from`, `to` query params via `dateRange()` utility
+- **KPI/stats endpoints**: Do NOT currently accept date params (return current/all-time data)
+- **Agent KPI endpoint** (`/api/agent-kpis`): Hardcoded 30-day window via `getAgentRetentionKpis()`
+- **Tracker endpoints**: Return all data, client groups/filters
+
+Each KPI-producing endpoint needs to accept optional date range params. The `dateRange()` utility already exists (lines 33-82 in routes/index.ts) and handles: today, week (Sun-Sat), 7d, 30d, month, and custom from/to. Just need to add the "last week" range option.
+
+### Auth Simplification
+
+Consolidation actually **simplifies** auth significantly:
+- **Eliminates** cross-domain token passing via URL params between separate apps
+- **Eliminates** DASHBOARD_MAP with per-role external URLs in auth-portal landing page
+- **Eliminates** 5 separate `NEXT_PUBLIC_OPS_API_URL` configurations
+- **Eliminates** auth-portal as separate deployment (login becomes a route in unified app)
+- Login API returns JWT, client stores it, tabs check roles in-memory
+- RBAC moves from "which app can you access" to "which tabs do you see"
+
+### Existing DateRangeFilter Component
+
+The `DateRangeFilter` in `@ops/ui` (packages/ui/src/components/DateRangeFilter.tsx) currently has:
+- Presets: "Last 7 days", "Last 30 days", "This month", "Custom"
+- Custom mode with from/to date inputs
+- Value type: `{ preset: string; from?: string; to?: string }`
+
+Needs updating for v1.3:
+- New presets: "Current Week" (Sun-Sat containing today), "Last Week" (prior Sun-Sat), "30 Days", "Custom"
+- The API `dateRange()` function already handles "week" (current Sun-Sat window) -- need to add "last_week"
+- Consider adding preset key mapping so DateRangeFilter value maps directly to API query param
+
+### Deployment Impact
+
+Consolidating 5 apps into 1 means:
+- **Railway**: 5 fewer services to deploy and monitor (auth-portal, manager, payroll, owner, CS all become one)
+- **Docker**: Fewer containers, simpler docker-compose
+- **CORS**: Single origin instead of 5 separate origins in ALLOWED_ORIGINS
+- **Ports**: Free up 3011, 3012, 3019, 3026; unified app gets one port
+- **Environment**: One NEXT_PUBLIC_OPS_API_URL instead of five
 
 ## Sources
 
-- [Sales Performance Dashboard Guide (Everstage)](https://www.everstage.com/sales-performance/sales-performance-dashboard) — KPI dashboard patterns
-- [Date Picker Design (UX Collective)](https://uxdesign.cc/date-picker-design-5c5ef8f35286) — Date range picker UX
-- [Dashboard Design UX Patterns (Pencil & Paper)](https://www.pencilandpaper.io/articles/ux-pattern-analysis-data-dashboards) — Dashboard best practices, "basic data etiquette" for exports
-- [LLM-Powered Call Scoring (Insight7)](https://insight7.io/how-llm-powered-conversation-ai-is-changing-call-scoring/) — AI scoring patterns, 100% call coverage
-- [Automating QA with LLM Call Scoring (Call Criteria)](https://callcriteria.com/how-to-automate-contact-center-quality-monitoring-building-llm-powered-call-scoring/) — LLM QA automation, calibration tools
-- [Real-Time Dashboards with Socket.IO (OneUptime)](https://oneuptime.com/blog/post/2026-01-26-socketio-realtime-dashboards/view) — Socket.IO alert pipeline patterns
-- [Insurance Agent Chargebacks (EverQuote)](https://learn.everquote.com/insurance-agent-chargebacks) — Chargeback workflow, commission clawback mechanics
-- [Insurance KPIs (Plecto)](https://www.plecto.com/blog/insurance/insurance-kpis/) — "Percentage Pending" as top insurance KPI
-- [Best AI Call Scoring Software 2026 (CloudTalk)](https://www.cloudtalk.io/blog/best-ai-call-scoring-software/) — AI scoring landscape, 30-45% improvement per McKinsey
-- [Date-Input Form Fields (NN/g)](https://www.nngroup.com/articles/date-input/) — Authoritative UX research on date inputs
-- Existing codebase: `callAudit.ts` (Claude audit pipeline), `socket.ts` (Socket.IO events), `schema.prisma` (all models), payroll dashboard `page.tsx` (CSV export pattern)
+- Codebase analysis: apps/auth-portal, apps/manager-dashboard, apps/payroll-dashboard, apps/owner-dashboard, apps/cs-dashboard
+- packages/ui/src/components/DateRangeFilter.tsx -- existing date range component (97 lines, presets defined lines 50-55)
+- packages/ui/src/index.tsx -- PageShell with NavItem interface (badge support exists)
+- packages/types/src/index.ts -- AppRole type with 7 roles
+- apps/ops-api/src/routes/index.ts -- dateRange() utility (lines 33-82), handles week/7d/30d/month/custom
+- apps/auth-portal/app/landing/page.tsx -- DASHBOARD_MAP with role-to-URL mapping (to be replaced)
+- apps/auth-portal/app/api/login/route.ts -- current auth flow with cross-domain redirect
+- apps/manager-dashboard/app/page.tsx -- Tab type and PageShell usage pattern (line 70: 5 sub-tabs)
+- apps/cs-dashboard/app/page.tsx -- role-gated tab pattern with canManageCS (line 505-523)
+- .planning/PROJECT.md -- v1.3 milestone requirements
