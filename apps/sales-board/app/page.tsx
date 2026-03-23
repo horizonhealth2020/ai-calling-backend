@@ -740,22 +740,28 @@ export default function SalesBoard() {
   }, []);
 
   async function refresh() {
-    const res = await fetch(`${API}/api/sales-board/detailed`).catch(() => null);
-    if (res?.ok) {
-      const json: DetailedData = await res.json();
-      // Merge in any agent names that appear in sales data but are not in the
-      // active-agents list (e.g. inactive agents who still have sales this week).
-      const salesAgents = new Set<string>([
-        ...Object.keys(json.weeklyTotals),
-        ...Object.keys(json.todayStats),
-      ]);
-      for (const name of salesAgents) {
-        if (!json.agents.includes(name)) {
-          json.agents.push(name);
+    try {
+      const res = await fetch(`${API}/api/sales-board/detailed`);
+      if (res?.ok) {
+        const json: DetailedData = await res.json();
+        // Merge in any agent names that appear in sales data but are not in the
+        // active-agents list (e.g. inactive agents who still have sales this week).
+        const salesAgents = new Set<string>([
+          ...Object.keys(json.weeklyTotals),
+          ...Object.keys(json.todayStats),
+        ]);
+        for (const name of salesAgents) {
+          if (!json.agents.includes(name)) {
+            json.agents.push(name);
+          }
         }
+        setData(json);
+        setLastUpdated(new Date().toLocaleTimeString());
+      } else {
+        console.error("[SalesBoard] fetch failed:", res?.status, res?.statusText);
       }
-      setData(json);
-      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error("[SalesBoard] fetch error:", err);
     }
   }
 
