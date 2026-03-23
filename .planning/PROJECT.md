@@ -57,17 +57,16 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Docker consolidated from 5 dashboard containers to 1 — v1.3
 - ✓ Addon premium aggregation in all KPI endpoints and client socket patches — v1.3
 - ✓ Sales board CORS fix and error logging — v1.3
+- ✓ State-aware bundle commission: configurable required/fallback addon per state, half commission when unmet — v1.4
+- ✓ Bundle requirement config UI in payroll Products tab (primary product, state availability, fallback) — v1.4
+- ✓ Client state field on sales entry form with US state dropdown — v1.4
+- ✓ Commission engine dual-path: state-aware bundle check + legacy isBundleQualifier — v1.4
+- ✓ Halving reason display on payroll entries — v1.4
+- ✓ Role dashboard selector 400ms collapse delay fix — v1.4
 
 ### Active
 
-<!-- Current milestone: v1.4 State-Aware Bundle Requirements -->
-
-- State-aware bundle commission: configurable required addon per state, fallback addon for unavailable states, half commission when required addon missing
-- Bundle requirement config UI in payroll Products tab (primary product, state availability, fallback product)
-- Client state field on sales entry form
-- Commission engine respects client state → required addon → full/half commission
-- Role dashboard selector delay fix (collapses too fast)
-- Remove seed agents from database seed (Amy, Bob, Cara, David, Elena)
+<!-- No active requirements — v1.4 complete -->
 
 ### Out of Scope
 
@@ -80,21 +79,16 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - AI scoring dashboard with trend analysis — deferred from v1.2
 - Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
 
-## Current Milestone: v1.4 State-Aware Bundle Requirements
+## Current Milestone: v1.4 State-Aware Bundle Requirements (Complete)
 
 **Goal:** Make bundle commission requirements configurable per state with primary/fallback addon logic, plus UI and data fixes.
 
-**Target features:**
-- State-aware bundle commission with configurable primary/fallback addons per state
-- Bundle requirement config UI in payroll Products tab
-- Client state on sales entry, commission engine uses it for bundle qualification
-- Role dashboard selector delay fix
-- Remove seed agents from database
+**Status:** Complete — Phase 20 shipped 2026-03-23
 
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19) + v1.3 Dashboard Consolidation (2026-03-23)
-**Total:** 19 phases, 64 plans, 133 requirements across 10 days
+**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19) + v1.3 Dashboard Consolidation (2026-03-23) + v1.4 State-Aware Bundles (2026-03-23)
+**Total:** 20 phases, 69 plans, 147 requirements across 10 days
 **LOC:** ~124,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
@@ -154,4 +148,4 @@ Shipped 4 milestones in 10 days (19 phases, 64 plans). Tech stack: Next.js 15, E
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-23 after v1.4 milestone started*
+*Last updated: 2026-03-23 after v1.4 milestone complete*
