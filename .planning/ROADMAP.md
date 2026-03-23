@@ -55,7 +55,7 @@
 
 ### v1.4 State-Aware Bundle Requirements (Phase 20)
 
-- [ ] **Phase 20: State-Aware Bundle Requirements** - Schema, commission engine, API routes, config UI, sales entry integration, and housekeeping fixes
+- [x] **Phase 20: State-Aware Bundle Requirements** - Schema, commission engine, API routes, config UI, sales entry integration, and housekeeping fixes (completed 2026-03-23)
 
 ## Phase Details
 
@@ -77,7 +77,7 @@
   11. Sales entry form includes US state dropdown populating memberState
   12. Role dashboard selector has configurable delay before collapsing
   13. Database seed script no longer creates Amy, Bob, Cara, David, or Elena
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 20-01-PLAN.md -- Schema migration (Product FKs, ProductStateAvailability, PayrollEntry halvingReason) + US_STATES constant + FIX-02 verification
@@ -109,7 +109,7 @@ Plans:
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
-| 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
+| 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete    | 2026-03-23 |
 
 ---
 *Roadmap created: 2026-03-14*
