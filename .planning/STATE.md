@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: State-Aware Bundle Requirements
 status: Executing Phase 20
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-23T19:44:00Z"
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-03-23T19:55:00Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 20 (State-Aware Bundle Requirements) -- EXECUTING
-Plan: 2 of 5
-Status: Plan 20-01 complete (schema migration + US_STATES constant)
-Last activity: 2026-03-23 -- 20-01-PLAN.md executed (2 tasks, 4 files)
+Plan: 3 of 5
+Status: Plan 20-02 complete (state-aware commission engine)
+Last activity: 2026-03-23 -- 20-02-PLAN.md executed (1 task, 4 files)
 
 ```
 [====================] v1.0 (10/10 phases)
@@ -69,6 +69,8 @@ Last activity: 2026-03-23 -- 20-01-PLAN.md executed (2 tasks, 4 files)
 | Manual migration SQL (no live DB) | Worktree environment has no PostgreSQL; SQL written manually to match Prisma output |
 | US_STATES in @ops/types | Co-locates StateCode type with AppRole and SessionUser |
 | FIX-02 confirmed no-op | No seed agents (Amy/Bob/Cara/David/Elena) exist in codebase |
+| Fixed pre-existing VAB premium test expectations | Tests stale since 3e3e6bc; updated to match actual bundlePremium calculation |
+| handleSaleEditApproval delegates to upsert | upsertPayrollEntryForSale already resolves bundle context; no direct calculateCommission call needed |
 
 ### Open Questions
 
