@@ -33,10 +33,10 @@ Requirements for Dashboard Consolidation & Uniform Date Ranges. Each maps to roa
 
 ### Deployment
 
-- [ ] **DEPLOY-01**: CORS config updated for single unified app origin (ops-api, docker-compose, Railway)
-- [ ] **DEPLOY-02**: Docker configuration updated for unified app (replaces 5 separate containers)
-- [ ] **DEPLOY-03**: Old standalone dashboard app directories removed after migration verified
-- [ ] **DEPLOY-04**: Sales board remains standalone and fully functional
+- [x] **DEPLOY-01**: CORS config updated for single unified app origin (ops-api, docker-compose, Railway)
+- [x] **DEPLOY-02**: Docker configuration updated for unified app (replaces 5 separate containers)
+- [x] **DEPLOY-03**: Old standalone dashboard app directories removed after migration verified
+- [x] **DEPLOY-04**: Sales board remains standalone and fully functional
 
 ## Future Requirements
 
@@ -89,10 +89,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DR-04 | Phase 19 | Complete |
 | DR-05 | Phase 19 | Complete |
 | DR-06 | Phase 19 | Complete |
-| DEPLOY-01 | Phase 19 | Pending |
-| DEPLOY-02 | Phase 19 | Pending |
-| DEPLOY-03 | Phase 19 | Pending |
-| DEPLOY-04 | Phase 19 | Pending |
+| DEPLOY-01 | Phase 19 | Complete |
+| DEPLOY-02 | Phase 19 | Complete |
+| DEPLOY-03 | Phase 19 | Complete |
+| DEPLOY-04 | Phase 19 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 19 total
