@@ -60,9 +60,14 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- Next milestone: TBD -->
+<!-- Current milestone: v1.4 State-Aware Bundle Requirements -->
 
-(No active requirements — start next milestone with `/gsd:new-milestone`)
+- State-aware bundle commission: configurable required addon per state, fallback addon for unavailable states, half commission when required addon missing
+- Bundle requirement config UI in payroll Products tab (primary product, state availability, fallback product)
+- Client state field on sales entry form
+- Commission engine respects client state → required addon → full/half commission
+- Role dashboard selector delay fix (collapses too fast)
+- Remove seed agents from database seed (Amy, Bob, Cara, David, Elena)
 
 ### Out of Scope
 
@@ -74,6 +79,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Data archival with restore capability — beyond simple CSV export (deferred from v1.2)
 - AI scoring dashboard with trend analysis — deferred from v1.2
 - Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
+
+## Current Milestone: v1.4 State-Aware Bundle Requirements
+
+**Goal:** Make bundle commission requirements configurable per state with primary/fallback addon logic, plus UI and data fixes.
+
+**Target features:**
+- State-aware bundle commission with configurable primary/fallback addons per state
+- Bundle requirement config UI in payroll Products tab
+- Client state on sales entry, commission engine uses it for bundle qualification
+- Role dashboard selector delay fix
+- Remove seed agents from database
 
 ## Current State
 
@@ -138,4 +154,4 @@ Shipped 4 milestones in 10 days (19 phases, 64 plans). Tech stack: Next.js 15, E
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-23 after v1.3 milestone*
+*Last updated: 2026-03-23 after v1.4 milestone started*

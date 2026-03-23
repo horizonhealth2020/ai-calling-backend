@@ -1,40 +1,42 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Dashboard Consolidation & Uniform Date Ranges
-status: v1.3 milestone complete
-stopped_at: Completed 19-07-PLAN.md
-last_updated: "2026-03-23T17:17:49.327Z"
+milestone: v1.4
+milestone_name: State-Aware Bundle Requirements
+status: Defining requirements
+stopped_at: null
+last_updated: "2026-03-23"
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-19)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 19 — dashboard-consolidation-uniform-date-ranges
+**Current focus:** Defining requirements for v1.4
 
 ## Current Position
 
-Phase: 19
-Plan: Not started
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-23 — Milestone v1.4 started
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 3 (v1.0, v1.1, v1.2) |
-| Total phases | 19 (18 complete, 1 pending) |
-| Total plans | 54 (all complete from prior milestones) |
-| Total requirements | 133 (114 prior + 19 v1.3) |
-| Timeline | 6 days shipped (2026-03-14 to 2026-03-19) |
+| Milestones shipped | 4 (v1.0, v1.1, v1.2, v1.3) |
+| Total phases | 19 (all complete) |
+| Total plans | 64 (all complete) |
+| Total requirements | 133 |
+| Timeline | 10 days shipped (2026-03-14 to 2026-03-23) |
 
 ## Accumulated Context
 
@@ -66,12 +68,6 @@ Plan: Not started
 | Replaced OwnerOverview RangePicker with DateRangeFilter | Uniform KPI_PRESETS across all dashboards |
 | getAgentRetentionKpis accepts optional dateWindow | Backward compatible -- defaults to 30-day rolling window |
 
-### Research Flags (from SUMMARY.md)
-
-- **Phase 25 (Date Range):** Each KPI endpoint in ops-api needs audit to confirm which are date-range-blind before wiring the filter
-- **Phase 20 (SocketProvider):** Confirm useSocket hook in @ops/socket stays backward-compatible for sales-board before adding provider pattern
-- **Phase 19 (Auth):** RESOLVED in 19-02 -- decodeTokenPayload now exported from @ops/auth/client
-
 ### Open Questions
 
 - (none currently)
@@ -80,12 +76,6 @@ Plan: Not started
 
 None currently.
 
-## Session Continuity
-
-**Last session:** 2026-03-19T19:35:00.000Z
-**Stopped at:** Completed 19-07-PLAN.md
-**Next action:** Execute 19-08-PLAN.md (Final integration verification / cleanup)
-
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-19*
+*Last updated: 2026-03-23*
