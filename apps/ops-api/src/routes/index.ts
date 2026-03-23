@@ -260,7 +260,13 @@ router.delete("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_AD
   return res.status(204).end();
 }));
 
-router.get("/products", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.product.findMany())));
+router.get("/products", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.product.findMany({
+  include: {
+    requiredBundleAddon: { select: { id: true, name: true } },
+    fallbackBundleAddon: { select: { id: true, name: true } },
+    stateAvailability: { select: { stateCode: true } },
+  },
+}))));
 
 router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
@@ -273,6 +279,8 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
     standaloneCommission: z.number().min(0).max(100).nullable().optional(),
     enrollFeeThreshold: z.number().min(0).nullable().optional(),
     notes: z.string().optional(),
+    requiredBundleAddonId: z.string().nullable().optional(),
+    fallbackBundleAddonId: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -298,6 +306,8 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     standaloneCommission: z.number().min(0).max(100).nullable().optional(),
     enrollFeeThreshold: z.number().min(0).nullable().optional(),
     notes: z.string().nullable().optional(),
+    requiredBundleAddonId: z.string().nullable().optional(),
+    fallbackBundleAddonId: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -314,6 +324,41 @@ router.delete("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
   await prisma.product.update({ where: { id: req.params.id }, data: { active: false } });
   await logAudit(req.user!.id, "DELETE", "Product", req.params.id);
   return res.status(204).end();
+}));
+
+router.get("/products/:id/state-availability", requireAuth, asyncHandler(async (req, res) => {
+  const entries = await prisma.productStateAvailability.findMany({
+    where: { productId: req.params.id },
+    select: { stateCode: true },
+    orderBy: { stateCode: "asc" },
+  });
+  res.json(entries.map(e => e.stateCode));
+}));
+
+router.put("/products/:id/state-availability", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    stateCodes: z.array(z.string().length(2).regex(/^[A-Z]{2}$/)).max(51),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  // Verify product exists
+  const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+  if (!product) return res.status(404).json({ error: "Product not found" });
+
+  await prisma.$transaction([
+    prisma.productStateAvailability.deleteMany({ where: { productId: req.params.id } }),
+    prisma.productStateAvailability.createMany({
+      data: parsed.data.stateCodes.map(sc => ({ productId: req.params.id, stateCode: sc })),
+    }),
+  ]);
+
+  const result = await prisma.productStateAvailability.findMany({
+    where: { productId: req.params.id },
+    select: { stateCode: true },
+    orderBy: { stateCode: "asc" },
+  });
+  res.json(result.map(e => e.stateCode));
 }));
 
 router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
