@@ -62,26 +62,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUNDLE-01 | — | Pending |
-| BUNDLE-02 | — | Pending |
-| BUNDLE-03 | — | Pending |
-| BUNDLE-04 | — | Pending |
-| BUNDLE-05 | — | Pending |
-| BUNDLE-06 | — | Pending |
-| BUNDLE-07 | — | Pending |
-| BUNDLE-08 | — | Pending |
-| CFG-01 | — | Pending |
-| CFG-02 | — | Pending |
-| CFG-03 | — | Pending |
-| SALE-01 | — | Pending |
-| FIX-01 | — | Pending |
-| FIX-02 | — | Pending |
+| BUNDLE-01 | Phase 20 | Pending |
+| BUNDLE-02 | Phase 20 | Pending |
+| BUNDLE-03 | Phase 20 | Pending |
+| BUNDLE-04 | Phase 20 | Pending |
+| BUNDLE-05 | Phase 20 | Pending |
+| BUNDLE-06 | Phase 20 | Pending |
+| BUNDLE-07 | Phase 21 | Pending |
+| BUNDLE-08 | Phase 20 | Pending |
+| CFG-01 | Phase 22 | Pending |
+| CFG-02 | Phase 22 | Pending |
+| CFG-03 | Phase 22 | Pending |
+| SALE-01 | Phase 23 | Pending |
+| FIX-01 | Phase 24 | Pending |
+| FIX-02 | Phase 24 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after initial definition*
+*Last updated: 2026-03-23 after roadmap creation*
