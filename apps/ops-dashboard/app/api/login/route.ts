@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   }
 
   const loginUrl = `${opsApiUrl}/api/auth/login`;
-  console.log("[login] Calling ops-api:", loginUrl, "for email:", email);
+  console.log("[login] Calling ops-api:", loginUrl, "for email:", email, "password length:", password?.length);
 
   let response: globalThis.Response;
   try {
