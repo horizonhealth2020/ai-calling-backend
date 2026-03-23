@@ -565,11 +565,10 @@ export function PageShell({
             </div>
           )}
 
-          {headerRight && (
-            <div style={{ display: "flex", alignItems: "center", gap: spacing[3], flexShrink: 0 }}>
-              {headerRight}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: spacing[3], flexShrink: 0, marginLeft: "auto" }}>
+            {headerRight}
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Page content */}
