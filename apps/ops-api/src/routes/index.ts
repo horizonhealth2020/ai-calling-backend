@@ -312,7 +312,15 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
-    const product = await prisma.product.update({ where: { id: req.params.id }, data: parsed.data });
+    const product = await prisma.product.update({
+      where: { id: req.params.id },
+      data: parsed.data,
+      include: {
+        requiredBundleAddon: { select: { id: true, name: true } },
+        fallbackBundleAddon: { select: { id: true, name: true } },
+        stateAvailability: { select: { stateCode: true } },
+      },
+    });
     res.json(product);
   } catch (e: any) {
     if (e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
