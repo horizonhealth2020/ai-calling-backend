@@ -15,7 +15,7 @@ Requirements for milestone v1.4. Each maps to roadmap phases.
 - [ ] **BUNDLE-04**: Admin can configure multiple fallback tiers per state
 - [x] **BUNDLE-05**: Commission engine resolves required addon by client state (primary → fallback → legacy isBundleQualifier)
 - [x] **BUNDLE-06**: Half commission applied when required addon missing, with reason stored
-- [ ] **BUNDLE-07**: Payroll entry displays halving reason when commission was reduced
+- [x] **BUNDLE-07**: Payroll entry displays halving reason when commission was reduced
 - [x] **BUNDLE-08**: Existing sales without memberState continue working via legacy fallback
 
 ### Config UI
@@ -26,11 +26,11 @@ Requirements for milestone v1.4. Each maps to roadmap phases.
 
 ### Sales Entry
 
-- [ ] **SALE-01**: Sales entry form includes client state dropdown (US states)
+- [x] **SALE-01**: Sales entry form includes client state dropdown (US states)
 
 ### Housekeeping
 
-- [ ] **FIX-01**: Role dashboard selector has configurable delay before collapsing
+- [x] **FIX-01**: Role dashboard selector has configurable delay before collapsing
 - [x] **FIX-02**: Seed agents (Amy, Bob, Cara, David, Elena) removed from database seed
 
 ## Future Requirements
@@ -68,13 +68,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUNDLE-04 | Phase 20 | Pending |
 | BUNDLE-05 | Phase 20 | Complete |
 | BUNDLE-06 | Phase 20 | Complete |
-| BUNDLE-07 | Phase 20 | Pending |
+| BUNDLE-07 | Phase 20 | Complete |
 | BUNDLE-08 | Phase 20 | Complete |
 | CFG-01 | Phase 20 | Pending |
 | CFG-02 | Phase 20 | Pending |
 | CFG-03 | Phase 20 | Pending |
-| SALE-01 | Phase 20 | Pending |
-| FIX-01 | Phase 20 | Pending |
+| SALE-01 | Phase 20 | Complete |
+| FIX-01 | Phase 20 | Complete |
 | FIX-02 | Phase 20 | Complete |
 
 **Coverage:**

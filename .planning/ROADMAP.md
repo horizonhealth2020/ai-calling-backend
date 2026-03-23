@@ -84,7 +84,7 @@ Plans:
 - [ ] 20-02-PLAN.md -- Commission engine (resolveBundleRequirement, modified calculateCommission, updated callers, new tests)
 - [x] 20-03-PLAN.md -- API routes (product PATCH/GET extension, state-availability PUT/GET endpoints)
 - [ ] 20-04-PLAN.md -- Config UI (CORE bundle requirement section, ADDON state availability section, completeness indicator)
-- [ ] 20-05-PLAN.md -- Sales entry state dropdown, payroll halving reason display, role selector delay fix
+- [x] 20-05-PLAN.md -- Sales entry state dropdown, payroll halving reason display, role selector delay fix
 
 ## Progress
 
@@ -109,7 +109,7 @@ Plans:
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
-| 20. State-Aware Bundle Requirements | v1.4 | 3/5 | In progress | - |
+| 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
 
 ---
 *Roadmap created: 2026-03-14*
