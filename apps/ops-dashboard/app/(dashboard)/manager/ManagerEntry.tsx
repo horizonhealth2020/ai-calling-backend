@@ -19,6 +19,7 @@ import {
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
+import { US_STATES } from "@ops/types";
 import {
   Plus,
   Check,
@@ -492,7 +493,12 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
           <div className="animate-fade-in-up stagger-3">
             <label style={LBL}>Member State</label>
-            <input className="input-focus" style={baseInputStyle} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
+            <select className="input-focus" style={{ ...baseInputStyle, height: 42 }}
+              value={form.memberState}
+              onChange={e => setForm(f => ({ ...f, memberState: e.target.value }))}>
+              <option value="">Select state...</option>
+              {US_STATES.map(s => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
+            </select>
           </div>
           <div className="animate-fade-in-up stagger-3">
             <Input label="Sale Date" error={fieldErrors.saleDate} type="date" value={form.saleDate} required onChange={e => { setForm(f => ({ ...f, saleDate: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.saleDate; return n; }); }} />

@@ -62,6 +62,16 @@ function DashboardInner({ tabs, children }: { tabs: TabConfig[]; children: React
   const pathname = usePathname();
   const { disconnected } = useSocketContext();
   const [hovered, setHovered] = useState(false);
+  const [delayedHovered, setDelayedHovered] = useState(false);
+
+  useEffect(() => {
+    if (hovered) {
+      setDelayedHovered(true);
+    } else {
+      const timer = setTimeout(() => setDelayedHovered(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [hovered]);
 
   const activeTab = tabs.find((t) => pathname.startsWith(t.path));
 
@@ -70,7 +80,7 @@ function DashboardInner({ tabs, children }: { tabs: TabConfig[]; children: React
     window.location.href = "/";
   }
 
-  const expanded = hovered || !activeTab;
+  const expanded = delayedHovered || !activeTab;
 
   return (
     <>

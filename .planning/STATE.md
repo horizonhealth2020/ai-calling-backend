@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: State-Aware Bundle Requirements
 status: Executing Phase 20
-stopped_at: Completed 20-04-PLAN.md
-last_updated: "2026-03-23T20:10:00Z"
+stopped_at: Completed 20-05-PLAN.md
+last_updated: "2026-03-23T20:18:00Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 5
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 20 (State-Aware Bundle Requirements) -- EXECUTING
-Plan: 5 of 5
-Status: Plans 20-01 through 20-04 complete (schema + commission engine + API routes + config UI)
-Last activity: 2026-03-23 -- Wave 3 executed (20-04: 1 task, 3 files)
+Plan: 5 of 5 (COMPLETE)
+Status: All plans complete
+Last activity: 2026-03-23 -- Wave 3 executed (20-05: 3 tasks, 3 files)
 
 ```
 [====================] v1.0 (10/10 phases)
@@ -73,8 +73,9 @@ Last activity: 2026-03-23 -- Wave 3 executed (20-04: 1 task, 3 files)
 | handleSaleEditApproval delegates to upsert | upsertPayrollEntryForSale already resolves bundle context; no direct calculateCommission call needed |
 | GET /products includes bundle relations | Config UI needs requiredBundleAddon, fallbackBundleAddon, stateAvailability data |
 | State availability returns flat array | Simpler client consumption than returning objects |
-| PATCH /products/:id includes bundle relations | Prevents UI state loss after save; matches GET response shape |
-| @ops/types in ops-dashboard transpilePackages | Required for US_STATES import in Next.js module resolution |
+| US_STATES dropdown replaces free-text memberState | Better data quality, consistent 2-char codes |
+| C.warning color for halving reason | Amber tone, consistent with other payroll warnings |
+| 400ms role selector delay | Prevents premature collapse on mouse leave |
 
 ### Open Questions
 
