@@ -7,7 +7,7 @@ import { SocketProvider, useSocketContext } from "@/lib/SocketProvider";
 import { DateRangeProvider } from "@/lib/DateRangeContext";
 import { getTabsForRoles, type TabConfig } from "@/lib/roles";
 import { decodeRolesFromToken } from "@/lib/auth";
-import { getToken, clearToken } from "@ops/auth/client";
+import { getToken, clearToken, captureTokenFromUrl } from "@ops/auth/client";
 import { colors, spacing, radius, typography, motion } from "@ops/ui";
 
 /* -- Styles -- */
@@ -132,7 +132,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [tabs, setTabs] = useState<TabConfig[]>([]);
 
   useEffect(() => {
-    const token = getToken();
+    const token = captureTokenFromUrl() || getToken();
     if (token) {
       const roles = decodeRolesFromToken(token);
       setTabs(getTabsForRoles(roles));

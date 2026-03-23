@@ -42,12 +42,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  // If session_token in URL params: capture into cookie and redirect without param
+  // If session_token in URL params: set cookie but let the page load WITH the token
+  // in the URL so client-side captureTokenFromUrl() can save it to localStorage.
+  // The client code will clean the URL itself via history.replaceState.
   if (searchParams.has("session_token")) {
-    const cleanUrl = new URL(request.url);
-    cleanUrl.searchParams.delete("session_token");
-
-    const response = NextResponse.redirect(cleanUrl);
+    const response = NextResponse.next();
     response.cookies.set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
