@@ -17,17 +17,15 @@ COPY prisma ./prisma
 # Install
 RUN npm ci --include-workspace-root
 
-# Bust cache on any source change
-ARG CACHE_BUST=1
-COPY packages ./packages
-COPY apps/ops-dashboard ./apps/ops-dashboard
+# Copy ALL source (no selective caching — ensures fresh build every deploy)
+COPY . .
 
 # Build args baked into Next.js at build time
-ARG NEXT_PUBLIC_OPS_API_URL=http://localhost:8080
+ARG NEXT_PUBLIC_OPS_API_URL
 ENV NEXT_PUBLIC_OPS_API_URL=${NEXT_PUBLIC_OPS_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build --workspace=apps/ops-dashboard
+RUN echo "Building with API URL: ${NEXT_PUBLIC_OPS_API_URL}" && npm run build --workspace=apps/ops-dashboard
 
 # Runtime
 ENV NODE_ENV=production
