@@ -1,6 +1,6 @@
 export async function POST(req: Request) {
   const body = await req.json();
-  const opsApiUrl = process.env.NEXT_PUBLIC_OPS_API_URL;
+  const opsApiUrl = process.env.OPS_API_INTERNAL_URL || process.env.NEXT_PUBLIC_OPS_API_URL;
 
   if (!opsApiUrl) {
     return Response.json({ error: "Server misconfiguration: API URL not set" }, { status: 500 });

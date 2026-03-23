@@ -17,7 +17,7 @@ COPY prisma ./prisma
 # Install
 RUN npm ci --include-workspace-root
 
-# Copy source
+# Bust cache on any source change
 COPY packages ./packages
 COPY apps/ops-dashboard ./apps/ops-dashboard
 
