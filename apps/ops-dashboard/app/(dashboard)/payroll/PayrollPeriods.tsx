@@ -26,6 +26,7 @@ type SaleInfo = {
 type Entry = {
   id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number;
   frontedAmount: number; holdAmount: number; netAmount: number; status: string;
+  halvingReason?: string | null;
   sale?: SaleInfo; agent?: { name: string };
 };
 type BonusCategory = { name: string; isDeduction: boolean };
@@ -369,6 +370,11 @@ function EditableSaleRow({
         <span style={{ color: C.textPrimary, fontWeight: 700 }}>
           {formatDollar(Number(entry.payoutAmount))}
         </span>
+        {entry.halvingReason && (
+          <div style={{ fontSize: 11, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
+            {entry.halvingReason}
+          </div>
+        )}
       </td>
 
       {/* Actions */}
