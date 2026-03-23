@@ -18,6 +18,7 @@ COPY prisma ./prisma
 RUN npm ci --include-workspace-root
 
 # Bust cache on any source change
+ARG CACHE_BUST=1
 COPY packages ./packages
 COPY apps/ops-dashboard ./apps/ops-dashboard
 

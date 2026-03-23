@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   console.log("[middleware] Verifying token, length:", token.length, "starts:", token.substring(0, 20));
   const user = verifySessionToken(token);
   if (!user) {
-    console.error("[middleware] Token verification FAILED. AUTH_JWT_SECRET set:", !!process.env[["AUTH","JWT","SECRET"].join("_")]);
+    console.error("[middleware] Token verification FAILED. SECRET set:", !!process.env[["AUTH","JWT","SECRET"].join("_")], "KEY set:", !!process.env.AUTH_JWT_KEY);
     return NextResponse.redirect(new URL("/", request.url));
   }
   console.log("[middleware] Token verified for:", user.email, "roles:", user.roles);
