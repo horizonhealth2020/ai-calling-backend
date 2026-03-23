@@ -383,10 +383,13 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     highlightCard("salesCount");
     highlightCard("premiumTotal");
 
+    const addonPrem = (payload.sale as any).addons?.reduce((s: number, a: any) => s + Number(a.premium ?? 0), 0) ?? 0;
+    const totalPrem = payload.sale.premium + addonPrem;
+
     setSummary(prev => prev ? {
       ...prev,
       salesCount: (prev.salesCount || 0) + 1,
-      premiumTotal: (prev.premiumTotal || 0) + payload.sale.premium,
+      premiumTotal: (prev.premiumTotal || 0) + totalPrem,
     } : prev);
 
     setTracker(prev => {
@@ -396,13 +399,13 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
         return prev.map(t => t.agent === agentName ? {
           ...t,
           salesCount: t.salesCount + 1,
-          premiumTotal: t.premiumTotal + payload.sale.premium,
+          premiumTotal: t.premiumTotal + totalPrem,
         } : t);
       }
       return [...prev, {
         agent: agentName,
         salesCount: 1,
-        premiumTotal: payload.sale.premium,
+        premiumTotal: totalPrem,
         totalLeadCost: 0,
         costPerSale: 0,
         commissionTotal: 0,

@@ -381,7 +381,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       )}
 
       {[...byAgent.entries()].map(([agentName, sales], agentIdx) => {
-        const premiumTotal = sales.reduce((s, x) => s + Number(x.premium), 0);
+        const premiumTotal = sales.reduce((s, x) => s + Number(x.premium ?? 0) + ((x as any).addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
         return (
           <Card key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${colors.borderSubtle}`, flexWrap: "wrap", gap: 8 }}>
