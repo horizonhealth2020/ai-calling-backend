@@ -41,6 +41,7 @@ export default function CSPage() {
 
   return (
     <PageShell
+      compact
       title="Customer Service"
       subtitle="Chargebacks & Pending Terms"
       navItems={navItems}

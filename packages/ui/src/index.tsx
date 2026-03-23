@@ -21,6 +21,8 @@ export interface PageShellProps {
   onNavChange?: (key: string) => void;
   headerRight?: React.ReactNode;
   children: React.ReactNode;
+  /** Render nav as horizontal pills in topbar instead of sidebar */
+  compact?: boolean;
 }
 
 /* ── Static style constants ────────────────────────────────────── */
@@ -454,6 +456,7 @@ export function PageShell({
   onNavChange,
   headerRight,
   children,
+  compact = false,
 }: PageShellProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -513,6 +516,65 @@ export function PageShell({
             ))}
           </nav>
         )}
+      </div>
+    );
+  }
+
+  /* ── Compact layout (horizontal pills, no sidebar) ─────────── */
+
+  if (compact) {
+    return (
+      <div style={{ fontFamily: typography.fontSans, minHeight: "100vh", background: colors.bgRoot, color: colors.textPrimary }}>
+        {/* Top bar with title + horizontal nav */}
+        <div style={TOPBAR}>
+          <div style={TOPBAR_LEFT}>
+            <h1 style={PAGE_TITLE}>{title}</h1>
+            {subtitle && <span style={PAGE_SUBTITLE}>{subtitle}</span>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing[3], flexShrink: 0 }}>
+            {headerRight}
+          </div>
+        </div>
+
+        {/* Horizontal nav pills */}
+        {navItems.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: spacing[1], padding: `${spacing[2]}px ${spacing[6]}px`, borderBottom: `1px solid ${colors.borderSubtle}`, background: colors.bgSurface }}>
+            {navItems.map((item) => {
+              const isActive = activeNav === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => onNavChange?.(item.key)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: spacing[2],
+                    padding: `${spacing[2]}px ${spacing[4]}px`,
+                    borderRadius: radius.full,
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: typography.sizes.sm.fontSize,
+                    fontWeight: isActive ? typography.weights.semibold : typography.weights.medium,
+                    color: isActive ? colors.primary400 : colors.textTertiary,
+                    background: isActive ? `color-mix(in srgb, ${colors.primary500} 15%, transparent)` : "transparent",
+                    transition: `background ${motion.duration.fast} ${motion.easing.out}, color ${motion.duration.fast} ${motion.easing.out}`,
+                  }}
+                >
+                  {item.icon}
+                  {item.label}
+                  {item.badge != null && item.badge > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: typography.weights.bold, background: colors.primary500, color: "#fff", borderRadius: radius.full, padding: "1px 6px", minWidth: 18, textAlign: "center" }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Page content */}
+        <main style={MAIN_CONTENT}>{children}</main>
       </div>
     );
   }

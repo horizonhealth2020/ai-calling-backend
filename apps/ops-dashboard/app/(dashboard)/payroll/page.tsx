@@ -250,6 +250,7 @@ function PayrollInner() {
   if (loading) {
     return (
       <PageShell
+        compact
         title="Payroll Dashboard"
         subtitle="Loading data..."
         navItems={NAV_ITEMS}
@@ -263,6 +264,7 @@ function PayrollInner() {
 
   return (
     <PageShell
+      compact
       title="Payroll Dashboard"
       subtitle="Commission, payroll periods & service management"
       navItems={navItemsWithBadges}

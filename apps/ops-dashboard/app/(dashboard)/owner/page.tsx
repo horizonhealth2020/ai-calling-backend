@@ -68,6 +68,7 @@ function OwnerPageInner() {
 
   return (
     <PageShell
+      compact
       title="Owner Dashboard"
       subtitle={subtitleMap[activeTab]}
       navItems={navItems}

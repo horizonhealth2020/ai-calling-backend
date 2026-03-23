@@ -166,7 +166,7 @@ function ManagerPageInner() {
 
   if (loading) {
     return (
-      <PageShell title="Manager Dashboard" navItems={NAV_ITEMS} activeNav={activeTab} onNavChange={k => setActiveTab(k as Tab)}>
+      <PageShell compact title="Manager Dashboard" navItems={NAV_ITEMS} activeNav={activeTab} onNavChange={k => setActiveTab(k as Tab)}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[1, 2, 3].map(i => <SkeletonCard key={i} height={64} />)}
         </div>
@@ -176,6 +176,7 @@ function ManagerPageInner() {
 
   return (
     <PageShell
+      compact
       title="Manager Dashboard"
       subtitle="Sales operations and team management"
       navItems={NAV_ITEMS}
