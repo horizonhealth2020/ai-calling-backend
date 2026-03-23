@@ -502,6 +502,7 @@ router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
     where,
     include: {
       agent: true, product: true, leadSource: true,
+      addons: { select: { id: true, productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } },
       _count: {
         select: {
           statusChangeRequests: { where: { status: 'PENDING' } },
@@ -820,7 +821,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const [data, allLeadSources, callLogs, commissionByAgent] = await Promise.all([
     prisma.agent.findMany({
       where: { active: true },
-      include: { sales: { where: salesWhere } },
+      include: { sales: { where: salesWhere, include: { addons: { select: { premium: true } } } } },
     }),
     prisma.leadSource.findMany({ select: { id: true, costPerLead: true, callBufferSeconds: true } }),
     prisma.convosoCallLog.findMany({ where: callWhere, select: { agentId: true, leadSourceId: true, callDurationSeconds: true } }),
@@ -852,7 +853,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
 
   const summary = data.map((agent) => {
     const salesCount = agent.sales.length;
-    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium), 0);
+    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + ((s as any).addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     const totalLeadCost = agentLeadCost.get(agent.id) ?? 0;
     return {
       agent: agent.name,
@@ -1196,13 +1197,14 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
   async function fetchSummaryData(range: { gte: Date; lt: Date } | undefined) {
     const saleWhere = range ? { status: 'RAN' as const, saleDate: { gte: range.gte, lt: range.lt } } : { status: 'RAN' as const };
     const clawbackWhere = range ? { createdAt: { gte: range.gte, lt: range.lt } } : {};
-    const [salesCount, premiumAgg, clawbacks, openPayrollPeriods] = await Promise.all([
+    const [salesCount, salesForPremium, clawbacks, openPayrollPeriods] = await Promise.all([
       prisma.sale.count({ where: saleWhere }),
-      prisma.sale.aggregate({ _sum: { premium: true }, where: saleWhere }),
+      prisma.sale.findMany({ where: saleWhere, select: { premium: true, addons: { select: { premium: true } } } }),
       prisma.clawback.count({ where: clawbackWhere }),
       prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
     ]);
-    return { salesCount, premiumTotal: Number(premiumAgg._sum.premium ?? 0), clawbacks, openPayrollPeriods };
+    const premiumTotal = salesForPremium.reduce((sum: number, s: any) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    return { salesCount, premiumTotal, clawbacks, openPayrollPeriods };
   }
 
   const priorWeekDr = dr ? shiftRange(dr, 7) : undefined;
@@ -1230,7 +1232,7 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
     const periods = await prisma.payrollPeriod.findMany({
       include: {
         entries: {
-          include: { sale: { select: { premium: true, status: true } } },
+          include: { sale: { select: { premium: true, status: true, addons: { select: { premium: true } } } } },
         },
       },
       orderBy: { weekStart: "desc" },
@@ -1241,7 +1243,7 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
       return {
         period: `${p.weekStart.toISOString().slice(0, 10)} - ${p.weekEnd.toISOString().slice(0, 10)}`,
         salesCount: ranEntries.length,
-        premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0), 0),
+        premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0) + ((e.sale as any)?.addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0),
         commissionPaid: ranEntries.reduce((s, e) => s + Number(e.netAmount), 0),
         periodStatus: p.status,
       };
@@ -1253,11 +1255,12 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
   const monthlySales = await prisma.$queryRaw`
     SELECT
       TO_CHAR(s.sale_date, 'YYYY-MM') as period,
-      COUNT(*)::int as "salesCount",
-      COALESCE(SUM(s.premium), 0)::float as "premiumTotal",
+      COUNT(DISTINCT s.id)::int as "salesCount",
+      COALESCE(SUM(s.premium), 0)::float + COALESCE(SUM(sa.premium), 0)::float as "premiumTotal",
       COALESCE(SUM(pe.net_amount), 0)::float as "commissionPaid"
     FROM sales s
     LEFT JOIN payroll_entries pe ON pe.sale_id = s.id
+    LEFT JOIN sale_addons sa ON sa.sale_id = s.id
     WHERE s.status = 'RAN'
     GROUP BY TO_CHAR(s.sale_date, 'YYYY-MM')
     ORDER BY period DESC
@@ -1269,13 +1272,28 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
 router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
   const agentMap = new Map(agents.map((a) => [a.id, a.name]));
-  const [daily, weekly] = await Promise.all([
-    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { status: 'RAN', saleDate: { gte: new Date(Date.now() - 86400000) } } }),
-    prisma.sale.groupBy({ by: ["agentId"], _count: { id: true }, _sum: { premium: true }, where: { status: 'RAN', saleDate: { gte: new Date(Date.now() - 7 * 86400000) } } }),
-  ]);
-  const fmt = (rows: typeof daily) =>
-    rows
-      .map((r) => ({ agent: agentMap.get(r.agentId) ?? r.agentId, count: r._count.id, premium: Number(r._sum.premium ?? 0) }))
+  const cutoff24h = new Date(Date.now() - 86400000);
+  const cutoff7d = new Date(Date.now() - 7 * 86400000);
+  const allSales = await prisma.sale.findMany({
+    where: { status: 'RAN', saleDate: { gte: cutoff7d } },
+    select: { agentId: true, saleDate: true, premium: true, addons: { select: { premium: true } } },
+  });
+  const daily: Record<string, { count: number; premium: number }> = {};
+  const weekly: Record<string, { count: number; premium: number }> = {};
+  for (const s of allSales) {
+    const name = agentMap.get(s.agentId) ?? s.agentId;
+    const totalPrem = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    if (!weekly[name]) weekly[name] = { count: 0, premium: 0 };
+    weekly[name].count++;
+    weekly[name].premium += totalPrem;
+    if (s.saleDate >= cutoff24h) {
+      if (!daily[name]) daily[name] = { count: 0, premium: 0 };
+      daily[name].count++;
+      daily[name].premium += totalPrem;
+    }
+  }
+  const fmt = (map: Record<string, { count: number; premium: number }>) =>
+    Object.entries(map).map(([agent, v]) => ({ agent, count: v.count, premium: v.premium }))
       .sort((a, b) => b.count - a.count);
   res.json({ daily: fmt(daily), weekly: fmt(weekly) });
 }));
