@@ -137,6 +137,19 @@ model Product {
   isBundleQualifier    Boolean     @default(false) @map("is_bundle_qualifier")
   enrollFeeThreshold   Decimal?    @map("enroll_fee_threshold") @db.Decimal(10, 2)
   notes                String?
+
+  requiredBundleAddonId  String?  @map("required_bundle_addon_id")
+  fallbackBundleAddonId  String?  @map("fallback_bundle_addon_id")
+
+  requiredBundleAddon    Product? @relation("RequiredBundleAddon", fields: [requiredBundleAddonId], references: [id])
+  fallbackBundleAddon    Product? @relation("FallbackBundleAddon", fields: [fallbackBundleAddonId], references: [id])
+
+  // Reverse relations (required by Prisma for self-referencing)
+  coreProductsRequiring  Product[] @relation("RequiredBundleAddon")
+  coreProductsFallback   Product[] @relation("FallbackBundleAddon")
+
+  stateAvailability      ProductStateAvailability[]
+
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
@@ -145,6 +158,18 @@ model Product {
   saleAddons  SaleAddon[]
 
   @@map("products")
+}
+
+model ProductStateAvailability {
+  id         String   @id @default(cuid())
+  productId  String   @map("product_id")
+  stateCode  String   @map("state_code") @db.VarChar(2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@unique([productId, stateCode])
+  @@map("product_state_availability")
 }
 
 model Sale {
@@ -264,6 +289,7 @@ model PayrollEntry {
   bonusAmount      Decimal            @default(0) @map("bonus_amount") @db.Decimal(12, 2)
   frontedAmount    Decimal            @default(0) @map("fronted_amount") @db.Decimal(12, 2)
   holdAmount       Decimal            @default(0) @map("hold_amount") @db.Decimal(12, 2)
+  halvingReason    String?            @map("halving_reason")
   netAmount        Decimal            @map("net_amount") @db.Decimal(12, 2)
   status           PayrollEntryStatus @default(PENDING)
   paidAt           DateTime?          @map("paid_at")
