@@ -53,66 +53,30 @@
 
 </details>
 
-### v1.4 State-Aware Bundle Requirements (Phases 20-24)
+### v1.4 State-Aware Bundle Requirements (Phase 20)
 
-- [ ] **Phase 20: Schema & Commission Engine** - New tables, resolution service, and state-aware commission logic with backward compatibility
-- [ ] **Phase 21: API Routes & Halving Reason Display** - CRUD endpoints for bundle config, preview enhancement, and payroll halving reason visibility
-- [ ] **Phase 22: Bundle Config UI** - Bundle requirement and state availability configuration embedded in PayrollProducts cards
-- [ ] **Phase 23: Sales Entry Integration** - Client state dropdown on sales form with end-to-end commission flow validation
-- [ ] **Phase 24: Housekeeping** - Role selector delay fix and seed agent removal
+- [ ] **Phase 20: State-Aware Bundle Requirements** - Schema, commission engine, API routes, config UI, sales entry integration, and housekeeping fixes
 
 ## Phase Details
 
-### Phase 20: Schema & Commission Engine
-**Goal**: Commission engine correctly resolves bundle requirements by client state with full backward compatibility for existing sales
+### Phase 20: State-Aware Bundle Requirements
+**Goal**: State-aware bundle commission with configurable primary/fallback addons per state, config UI in Products tab, client state on sales entry, and housekeeping fixes
 **Depends on**: Nothing (first phase of v1.4)
-**Requirements**: BUNDLE-01, BUNDLE-02, BUNDLE-03, BUNDLE-04, BUNDLE-05, BUNDLE-06, BUNDLE-08
+**Requirements**: BUNDLE-01, BUNDLE-02, BUNDLE-03, BUNDLE-04, BUNDLE-05, BUNDLE-06, BUNDLE-07, BUNDLE-08, CFG-01, CFG-02, CFG-03, SALE-01, FIX-01, FIX-02
 **Success Criteria** (what must be TRUE):
   1. BundleRequirement and ProductStateAvailability tables exist with Prisma migration applied, supporting per-state rules, default rules, and multiple fallback tiers
   2. resolveBundleRequirement() returns correct primary addon, fallback addon, or null for any combination of core product and client state
   3. calculateCommission produces half commission with stored reason when required addon is missing for the client's state
   4. Existing sales with null memberState produce identical commission results as before (all 20+ existing tests pass unchanged)
   5. State-aware halving replaces legacy isBundleQualifier halving for products with a BundleRequirement configured -- no double halving possible
-**Plans**: TBD
-
-### Phase 21: API Routes & Halving Reason Display
-**Goal**: Bundle configuration is manageable via API and commission halving reasons are visible in payroll
-**Depends on**: Phase 20
-**Requirements**: BUNDLE-07
-**Success Criteria** (what must be TRUE):
-  1. CRUD endpoints for bundle requirements and state availability accept valid data and reject invalid input with Zod errors
-  2. Commission preview endpoint accepts memberState and returns state-aware bundle qualification breakdown
-  3. Payroll entry rows display the halving reason when commission was reduced due to missing required addon
-**Plans**: TBD
-
-### Phase 22: Bundle Config UI
-**Goal**: Payroll admins can configure bundle requirements and state availability through the existing Products tab
-**Depends on**: Phase 21
-**Requirements**: CFG-01, CFG-02, CFG-03
-**Success Criteria** (what must be TRUE):
-  1. CORE product cards show a bundle requirement section where admin can select required primary addon and fallback addon per state
-  2. ADDON product cards show a state availability multi-select where admin can toggle which US states the product is available in
-  3. Completeness indicator on CORE products shows how many states lack bundle coverage, surfacing configuration gaps
-  4. Saving config changes emits a Socket.IO event so connected clients refresh product data without page reload
-**Plans**: TBD
-
-### Phase 23: Sales Entry Integration
-**Goal**: Agents select client state during sales entry and the commission flow reflects state-aware bundle logic end-to-end
-**Depends on**: Phase 22
-**Requirements**: SALE-01
-**Success Criteria** (what must be TRUE):
-  1. Sales entry form includes a US state dropdown that populates memberState on the sale record
-  2. Commission preview updates when client state is selected, showing which addon qualifies and whether full or half commission applies
-  3. A sale submitted with a client state flows through to payroll with correct state-aware commission and visible halving reason if applicable
-**Plans**: TBD
-
-### Phase 24: Housekeeping
-**Goal**: Fix UX annoyance with role selector and clean up test data from seed script
-**Depends on**: Nothing (independent of Phases 20-23)
-**Requirements**: FIX-01, FIX-02
-**Success Criteria** (what must be TRUE):
-  1. Role dashboard selector remains visible long enough to click without collapsing prematurely, with configurable delay
-  2. Database seed script no longer creates Amy, Bob, Cara, David, or Elena as agents
+  6. CRUD endpoints for bundle requirements and state availability with Zod validation
+  7. Payroll entry rows display the halving reason when commission was reduced due to missing required addon
+  8. CORE product cards show bundle requirement section (primary + fallback addon selectors per state)
+  9. ADDON product cards show state availability multi-select (50 states + DC)
+  10. Completeness indicator surfaces states without bundle coverage
+  11. Sales entry form includes US state dropdown populating memberState
+  12. Role dashboard selector has configurable delay before collapsing
+  13. Database seed script no longer creates Amy, Bob, Cara, David, or Elena
 **Plans**: TBD
 
 ## Progress
@@ -138,11 +102,7 @@
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
-| 20. Schema & Commission Engine | v1.4 | 0/? | Not started | - |
-| 21. API Routes & Halving Reason Display | v1.4 | 0/? | Not started | - |
-| 22. Bundle Config UI | v1.4 | 0/? | Not started | - |
-| 23. Sales Entry Integration | v1.4 | 0/? | Not started | - |
-| 24. Housekeeping | v1.4 | 0/? | Not started | - |
+| 20. State-Aware Bundle Requirements | v1.4 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*

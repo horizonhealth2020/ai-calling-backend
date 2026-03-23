@@ -6,7 +6,7 @@ status: Roadmap created
 stopped_at: null
 last_updated: "2026-03-23"
 progress:
-  total_phases: 5
+  total_phases: 1
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -23,17 +23,17 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 20 (Schema & Commission Engine) -- not started
+Phase: 20 (State-Aware Bundle Requirements) -- not started
 Plan: --
-Status: Roadmap created, awaiting phase planning
-Last activity: 2026-03-23 -- v1.4 roadmap created with 5 phases (20-24)
+Status: Roadmap consolidated, awaiting phase planning
+Last activity: 2026-03-23 -- v1.4 roadmap consolidated to 1 phase (20)
 
 ```
 [====================] v1.0 (10/10 phases)
 [====================] v1.1 (7/7 phases)
 [====================] v1.2 (1/1 phases)
 [====================] v1.3 (1/1 phases)
-[____________________] v1.4 (0/5 phases)
+[____________________] v1.4 (0/1 phases)
 ```
 
 ## Performance Metrics
@@ -41,7 +41,7 @@ Last activity: 2026-03-23 -- v1.4 roadmap created with 5 phases (20-24)
 | Metric | Value |
 |--------|-------|
 | Milestones shipped | 4 (v1.0, v1.1, v1.2, v1.3) |
-| Total phases | 19 complete + 5 planned |
+| Total phases | 19 complete + 1 planned |
 | Total plans | 64 complete |
 | Total requirements | 133 shipped + 14 v1.4 |
 | Timeline | 10 days shipped (2026-03-14 to 2026-03-23) |
@@ -65,7 +65,7 @@ Last activity: 2026-03-23 -- v1.4 roadmap created with 5 phases (20-24)
 | State-aware path replaces legacy isBundleQualifier | No double halving -- one check fires per sale; products with BundleRequirement skip legacy path |
 | commissionApproved bypasses state-based halving | Consistent with existing behavior where it bypasses all other halving |
 | memberState null falls through to legacy logic | Backward compatibility -- existing sales without state produce identical results |
-| Phase 24 independent of 20-23 | Housekeeping items have zero dependency on bundle commission work |
+| Consolidated to single phase (Phase 20) | User requested all work in one long-running phase |
 
 ### Open Questions
 

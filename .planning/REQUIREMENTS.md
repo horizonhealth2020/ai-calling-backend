@@ -68,14 +68,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUNDLE-04 | Phase 20 | Pending |
 | BUNDLE-05 | Phase 20 | Pending |
 | BUNDLE-06 | Phase 20 | Pending |
-| BUNDLE-07 | Phase 21 | Pending |
+| BUNDLE-07 | Phase 20 | Pending |
 | BUNDLE-08 | Phase 20 | Pending |
-| CFG-01 | Phase 22 | Pending |
-| CFG-02 | Phase 22 | Pending |
-| CFG-03 | Phase 22 | Pending |
-| SALE-01 | Phase 23 | Pending |
-| FIX-01 | Phase 24 | Pending |
-| FIX-02 | Phase 24 | Pending |
+| CFG-01 | Phase 20 | Pending |
+| CFG-02 | Phase 20 | Pending |
+| CFG-03 | Phase 20 | Pending |
+| SALE-01 | Phase 20 | Pending |
+| FIX-01 | Phase 20 | Pending |
+| FIX-02 | Phase 20 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 14 total
