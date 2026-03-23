@@ -5,7 +5,7 @@
 - ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
 - ✅ **v1.1 Customer Service** — Phases 11-17 (shipped 2026-03-18)
 - ✅ **v1.2 Platform Polish & Integration** — Phase 18 (shipped 2026-03-19)
-- [ ] **v1.3 Dashboard Consolidation & Uniform Date Ranges** — Phase 19
+- ✅ **v1.3 Dashboard Consolidation & Uniform Date Ranges** — Phase 19 (shipped 2026-03-23)
 
 ## Phases
 
@@ -45,48 +45,12 @@
 
 </details>
 
-### v1.3 Dashboard Consolidation & Uniform Date Ranges
+<details>
+<summary>✅ v1.3 Dashboard Consolidation & Uniform Date Ranges (Phase 19) — SHIPPED 2026-03-23</summary>
 
-- [x] **Phase 19: Dashboard Consolidation & Uniform Date Ranges** — Unified app with role-gated tabs, all 4 dashboard migrations, uniform date range on all KPIs, deployment cleanup (completed 2026-03-23)
+- [x] Phase 19: Dashboard Consolidation & Uniform Date Ranges (10/10 plans) — completed 2026-03-23
 
-## Phase Details
-
-### Phase 19: Dashboard Consolidation & Uniform Date Ranges
-**Goal**: Consolidate all internal dashboards into a single unified app with role-gated tabs, uniform date range filtering on all KPIs, and cleaned-up deployment
-**Depends on**: Nothing (first phase of v1.3)
-**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05, MIG-01, MIG-02, MIG-03, MIG-04, DR-01, DR-02, DR-03, DR-04, DR-05, DR-06, DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-04
-**Success Criteria** (what must be TRUE):
-  1. User navigates to unified app URL and sees login form (no separate auth-portal)
-  2. After login, user lands on default tab based on role
-  3. Unauthenticated users accessing any dashboard route are redirected to login
-  4. User sees only the tabs their role permits; SUPER_ADMIN sees all four tabs
-  5. Tab switching does not cause Socket.IO disconnect/reconnect (shared layout-level connection)
-  6. Tab navigation uses URL-based routing (browser back/forward works)
-  7. CS tab displays all sub-tabs with identical functionality to standalone app
-  8. Owner tab displays all sub-tabs with identical functionality to standalone app
-  9. Payroll tab displays all sub-tabs with identical functionality to standalone app
-  10. Manager tab displays all sub-tabs with identical functionality to standalone app
-  11. DateRangeFilter offers four presets (Current Week, Last Week, 30 Days, Custom) on all KPI sections
-  12. Date range updates KPI counters on all four dashboard tabs
-  13. Date range selection persists across tab switches
-  14. CSV export date range pickers use same uniform presets
-  15. CORS config updated for unified app origin
-  16. Docker runs one unified container instead of five
-  17. Old standalone dashboard app directories removed
-  18. Sales board remains standalone and fully functional
-**Plans:** 10/10 plans complete
-
-Plans:
-- [x] 19-01-PLAN.md — App shell foundation (login, middleware, tab bar, SocketProvider, DateRangeContext)
-- [x] 19-02-PLAN.md — Shared package updates (DateRangeFilter presets, decodeTokenPayload export, last_week)
-- [x] 19-03-PLAN.md — CS dashboard migration (2 sub-tabs)
-- [x] 19-04-PLAN.md — Owner dashboard migration (4 sub-tabs)
-- [x] 19-05-PLAN.md — Payroll dashboard migration (5 sub-tabs)
-- [x] 19-06-PLAN.md — Manager dashboard migration (5 sub-tabs)
-- [x] 19-07-PLAN.md — Date range API wiring + CSV export presets
-- [x] 19-08-PLAN.md — Deployment cleanup (CORS, Docker, remove old apps, verify)
-- [x] 19-09-PLAN.md — Fix premium calculations to include addon premiums (UAT Gap 1)
-- [x] 19-10-PLAN.md — Sales board premium calculation fix
+</details>
 
 ## Progress
 
@@ -110,10 +74,10 @@ Plans:
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
-| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete    | 2026-03-23 |
+| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 
 ---
 *Roadmap created: 2026-03-14*
 *v1.1 shipped: 2026-03-18*
 *v1.2 shipped: 2026-03-19*
-*v1.3 roadmap added: 2026-03-19*
+*v1.3 shipped: 2026-03-23*

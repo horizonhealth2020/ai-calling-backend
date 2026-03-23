@@ -49,20 +49,20 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Service agent sync between payroll and CS with round-robin assignment — v1.2
 - ✓ Permission override matrix in owner dashboard — v1.2
 - ✓ Sales board leaderboard with day/week toggle and addon-inclusive premium — v1.2
+- ✓ Unified dashboard app consolidating 5 standalone apps into single Next.js app — v1.3
+- ✓ Role-gated tab navigation (Manager, Payroll, Owner, CS) with SUPER_ADMIN seeing all — v1.3
+- ✓ Login lands directly on user's default tab based on role — v1.3
+- ✓ Uniform date range filtering (Current Week / Last Week / 30 Days / Custom) on all KPI sections — v1.3
+- ✓ Shared Socket.IO provider at layout level — no reconnection on tab switches — v1.3
+- ✓ Docker consolidated from 5 dashboard containers to 1 — v1.3
+- ✓ Addon premium aggregation in all KPI endpoints and client socket patches — v1.3
+- ✓ Sales board CORS fix and error logging — v1.3
 
 ### Active
 
-<!-- Current milestone: v1.3 Dashboard Consolidation & Uniform Date Ranges -->
+<!-- Next milestone: TBD -->
 
-- [ ] Consolidate auth-portal, manager, payroll, owner, and CS dashboards into a single unified Next.js app
-- [ ] Role-gated tab navigation (Manager, Payroll, Owner, CS) with SUPER_ADMIN seeing all tabs
-- [ ] Login lands directly on user's default tab based on role
-- [ ] Uniform date range picker component (Current Week / Last Week / 30 Days / Custom) for all KPI sections
-- [ ] Apply date range filtering to CS tracker KPIs
-- [ ] Apply date range filtering to manager tracker KPIs
-- [ ] Apply date range filtering to owner performance overview KPIs
-- [ ] Apply date range filtering to payroll dashboard KPIs
-- [ ] Sales board remains standalone (unchanged)
+(No active requirements — start next milestone with `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -75,29 +75,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - AI scoring dashboard with trend analysis — deferred from v1.2
 - Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
 
-## Current Milestone: v1.3 Dashboard Consolidation & Uniform Date Ranges
-
-**Goal:** Merge all internal dashboards into a single unified app with role-gated tabs and add uniform date range filtering to all KPI sections.
-
-**Target features:**
-- Unified dashboard app (auth + manager + payroll + owner + CS → single Next.js app)
-- Role-gated tab navigation with login → default tab routing
-- Uniform date range picker (Current Week / Last Week / 30 Days / Custom) on all KPI counters
-- Sales board remains standalone
-
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19)
-**Total:** 18 phases, 54 plans, 114 requirements across 6 days
+**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19) + v1.3 Dashboard Consolidation (2026-03-23)
+**Total:** 19 phases, 64 plans, 133 requirements across 10 days
 **LOC:** ~124,000 TypeScript/TSX
 
-The platform is fully operational with 6 dashboards, 1 API, and shared @ops/* packages:
-- **Manager dashboard** — sales entry with paste-to-parse, agent tracker, call audits, config management
-- **Payroll dashboard** — payroll periods with Open/Closed toggle, commission approval, chargeback alerts, service staff, exports
-- **Sales board** — leaderboard with day/week toggle, real-time WebSocket updates
-- **Owner dashboard** — KPI summary, agent retention metrics, AI config, permission matrix
-- **Auth portal** — login UX + role-based redirect
-- **CS dashboard** — chargeback/pending terms submission with agent dropdown, tracking with filters
+The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
+- **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs
+- **Sales board** — standalone leaderboard with day/week toggle, real-time WebSocket updates
+- **ops-api** — Express REST API with auth, RBAC, sales, payroll, clawbacks, exports, AI scoring
+- **@ops/* packages** — shared auth, db, types, ui (PageShell, DateRangeFilter, design tokens), utils
 
 **Known areas for future work:**
 - Bulk sale import from CSV
@@ -108,7 +96,7 @@ The platform is fully operational with 6 dashboards, 1 API, and shared @ops/* pa
 
 ## Context
 
-Shipped 3 milestones in 6 days (18 phases, 54 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with 6 dashboards, 1 API, and shared @ops/* packages.
+Shipped 4 milestones in 10 days (19 phases, 64 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages.
 
 ## Constraints
 
@@ -143,6 +131,11 @@ Shipped 3 milestones in 6 days (18 phases, 54 plans). Tech stack: Next.js 15, Ex
 | Period status toggle (Open ↔ Closed) | Simple pill click to close periods, red highlight when agents unpaid | ✓ Good |
 | Convoso polling over webhooks | More reliable than webhooks for call log integration | ✓ Good |
 | Parse auto-fills form directly | No preview step needed — user edits fields after parse | ✓ Good |
+| Unified dashboard consolidation | 5 standalone apps → 1 app with role-gated tabs | ✓ Good |
+| Layout-level Socket.IO provider | Single connection shared across all tabs — no reconnect on switch | ✓ Good |
+| Uniform date range via React context | Date range persists across tab switches, 4 presets match payroll week | ✓ Good |
+| Sub-component extraction during migration | Each dashboard tab split into named components for debuggability | ✓ Good |
+| Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-19 after v1.3 milestone started*
+*Last updated: 2026-03-23 after v1.3 milestone*

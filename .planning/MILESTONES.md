@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.3 Dashboard Consolidation & Uniform Date Ranges (Shipped: 2026-03-23)
+
+**Phases completed:** 1 phases, 10 plans, 19 tasks
+
+**Key accomplishments:**
+
+- 1. [Rule 3 - Blocking] Fixed tsconfig.json path resolution for Next.js
+- Configurable DateRangeFilter with KPI_PRESETS, exported decodeTokenPayload, and server last_week date range support
+- Owner dashboard (1,957 lines) decomposed into 4 self-contained sub-tab components with SUPER_ADMIN-gated Users tab and real-time socket KPI updates
+- Uniform date range filtering wired into all 4 dashboard tabs and 5 server endpoints with KPI_PRESETS and shared context persistence
+- Added error logging to sales board refresh(), diagnosed CORS as root cause — Railway ALLOWED_ORIGINS needed sales board production URL
+
+---
+
 ## v1.2 Platform Polish & Integration (Shipped: 2026-03-19)
 
 **Phases completed:** 1 phases, 8 plans, 12 tasks
