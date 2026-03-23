@@ -6,7 +6,7 @@
 - ✅ **v1.1 Customer Service** — Phases 11-17 (shipped 2026-03-18)
 - ✅ **v1.2 Platform Polish & Integration** — Phase 18 (shipped 2026-03-19)
 - ✅ **v1.3 Dashboard Consolidation & Uniform Date Ranges** — Phase 19 (shipped 2026-03-23)
-- [ ] **v1.4 State-Aware Bundle Requirements** — Phases 20-24
+- [ ] **v1.4 State-Aware Bundle Requirements** — Phase 20
 
 ## Phases
 
@@ -77,7 +77,14 @@
   11. Sales entry form includes US state dropdown populating memberState
   12. Role dashboard selector has configurable delay before collapsing
   13. Database seed script no longer creates Amy, Bob, Cara, David, or Elena
-**Plans**: TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] 20-01-PLAN.md -- Schema migration (Product FKs, ProductStateAvailability, PayrollEntry halvingReason) + US_STATES constant + FIX-02 verification
+- [ ] 20-02-PLAN.md -- Commission engine (resolveBundleRequirement, modified calculateCommission, updated callers, new tests)
+- [ ] 20-03-PLAN.md -- API routes (product PATCH/GET extension, state-availability PUT/GET endpoints)
+- [ ] 20-04-PLAN.md -- Config UI (CORE bundle requirement section, ADDON state availability section, completeness indicator)
+- [ ] 20-05-PLAN.md -- Sales entry state dropdown, payroll halving reason display, role selector delay fix
 
 ## Progress
 
@@ -102,7 +109,7 @@
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
-| 20. State-Aware Bundle Requirements | v1.4 | 0/? | Not started | - |
+| 20. State-Aware Bundle Requirements | v1.4 | 0/5 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
