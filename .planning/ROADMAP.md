@@ -47,7 +47,7 @@
 
 ### v1.3 Dashboard Consolidation & Uniform Date Ranges
 
-- [ ] **Phase 19: Dashboard Consolidation & Uniform Date Ranges** — Unified app with role-gated tabs, all 4 dashboard migrations, uniform date range on all KPIs, deployment cleanup (8/8 complete, 2 gap closure plans pending)
+- [ ] **Phase 19: Dashboard Consolidation & Uniform Date Ranges** — Unified app with role-gated tabs, all 4 dashboard migrations, uniform date range on all KPIs, deployment cleanup
 
 ## Phase Details
 
@@ -74,7 +74,7 @@
   16. Docker runs one unified container instead of five
   17. Old standalone dashboard app directories removed
   18. Sales board remains standalone and fully functional
-**Plans:** 10 plans (8 complete, 2 gap closure pending)
+**Plans:** 10 plans
 
 Plans:
 - [x] 19-01-PLAN.md — App shell foundation (login, middleware, tab bar, SocketProvider, DateRangeContext)
@@ -84,9 +84,9 @@ Plans:
 - [x] 19-05-PLAN.md — Payroll dashboard migration (5 sub-tabs)
 - [x] 19-06-PLAN.md — Manager dashboard migration (5 sub-tabs)
 - [x] 19-07-PLAN.md — Date range API wiring + CSV export presets
-- [x] 19-08-PLAN.md — Deployment cleanup (CORS, Docker, remove old apps, verify)
-- [ ] 19-09-PLAN.md — Gap closure: Include addon premiums in KPI aggregations
-- [ ] 19-10-PLAN.md — Gap closure: Diagnose and fix sales board UI breakage
+- [ ] 19-08-PLAN.md — Deployment cleanup (CORS, Docker, remove old apps, verify)
+- [x] 19-09-PLAN.md — Fix premium calculations to include addon premiums (UAT Gap 1)
+- [ ] 19-10-PLAN.md — Sales board premium calculation fix
 
 ## Progress
 
@@ -110,7 +110,7 @@ Plans:
 | 16. Auth & Permission Tightening | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
-| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 8/10 | Gap Closure | — |
+| 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 9/10 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*

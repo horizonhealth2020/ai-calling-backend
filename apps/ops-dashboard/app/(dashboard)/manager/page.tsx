@@ -116,18 +116,20 @@ function ManagerPageInner() {
 
       highlightSale(payload.sale.id, payload.sale.agent.name);
 
-      // Patch tracker state
+      // Patch tracker state (include addon premiums)
+      const addonPrem = (payload.sale as any).addons?.reduce((s: number, a: any) => s + Number(a.premium ?? 0), 0) ?? 0;
+      const totalPrem = payload.sale.premium + addonPrem;
       setTracker(prev => {
         const agentName = payload.sale.agent.name;
         const exists = prev.some(t => t.agent === agentName);
         if (exists) {
           return prev.map(t =>
             t.agent === agentName
-              ? { ...t, salesCount: t.salesCount + 1, premiumTotal: t.premiumTotal + payload.sale.premium }
+              ? { ...t, salesCount: t.salesCount + 1, premiumTotal: t.premiumTotal + totalPrem }
               : t
           );
         }
-        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: payload.sale.premium, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0 }];
+        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: totalPrem, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0 }];
       });
 
       // Patch salesList
