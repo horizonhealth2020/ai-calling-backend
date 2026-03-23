@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: State-Aware Bundle Requirements
 status: Executing Phase 20
-stopped_at: Completed 20-03-PLAN.md
-last_updated: "2026-03-23T19:55:00Z"
+stopped_at: Completed 20-04-PLAN.md
+last_updated: "2026-03-23T20:10:00Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 20 (State-Aware Bundle Requirements) -- EXECUTING
-Plan: 4 of 5
-Status: Plans 20-02 + 20-03 complete (commission engine + API routes)
-Last activity: 2026-03-23 -- Wave 2 executed (20-02: 1 task, 4 files; 20-03: 1 task, 1 file)
+Plan: 5 of 5
+Status: Plans 20-01 through 20-04 complete (schema + commission engine + API routes + config UI)
+Last activity: 2026-03-23 -- Wave 3 executed (20-04: 1 task, 3 files)
 
 ```
 [====================] v1.0 (10/10 phases)
@@ -69,13 +69,12 @@ Last activity: 2026-03-23 -- Wave 2 executed (20-02: 1 task, 4 files; 20-03: 1 t
 | Manual migration SQL (no live DB) | Worktree environment has no PostgreSQL; SQL written manually to match Prisma output |
 | US_STATES in @ops/types | Co-locates StateCode type with AppRole and SessionUser |
 | FIX-02 confirmed no-op | No seed agents (Amy/Bob/Cara/David/Elena) exist in codebase |
-<<<<<<< HEAD
 | Fixed pre-existing VAB premium test expectations | Tests stale since 3e3e6bc; updated to match actual bundlePremium calculation |
 | handleSaleEditApproval delegates to upsert | upsertPayrollEntryForSale already resolves bundle context; no direct calculateCommission call needed |
-=======
 | GET /products includes bundle relations | Config UI needs requiredBundleAddon, fallbackBundleAddon, stateAvailability data |
 | State availability returns flat array | Simpler client consumption than returning objects |
->>>>>>> worktree-agent-a3431f1f
+| PATCH /products/:id includes bundle relations | Prevents UI state loss after save; matches GET response shape |
+| @ops/types in ops-dashboard transpilePackages | Required for US_STATES import in Next.js module resolution |
 
 ### Open Questions
 
