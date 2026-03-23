@@ -99,8 +99,7 @@ function ProductCard({
       saveData.requiredBundleAddonId = d.requiredBundleAddonId || null;
       saveData.fallbackBundleAddonId = d.fallbackBundleAddonId || null;
     }
-    await onSave(product.id, saveData as Partial<Product>);
-    // Save state availability for ADDON/AD_D products
+    // Save state availability BEFORE product PATCH so the PATCH response reflects updated states
     if (d.type === "ADDON" || d.type === "AD_D") {
       const OPS = process.env.NEXT_PUBLIC_OPS_API_URL ?? "http://localhost:8080";
       await authFetch(`${OPS}/api/products/${product.id}/state-availability`, {
@@ -109,6 +108,7 @@ function ProductCard({
         body: JSON.stringify({ stateCodes: selectedStates }),
       });
     }
+    await onSave(product.id, saveData as Partial<Product>);
     setEdit(false); setSaving(false);
   };
 
