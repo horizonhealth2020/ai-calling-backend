@@ -18,6 +18,8 @@ const makeProduct = (overrides: Partial<Product> = {}): Product => ({
   standaloneCommission: null,
   isBundleQualifier: false,
   enrollFeeThreshold: null,
+  requiredBundleAddonId: null,
+  fallbackBundleAddonId: null,
   notes: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -74,7 +76,7 @@ const makeSale = (overrides: Partial<SaleWithProduct> = {}): SaleWithProduct => 
 
 // Inline the gating logic for unit testing (mirrors payroll.ts line 204)
 const gatedCommission = (sale: SaleWithProduct) =>
-  sale.status === 'RAN' ? calculateCommission(sale) : 0;
+  sale.status === 'RAN' ? calculateCommission(sale).commission : 0;
 
 // --- Status-based Commission Gating Tests ---
 
@@ -108,7 +110,7 @@ describe('Status-based commission gating', () => {
         product: makeProduct({ commissionAbove: new Decimal(100) }),
         addons: [makeAddon({ isBundleQualifier: true, name: 'Compass VAB' })],
       });
-      expect(calculateCommission(sale)).toBeGreaterThan(0); // proves calc would give commission
+      expect(calculateCommission(sale).commission).toBeGreaterThan(0); // proves calc would give commission
       expect(gatedCommission(sale)).toBe(0); // but gating blocks it
     });
 

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/auth";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, handleSaleEditApproval, isAgentPaidInPeriod } from "../services/payroll";
+import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, handleSaleEditApproval, isAgentPaidInPeriod, resolveBundleRequirement } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { reAuditCall } from "../services/callAudit";
 import { enqueueAuditJob, enqueueAutoScore, getAiUsageStats, startAutoScorePolling } from "../services/auditQueue";
@@ -448,11 +448,18 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     status: z.enum(["RAN", "DECLINED", "DEAD"]).optional().default("RAN"),
     commissionApproved: z.boolean().optional().default(false),
     saleDate: z.string().optional(),
+    memberState: z.string().length(2).regex(/^[A-Z]{2}$/).nullable().optional(),
   });
   const parsed = previewSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const product = await prisma.product.findUnique({ where: { id: parsed.data.productId } });
+  const product = await prisma.product.findUnique({
+    where: { id: parsed.data.productId },
+    include: {
+      requiredBundleAddon: { select: { name: true } },
+      fallbackBundleAddon: true,
+    },
+  });
   if (!product) return res.status(404).json({ error: "Product not found" });
 
   const uniqueAddonIds = [...new Set(parsed.data.addonProductIds)];
@@ -460,11 +467,14 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     ? await prisma.product.findMany({ where: { id: { in: uniqueAddonIds } } })
     : [];
 
+  const memberState = parsed.data.memberState ?? null;
+
   const mockSale = {
     premium: parsed.data.premium,
     enrollmentFee: parsed.data.enrollmentFee ?? null,
     commissionApproved: parsed.data.commissionApproved,
     status: parsed.data.status,
+    memberState,
     product,
     addons: addonProducts.map(p => ({
       product: p,
@@ -472,7 +482,13 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     })),
   } as any;
 
-  const commission = calculateCommission(mockSale);
+  // Resolve state-aware bundle context if applicable
+  const addonProductIds = addonProducts.map(p => p.id);
+  const bundleCtx = memberState && product.requiredBundleAddonId
+    ? await resolveBundleRequirement(product, memberState, addonProductIds)
+    : undefined;
+
+  const result = calculateCommission(mockSale, bundleCtx ?? undefined);
 
   const saleDate = parsed.data.saleDate ? new Date(parsed.data.saleDate + "T12:00:00") : new Date();
   const shiftWeeks = parsed.data.paymentType === "ACH" ? 1 : 0;
@@ -482,7 +498,8 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
   const hasCore = product.type === "CORE" || addonProducts.some(p => p.type === "CORE");
 
   res.json({
-    commission,
+    commission: result.commission,
+    halvingReason: result.halvingReason,
     periodStart: weekStart,
     periodEnd: weekEnd,
     breakdown: {

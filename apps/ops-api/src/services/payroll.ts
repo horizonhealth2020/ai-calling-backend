@@ -37,6 +37,16 @@ export const getSundayWeekRange = (date: Date, shiftWeeks: number = 0) => {
 type SaleWithProduct = Sale & { product: Product; addons: (SaleAddon & { product: Product })[] };
 
 /**
+ * Bundle requirement context resolved from ProductStateAvailability data.
+ * null means no bundle requirement configured OR memberState is null (use legacy path).
+ */
+export type BundleRequirementContext = {
+  requiredAddonAvailable: boolean;
+  fallbackAddonAvailable: boolean;
+  halvingReason: string | null;
+} | null;
+
+/**
  * Apply enrollment fee rules:
  *   $125 -> +$10 bonus
  *   $99  -> $0
@@ -83,7 +93,7 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  *   2. ADDONs with bundledCommission set: calculated separately at their own bundledCommission rate.
  *      isBundleQualifier ADDONs (e.g. AD&D) always use their own bundledCommission rate.
  *   3. AD&D products always use their own bundledCommission rate (separate calculation).
- *   4. If no bundle qualifier (isBundleQualifier) and not commissionApproved: halve entire total.
+ *   4. Bundle qualifier halving: state-aware path (if bundleCtx provided) or legacy isBundleQualifier path.
  *
  * When no core (standalone addons only):
  *   - Each ADDON/AD&D uses its standaloneCommission rate x its own premium.
@@ -91,8 +101,9 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  * Null commission rates produce $0 (no hardcoded fallbacks).
  * Final result rounded to 2 decimal places.
  */
-export const calculateCommission = (sale: SaleWithProduct): number => {
+export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleRequirementContext): { commission: number; halvingReason: string | null } => {
   const addons = sale.addons ?? [];
+  let halvingReason: string | null = null;
 
   // Build product entries with their respective premiums
   const allEntries = [
@@ -158,9 +169,17 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     }
 
     // --- BUNDLE QUALIFIER HALVING ---
-    // If no bundle qualifier present and not manually approved: halve entire sale commission
-    if (!qualifierExists && !sale.commissionApproved) {
-      totalCommission /= 2;
+    if (bundleCtx !== undefined && bundleCtx !== null) {
+      // State-aware path: bundle requirement configured AND memberState non-null
+      if (!bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable && !sale.commissionApproved) {
+        totalCommission /= 2;
+        halvingReason = bundleCtx.halvingReason;
+      }
+    } else {
+      // Legacy path: no bundle requirement configured OR memberState is null
+      if (!qualifierExists && !sale.commissionApproved) {
+        totalCommission /= 2;
+      }
     }
   } else {
     // --- STANDALONE (no core product) ---
@@ -184,8 +203,51 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     sale.product,
   );
 
-  return Math.round((finalCommission + enrollmentBonus) * 100) / 100;
+  return {
+    commission: Math.round((finalCommission + enrollmentBonus) * 100) / 100,
+    halvingReason,
+  };
 };
+
+/**
+ * Resolve bundle requirement context for a core product + member state combination.
+ * Returns null if no bundle requirement is configured or memberState is null (triggers legacy path).
+ */
+export async function resolveBundleRequirement(
+  coreProduct: { requiredBundleAddonId: string | null; fallbackBundleAddonId: string | null; requiredBundleAddon?: { name: string } | null; fallbackBundleAddon?: { name: string } | null },
+  memberState: string | null,
+  saleAddonProductIds: string[]
+): Promise<BundleRequirementContext> {
+  if (!coreProduct.requiredBundleAddonId) return null;
+  if (!memberState) return null;
+
+  const requiredAvail = await prisma.productStateAvailability.findUnique({
+    where: { productId_stateCode: { productId: coreProduct.requiredBundleAddonId, stateCode: memberState } }
+  });
+  const requiredAddonInSale = saleAddonProductIds.includes(coreProduct.requiredBundleAddonId);
+
+  if (requiredAvail && requiredAddonInSale) {
+    return { requiredAddonAvailable: true, fallbackAddonAvailable: false, halvingReason: null };
+  }
+
+  if (coreProduct.fallbackBundleAddonId) {
+    const fallbackAvail = await prisma.productStateAvailability.findUnique({
+      where: { productId_stateCode: { productId: coreProduct.fallbackBundleAddonId, stateCode: memberState } }
+    });
+    const fallbackInSale = saleAddonProductIds.includes(coreProduct.fallbackBundleAddonId);
+
+    if (fallbackAvail && fallbackInSale) {
+      return { requiredAddonAvailable: false, fallbackAddonAvailable: true, halvingReason: null };
+    }
+  }
+
+  const addonName = coreProduct.requiredBundleAddon?.name ?? "required addon";
+  return {
+    requiredAddonAvailable: false,
+    fallbackAddonAvailable: false,
+    halvingReason: `Half commission - ${addonName} not bundled (${memberState})`,
+  };
+}
 
 /**
  * Zero out commission for a sale across all payroll entries.
@@ -220,11 +282,24 @@ export const handleCommissionZeroing = async (saleId: string) => {
 export const upsertPayrollEntryForSale = async (saleId: string) => {
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
-    include: { product: true, addons: { include: { product: true } } },
+    include: {
+      product: {
+        include: {
+          requiredBundleAddon: { select: { name: true } },
+          fallbackBundleAddon: true,
+        },
+      },
+      addons: { include: { product: true } },
+    },
   });
   if (!sale) throw new Error("Sale not found");
 
-  const payoutAmount = sale.status === 'RAN' ? calculateCommission(sale) : 0;
+  const addonProductIds = (sale.addons ?? []).map(a => a.productId);
+  const bundleCtx = await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds);
+  const result = calculateCommission(sale as any, bundleCtx);
+  const payoutAmount = sale.status === 'RAN' ? result.commission : 0;
+  const halvingReason = sale.status === 'RAN' ? result.halvingReason : null;
+
   const shiftWeeks = sale.paymentType === 'ACH' ? 1 : 0;
   const { weekStart, weekEnd } = getSundayWeekRange(sale.saleDate, shiftWeeks);
 
@@ -258,8 +333,9 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
       agentId: sale.agentId,
       payoutAmount,
       netAmount: payoutAmount,
+      halvingReason,
     },
-    update: { payoutAmount, netAmount },
+    update: { payoutAmount, netAmount, halvingReason },
   });
 };
 
