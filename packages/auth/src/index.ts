@@ -4,10 +4,11 @@ import type { SessionUser } from "@ops/types";
 
 const SESSION_COOKIE = "ops_session";
 
-// Indirection prevents Railpack/Nixpacks static analysis from detecting the
-// env var name at build time and demanding it as a Docker build secret.
+// Try multiple env var names to support Railway's Docker secret handling.
+// Railway treats vars with "SECRET" in the name as Docker secrets (file mounts),
+// so we also check AUTH_JWT_KEY as a fallback for Dockerfile-based services.
 const _key = ["AUTH", "JWT", "SECRET"].join("_");
-const getSecret = () => process.env[_key] || "dev-secret";
+const getSecret = () => process.env[_key] || process.env.AUTH_JWT_KEY || "dev-secret";
 
 export const signSessionToken = (user: SessionUser) => {
   return jwt.sign(user, getSecret(), { expiresIn: "12h" });
