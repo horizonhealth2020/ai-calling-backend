@@ -17,10 +17,11 @@ if (missing.length > 0) {
 
 // ── Express app ─────────────────────────────────────────────────
 const app = express();
-app.use(express.json());
-app.use(cookieParser());
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3011,http://localhost:3013").split(",").map(s => s.trim());
+
+// CORS must be registered before body parsers so that preflight OPTIONS
+// requests are handled immediately and never reach the JSON parser.
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -32,12 +33,26 @@ app.use(
   })
 );
 
+// Parse JSON bodies with an explicit error handler so a malformed payload
+// (e.g. double-escaped characters) returns a clean 400 instead of a 500.
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  express.json()(req, res, (err) => {
+    if (err) {
+      console.error("[body-parser] JSON parse error:", err.message, "| path:", req.path);
+      return res.status(400).json({ error: "Invalid JSON in request body. Ensure the body is not double-encoded." });
+    }
+    next();
+  });
+});
+
+app.use(cookieParser());
+
 app.get("/health", (_req, res) => res.json({ ok: true, service: "ops-api" }));
 app.use("/api", routes);
 
 // Global error handler for async route errors
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("Unhandled error:", err);
+  console.error("[error]", err.message ?? err);
   if (!res.headersSent) {
     const status = typeof err.statusCode === "number" ? err.statusCode : typeof err.status === "number" ? err.status : 500;
     const message = err.expose && err.message ? err.message : "Internal server error";

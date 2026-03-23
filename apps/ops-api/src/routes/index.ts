@@ -92,9 +92,29 @@ function dateRange(range?: string, from?: string, to?: string): { gte: Date; lt:
 }
 
 router.post("/auth/login", asyncHandler(async (req, res) => {
+  // Guard against double-encoded bodies: if express.json() parsed the payload
+  // into a string instead of an object, the client sent JSON-within-JSON.
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      console.error("[auth/login] Body is a string but not valid JSON — likely double-encoded. Raw value type:", typeof req.body);
+      return res.status(400).json({ error: "Request body is malformed. Send a plain JSON object, not a JSON-encoded string." });
+    }
+  }
+
+  if (!body || typeof body !== "object") {
+    console.error("[auth/login] Unexpected body type:", typeof body, "— Content-Type may be missing or incorrect.");
+    return res.status(400).json({ error: "Request body must be a JSON object with email and password fields." });
+  }
+
   const schema = z.object({ email: z.string().email(), password: z.string().min(8) });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    console.error("[auth/login] Validation failed for email:", body?.email, "| errors:", JSON.stringify(parsed.error.flatten().fieldErrors));
+    return res.status(400).json(zodErr(parsed.error));
+  }
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (!user || !user.active || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
