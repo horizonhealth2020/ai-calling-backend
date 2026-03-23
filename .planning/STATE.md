@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: State-Aware Bundle Requirements
-status: Roadmap created
-stopped_at: null
-last_updated: "2026-03-23"
+status: Executing Phase 20
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-03-23T19:44:00Z"
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.4 State-Aware Bundle Requirements -- roadmap created, ready for phase planning
+**Current focus:** v1.4 State-Aware Bundle Requirements -- executing Phase 20
 
 ## Current Position
 
-Phase: 20 (State-Aware Bundle Requirements) -- not started
-Plan: --
-Status: Roadmap consolidated, awaiting phase planning
-Last activity: 2026-03-23 -- v1.4 roadmap consolidated to 1 phase (20)
+Phase: 20 (State-Aware Bundle Requirements) -- EXECUTING
+Plan: 2 of 5
+Status: Plan 20-01 complete (schema migration + US_STATES constant)
+Last activity: 2026-03-23 -- 20-01-PLAN.md executed (2 tasks, 4 files)
 
 ```
 [====================] v1.0 (10/10 phases)
@@ -66,6 +66,9 @@ Last activity: 2026-03-23 -- v1.4 roadmap consolidated to 1 phase (20)
 | commissionApproved bypasses state-based halving | Consistent with existing behavior where it bypasses all other halving |
 | memberState null falls through to legacy logic | Backward compatibility -- existing sales without state produce identical results |
 | Consolidated to single phase (Phase 20) | User requested all work in one long-running phase |
+| Manual migration SQL (no live DB) | Worktree environment has no PostgreSQL; SQL written manually to match Prisma output |
+| US_STATES in @ops/types | Co-locates StateCode type with AppRole and SessionUser |
+| FIX-02 confirmed no-op | No seed agents (Amy/Bob/Cara/David/Elena) exist in codebase |
 
 ### Open Questions
 

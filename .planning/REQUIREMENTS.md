@@ -31,7 +31,7 @@ Requirements for milestone v1.4. Each maps to roadmap phases.
 ### Housekeeping
 
 - [ ] **FIX-01**: Role dashboard selector has configurable delay before collapsing
-- [ ] **FIX-02**: Seed agents (Amy, Bob, Cara, David, Elena) removed from database seed
+- [x] **FIX-02**: Seed agents (Amy, Bob, Cara, David, Elena) removed from database seed
 
 ## Future Requirements
 
@@ -75,7 +75,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-03 | Phase 20 | Pending |
 | SALE-01 | Phase 20 | Pending |
 | FIX-01 | Phase 20 | Pending |
-| FIX-02 | Phase 20 | Pending |
+| FIX-02 | Phase 20 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 14 total
