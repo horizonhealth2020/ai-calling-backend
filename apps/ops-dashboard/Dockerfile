@@ -21,8 +21,7 @@ RUN npm ci --include-workspace-root
 COPY . .
 
 # Build args baked into Next.js at build time
-ARG NEXT_PUBLIC_OPS_API_URL
-ENV NEXT_PUBLIC_OPS_API_URL=${NEXT_PUBLIC_OPS_API_URL}
+ENV NEXT_PUBLIC_OPS_API_URL=https://ops-api-production-be61.up.railway.app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN echo "Building with API URL: ${NEXT_PUBLIC_OPS_API_URL}" && npm run build --workspace=apps/ops-dashboard
