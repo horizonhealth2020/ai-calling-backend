@@ -1,214 +1,261 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-23
+
+---
 
 ## Tech Debt
 
 **Monolithic routes file:**
-- Issue: All ~1,907 lines of API logic live in a single file with no sub-routing
+- Issue: All 2,591 lines of API route handlers live in a single flat file.
 - Files: `apps/ops-api/src/routes/index.ts`
-- Impact: Cognitive load is high; PRs always touch the same file causing merge conflicts; impossible to unit-test routes in isolation
-- Fix approach: Split by domain (auth, sales, payroll, clawbacks, callAudit, convoso, settings) into `apps/ops-api/src/routes/` subdirectory files, each exporting a `Router`
+- Impact: Any change requires scrolling/searching a 2,500+ line file. Merge conflicts are frequent when multiple features land simultaneously. Cognitive overhead for new contributors.
+- Fix approach: Split by domain — `routes/auth.ts`, `routes/sales.ts`, `routes/payroll.ts`, `routes/cs.ts`, `routes/callLogs.ts`, `routes/settings.ts`.
 
-**Monolithic frontend pages:**
-- Issue: `payroll-dashboard` page.tsx (2,770 lines) and `manager-dashboard` page.tsx (2,666 lines) contain all UI, state, handlers, and fetch logic in a single Client Component
-- Files: `apps/payroll-dashboard/app/page.tsx`, `apps/manager-dashboard/app/page.tsx`
-- Impact: No component reuse, re-renders entire page on any state change, very hard to test or modify safely
-- Fix approach: Extract sections into sub-components under `app/components/`; pull fetch logic into custom hooks
+**Legacy Morgan service is plain JS with no types:**
+- Issue: `index.js` (1,612 lines) is CommonJS with zero TypeScript. Business logic lives alongside webhook handlers and debug endpoints in one file.
+- Files: `index.js`, `voiceGateway.js`, `morganToggle.js`, `rateLimitState.js`
+- Impact: No compile-time safety. Runtime errors are the only feedback. Slot management state (`morganSlots`, `morganCallToSlot`) is in-memory and lost on restart.
+- Fix approach: Migrate to TypeScript; extract slot management into a stateful class or Redis-backed store.
 
-**Committed backup file:**
-- Issue: `page.backup.tsx` is committed to the repository and tracked in git
-- Files: `apps/sales-board/app/page.backup.tsx` (1,234 lines)
-- Impact: Confuses tooling and developers; misleads code search
-- Fix approach: Delete file and commit removal; use git history for recovery if needed
+**`as any` type escapes throughout routes:**
+- Issue: 108 uses of `any` type exist in `apps/ops-api/src/routes/index.ts`, with 14 explicit `as any` casts, including on `req.user` after `requireAuth` has already typed it.
+- Files: `apps/ops-api/src/routes/index.ts` lines 103, 129, 473, 569, 606, 664, 1669, 1779, 2113, 2390, 2423, 2429
+- Impact: Type errors pass silently; `(req as any).user` bypasses the already-correct `req.user` typing set up in `middleware/auth.ts`.
+- Fix approach: Remove `as any` from `req.user` accesses (already typed via Express namespace augmentation). Use typed Prisma enums instead of `status as any` on lines 1669 and 1779.
 
-**`Sale.payrollStatus` and `Sale.clawbackStatus` denormalization never updated:**
-- Issue: The `Sale` model has `payrollStatus` and `clawbackStatus` fields that are set to defaults on creation but never updated by any route or service
-- Files: `prisma/schema.prisma` (lines 157-158), `apps/ops-api/src/routes/index.ts`
-- Impact: These fields always reflect their default values (PENDING / OPEN) regardless of actual state, making them unreliable for any UI or query that reads them
-- Fix approach: Either remove the denormalized fields and derive status from `PayrollEntry`/`Clawback` relations, or add update calls wherever `PayrollEntry.status` and `Clawback.status` are mutated
+**Unbounded `findMany()` on products and permission overrides:**
+- Issue: Two queries have no `where`, `take`, or `select` constraints.
+- Files: `apps/ops-api/src/routes/index.ts` lines 263, 2503
+- Impact: As the product catalog and permission override tables grow, these endpoints will return progressively larger payloads with no ceiling.
+- Fix approach: Add `orderBy` and `take` caps; add `select` to limit returned fields.
 
-**Week boundary inconsistency between payroll and sales board:**
-- Issue: `upsertPayrollEntryForSale` uses Sunday-to-Saturday weeks (via `getSundayWeekRange` in `payroll.ts`), while `sales-board/detailed` uses Monday-to-Sunday ISO weeks
-- Files: `apps/ops-api/src/services/payroll.ts` (lines 7-30), `apps/ops-api/src/routes/index.ts` (lines 1213-1219)
-- Impact: Sales appearing on Monday appear in the previous payroll week but the current sales-board week, creating a reporting discrepancy visible to agents on Mondays
-- Fix approach: Standardize sales board to use the same Sunday-week logic as payroll, or document the intentional difference prominently
+**`payroll/periods` loads all periods with all nested data — no pagination:**
+- Issue: `GET /payroll/periods` fetches every PayrollPeriod with full nested entries (sales, addons, agents, service entries) with no date filter or `take` limit.
+- Files: `apps/ops-api/src/routes/index.ts` lines 869–886
+- Impact: As payroll history grows, this endpoint will return megabytes of nested JSON on each load, degrading the payroll dashboard.
+- Fix approach: Add a `year` or `months` query param filter; default to showing only the last 12 periods.
 
-**`month` range is rolling 30 days, not a calendar month:**
-- Issue: The `dateRange` helper returns "last 30 days" for `range=month`, not the current calendar month
-- Files: `apps/ops-api/src/routes/index.ts` (lines 49-54)
-- Impact: Dashboard date ranges are inconsistent with `/reporting/periods` monthly view which uses calendar months; confuses users comparing the two
-- Fix approach: Define "month" as the current calendar month (first day to today + 1), or rename the parameter value to `last30` and add a true `month` option
+**N+1 query pattern in `getRepChecklist`:**
+- Issue: `getRepChecklist` fetches all active reps, then issues 2 separate `prisma.findMany` queries per rep inside `Promise.all` — 2N+1 total queries.
+- Files: `apps/ops-api/src/services/repSync.ts` lines 112–141
+- Impact: Slow on CS dashboard load as rep count grows; 10 reps = 21 queries; 20 reps = 41 queries.
+- Fix approach: Fetch all chargebacks and pending terms in two bulk queries, then group by `assignedTo` in memory.
 
-**Pervasive `any` typing in routes:**
-- Issue: 33 occurrences of `: any` or `as any` in `routes/index.ts` alone, including `updateData: any`, `(req.user as any)?.roles`, and `(parsed.data as any)[f]`
-- Files: `apps/ops-api/src/routes/index.ts`
-- Impact: Type errors in business logic are hidden at compile time; refactors can silently break data contracts
-- Fix approach: Create typed interfaces for update payloads (e.g., `SaleUpdateData`), use the Prisma-generated input types directly
+**`dateRange` has two overlapping interpretations of "month":**
+- Issue: Both `range === "month"` and `range === "30d"` compute rolling 30-day windows with identical logic. The named `month` case is redundant.
+- Files: `apps/ops-api/src/routes/index.ts` lines 83–90
+- Impact: Confusion when the owner dashboard intends "calendar month" but gets a rolling window. Minor but misleading naming.
+- Fix approach: Rename `month` to `30d` (or add true calendar-month logic starting on the 1st).
 
-**Duplicate `extractConvosoResults` function:**
-- Issue: The helper function is defined identically in two places
-- Files: `apps/ops-api/src/routes/index.ts` (line 1799), `apps/ops-api/src/workers/convosoKpiPoller.ts` (line 20)
-- Impact: Bug fixes must be applied twice; functions can drift
-- Fix approach: Export from `apps/ops-api/src/services/convosoCallLogs.ts` and import in both locations
+**AI model name hardcoded as string literal:**
+- Issue: `"claude-sonnet-4-20250514"` is hardcoded in two places with no env var override.
+- Files: `apps/ops-api/src/services/callAudit.ts` line 164, `apps/ops-api/src/services/auditQueue.ts` line 135
+- Impact: Upgrading the model requires a code deploy rather than a config change.
+- Fix approach: Extract to a constant or env var `ANTHROPIC_MODEL_ID` with a fallback.
 
-**Bonus category breakdown logic duplicated:**
-- Issue: The breakdown calculation (split amounts by deduction category) appears in both `POST /payroll/service-entries` and `PATCH /payroll/service-entries/:id`
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1054-1065 and 1096-1107)
-- Impact: Logic must be kept in sync; currently identical but divergence risk is high
-- Fix approach: Extract to a `calculateServicePay(breakdown, basePay, fronted, cats)` helper function
+**AI cost estimates are hardcoded with stale pricing:**
+- Issue: Claude Sonnet cost is hardcoded as `$3/M input, $15/M output` in a comment/function. Actual pricing changes without any code signal.
+- Files: `apps/ops-api/src/services/callAudit.ts` lines 252–260
+- Impact: Cost tracking in `ai_usage_log` will silently drift from actual billing as model pricing changes.
+- Fix approach: Pull cost rates from a settings table or env vars.
 
-## Security Considerations
+**`startAutoScorePolling` only called on manual trigger — not at boot:**
+- Issue: `startAutoScorePolling()` is only called from the `POST /ai/auto-score` route handler. The `convosoKpiPoller` starts at boot, but the audit queue poller does not.
+- Files: `apps/ops-api/src/routes/index.ts` line 2457, `apps/ops-api/src/index.ts` line 68
+- Impact: If ops-api restarts while calls are in `queued` status, they will remain stuck until a human manually POSTs `/ai/auto-score`.
+- Fix approach: Call `startAutoScorePolling()` at boot in `apps/ops-api/src/index.ts` alongside `startConvosoKpiPoller()`.
 
-**No rate limiting on authentication endpoints:**
-- Risk: `POST /api/auth/login` and `POST /api/auth/change-password` have no brute-force protection
-- Files: `apps/ops-api/src/routes/index.ts` (lines 57-88), `apps/ops-api/src/index.ts`
-- Current mitigation: None
-- Recommendations: Add `express-rate-limit` with a low limit (e.g., 10 req/15min per IP) on `/api/auth/login` and `/api/auth/change-password`
+**`repSync.syncExistingReps` matches reps by name string — fragile deduplication:**
+- Issue: Linking unlinked `CsRepRoster` entries to `ServiceAgent` records is done by lowercased name match. Any name discrepancy (typo, middle initial) silently skips linkage.
+- Files: `apps/ops-api/src/services/repSync.ts` lines 54–76
+- Impact: Reps appear duplicated in CS roster; payroll/CS data is disconnected.
+- Fix approach: Add a stable foreign key (`serviceAgentId`) as the canonical link and remove name-based matching.
 
-**No HTTP security headers:**
-- Risk: No `helmet` middleware is applied; responses lack `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `Content-Security-Policy`
-- Files: `apps/ops-api/src/index.ts`
-- Current mitigation: None
-- Recommendations: Add `helmet()` as the first middleware before CORS
-
-**Webhook secret transmitted in query param:**
-- Risk: `requireWebhookSecret` accepts the secret via `req.query.api_key` (in addition to header), which logs to web server access logs and browser history
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1295-1300)
-- Current mitigation: Header-based secret also supported
-- Recommendations: Remove the `api_key` query param fallback; require header-only delivery
-
-**`SUPER_ADMIN` role bypass is implicit and undocumented per endpoint:**
-- Risk: `requireRole` silently passes all `SUPER_ADMIN` users through every role check. If a `SUPER_ADMIN` token is compromised, every protected endpoint is exposed
-- Files: `apps/ops-api/src/middleware/auth.ts` (line 29)
-- Current mitigation: Intentional per CLAUDE.md; auth token expiry is 12h
-- Recommendations: Add audit logging for all `SUPER_ADMIN` actions that bypass role-specific checks; consider issuing scoped tokens for automated tasks
-
-**Unvalidated `agentId` query param in call-audits endpoint:**
-- Risk: `req.query.agentId` is passed directly into a Prisma `where` clause without type validation
-- Files: `apps/ops-api/src/routes/index.ts` (line 1400)
-- Current mitigation: Prisma parameterization prevents SQL injection; authenticated endpoint
-- Recommendations: Validate with Zod (`z.string().cuid().optional()`) to prevent unexpected behavior from malformed input
-
-**`JSON.parse` on unchecked database string values:**
-- Risk: `salesBoardSetting.value` is parsed with `JSON.parse` without try/catch in two places
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1008, 1056, 1098)
-- Current mitigation: Data is only written through validated API endpoints
-- Recommendations: Wrap `JSON.parse` in try/catch with a fallback to `DEFAULT_BONUS_CATEGORIES` to prevent 500 errors from corrupted settings records
-
-**`z.parse` (throws) used on unauthenticated input in three routes:**
-- Risk: `z.object({...}).parse(req.body)` at lines 855, 884, and 910 throws a `ZodError` rather than returning a 400. This is caught by `asyncHandler` and forwarded to the global error handler which returns a 500 with "Internal server error" instead of a 400 with validation details
-- Files: `apps/ops-api/src/routes/index.ts` (lines 855, 884, 910)
-- Current mitigation: Only affects `PAYROLL` and `SUPER_ADMIN` roles
-- Recommendations: Replace `.parse()` with `.safeParse()` and return `zodErr(parsed.error)` with a 400 status, consistent with every other route
-
-## Performance Bottlenecks
-
-**`GET /payroll/periods` loads all periods with all entries:**
-- Problem: Single query fetches every payroll period with all entries (each including sale details, product, addons, agent) with no pagination, no time limit
-- Files: `apps/ops-api/src/routes/index.ts` (lines 832-849)
-- Cause: No `take` or `where` filter; as data grows, this becomes a multi-MB response
-- Improvement path: Add a `take: 12` or date-based filter; paginate from the frontend; or fetch period metadata separately from entries
-
-**`GET /call-counts` and `GET /tracker/summary` load all call logs into memory:**
-- Problem: Both routes fetch all `convosoCallLog` records matching the date range into Node.js memory, then aggregate in JavaScript
-- Files: `apps/ops-api/src/routes/index.ts` (lines 783-830, 1464-1498)
-- Cause: Per-lead-source buffer filtering requires row-level logic; Prisma `groupBy` cannot express conditional counting
-- Improvement path: Pre-filter buffer-compliant calls at write time (set a `bufferPassed` boolean on the call log); then groupBy can work in the database
-
-**In-memory audit job queue lost on process restart:**
-- Problem: The `pendingJobs` array and `activeJobs` set in `auditQueue.ts` exist only in process memory; any server restart drops all queued audio audit jobs silently
-- Files: `apps/ops-api/src/services/auditQueue.ts` (lines 8-9)
-- Cause: No persistence layer for the queue
-- Improvement path: Persist queue state to the database (`convosoCallLog.auditStatus = 'queued'`) and re-hydrate on server boot; or migrate to BullMQ with Redis
-
-**`GET /sales-board/detailed` iterates all week's sales in JS:**
-- Problem: All RAN sales for the current week are fetched and aggregated per-day per-agent in JavaScript loops
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1227-1291)
-- Cause: Dynamic day labeling requires client-side grouping
-- Improvement path: Move grouping to a `groupBy` with `_sum` aggregation; compute day labels from aggregated date values
-
-## Fragile Areas
-
-**Clawback logic uses `payrollEntries[0]` without ordering:**
-- Files: `apps/ops-api/src/routes/index.ts` (lines 911-936)
-- Why fragile: `prisma.sale.findFirst({ include: { payrollEntries: true } })` returns entries in default insertion order. A sale with multiple payroll entries (e.g., after a period reassignment) will have the wrong entry targeted — the clawback operates on the first inserted entry, not the most recent
-- Safe modification: Add `orderBy: { createdAt: 'desc' }` to the `payrollEntries` include
-- Test coverage: No test covers multi-entry clawback scenarios
-
-**`handleSaleEditApproval` has ambiguous "same period finalized" branch:**
-- Files: `apps/ops-api/src/services/payroll.ts` (lines 290-300)
-- Why fragile: When a sale's edit lands in the same finalized period, the code comments "upsertPayrollEntryForSale already created new entry in correct period" but the new period is determined by the (possibly unchanged) `paymentType` and `saleDate`, meaning the "new entry in correct period" may be the same finalized period. The clawback is applied and a new entry overwrites the same finalized period entry
-- Safe modification: Check if the upserted entry lands in the original finalized period before deciding the adjustment strategy
-- Test coverage: Partially covered in `status-commission.test.ts` but the same-period finalized case is not tested
-
-**Convoso KPI poller `agentMap` built from email only:**
-- Files: `apps/ops-api/src/workers/convosoKpiPoller.ts` (lines 174-177)
-- Why fragile: Agents without an email address are silently excluded from KPI attribution; the filter `agents.filter(a => a.email)` discards them without logging. Any Convoso call attributed to a non-email agent will never link to an internal agent
-- Safe modification: Log excluded agents; alert when an unmatched `agent_user` appears repeatedly
-
-**Sales board weekly/daily boundaries use server local time:**
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1197-1199, 1214-1224)
-- Why fragile: `new Date(Date.now() - 86400000)` and `new Date(now.getFullYear(), ...)` use server local time, while `payroll.ts` explicitly converts to Eastern (`America/New_York`) via Luxon. If the server runs in UTC (Railway/Docker), the daily/weekly cutoffs for the sales board will differ from the payroll week boundaries by the Eastern UTC offset (4-5 hours)
-- Safe modification: Use Luxon's `DateTime.now().setZone('America/New_York')` for all boundary calculations
-
-## Scaling Limits
-
-**`AgentCallKpi` table grows unbounded:**
-- Current capacity: One row per agent per lead source per poll cycle (every 10 minutes)
-- Limit: With 10 agents and 5 lead sources, this adds ~300 rows/hour / ~7,200/day; no cleanup or archival logic exists for this table
-- Scaling path: Add a retention policy (e.g., delete records older than 90 days) in the poller's cleanup step alongside `processedConvosoCall` cleanup
-
-**Socket.IO has no authentication on connection:**
-- Current capacity: Any browser on an allowed CORS origin can open a persistent WebSocket connection to ops-api
-- Limit: With no auth handshake, connections accumulate from unauthenticated clients; no per-connection rate limiting
-- Scaling path: Add a `socket.io` auth middleware that validates the JWT on the `connection` event
-
-## Dependencies at Risk
-
-**`bcryptjs` instead of `bcrypt`:**
-- Risk: `bcryptjs` is a pure-JavaScript implementation of bcrypt; it is significantly slower than the native `bcrypt` package (which uses C++ bindings). Under load, password hashing/comparison on every login adds latency
-- Impact: Login endpoint latency; under high auth load, Node.js event loop is blocked during hash comparison
-- Migration plan: Replace with `bcrypt` (native) or `argon2` for both better performance and stronger key derivation
-
-## Missing Critical Features
-
-**No refresh of `isBundleQualifier` status on product edit:**
-- Problem: When `PATCH /products/:id` changes `isBundleQualifier` on an existing product, no commission recalculation is triggered on historical sales that used that product
-- Blocks: Commission accuracy after product configuration changes
-- Files: `apps/ops-api/src/routes/index.ts` (lines 252-274)
-
-**No input sanitization on `notes` and `managerSummary` free-text fields:**
-- Problem: Arbitrary text is stored and rendered in dashboards with no HTML sanitization
-- Blocks: Any future move to HTML rendering in dashboards; current risk is low since all dashboards use React (which escapes by default)
-- Files: Multiple `notes` and `coachingNotes` fields across sale, audit, and payroll routes
-
-## Test Coverage Gaps
-
-**No integration or E2E tests for any API routes:**
-- What's not tested: Authentication, RBAC enforcement, sale creation, payroll period state machine, clawback creation, webhook ingestion
-- Files: `apps/ops-api/src/routes/index.ts` (1,907 lines of untested route handlers)
-- Risk: Any refactor of routes or middleware can break live behavior without any automated signal
-- Priority: High
-
-**No tests for frontend dashboards:**
-- What's not tested: All `.tsx` pages — `payroll-dashboard`, `manager-dashboard`, `owner-dashboard`, `sales-board`, `auth-portal`
-- Files: `apps/payroll-dashboard/app/page.tsx`, `apps/manager-dashboard/app/page.tsx`, `apps/owner-dashboard/app/page.tsx`
-- Risk: UI regressions are caught only manually
-- Priority: Medium
-
-**`callAudit.ts` service has no tests:**
-- What's not tested: Whisper transcription, Claude audit call, OpenAI scoring, DB persistence flow, `reAuditCall` function
-- Files: `apps/ops-api/src/services/callAudit.ts` (368 lines)
-- Risk: Changes to AI prompts or model parameters can silently break audit output structure
-- Priority: High
-
-**Clawback creation flow is not tested:**
-- What's not tested: `POST /clawbacks` with `memberId`, `memberName`, multi-entry scenarios, `PAID` vs non-paid status branching
-- Files: `apps/ops-api/src/routes/index.ts` (lines 909-938)
-- Risk: Incorrect entry targeting (see `payrollEntries[0]` concern above) could silently corrupt payroll data
-- Priority: High
+**Dashboard components are extremely large single files:**
+- Issue: `PayrollPeriods.tsx` is 1,777 lines; `CSSubmissions.tsx` is 1,228 lines; `CSTracking.tsx` is 1,126 lines; `ManagerEntry.tsx` is 815 lines.
+- Files: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx`, `apps/ops-dashboard/app/(dashboard)/cs/CSSubmissions.tsx`, `apps/ops-dashboard/app/(dashboard)/cs/CSTracking.tsx`, `apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx`
+- Impact: Hard to review, test, or extend. State management is intermingled with rendering logic.
+- Fix approach: Extract sections into smaller sub-components per domain concern (form, table, modal, etc.).
 
 ---
 
-*Concerns audit: 2026-03-17*
+## Known Bugs
+
+**`upsertPayrollEntryForSale` overwrites bonus/fronted/hold on update:**
+- Symptoms: When a sale is edited and commission is recalculated, the `update` branch of the `payrollEntry.upsert` only sets `payoutAmount` and `netAmount`, discarding the existing `bonus`, `fronted`, and `hold` values that were already fetched from `existing`. The `create` branch correctly uses `payoutAmount` (not those values).
+- Files: `apps/ops-api/src/services/payroll.ts` lines 252–263
+- Trigger: Edit a sale that already has a bonus or fronted amount applied on its payroll entry.
+- Workaround: Manually re-enter bonus/fronted after editing.
+
+**`handleSaleEditApproval` may double-clawback in same-period edits:**
+- Symptoms: Lines 311–323 mark the finalized entry as `CLAWBACK_APPLIED` in both the "different period" and "same period" branches. In the same-period case, `upsertPayrollEntryForSale` already updated the entry in place, so the subsequent clawback marks an already-updated entry.
+- Files: `apps/ops-api/src/services/payroll.ts` lines 289–327
+- Trigger: Approve a sale edit when the sale's payroll period is finalized, and the sale date/paymentType does not change periods.
+
+**Round-robin reads roster BEFORE transaction — not fully atomic:**
+- Symptoms: `getNextRoundRobinRep` fetches active reps outside the transaction, then uses that stale list inside. Under concurrent calls, two requests can assign the same rep.
+- Files: `apps/ops-api/src/services/repSync.ts` lines 83–106
+- Trigger: Two simultaneous chargeback batch submissions with auto-assign enabled.
+- Workaround: None — requires moving the `csRepRoster.findMany` call inside the `prisma.$transaction` block.
+
+---
+
+## Security Considerations
+
+**JWT has an insecure fallback secret:**
+- Risk: `packages/auth/src/index.ts` line 11 falls back to `"dev-secret"` if `AUTH_JWT_SECRET` is missing. Any deployment without the env var set will silently accept and issue tokens signed with this predictable key.
+- Files: `packages/auth/src/index.ts` line 11
+- Current mitigation: `apps/ops-api/src/index.ts` validates `AUTH_JWT_SECRET` is present at startup and exits if missing — but the auth package itself will still use `"dev-secret"` if imported standalone.
+- Recommendations: Remove the `"dev-secret"` fallback from `getSecret()`. Throw if the key is absent.
+
+**JWT passed as URL query parameter:**
+- Risk: Session tokens appear in `?session_token=<jwt>` on redirect from auth-portal to dashboards. Tokens are visible in browser history, server access logs, and referrer headers.
+- Files: `apps/ops-dashboard/app/api/login/route.ts` line 50, `packages/auth/src/client.ts` lines 10–23
+- Current mitigation: `captureTokenFromUrl()` removes the token from the URL immediately via `history.replaceState`. However the token has already been exposed.
+- Recommendations: Use POST redirect pattern or set an httpOnly cookie at the auth-portal level and redirect without the token in the URL.
+
+**Debug endpoints are unauthenticated and exposed in production:**
+- Risk: `POST /debug/test-call`, `POST /debug/hydrate-mq`, `POST /debug/hydrate-mq-raw` in `index.js` have no authentication. Anyone with network access can trigger outbound AI calls or read raw Convoso lead data.
+- Files: `index.js` lines 1051–1137
+- Current mitigation: `isMorganEnabled()` check gates actual call execution, but lead data is still exposed through `/debug/hydrate-mq`.
+- Recommendations: Add an `X-Debug-Secret` header check, or gate behind the `MORGAN_ENABLED` env only in non-production environments.
+
+**Webhook secret accepted via query param (`api_key`):**
+- Risk: `requireWebhookSecret` accepts the secret in `req.query.api_key` as an alternative to the `x-webhook-secret` header. Query params are logged by most infrastructure.
+- Files: `apps/ops-api/src/routes/index.ts` line 1374
+- Current mitigation: Secret value is validated, but it appears in access logs if passed via query string.
+- Recommendations: Remove the `req.query.api_key` path; require the header only.
+
+**JWT token stored in localStorage — XSS accessible:**
+- Risk: Tokens stored in `localStorage` under key `ops_session_token` are accessible to any JavaScript running on the page, including injected scripts.
+- Files: `packages/auth/src/client.ts` lines 6, 16, 29
+- Current mitigation: An httpOnly session cookie is also set by the API — but browsers may use the localStorage token for API calls before the cookie is established.
+- Recommendations: Migrate to httpOnly-only cookie flow and remove localStorage token storage.
+
+---
+
+## Performance Bottlenecks
+
+**`GET /payroll/periods` — unbounded nested load:**
+- Problem: Loads all payroll periods with full nested `entries` (including sales with addons and product details) and `serviceEntries`. No date filter, no `take` limit.
+- Files: `apps/ops-api/src/routes/index.ts` lines 869–886
+- Cause: No pagination. Every period ever created is returned on each page load.
+- Improvement path: Add `orderBy: { weekStart: "desc" }, take: 12` as default; expose a `year` query param for historical access.
+
+**`GET /agent-tracker` — fetches all call logs for date range into memory:**
+- Problem: `convosoCallLog.findMany` fetches potentially thousands of records into Node memory for in-process aggregation (buffer filtering, cost calculation).
+- Files: `apps/ops-api/src/routes/index.ts` lines 1540–1574
+- Cause: Per-source `callBufferSeconds` filtering cannot be pushed to SQL since it requires joining per-source buffer values dynamically.
+- Improvement path: Pre-compute buffer-filtered call counts in a materialized view or push the buffer logic into the Convoso KPI poller rather than the read path.
+
+**`getRepChecklist` — 2N+1 queries per request:**
+- Problem: Issues 2 `findMany` queries per active CS rep (chargebacks + pending terms) rather than 2 total queries.
+- Files: `apps/ops-api/src/services/repSync.ts` lines 117–141
+- Cause: Fan-out inside `Promise.all`. For 10 reps this is 21 DB round trips; for 20 reps, 41.
+- Improvement path: Replace with two bulk queries filtered by `assignedTo: { in: repNames }` and group in memory.
+
+---
+
+## Fragile Areas
+
+**In-memory Morgan slot state — lost on restart:**
+- Files: `index.js` lines 40–68
+- Why fragile: `morganSlots` and `morganCallToSlot` are plain `Map` objects. Any process restart orphans active call slots permanently (they remain "busy" forever).
+- Safe modification: Do not modify slot state outside `markMorganSlotBusy` and `freeMorganSlot` functions. Add a startup log of slot state for observability.
+- Test coverage: No tests cover slot state. `__tests__/integration.test.js` contains only TODO stubs.
+
+**`handleSaleEditApproval` — finalized-period logic:**
+- Files: `apps/ops-api/src/services/payroll.ts` lines 277–328
+- Why fragile: The function finds a "new entry" by excluding the finalized entry ID — but if `upsertPayrollEntryForSale` updates the same entry in-place, `newEntries[0]` is still the finalized entry, causing incorrect comparison.
+- Safe modification: Always check `payrollPeriod.status` on re-fetched entries after upsert rather than relying on ID exclusion.
+- Test coverage: Covered by `services/__tests__/commission.test.ts` but not for the same-period finalized edge case.
+
+**`DEFAULT_AI_AUDIT_PROMPT` duplicated in two places:**
+- Files: `apps/ops-api/src/routes/index.ts` lines 1577–1611, `apps/ops-api/src/services/callAudit.ts` (separate `DEFAULT_AUDIT_PROMPT` constant)
+- Why fragile: Changes to the default prompt must be made in two places or will silently diverge.
+- Safe modification: Extract to a shared constant in `apps/ops-api/src/services/callAudit.ts` and import it in the route.
+
+**`dateRange` function uses local `new Date()` — timezone inconsistent with payroll:**
+- Files: `apps/ops-api/src/routes/index.ts` lines 34–92
+- Why fragile: `dateRange` computes ranges from `new Date()` (server local time / UTC), while `getSundayWeekRange` in payroll uses Luxon with explicit `America/New_York` timezone. Reports filtered with `dateRange` may show different week boundaries than payroll entries.
+- Safe modification: Use Luxon throughout `dateRange` with a consistent timezone.
+
+---
+
+## Scaling Limits
+
+**Single-process in-memory audit queue:**
+- Current capacity: 3 concurrent audit jobs; queue state lives in `activeJobs` Set in the Node process.
+- Limit: Horizontal scaling (multiple ops-api instances) will result in duplicate job processing since both instances will pick the same `queued` records from the database.
+- Scaling path: Use a distributed lock (e.g., `pg_advisory_lock`) or a proper job queue (BullMQ with Redis) to coordinate across instances.
+
+**`processedConvosoCall` table as deduplication store:**
+- Current capacity: Records older than 30 days are cleaned up in each poll cycle.
+- Limit: High call volume without cleanup will grow this table unbounded. Cleanup is best-effort inside the same transaction as the poll — if the poll crashes, cleanup is skipped.
+- Scaling path: Run cleanup as a separate cron; add a DB index on `processedAt` if not already present.
+
+---
+
+## Dependencies at Risk
+
+**`node-fetch` in legacy Morgan service:**
+- Risk: `index.js` uses `node-fetch` (CommonJS `require`), which is a v2 pinned package. Node 18+ has native `fetch`. There is also a mismatch where `apps/ops-api` uses native `fetch`.
+- Impact: Dependency drift; security patches for `node-fetch` v2 may not arrive.
+- Migration plan: Remove `node-fetch` from `index.js` and use the Node native `fetch` (available since Node 18).
+
+**Dual AI provider dependency (Anthropic + OpenAI):**
+- Risk: Two AI SDKs are imported; OpenAI is the fallback path but may receive less attention/testing. The fallback audit result shape differs from the Claude structured output (no `issues`/`wins` arrays).
+- Files: `apps/ops-api/src/services/callAudit.ts` lines 218–242
+- Impact: If Anthropic is unavailable, the OpenAI fallback silently writes a different data shape into `callAudit`, breaking the structured audit display.
+- Migration plan: Either standardize on one provider or ensure the fallback path produces the same structured output.
+
+---
+
+## Missing Critical Features
+
+**No rate limiting on any API endpoint:**
+- Problem: `apps/ops-api/src/index.ts` has no rate-limiting middleware (no `express-rate-limit` or equivalent). The login endpoint (`POST /api/auth/login`) is brute-forceable.
+- Blocks: Security hardening; compliance requirements.
+
+**No input size limits beyond Zod validation:**
+- Problem: `express.json()` in `apps/ops-api/src/index.ts` uses the default 100kb body limit. The CSV paste for chargebacks/pending-terms (`rawPaste` field) can exceed this.
+- Files: `apps/ops-api/src/index.ts` line 20
+- Blocks: Reliable bulk paste import for large CS batches.
+
+**Integration tests are entirely unimplemented:**
+- Problem: `__tests__/integration.test.js` contains 25+ `it` blocks that are entirely TODO stubs. The entire integration test suite passes vacuously.
+- Files: `__tests__/integration.test.js`
+- Blocks: Confidence in Morgan service correctness; regression detection.
+
+---
+
+## Test Coverage Gaps
+
+**Morgan service (index.js) — zero functional tests:**
+- What's not tested: Slot management, Convoso lead enqueueing, Vapi call initiation, webhook handling, end-of-call processing, Monday lead backfill logic.
+- Files: `index.js`, `voiceGateway.js`, `morganToggle.js`, `rateLimitState.js`
+- Risk: Any refactor to the Morgan service has no regression safety net.
+- Priority: High — this is the core revenue-generating AI calling system.
+
+**`handleSaleEditApproval` — finalized same-period edge case:**
+- What's not tested: The scenario where a sale is edited but the new sale date stays in the same (already finalized) payroll period.
+- Files: `apps/ops-api/src/services/payroll.ts` lines 311–323
+- Risk: Commission double-counting or incorrect clawback creation goes undetected.
+- Priority: High — payroll correctness is critical.
+
+**`getRepChecklist` — CS rep assignment:**
+- What's not tested: Round-robin assignment under concurrency; rep checklist aggregation with mixed resolved/unresolved items.
+- Files: `apps/ops-api/src/services/repSync.ts`
+- Risk: Uneven distribution to CS reps; silent duplicate assignment under concurrent requests.
+- Priority: Medium.
+
+**Convoso KPI poller — poll cycle logic:**
+- What's not tested: Deduplication behavior when `processedConvosoCall` records are present; cleanup of old records; agent mapping by email.
+- Files: `apps/ops-api/src/workers/convosoKpiPoller.ts`
+- Risk: Silent data duplication if deduplication logic has a bug.
+- Priority: Medium.
+
+---
+
+*Concerns audit: 2026-03-23*

@@ -1,58 +1,53 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-23
 
 ## Naming Patterns
 
 **Files:**
-- TypeScript source files use camelCase: `payroll.ts`, `callAudit.ts`, `auditQueue.ts`
-- Test files use kebab-case with `.test.ts` or `.test.js` suffix: `commission.test.ts`, `payroll-guard.test.ts`
-- Next.js pages follow App Router convention: `app/page.tsx`, `app/layout.tsx`, `app/error.tsx`
-- Mock files use kebab-case: `ops-db.ts` inside `__mocks__/`
+- TypeScript API services: camelCase (`payroll.ts`, `auditQueue.ts`, `repSync.ts`)
+- TypeScript test files: kebab-case with domain prefix (`commission.test.ts`, `payroll-guard.test.ts`, `status-change.test.ts`)
+- Next.js page components: PascalCase matching their route segment (`PayrollPeriods.tsx`, `ManagerEntry.tsx`, `OwnerKPIs.tsx`)
+- Next.js route files: lowercase (`page.tsx`, `layout.tsx`, `error.tsx`)
 
 **Functions:**
-- camelCase for all functions: `calculateCommission`, `getSundayWeekRange`, `logAudit`, `asyncHandler`
-- Exported service functions are named after their action + subject: `upsertPayrollEntryForSale`, `handleCommissionZeroing`, `isAgentPaidInPeriod`
-- Helper/utility functions inside route files use camelCase: `zodErr`, `dateRange`, `asyncHandler`
+- camelCase for all functions: `calculateCommission`, `upsertPayrollEntryForSale`, `handleCommissionZeroing`
+- Handler wrappers: verb-noun pattern (`asyncHandler`, `requireAuth`, `requireRole`)
+- Pure helpers: verb-noun (`computeTrend`, `shiftRange`, `buildPeriodSummary`, `formatDollar`, `logAudit`)
 
 **Variables:**
-- camelCase for runtime variables: `mockFindMany`, `weekStart`, `weekEnd`
-- SCREAMING_SNAKE_CASE for module-level constants and style objects in React components: `API`, `DAYS`, `NAV_ITEMS`, `PREVIEW_PANEL`, `LBL`
-- Short uppercase aliases for imported design token objects are common in frontend pages: `const C = colors`, `const S = spacing`, `const R = radius`
+- camelCase for runtime values: `weekStart`, `weekEnd`, `mockFindMany`
+- SCREAMING_SNAKE_CASE for module-level style constants in React files: `CARD`, `BTN`, `LBL`, `INP`, `FIELD`, `PREVIEW_PANEL`, `SMALL_INP`
+- SCREAMING_SNAKE_CASE for numeric/string constants: `ENROLLMENT_BONUS_THRESHOLD`, `ENROLLMENT_BONUS_AMOUNT`, `TIMEZONE`, `MAX_SIZE`
+- Short aliases for frequently used tokens inside components: `const C = colors`, `const S = spacing`, `const R = radius`
+- Zod schemas declared inline as `const schema = z.object({...})` at handler scope
 
-**Types and Interfaces:**
-- PascalCase for all types: `SaleWithProduct`, `TransitionResult`, `SessionUser`, `AppRole`
-- Intersection types for Prisma relations: `Sale & { product: Product; addons: ... }`
-- Local types declared at top of file, below imports, above constants
+**Types:**
+- PascalCase for all types and interfaces: `AppRole`, `SessionUser`, `SaleWithProduct`, `TransitionResult`
+- `type` keyword preferred over `interface` for data shapes
+- `interface` used only for augmenting third-party types (Express `Request` extension in `apps/ops-api/src/middleware/auth.ts`)
+- Union string types for enums: `type AppRole = "SUPER_ADMIN" | "OWNER_VIEW" | ...`
 
 ## Code Style
 
 **Formatting:**
-- No Prettier or ESLint config files detected — formatting is enforced by convention and TypeScript strict mode only
-- Indentation: 2 spaces (observed throughout all `.ts` and `.tsx` files)
-- Single quotes preferred in JS files; double quotes used in TS/TSX files
+- No Prettier or ESLint config files detected — formatting is convention-by-example
+- 2-space indentation throughout TypeScript and TSX files
+- Double quotes for strings in TypeScript/TSX (`"use client"`, `{ error: "Unauthorized" }`)
+- Single quotes in Jest mock calls and some test strings
+- Trailing commas present in multi-line object/array literals
 
-**TypeScript:**
-- Strict mode enabled via `tsconfig.base.json`: `"strict": true`
-- Target: `ES2022`, module resolution: `Node`, `esModuleInterop: true`
-- Non-null assertions (`!`) used selectively for `req.user!` after auth middleware
-- `any` is avoided but used in a few specific places for Prisma dynamic input: `metadata?: object`, `e: any` for Prisma error codes
+**Linting:**
+- TypeScript strict mode enabled in `tsconfig.base.json` (`"strict": true`)
+- No runtime linter (ESLint/Biome) config files detected
+- `skipLibCheck: true` in base tsconfig
 
 ## Import Organization
 
-**Order (TypeScript files):**
-1. Node/framework imports: `import express from "express"`, `import { z } from "zod"`
-2. Shared package imports: `import { prisma } from "@ops/db"`, `import { requireAuth } from "../middleware/auth"`
-3. Local service imports: `import { logAudit } from "../services/audit"`
-
-**Order (React pages):**
-1. `"use client"` directive (first line)
-2. React and hook imports
-3. Shared package imports (`@ops/ui`, `@ops/auth/client`, `@ops/socket`)
-4. Icon imports from `lucide-react`
-5. Module-level constant: `const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? ""`
-6. Type declarations block (comment-separated)
-7. Module-level style/config constants (comment-separated)
+**Order (observed in `apps/ops-api/src/routes/index.ts` and component files):**
+1. Third-party packages (`express`, `bcrypt`, `zod`, `lucide-react`)
+2. Internal `@ops/*` workspace packages (`@ops/db`, `@ops/auth`, `@ops/types`, `@ops/ui`, `@ops/utils`)
+3. Relative local imports (`../middleware/auth`, `../services/payroll`, `./lib/auth`)
 
 **Path Aliases:**
 - `@ops/db` → `packages/db/src`
@@ -61,100 +56,106 @@
 - `@ops/types` → `packages/types/src`
 - `@ops/utils` → `packages/utils/src`
 - `@ops/ui` → `packages/ui/src`
-- Defined in `tsconfig.base.json` and mapped in `jest.config.ts` via `moduleNameMapper`
+- `@/` → Next.js app-local alias (e.g., `@/lib/auth`)
+- Aliases defined in `tsconfig.base.json` and replicated per-app for Next.js `transpilePackages`
 
 ## Error Handling
 
-**API routes (Express):**
-- All async handlers wrapped with `asyncHandler()` which calls `.catch(next)` to forward to global error handler
-- Zod validation errors always use `zodErr(parsed.error)` — never `.flatten()` directly — to ensure `{ error, details }` shape
-- Prisma unique constraint violations caught explicitly: `if (e.code === "P2002") return res.status(409).json({ error: "..." })`
-- Unknown errors re-thrown: `throw e` after handling known codes
-- Global error handler in `apps/ops-api/src/index.ts` returns `{ error: message }` with appropriate status
+**API Layer (Express):**
+- All async route handlers wrapped with `asyncHandler()` defined in `apps/ops-api/src/routes/index.ts`:
+  ```typescript
+  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
+    (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+  ```
+- Zod validation errors always returned via `zodErr()` helper to ensure `{ error, details }` shape:
+  ```typescript
+  function zodErr(ze: z.ZodError) {
+    const flat = ze.flatten();
+    const msg = flat.formErrors[0] || Object.values(flat.fieldErrors).flat()[0] || "Validation failed";
+    return { error: msg, details: flat };
+  }
+  ```
+- Prisma unique constraint violations caught by error code: `if (e.code === "P2002") return res.status(409).json({ error: "..." })`
+- Auth errors return `{ error: "Unauthorized" }` (401) or `{ error: "Forbidden" }` (403)
+- Global Express error handler in `apps/ops-api/src/index.ts` catches everything else; uses `err.statusCode` or `err.status` fallback to 500
+- Dashboard error fallback pattern: `` `Request failed (${res.status})` `` — always include HTTP status code, never a generic string
 
-**Frontend error display:**
-- API calls check `res.ok`, then fall back to `` `Request failed (${res.status})` `` — never generic strings
-- Error state from JSON is accessed as `err.error` (matches the `zodErr` shape)
+**Frontend (Next.js/React):**
+- `authFetch()` from `@ops/auth/client` used for all authenticated API calls — injects Bearer header, 30s timeout
+- Error state stored in component-local `useState` (`const [err, setErr] = useState<string | null>(null)`)
+- Errors displayed inline, never swallowed silently
 
-**Service layer:**
-- `logAudit` wraps DB write in `try/catch` — audit failures log to `console.error` but never throw
-- `verifySessionToken` in `packages/auth/src/index.ts` returns `null` on any error (never throws)
+**Services (background):**
+- Audit logging wrapped in try/catch; failures are logged but never throw: `// Audit logging should never break the request`
+- Queue processors use `console.error("[auditQueue] ...")` with bracketed service prefix for traceability
 
 ## Logging
 
-**Structured logging (`@ops/utils`):**
-- `logEvent(event, payload)` — emits `{ level: "info", event, payload, ts }` as JSON to stdout
-- `logError(event, payload)` — emits `{ level: "error", event, payload, ts }` as JSON to stderr
-- Located in `packages/utils/src/index.ts`
+**Framework:** `console.log` / `console.error` (no structured logger imported from `@ops/utils` in API routes despite `logEvent`/`logError` existing in the package)
 
-**Direct console logging:**
-- `console.error` used directly in `audit.ts` for fallback and `index.ts` server bootstrap
-- `console.log` used in Socket.IO connection events in `apps/ops-api/src/index.ts`
-- Structured `@ops/utils` loggers are preferred over raw console in service code
+**Patterns:**
+- Structured JSON for business events: `console.log(JSON.stringify({ event: "...", ... }))`
+- Bracketed service prefix for background processes: `[auditQueue]`, `[audit]`, `[socket.io]`
+- `console.error` for all error conditions; `console.log` for info/connection events
+- `@ops/utils` exports `logEvent` and `logError` (structured JSON) but these are used in frontend utilities like `formatDollar`, `formatDate` — not consistently used in API routes
 
 ## Comments
 
 **When to Comment:**
-- Section separators in large files use `/* ── Section Name ───────────────────────────── */` pattern
-- Test suites use `// =============================================` dividers with test ID labels (e.g., `// COMM-01: ...`)
-- Inline comments explain non-obvious business logic: e.g., why halving occurs, fee thresholds
+- JSDoc-style block comments on exported service functions explaining domain logic (e.g., commission calculation in `apps/ops-api/src/services/payroll.ts`)
+- Inline comments explaining business rules inside calculations: `// enrollment fee >= this threshold -> no halving`
+- Section dividers in test files using `// ===...===` banners with spec IDs (e.g., `// COMM-01: Core + Compass VAB = full rate`)
+- Constants block: `/** Enrollment fee >= this threshold triggers the enrollment bonus */`
+- Route comments: single-line `/** ... */` above helper functions at file scope
 
-**JSDoc:**
-- Used on public service functions in `apps/ops-api/src/services/payroll.ts`
-- Format: block comment above function with description of algorithm steps
-- Example:
-```typescript
-/**
- * Calculate commission for a sale using bundle aggregation logic.
- *
- * When a core product exists:
- *   1. Sum bundle premium = core premium + regular addon premiums
- *   ...
- */
-```
+**JSDoc/TSDoc:**
+- Used selectively on exported utility functions in services
+- Not used on React component props or Express route handlers
 
 ## Function Design
 
-**Size:**
-- Service functions kept focused; complex orchestration functions (e.g., `upsertPayrollEntryForSale`) are the exception
-- Pure helper functions extracted when they can be independently tested (e.g., `calculateCommission`, `getSundayWeekRange`, `computeTrend`)
+**Size:** Service functions stay focused; commission calculation broken into `applyEnrollmentFee()` helper + main `calculateCommission()` — each fits in one screen
 
-**Parameters:**
-- Object destructuring used for complex inputs
-- Prisma model types used directly as function parameters with intersection types for relations
+**Parameters:** Optional overrides via `Partial<T>` spread for test factory functions; service functions use explicit named parameters
 
 **Return Values:**
-- Service functions return plain objects or primitives — no Express Response objects
-- Routes use early return pattern: `if (!parsed.success) return res.status(400).json(...)`
+- Services return typed objects or primitives (never `any` in public signatures)
+- Route handlers use early `return res.status(N).json(...)` for guard clauses; no nested if-else chains
+- Pure helpers return explicit typed objects: `{ weekStart, weekEnd }`, `{ value, direction }`
 
 ## Module Design
 
 **Exports:**
-- Named exports only — no default exports in service files
-- `packages/auth/src/index.ts` exports individual functions plus re-exports `SESSION_COOKIE` const
+- Named exports only — no default exports in service/utility files
+- React page components use default export (Next.js convention): `export default function PayrollPeriodsPage()`
+- Packages expose named exports from `src/index.ts` barrel
 
 **Barrel Files:**
-- `@ops/ui` exports all components, design tokens, and style helpers from a single entry point
-- Individual packages export directly from `src/index.ts`
+- Each `packages/*/src/index.ts` is a barrel re-exporting the package's public API
+- `@ops/auth/client` is a separate entry point (`packages/auth/src/client.ts`), not re-exported from `index.ts`
 
-## React / Frontend Patterns
+## React/UI Conventions
 
-**Styling:**
-- Inline `React.CSSProperties` objects only — no Tailwind, no CSS modules, no globals
-- Style constants defined at module level with SCREAMING_SNAKE_CASE names: `PREVIEW_PANEL`, `LBL`, `BTN`
-- Design tokens imported from `@ops/ui` and aliased locally: `const C = colors`, `const S = spacing`
-- Base style objects from `@ops/ui` spread into local overrides: `{ ...baseInputStyle, marginBottom: 8 }`
+**Styling (all UI):**
+- Inline `React.CSSProperties` objects only — no Tailwind, no CSS modules, no global stylesheets
+- Style constants declared at module scope as SCREAMING_SNAKE_CASE constants before component definition
+- Design tokens consumed from `@ops/ui` (`colors`, `spacing`, `radius`, `shadows`, `typography`, `motion`)
+- Base style objects from `@ops/ui` extended via spread: `const LBL: React.CSSProperties = { ...baseLabelStyle }`
 
-**State:**
-- `useState` and `useEffect` are the primary hooks; `useCallback` used for stable fetch functions
-- `useRef` used for abort controllers and DOM refs
-- No global state manager — each page manages its own state
+**Component structure:**
+1. `"use client"` directive (if applicable)
+2. React/third-party imports
+3. `@ops/*` package imports
+4. Local relative imports
+5. Type definitions block (`/* -- Types -- */`)
+6. Style constant block (`/* -- Style constants -- */`)
+7. Component function
 
-**Data Fetching:**
-- `authFetch()` from `@ops/auth/client` used for all authenticated API calls (injects Bearer header, 30s timeout)
-- `captureTokenFromUrl()` called on mount to handle post-login redirect token
-- `useCallback` wraps fetch functions to prevent unnecessary re-renders
+**Data fetching:**
+- All API calls use `authFetch()` from `@ops/auth/client`; token stored in `localStorage` as `ops_session_token`
+- Fetching done in `useEffect` or `useCallback`, results stored in `useState`
+- Loading state tracked separately: `const [loading, setLoading] = useState(true)`
 
 ---
 
-*Convention analysis: 2026-03-17*
+*Convention analysis: 2026-03-23*
