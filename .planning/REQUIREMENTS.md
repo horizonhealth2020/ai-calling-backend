@@ -13,10 +13,10 @@ Requirements for milestone v1.4. Each maps to roadmap phases.
 - [ ] **BUNDLE-02**: Admin can set state availability for addon products (which US states they can be sold in)
 - [ ] **BUNDLE-03**: Admin can set fallback addon(s) for states where primary addon is unavailable
 - [ ] **BUNDLE-04**: Admin can configure multiple fallback tiers per state
-- [ ] **BUNDLE-05**: Commission engine resolves required addon by client state (primary → fallback → legacy isBundleQualifier)
-- [ ] **BUNDLE-06**: Half commission applied when required addon missing, with reason stored
+- [x] **BUNDLE-05**: Commission engine resolves required addon by client state (primary → fallback → legacy isBundleQualifier)
+- [x] **BUNDLE-06**: Half commission applied when required addon missing, with reason stored
 - [ ] **BUNDLE-07**: Payroll entry displays halving reason when commission was reduced
-- [ ] **BUNDLE-08**: Existing sales without memberState continue working via legacy fallback
+- [x] **BUNDLE-08**: Existing sales without memberState continue working via legacy fallback
 
 ### Config UI
 
@@ -66,10 +66,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUNDLE-02 | Phase 20 | Pending |
 | BUNDLE-03 | Phase 20 | Pending |
 | BUNDLE-04 | Phase 20 | Pending |
-| BUNDLE-05 | Phase 20 | Pending |
-| BUNDLE-06 | Phase 20 | Pending |
+| BUNDLE-05 | Phase 20 | Complete |
+| BUNDLE-06 | Phase 20 | Complete |
 | BUNDLE-07 | Phase 20 | Pending |
-| BUNDLE-08 | Phase 20 | Pending |
+| BUNDLE-08 | Phase 20 | Complete |
 | CFG-01 | Phase 20 | Pending |
 | CFG-02 | Phase 20 | Pending |
 | CFG-03 | Phase 20 | Pending |
