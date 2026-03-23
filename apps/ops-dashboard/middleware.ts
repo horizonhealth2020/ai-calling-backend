@@ -23,14 +23,18 @@ export async function middleware(request: NextRequest) {
 
   // No token -> redirect to login
   if (!token) {
+    console.log("[middleware] No token found, redirecting to login. Path:", pathname);
     return NextResponse.redirect(new URL("/", request.url));
   }
 
   // Verify token
+  console.log("[middleware] Verifying token, length:", token.length, "starts:", token.substring(0, 20));
   const user = verifySessionToken(token);
   if (!user) {
+    console.error("[middleware] Token verification FAILED. AUTH_JWT_SECRET set:", !!process.env[["AUTH","JWT","SECRET"].join("_")]);
     return NextResponse.redirect(new URL("/", request.url));
   }
+  console.log("[middleware] Token verified for:", user.email, "roles:", user.roles);
 
   // Role check: extract first path segment
   const pathPrefix = "/" + pathname.split("/").filter(Boolean)[0];
