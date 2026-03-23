@@ -1,175 +1,167 @@
 # Feature Landscape
 
-**Domain:** Dashboard consolidation (multi-app to single app) with uniform date range filtering
-**Researched:** 2026-03-19
-**Context:** Existing 5 dashboard apps + 1 standalone sales board, all Next.js 15, merging into single unified app
+**Domain:** State-aware bundle commission requirements for insurance/health sales operations platform
+**Researched:** 2026-03-23
+**Context:** Adding state-aware bundle commission logic to existing Ops Platform (v1.4 milestone). Existing commission engine has `isBundleQualifier` flag, bundle aggregation, half-commission penalty, and `memberState` field on Sales.
 
 ## Table Stakes
 
-Features users expect from a consolidated dashboard. Missing = feels broken or confusing.
+Features users expect for state-aware bundle commission. Missing = commission accuracy breaks or config becomes unmanageable.
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| Role-gated tab navigation | Users currently see only their dashboard; consolidation must preserve this isolation | Medium | @ops/types AppRole, existing PageShell navItems pattern | Each role maps to a tab. SUPER_ADMIN sees all tabs. CS role sees CS tab only. Tab visibility is the new access control boundary. |
-| Login lands on correct default tab | Current auth-portal redirects to the right app URL; unified app must replicate this with tab selection | Low | Auth login route, role-to-tab mapping | Replace URL redirect with in-app tab routing. Role priority order: SUPER_ADMIN > MANAGER > PAYROLL > OWNER_VIEW > CUSTOMER_SERVICE |
-| Preserved feature parity per tab | Every feature in every current dashboard must work identically in its tab | High | All existing page.tsx files (~11k LOC across 4 dashboards) | This is the bulk of the work. Each dashboard page becomes a tab component. No features can regress. |
-| Shared auth state across tabs | Token capture and authFetch must work once for the entire app, not per-tab | Low | @ops/auth/client captureTokenFromUrl, existing pattern | Already solved -- single app means single token capture in root layout. Simpler than current cross-domain token passing. |
-| URL-based tab routing | Users expect browser back/forward to work with tabs, and direct links to specific tabs | Medium | Next.js App Router | Use path segments (e.g., /manager, /payroll, /owner, /cs) or searchParams. Path segments are better for bookmarkability. |
-| Date range picker on all KPI sections | PROJECT.md explicitly requires uniform date range filtering across all KPI counters | Medium | Existing DateRangeFilter component in @ops/ui, existing dateRange() server utility | Component exists but is only used for CSV exports currently. Need to wire it to KPI data fetches. |
-| Current Week preset in date picker | PROJECT.md specifies "Current Week / Last Week / 30 Days / Custom" -- existing component has "Last 7 days / Last 30 days / This month / Custom" | Low | DateRangeFilter component update | Presets need updating: add "Current Week" (Sun-Sat) and "Last Week", keep "30 Days" and "Custom". Drop "This month" and "Last 7 days". |
-| Date range persists across tab switches | Picking a date range on one tab should carry to other tabs | Low | Shared React state in parent, or URL searchParams | Lift dateRange state to app-level. All tabs receive same range. Natural UX for "show me everything from last week". |
-| Sales board remains standalone | PROJECT.md explicitly states sales board is unchanged | None | No work needed | Do NOT consolidate sales-board app. It has no auth requirement. |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Client state field on sales entry | Commission engine needs state to determine which addon qualifies. Already partially built -- `memberState` exists on Sale model as `VarChar(2)`, parser extracts from receipts, form has a free-text input. Needs to feed into commission logic. | Low | Field exists. Wire it into `calculateCommission`. |
+| State availability per product | Not all insurance products can be sold in all states. Regulatory requirement -- selling unavailable products creates compliance risk. Agents need to know which addons apply for a given client state. | Medium | New DB model: `ProductStateAvailability` (productId, stateCode). Many-to-many relationship. |
+| Primary bundle requirement per product | Core products need a "required addon for full commission" field. This is what the existing `isBundleQualifier` flag partially represents, but it is a boolean on each addon rather than a relationship from core product to required addon. Need to formalize: "For Compass Health, the required bundle addon is Compass VAB." | Medium | Add `requiredBundleProductId` on Product (self-referencing FK) or a separate `BundleRequirement` model. |
+| Fallback bundle requirement for unavailable states | When primary addon is unavailable in the client's state, a fallback addon should qualify for full commission instead. Example: Compass VAB unavailable in FL, so Better addon qualifies instead. Without this, agents in those states always get half commission unfairly. | Medium | Add `fallbackBundleProductId` or extend the bundle requirement model with state-scoped overrides. |
+| Commission engine uses client state for qualification | The core logic change: `calculateCommission` must check (1) does the sale include the required bundle addon? (2) if not, is there a fallback for this state? (3) does the sale include the fallback? Only then determine full vs. half commission. | Medium | Modify `calculateCommission` in `payroll.ts`. The function is currently pure (no DB calls) -- state availability lookup may need to be passed in or fetched beforehand. |
+| Commission preview reflects state logic | The preview panel already shows "Compass VAB included" vs "No qualifier -- half rate applied". Must update to show state-aware messaging: "Better addon qualifies (FL fallback)" or "Required addon missing for TX -- half rate". | Low | Update preview endpoint and frontend display text. |
+| Products tab: state availability config UI | Payroll admins need to configure which states each product is available in. Multi-select of US state codes per product. The existing `PayrollProducts.tsx` edit form needs a state availability section. | Medium | Add multi-select or chip-based state picker to product edit/create forms. |
+| Products tab: bundle requirement config UI | Payroll admins need to set the primary required addon and fallback addon per core product, with visibility into which states trigger the fallback. | Medium | Add "Bundle Requirements" section to core product edit cards. Two dropdowns: primary addon, fallback addon. |
+| Validation: prevent selling unavailable products | When a sale is submitted with addons unavailable in the client's state, the API should warn or reject. At minimum, commission preview should flag the issue. | Low | Server-side validation in POST /api/sales. Check addon availability against `memberState`. |
 
 ## Differentiators
 
-Features that improve the experience beyond what separate apps provided. Not strictly required but high value for effort.
+Features that set the product apart. Not expected in a basic commission platform, but valued.
 
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| Cross-tab KPI summary header | A top-level KPI bar showing aggregated numbers across all user-visible dashboards | Medium | API endpoints for summary stats | Currently each dashboard loads its own KPIs independently. A unified header showing "Total Sales / Total Payroll / Open Chargebacks" gives instant cross-functional context. |
-| Tab badges with live counts | Show notification badges on tabs (e.g., "3" on Payroll for pending approvals, "5" on CS for unresolved chargebacks) | Low | Existing Socket.IO events, PageShell already supports badge prop on NavItem | PageShell NavItem type already has `badge?: number`. Wire Socket.IO events to tab badge counts. Low effort, high polish. |
-| Keyboard shortcuts for tab switching | Ctrl+1/2/3/4 to jump between tabs | Low | Client-side keydown listener | Power users managing multiple areas will appreciate fast switching. 20 lines of code. |
-| Deep link support with date range in URL | URLs like /payroll?range=week preserve both tab and date context for sharing | Low | Already using searchParams pattern | Enables "here's what I'm looking at" sharing between team members. |
-| Unified loading skeleton | Single skeleton pattern while any tab's data loads, rather than per-dashboard loading states | Low | Existing SkeletonCard component in @ops/ui | Smoother perceived performance when switching tabs. |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Auto-suggest qualifying addons by state | When agent enters client state on sales form, the addon checklist auto-highlights which addons qualify for full commission in that state (primary or fallback). Reduces errors. | Medium | Frontend-only: filter/sort addon list based on state availability data loaded at form init. |
+| State availability bulk editor | Instead of editing one product at a time, show a matrix view: products (rows) x states (columns) with toggleable checkboxes. Faster for initial setup of 50-state availability. | High | Separate UI component. Nice but not needed for MVP. |
+| Commission audit trail with state reasoning | Payroll entries show why full/half commission was applied: "Full: Better addon (FL fallback for Compass VAB)" vs just "Bundle qualifier present". Helps payroll staff verify accuracy. | Low | Store reasoning string on PayrollEntry or include in commission calculation metadata. |
+| Effective-dated state availability | State availability changes over time (product launches/withdrawals). Track when a product became available or unavailable in a state, and use sale date to determine which rules applied. | High | Adds `effectiveDate`/`endDate` to availability records. Significant complexity. Defer. |
+| Multi-fallback chain | Support multiple fallback products per state (e.g., if primary unavailable and first fallback also unavailable, try second fallback). | Medium | Overkill for current business rules. Single primary + single fallback covers the stated use case. |
 
 ## Anti-Features
 
-Features to explicitly NOT build during this milestone.
+Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Multi-tab visible simultaneously (split view) | Adds massive complexity for minimal value; internal ops tool, not a trading dashboard | One tab at a time with fast switching |
-| Custom dashboard layout / drag-and-drop widgets | Over-engineering for a team of < 20 users; every role has well-defined needs | Fixed layout per tab, optimized for each role's workflow |
-| Tab customization / ordering preferences | Premature personalization; roles define what you see | Fixed tab order based on role hierarchy |
-| Merge sales board into unified app | PROJECT.md explicitly excludes it; sales board is public-facing (no auth) | Keep as standalone app at port 3013 |
-| Real-time date range auto-refresh | Socket.IO already handles real-time sale events; adding polling for date-filtered KPIs adds complexity without clear value | Manual refresh or re-select date range to update; Socket.IO continues to handle live sale cascade |
-| Date range on individual table rows | Tables already have their own filters (status, agent, etc.); mixing date range into row-level filters creates UX confusion | Date range applies to KPI counters/cards only; table data uses its existing filter patterns |
-| Global search across all tabs | Nice to have but not part of this milestone; each tab has its own search/filter patterns | Keep existing per-tab search and filter mechanisms |
-| Merge auth-portal completely | Auth-portal still handles login form, password change, access-denied pages; these should move but keep as separate concern within unified app | Login page is a route in the unified app (/login), not a tab |
+| Client-side commission calculation | Commission must remain server-authoritative. Duplicating state-aware logic in the browser creates drift risk and potential for incorrect pay previews. | Keep `calculateCommission` server-side. Preview endpoint already exists -- extend it with state parameter. |
+| Per-agent state licensing management | Tracking which agents are licensed in which states is a different concern from product availability. Mixing them creates unnecessary coupling. | Treat state availability as a product attribute, not an agent attribute. Agent licensing is out of scope. |
+| Automatic state detection from address | Parsing state from member address adds unreliable complexity. The receipt parser already extracts state codes reasonably well. | Keep `memberState` as an explicit form field (already exists). Parser fills it; agent confirms. |
+| State-specific commission rates | Different commission percentages per state would require a massive schema change and make the product config UI unwieldy. The current threshold-based rate system is sufficient. | Keep commission rates product-level. State only affects which addon qualifies for the bundle, not the rate itself. |
+| Real-time regulatory compliance checking | Checking whether a product filing is currently approved with state DOI is well beyond the scope of an internal ops tool. | Trust that product state availability is manually maintained by admins who know the business. |
 
 ## Feature Dependencies
 
 ```
-DateRangeFilter component update (new presets)
-  --> Wire to KPI fetches on Manager tab
-  --> Wire to KPI fetches on Payroll tab
-  --> Wire to KPI fetches on Owner tab
-  --> Wire to KPI fetches on CS tab
+Client state field on sales entry (exists)
+  -> Commission engine uses client state (requires state availability data)
+     -> Commission preview reflects state logic (requires engine changes)
 
-Auth consolidation (single token capture)
-  --> Role-gated tab navigation
-  --> Login-to-default-tab routing
+State availability per product (DB model)
+  -> Products tab: state availability config UI (requires DB model)
+  -> Validation: prevent selling unavailable products (requires DB model)
+  -> Auto-suggest qualifying addons by state (requires DB model + frontend)
 
-PageShell adaptation (app-level tabs vs per-dashboard tabs)
-  --> Each dashboard becomes a tab component
-  --> Sub-tabs within each dashboard tab remain unchanged
-       (e.g., Manager keeps entry/tracker/sales/audits/config)
-       (e.g., CS keeps submissions/tracking)
-
-API dateRange() utility (already exists, lines 33-82 in routes/index.ts)
-  --> KPI endpoints need to accept range/from/to query params
-  --> Currently only CSV export endpoints use date params
-  --> KPI-producing endpoints need updates to accept optional date range
+Primary bundle requirement per product (DB model)
+  -> Fallback bundle requirement for unavailable states (extends primary)
+     -> Commission engine uses client state (requires both primary + fallback + availability)
+  -> Products tab: bundle requirement config UI (requires DB model)
 ```
+
+**Critical path:** DB schema (state availability + bundle requirements) -> Commission engine -> Preview/UI
 
 ## MVP Recommendation
 
-### Phase 1: Unified App Shell + Auth (do first)
+Prioritize in this order:
 
-1. **New unified-dashboard Next.js app** with role-gated tab navigation
-2. **Auth consolidation** -- login route returns tab selection instead of external URL redirect
-3. **Move each dashboard page.tsx into a tab component** (mechanical migration, no feature changes)
-4. **Retire auth-portal landing page** (replaced by tab navigation)
+1. **DB schema: state availability + bundle requirements** -- Everything depends on this. Add `ProductStateAvailability` join table and `requiredBundleProductId`/`fallbackBundleProductId` fields on Product.
 
-Rationale: This is the structural change. Everything else depends on having one app with working tab switching. The risk is regression in ~11k LOC of existing functionality across 4 dashboard page.tsx files (manager: 2702 LOC, payroll: 3030 LOC, owner: 1957 LOC, CS: 2377 LOC).
+2. **Commission engine: state-aware qualification** -- Modify `calculateCommission` to accept state availability context. The function is currently pure (takes a `SaleWithProduct` object). Expand the input type to include availability data pre-fetched by the caller. Keeps the function testable and pure.
 
-### Phase 2: Uniform Date Range (do second)
+3. **Products tab: bundle requirement + state availability UI** -- Config must be manageable before going live. Core product cards need primary/fallback addon selectors. All products need state availability multi-select.
 
-1. **Update DateRangeFilter presets** to Current Week / Last Week / 30 Days / Custom
-2. **Lift date range state to app level** so it persists across tabs
-3. **Wire date range to KPI fetches** on each tab (CS tracker, manager tracker, owner overview, payroll)
-4. **Update API KPI endpoints** to accept optional range/from/to query params (reuse existing `dateRange()` utility)
+4. **Commission preview update** -- Update preview text to reflect state-aware qualification reasoning.
 
-Rationale: Date range depends on having a single app (phase 1) because the "persists across tabs" behavior requires shared state. Lower risk than phase 1 -- adding query params to existing fetches.
+5. **Sales form: addon suggestion by state** -- Filter/highlight addons that qualify in the selected state. Low effort, high impact for agent accuracy.
 
-### Defer to Post-MVP
+**Defer:**
+- State availability bulk editor: Nice for initial data entry but not blocking. Can set up via direct DB inserts or one-product-at-a-time UI.
+- Effective-dated availability: Current business need is "which states is this product available in right now," not historical tracking.
+- Multi-fallback chain: Single primary + single fallback covers the stated use case. No evidence of needing deeper chains.
+- Commission audit trail with state reasoning: Helpful but not blocking. Can add later without schema changes.
 
-- Cross-tab KPI summary header (nice but not in PROJECT.md requirements)
-- Tab badges with live counts (low effort, can add during polish)
-- Keyboard shortcuts (trivial, add anytime)
-- Deep link with date range in URL (add once core flow works)
+## Existing Code Touchpoints
 
-## Key Complexity Notes
+| Area | Current State | What Changes |
+|------|--------------|--------------|
+| `prisma/schema.prisma` | `Product` model has `isBundleQualifier` boolean. `Sale` has `memberState` varchar(2). | Add `ProductStateAvailability` model, add `requiredBundleProductId` and `fallbackBundleProductId` self-referencing FKs to `Product`. |
+| `apps/ops-api/src/services/payroll.ts` | `calculateCommission` checks `qualifierExists` (boolean any-addon-has-flag). Does not consider state. | Accept state availability context as parameter. Check primary/fallback addon presence based on client state. |
+| `apps/ops-dashboard/.../ManagerEntry.tsx` | `memberState` form field exists (free text, uppercase, 2 char). Addon checklist shows all active addons. | Optionally highlight/filter addons by state availability. Pass `memberState` to preview endpoint. |
+| `apps/ops-dashboard/.../PayrollProducts.tsx` | Product cards with edit forms. No state availability or bundle requirement fields. | Add state availability multi-select and bundle requirement dropdowns to product edit/create forms. |
+| `apps/ops-api/src/routes/index.ts` | Product CRUD routes. Sales preview endpoint. | Extend product routes to accept state availability. Extend preview to accept `memberState`. |
+| Commission tests (`commission.test.ts`) | Tests for bundle qualifier halving, enrollment fee, standalone addon scenarios. | Add tests for state-aware qualification: primary present, fallback used, neither present, no state provided. |
 
-### Dashboard Consolidation is Mostly Mechanical but Large
+## Schema Design Recommendation
 
-Each dashboard is a single massive page.tsx (700-3000 lines). The consolidation pattern is:
-1. Create `components/ManagerTab.tsx`, `components/PayrollTab.tsx`, etc.
-2. Move page content into each component
-3. Share auth state (token, user roles) from parent
-4. Share Socket.IO connection from parent
-5. Share date range state from parent
+**Recommended: Fields on Product + join table (simplest for stated requirements)**
 
-The risk is not technical complexity -- it is **regression risk** across ~11k lines of working code. Each tab must be tested thoroughly after migration.
+```
+Product {
+  ...existing fields...
+  requiredBundleProductId  String?  // FK to Product -- "which addon is required for full commission"
+  fallbackBundleProductId  String?  // FK to Product -- "fallback addon when primary unavailable in state"
+}
 
-### Two-Level Tab Navigation
+ProductStateAvailability {
+  id         String   @id @default(cuid())
+  productId  String   // FK to Product
+  stateCode  String   @db.VarChar(2) // 2-letter US state code
+  @@unique([productId, stateCode])
+}
+```
 
-The unified app needs two levels of navigation:
-1. **App-level tabs**: Manager | Payroll | Owner | CS (role-gated by user roles)
-2. **Dashboard-level sub-tabs**: Within Manager tab, sub-tabs for Entry | Tracker | Sales | Audits | Config; within CS, sub-tabs for Submissions | Tracking
+**Why this approach:** The milestone description says "primary bundle requirement (e.g., Compass VAB) with state availability" and "fallback bundle requirement for states where primary isn't available." This is a 1:1 relationship from core product to required addon and fallback addon. Self-referencing FKs on Product are clean and avoid over-engineering. A separate `BundleRequirement` model adds an extra table with no clear benefit unless requirements evolve to need multiple bundle requirement sets per core product.
 
-PageShell already supports navItems with activeNav. Recommendation: use PageShell for app-level tabs, then a secondary tab bar component within each dashboard tab for sub-navigation. Do NOT nest two PageShells.
+## Commission Engine Logic Change
 
-### Date Range on KPIs Requires API Changes
+Current logic (line 162 in payroll.ts):
+```typescript
+if (!qualifierExists && !sale.commissionApproved) {
+  totalCommission /= 2;
+}
+```
 
-Current state of date range support:
-- **CSV export endpoints**: Already accept `range`, `from`, `to` query params via `dateRange()` utility
-- **KPI/stats endpoints**: Do NOT currently accept date params (return current/all-time data)
-- **Agent KPI endpoint** (`/api/agent-kpis`): Hardcoded 30-day window via `getAgentRetentionKpis()`
-- **Tracker endpoints**: Return all data, client groups/filters
+New logic (pseudocode):
+```typescript
+// Determine required addon based on state
+const primaryAddonId = coreEntry?.product.requiredBundleProductId;
+const fallbackAddonId = coreEntry?.product.fallbackBundleProductId;
 
-Each KPI-producing endpoint needs to accept optional date range params. The `dateRange()` utility already exists (lines 33-82 in routes/index.ts) and handles: today, week (Sun-Sat), 7d, 30d, month, and custom from/to. Just need to add the "last week" range option.
+let bundleSatisfied = false;
 
-### Auth Simplification
+if (!primaryAddonId) {
+  // No bundle requirement configured -- use legacy isBundleQualifier check
+  bundleSatisfied = qualifierExists;
+} else if (!sale.memberState) {
+  // No state provided -- check if primary addon is present
+  bundleSatisfied = allEntries.some(e => e.product.id === primaryAddonId);
+} else {
+  // State-aware check
+  const primaryAvailable = stateAvailability[primaryAddonId]?.includes(sale.memberState) ?? true;
+  if (primaryAvailable) {
+    bundleSatisfied = allEntries.some(e => e.product.id === primaryAddonId);
+  } else if (fallbackAddonId) {
+    bundleSatisfied = allEntries.some(e => e.product.id === fallbackAddonId);
+  }
+}
 
-Consolidation actually **simplifies** auth significantly:
-- **Eliminates** cross-domain token passing via URL params between separate apps
-- **Eliminates** DASHBOARD_MAP with per-role external URLs in auth-portal landing page
-- **Eliminates** 5 separate `NEXT_PUBLIC_OPS_API_URL` configurations
-- **Eliminates** auth-portal as separate deployment (login becomes a route in unified app)
-- Login API returns JWT, client stores it, tabs check roles in-memory
-- RBAC moves from "which app can you access" to "which tabs do you see"
+if (!bundleSatisfied && !sale.commissionApproved) {
+  totalCommission /= 2;
+}
+```
 
-### Existing DateRangeFilter Component
+**Key design decision:** When `memberState` is null (legacy sales, or agent did not fill it in), fall back to the existing `isBundleQualifier` boolean logic. This ensures backward compatibility -- no existing sales break.
 
-The `DateRangeFilter` in `@ops/ui` (packages/ui/src/components/DateRangeFilter.tsx) currently has:
-- Presets: "Last 7 days", "Last 30 days", "This month", "Custom"
-- Custom mode with from/to date inputs
-- Value type: `{ preset: string; from?: string; to?: string }`
-
-Needs updating for v1.3:
-- New presets: "Current Week" (Sun-Sat containing today), "Last Week" (prior Sun-Sat), "30 Days", "Custom"
-- The API `dateRange()` function already handles "week" (current Sun-Sat window) -- need to add "last_week"
-- Consider adding preset key mapping so DateRangeFilter value maps directly to API query param
-
-### Deployment Impact
-
-Consolidating 5 apps into 1 means:
-- **Railway**: 5 fewer services to deploy and monitor (auth-portal, manager, payroll, owner, CS all become one)
-- **Docker**: Fewer containers, simpler docker-compose
-- **CORS**: Single origin instead of 5 separate origins in ALLOWED_ORIGINS
-- **Ports**: Free up 3011, 3012, 3019, 3026; unified app gets one port
-- **Environment**: One NEXT_PUBLIC_OPS_API_URL instead of five
+**Key design decision:** When no `requiredBundleProductId` is set on a core product, use the legacy `isBundleQualifier` check. This means the existing behavior is preserved until an admin explicitly configures bundle requirements for a product.
 
 ## Sources
 
-- Codebase analysis: apps/auth-portal, apps/manager-dashboard, apps/payroll-dashboard, apps/owner-dashboard, apps/cs-dashboard
-- packages/ui/src/components/DateRangeFilter.tsx -- existing date range component (97 lines, presets defined lines 50-55)
-- packages/ui/src/index.tsx -- PageShell with NavItem interface (badge support exists)
-- packages/types/src/index.ts -- AppRole type with 7 roles
-- apps/ops-api/src/routes/index.ts -- dateRange() utility (lines 33-82), handles week/7d/30d/month/custom
-- apps/auth-portal/app/landing/page.tsx -- DASHBOARD_MAP with role-to-URL mapping (to be replaced)
-- apps/auth-portal/app/api/login/route.ts -- current auth flow with cross-domain redirect
-- apps/manager-dashboard/app/page.tsx -- Tab type and PageShell usage pattern (line 70: 5 sub-tabs)
-- apps/cs-dashboard/app/page.tsx -- role-gated tab pattern with canManageCS (line 505-523)
-- .planning/PROJECT.md -- v1.3 milestone requirements
+- Codebase analysis: `prisma/schema.prisma`, `apps/ops-api/src/services/payroll.ts`, `apps/ops-dashboard/.../ManagerEntry.tsx`, `apps/ops-dashboard/.../PayrollProducts.tsx` -- HIGH confidence (direct code reading)
+- Domain patterns: Insurance product state availability is a standard regulatory concern -- products must be filed and approved per state before sale. MEDIUM confidence (general insurance domain knowledge, verified against regulatory sources).
+- [KFF: Regulation of Private Health Insurance](https://www.kff.org/patient-consumer-protections/health-policy-101-the-regulation-of-private-health-insurance/) -- State-by-state product approval requirements
+- [AgencyBloc: Agency Management for Health & Life Insurance](https://www.agencybloc.com/) -- Commission tracking patterns in insurance platforms
+- [EvolveNXT: Health Insurance Commission Software](https://evolvenxt.com/solutions-2020/health-insurance-carriers/) -- Commission management platform patterns

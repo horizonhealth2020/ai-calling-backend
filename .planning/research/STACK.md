@@ -1,266 +1,242 @@
-# Technology Stack
+# Stack Research
 
-**Project:** v1.3 Dashboard Consolidation & Uniform Date Ranges
-**Researched:** 2026-03-19
+**Domain:** State-aware bundle commission requirements for existing Ops Platform
+**Researched:** 2026-03-23
+**Confidence:** HIGH
 
-## Executive Summary
+## Key Finding: No New Libraries Required
 
-This milestone requires **zero new npm dependencies**. The existing stack already contains every library needed for consolidation and date range filtering. The work is architectural (merging 5 Next.js apps into 1) and component-level (extending the existing `DateRangeFilter` with KPI-specific presets), not a technology adoption exercise.
+This feature is entirely implementable with the existing stack. The codebase already has every technology needed:
 
-The key decision is creating a new unified Next.js app (`apps/unified-dashboard`) that absorbs auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, and cs-dashboard -- while sales-board remains standalone.
+- **Prisma 5.20** for schema modeling (new `BundleRequirement` table)
+- **Zod 3.23** for API request validation
+- **Express 4.19** for new CRUD routes
+- **React** with inline CSSProperties for config UI
+- **Socket.IO 4.8** for real-time propagation of config changes
+
+The Sale model already has a `memberState` field (`@db.VarChar(2)`), so the client-state-on-sale requirement has a head start. The commission engine (`calculateCommission` in `services/payroll.ts`) already implements bundle qualifier halving logic -- it just needs to become state-aware instead of purely boolean.
 
 ## Recommended Stack (Changes Only)
 
 ### No New Dependencies Required
 
-The unified app uses the exact same dependency set as the existing dashboards:
-
-| Technology | Version | Already In Use | Role in v1.3 |
+| Technology | Version | Already In Use | Role in v1.4 |
 |------------|---------|----------------|---------------|
-| Next.js | 15.3.9 | Yes (all apps) | Single unified app with App Router |
-| React | 18.3.1 | Yes (all apps) | Component rendering |
-| @ops/ui (PageShell) | internal | Yes | Sidebar nav with role-gated items |
-| @ops/ui (DateRangeFilter) | internal | Yes (CSV exports) | Extended for KPI sections |
-| @ops/ui (TabNav) | internal | Yes (CS dashboard) | Sub-tab navigation within sections |
-| @ops/auth/client | internal | Yes | Token capture, authFetch, role decoding |
-| @ops/socket | internal | Yes | Real-time updates (unchanged) |
-| @ops/utils | internal | Yes | formatDollar, formatDate |
-| @ops/types | internal | Yes | AppRole, SessionUser types |
-| Luxon | 3.4.4 | Yes (root) | Date range calculation (week boundaries, 30-day) |
-| lucide-react | 0.577.0 | Yes | Icons for nav items |
-| socket.io-client | 4.8.3 | Yes | WebSocket connection |
+| Prisma | ^5.20.0 | Yes | New BundleRequirement model + migration |
+| Zod | ^3.23.8 | Yes | Validate state codes, product IDs, bundle config payloads |
+| Express | ^4.19.2 | Yes | CRUD endpoints for bundle requirement config |
+| React (Next.js 15) | 15.x | Yes | Config UI in PayrollProducts tab area |
+| Socket.IO | ^4.8.3 | Yes | Broadcast config changes to connected dashboards |
+| PostgreSQL | - | Yes | Relational storage for state-product mapping |
+| Luxon | ^3.4.4 | Yes | Already used in commission calc timezone handling |
+| Lucide React | ^0.577.0 | Yes | Icons for config UI (Edit3, Plus, Trash2 pattern) |
+| @ops/ui | workspace | Yes | Badge, Button, Card, EmptyState, design tokens |
+| @ops/auth/client | workspace | Yes | authFetch for config API calls |
 
-### What NOT to Add
+## What to Build (Not Install)
 
-| Library | Why Tempting | Why Wrong |
-|---------|-------------|-----------|
-| next-auth / auth.js | "Proper" auth for Next.js | Auth already handled via @ops/auth with JWT + localStorage. Adding next-auth would require rewriting the entire auth flow for zero user-facing benefit. |
-| react-router | Client-side routing for tabs | Next.js App Router already handles this. Use file-system routes for top-level sections, `useState` for sub-tabs. |
-| react-datepicker / date-fns | Date picker component | `DateRangeFilter` already exists in @ops/ui with native HTML date inputs. It works, matches the design system, and needs only preset changes. |
-| zustand / jotai | State management for shared date range | React Context is sufficient for a single date range value shared across KPI sections within one page. |
-| tailwindcss | Faster styling | Violates project constraint. All styling is inline React.CSSProperties. |
-| @tanstack/react-query | Data fetching with caching | Each dashboard page already manages its own fetch + state pattern with authFetch. Adding react-query for one milestone is churn. |
-| next/navigation middleware | Auth guards | A layout-level `useEffect` with `getToken()` already works across all dashboards. Server-side middleware would require `edge` runtime and cookie-based auth -- a full rewrite of the auth strategy. |
+### 1. Prisma Schema: BundleRequirement Model
 
-## Architecture Decisions for Stack
+New table linking a core product to its required addon per state, with optional fallback.
 
-### 1. New App: `apps/unified-dashboard`
+```prisma
+model BundleRequirement {
+  id                String   @id @default(cuid())
+  coreProductId     String   @map("core_product_id")
+  primaryAddonId    String   @map("primary_addon_id")
+  fallbackAddonId   String?  @map("fallback_addon_id")
+  states            String[] // e.g. ["TX", "FL", "CA"] -- states where primary is available
+  allStatesDefault  Boolean  @default(false) @map("all_states_default")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-**Why a new app instead of expanding auth-portal:**
-- Auth-portal has a fundamentally different structure (login form + landing page, no PageShell sidebar)
-- Starting fresh avoids breaking the existing apps during migration
-- Can run both old and new in parallel during transition
-- Clean `next.config.js` inheriting the same pattern as other dashboards
+  coreProduct    Product @relation("BundleReqCore", fields: [coreProductId], references: [id])
+  primaryAddon   Product @relation("BundleReqPrimary", fields: [primaryAddonId], references: [id])
+  fallbackAddon  Product? @relation("BundleReqFallback", fields: [fallbackAddonId], references: [id])
 
-**Package.json -- superset of all dashboard dependencies:**
-```json
-{
-  "name": "@ops/unified-dashboard",
-  "dependencies": {
-    "@ops/auth": "*",
-    "@ops/socket": "*",
-    "@ops/ui": "*",
-    "@ops/utils": "*",
-    "lucide-react": "^0.577.0",
-    "next": "15.3.9",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "socket.io-client": "^4.8.3"
-  }
+  @@unique([coreProductId])
+  @@map("bundle_requirements")
 }
 ```
 
-### 2. Role-Gated Navigation via PageShell
+**Why this shape:**
+- **One row per core product** (`@@unique` on coreProductId) -- simple lookup during commission calc, no ambiguity
+- **`String[]` for states** -- PostgreSQL native arrays, Prisma supports natively, avoids junction table overhead for a simple state list. Queryable with `@> ARRAY['TX']` under the hood via Prisma `has` filter
+- **`allStatesDefault` flag** -- allows "available everywhere except..." pattern vs "available only in..." -- reduces config burden when a product is available in most states
+- **`fallbackAddonId` nullable** -- some cores may not have a fallback (commission just halves when required addon missing)
+- **Product relation** will need 3 new relation fields added to the existing Product model (`bundleReqAsCore`, `bundleReqAsPrimary`, `bundleReqAsFallback`)
 
-The existing `PageShell` component already supports:
-- `navItems: NavItem[]` -- sidebar navigation items with icon, label, key, badge
-- `activeNav: string` -- which item is selected
-- `onNavChange: (key: string) => void` -- callback for tab switching
-- Desktop sidebar (240px fixed) + mobile bottom nav (< 1024px breakpoint)
+### 2. Commission Engine Changes
 
-**No new component needed.** The unified app's dashboard layout reads the user's roles from the JWT (via `@ops/auth/client` `getToken()` + manual base64 decode, already patterned in `ensureTokenFresh`) and filters `navItems` to only show role-permitted sections.
+Modify `calculateCommission` in `services/payroll.ts`:
 
-**Role-to-tab mapping:**
+Current logic (line 162):
+```typescript
+// Current: simple boolean check
+if (!qualifierExists && !sale.commissionApproved) {
+  totalCommission /= 2;
+}
+```
 
-| Role | Visible Tabs |
-|------|-------------|
-| SUPER_ADMIN | Manager, Payroll, Owner, CS (all) |
-| MANAGER | Manager |
-| PAYROLL | Payroll |
-| OWNER_VIEW | Owner |
-| CUSTOMER_SERVICE | CS |
+New logic:
+```typescript
+// New: state-aware check
+// 1. Look up BundleRequirement for this sale's core product
+// 2. If no requirement exists, fall back to current qualifierExists behavior
+// 3. If requirement exists:
+//    a. Check if memberState is in requirement's states (or allStatesDefault)
+//    b. If state requires primary: check if primary addon is in sale's addons
+//    c. If primary not found: check if fallback addon is present
+//    d. If neither: halve commission
+// 4. commissionApproved bypass stays intact (manual override)
+```
 
-### 3. Date Range Picker Enhancement
+**Critical:** Keep `calculateCommission` pure (no DB calls). Pass bundle requirements as a parameter, queried alongside the sale in `upsertPayrollEntryForSale`.
 
-The existing `DateRangeFilter` uses presets: `7d`, `30d`, `month`, `custom`.
+### 3. API Routes (in existing `routes/index.ts`)
 
-**v1.3 requires:** `Current Week`, `Last Week`, `30 Days`, `Custom`.
+| Method | Path | Purpose | Auth |
+|--------|------|---------|------|
+| GET | `/api/bundle-requirements` | List all with product names | requireAuth + requireRole(PAYROLL, SUPER_ADMIN) |
+| POST | `/api/bundle-requirements` | Create new requirement | requireAuth + requireRole(PAYROLL, SUPER_ADMIN) |
+| PUT | `/api/bundle-requirements/:id` | Update | requireAuth + requireRole(PAYROLL, SUPER_ADMIN) |
+| DELETE | `/api/bundle-requirements/:id` | Soft delete (active=false) | requireAuth + requireRole(PAYROLL, SUPER_ADMIN) |
 
-This is a preset change + Luxon-powered date calculation. The `DateRangeFilterValue` interface (`{ preset: string; from?: string; to?: string }`) already supports this -- just change the preset keys.
+All validated with Zod schemas following existing `zodErr()` pattern.
 
-**Approach:** Add a new variant or prop to `DateRangeFilter` for KPI presets rather than modifying the existing CSV export presets. Both use cases coexist:
+### 4. Config UI
+
+Extend `PayrollProducts.tsx` with a "Bundle Requirements" section below the product cards:
+
+- Core product dropdown (filtered to type=CORE)
+- Primary addon dropdown (filtered to type=ADDON)
+- Fallback addon dropdown (optional, filtered to type=ADDON)
+- State multi-select (checkboxes or tag-style input for US state codes)
+- `allStatesDefault` toggle
+- Standard CRUD card pattern matching existing PayrollProducts
+
+### 5. Sales Entry Form Enhancement
+
+`ManagerEntry.tsx` needs a state selector dropdown using a hardcoded US states constant. The `memberState` field already exists on the Sale model -- the form just needs the UI input.
+
+## State Code Handling
+
+**Use a hardcoded constant. Do not install a library.**
 
 ```typescript
-// New KPI presets (add alongside existing export presets)
-const KPI_PRESETS = [
-  { key: "current-week", label: "Current Week" },
-  { key: "last-week", label: "Last Week" },
-  { key: "30d", label: "30 Days" },
-  { key: "custom", label: "Custom" },
-];
+export const US_STATES = [
+  { code: "AL", name: "Alabama" },
+  { code: "AK", name: "Alaska" },
+  // ... all 50 + DC
+] as const;
 ```
 
-**Date calculation uses Luxon (already in root package.json):**
-- Current Week: `DateTime.now().setZone('America/New_York').startOf('week')` to `.endOf('week')` -- Sun-Sat, matching existing payroll week logic
-- Last Week: Same, minus 7 days
-- 30 Days: `DateTime.now().minus({ days: 30 })` to now
-- Custom: User-selected `from`/`to` dates
+**Why not a library:**
+- US state codes are a fixed, well-known set (50 states + DC)
+- A library adds a dependency for ~50 lines of static data
+- The business may want to exclude territories or add custom entries
+- Zod validation: `.refine(v => US_STATES.some(s => s.code === v))`
 
-**API integration:** The `dateRange()` helper in `ops-api/src/routes/index.ts` already accepts query params. Each KPI fetch just passes `from` and `to` ISO strings. No API changes needed if the existing `dateRange()` helper already supports custom dates (added in v1.2).
+**Location:** Put in `@ops/utils` or `@ops/types` so it is shared between the API (Zod validation) and dashboard (dropdown options).
 
-### 4. Login Flow Change
+## What NOT to Add
 
-**Current flow:** Login (auth-portal:3011) -> Landing page -> Opens dashboard in new browser tab (different port/app)
+| Avoid | Why | Do Instead |
+|-------|-----|------------|
+| State/province lookup library (us-states, country-state-city) | Static data, ~50 entries, zero maintenance burden | Hardcoded constant array in @ops/types |
+| Form library (react-hook-form, formik) | Project uses controlled useState + onSubmit everywhere | Follow PayrollProducts pattern |
+| UI component library (shadcn, MUI) | Project uses inline CSSProperties with @ops/ui tokens | Use existing @ops/ui + inline styles |
+| Separate rules engine service | This is a simple lookup table, not a complex rules engine | Keep in existing ops-api |
+| Redis/caching for bundle rules | Bundle requirements change rarely, <50 rows total | Direct Prisma query per commission calc |
+| Multi-select component library (react-select) | Tempting for state picker, but adds bloat | Checkbox grid or simple tag-style input with inline styles |
+| Geography/mapping library | No geospatial queries needed | Simple string matching on 2-letter codes |
 
-**New flow:** Login page (unified-dashboard:3020) -> JWT decoded -> Client-side redirect to `/dashboard` -> App reads roles from token, renders default tab
+## Alternatives Considered
 
-The unified app absorbs the login page directly. The auth-portal landing page with its multi-dashboard card grid is no longer needed -- the role-gated sidebar replaces it entirely.
+| Recommended | Alternative | Why Not Alternative |
+|-------------|-------------|---------------------|
+| `String[]` for states in Prisma | Junction table (BundleRequirementState) | Overkill -- states are a flat list, not entities with attributes. Array is simpler to query, manage, and display. |
+| Single BundleRequirement per core | Multiple rules per core (one per state) | Explodes row count (50x rows per product). Single row with array is simpler to query and config. |
+| Modify existing `calculateCommission` | New separate state-aware function | Violates DRY. The function is the single source of truth. Extend, don't duplicate. |
+| Config in PayrollProducts area | Separate "Bundle Rules" tab | Bundle requirements are product configuration. Keeping them near products avoids context switching. |
+| Hardcoded US_STATES constant | Database table of states | States don't change. A DB table adds CRUD overhead for zero benefit. |
 
-**Token handling stays identical:** `captureTokenFromUrl()` on mount, `localStorage` storage, `authFetch()` for API calls.
+## Version Compatibility
 
-### 5. Next.js App Router Structure
+All existing -- no compatibility concerns:
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| Prisma ^5.20.0 | PostgreSQL String[] arrays | Native support via `String[]` type, `has`/`hasEvery` filters |
+| Prisma ^5.20.0 | Three relations to same model | Requires named relations (`"BundleReqCore"`, etc.) |
+| Zod ^3.23.8 | Express route validation | Same `zodErr()` pattern used throughout ops-api |
+
+## Integration Points
+
+### Commission Calculation Flow (modified)
 
 ```
-apps/unified-dashboard/
-  app/
-    layout.tsx              -- ThemeProvider, global inline styles, font
-    page.tsx                -- Login page (absorbed from auth-portal)
-    api/
-      login/route.ts        -- Proxy to ops-api (from auth-portal)
-      verify/route.ts       -- Token verification
-      change-password/route.ts
-    dashboard/
-      layout.tsx            -- Auth guard + PageShell with role-gated nav
-      page.tsx              -- Redirect to default tab based on role
-      manager/page.tsx      -- Manager dashboard content (from manager-dashboard/app/page.tsx)
-      payroll/page.tsx      -- Payroll dashboard content
-      owner/page.tsx        -- Owner dashboard content
-      cs/page.tsx           -- CS dashboard content
-    access-denied/page.tsx  -- Unauthorized access page
-  next.config.js            -- Same transpilePackages pattern
+Sale submitted with memberState
+  -> upsertPayrollEntryForSale()
+    -> query BundleRequirement for sale's core product (single Prisma include)
+    -> calculateCommission(sale, bundleRequirement?)
+      -> if bundleRequirement exists:
+           check memberState against requirement.states / allStatesDefault
+           check if primary or fallback addon present in sale.addons
+           halve if neither present (unless commissionApproved)
+         else:
+           fall back to existing qualifierExists logic
 ```
 
-**Why file-system routing for top-level sections (not useState):**
-- Browser back/forward navigation between sections
-- Direct URL sharing (`/dashboard/payroll`)
-- Code splitting per section (each page.tsx is a separate chunk)
-- Auth guard in `dashboard/layout.tsx` protects all sections uniformly
-- Role checking can happen at the layout level before rendering any section
+### Config UI Data Flow
 
-**Within each section**, existing sub-tab navigation (e.g., manager's entry/tracker/sales/audits/config tabs) remains as `useState`-driven, exactly as today. No change to the inner page logic.
+```
+PayrollProducts tab -> "Bundle Requirements" section
+  -> authFetch GET /api/bundle-requirements (includes product names)
+  -> CRUD via authFetch POST/PUT/DELETE
+  -> Socket.IO broadcast on change -> connected dashboards refresh product data
+```
 
-### 6. Auth Guard Pattern
+### Sales Entry Form
 
-The `dashboard/layout.tsx` will:
-1. Call `captureTokenFromUrl()` on mount
-2. Decode the JWT to extract roles
-3. If no token, redirect to `/` (login)
-4. If token but no roles for current route, redirect to `/access-denied`
-5. Pass roles via React Context to child pages for conditional rendering
-
-This matches how each dashboard currently guards itself, just centralized in one layout.
-
-## Existing Components Reused Without Changes
-
-| Component | Source | Reuse |
-|-----------|--------|-------|
-| `PageShell` | @ops/ui | Wraps entire dashboard with sidebar nav |
-| `TabNav` | @ops/ui | Sub-tabs within each section (e.g., CS submissions/tracking) |
-| `DateRangeFilter` | @ops/ui | Extended with KPI presets via new `presets` prop |
-| `Card`, `Button`, `Input`, `Select` | @ops/ui | All form elements |
-| `AnimatedNumber`, `Badge`, `StatCard` | @ops/ui | KPI display |
-| `ToastProvider` | @ops/ui | Notifications |
-| `SkeletonCard` | @ops/ui | Loading states |
-| `EmptyState` | @ops/ui | No-data states |
-| `authFetch`, `captureTokenFromUrl`, `getToken`, `clearToken` | @ops/auth/client | Auth flow |
-| `useSocket` | @ops/socket | Real-time updates |
-| `formatDollar`, `formatDate` | @ops/utils | Display formatting |
-
-## Components Needing Modification
-
-| Component | Change | Scope |
-|-----------|--------|-------|
-| `DateRangeFilter` | Add `presets` prop to allow custom preset arrays (currently hardcoded). Default to existing `7d/30d/month/custom` for backward compatibility. | @ops/ui -- minor, backward-compatible |
-| `PageShell` | No changes needed. NavItem array is already dynamic. | None |
-| `@ops/types` | No changes needed. `AppRole` and `SessionUser` already cover all roles. | None |
-
-## Port Assignment
-
-| App | Port | Status |
-|-----|------|--------|
-| unified-dashboard | 3020 | NEW -- replaces auth(3011) + manager(3019) + payroll(3012) + owner(3026) + cs(3014) |
-| sales-board | 3013 | UNCHANGED -- remains standalone |
-| ops-api | 8080 | UNCHANGED |
-
-The old dashboard apps remain in the repo but are no longer deployed after v1.3 is validated.
-
-## Deployment Impact
-
-### Railway
-- **Reduction:** 6 services (5 dashboards + auth-portal) down to 2 (unified-dashboard + sales-board) + 1 API
-- Same build/start pattern: `next build && next start`
-- `NEXT_PUBLIC_OPS_API_URL` still baked at build time
-- `ALLOWED_ORIGINS` in ops-api needs the unified dashboard URL; old dashboard URLs can be removed post-migration
-
-### Docker
-- Same `Dockerfile.nextjs` with `APP_NAME=unified-dashboard`
-- Removes 4-5 service definitions from `docker-compose.yml`
-- Significant resource reduction (4 fewer Node.js processes)
-
-### CORS
-- ops-api `ALLOWED_ORIGINS` needs new unified dashboard origin added
-- Old origins can be kept during parallel-running transition, then removed
+```
+ManagerEntry.tsx -> new "Client State" dropdown
+  -> US_STATES constant for options
+  -> memberState submitted in sale payload
+  -> API already accepts memberState on Sale model (field exists)
+```
 
 ## Installation
 
 ```bash
-# No new packages to install -- all deps already in workspace
-# Just create the app directory and package.json, then:
-npm install  # Workspace linking picks up the new app automatically
-```
+# No new packages to install. Everything is already in the workspace.
 
-Add to root `package.json` scripts:
-```json
-{
-  "dashboard:dev": "npm --prefix apps/unified-dashboard run dev"
-}
+# After schema change:
+npx prisma migrate dev --name add-bundle-requirements
+
+# No other setup needed.
 ```
 
 ## Confidence Assessment
 
 | Decision | Confidence | Rationale |
 |----------|------------|-----------|
-| No new dependencies | HIGH | Inspected all existing packages, component code, and feature requirements |
-| PageShell for nav | HIGH | Already supports navItems, activeNav, onNavChange -- inspected source |
-| DateRangeFilter extension | HIGH | Component exists with flexible interface, only presets change |
-| App Router file routing for sections | HIGH | Standard Next.js 15 pattern, each dashboard is a single page.tsx today |
-| Luxon for date calc | HIGH | Already used for payroll week boundaries (America/New_York, Sun-Sat) |
-| Port 3020 | MEDIUM | Arbitrary -- any unused port works, avoids conflicts with existing 3011-3026 range |
-| No next-auth | HIGH | Existing JWT + localStorage pattern is simple and working; migration cost far exceeds benefit |
+| No new dependencies | HIGH | Inspected all package.json files, schema, and feature requirements against existing stack |
+| String[] for states | HIGH | Prisma docs confirm PostgreSQL array support with has/hasEvery filters |
+| Single BundleRequirement per core | HIGH | Business requirement is one required addon per core product -- 1:1 mapping |
+| Hardcoded US_STATES | HIGH | Standard practice, avoids unnecessary dependency for static data |
+| Modify calculateCommission | HIGH | Function is already the single source of truth, extending is cleaner than duplicating |
+| memberState already on Sale | HIGH | Verified in prisma/schema.prisma line 176: `memberState String? @db.VarChar(2)` |
 
 ## Sources
 
-- Inspected: `packages/ui/src/index.tsx` -- PageShell with NavItem interface, sidebar/bottom nav patterns
-- Inspected: `packages/ui/src/components/DateRangeFilter.tsx` -- existing presets (`7d`, `30d`, `month`, `custom`) and `DateRangeFilterValue` interface
-- Inspected: `packages/ui/src/components/TabNav.tsx` -- sub-tab component with indicator animation
-- Inspected: `packages/auth/src/client.ts` -- token management, JWT decode, authFetch with auto-refresh
-- Inspected: `packages/types/src/index.ts` -- AppRole enum (7 roles), SessionUser type
-- Inspected: `apps/auth-portal/app/api/login/route.ts` -- login flow, SUPER_ADMIN role expansion, redirect with session_token
-- Inspected: `apps/auth-portal/app/landing/page.tsx` -- role-based dashboard routing via DASHBOARD_MAP, token passing
-- Inspected: `apps/manager-dashboard/next.config.js` -- transpilePackages pattern, conditional standalone output
-- Inspected: `apps/manager-dashboard/app/page.tsx` -- Tab type, existing imports showing full dependency surface
-- Inspected: `apps/ops-api/src/middleware/auth.ts` -- requireAuth + requireRole with SUPER_ADMIN bypass
-- Inspected: All dashboard `package.json` files -- confirmed identical dependency patterns
+- `prisma/schema.prisma` -- Verified Product model (lines 127-148), Sale.memberState field (line 176), ProductType enum, existing relations
+- `apps/ops-api/src/services/payroll.ts` -- Verified calculateCommission bundle qualifier halving (line 162), SaleWithProduct type, upsertPayrollEntryForSale flow
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` -- Verified CRUD card pattern, authFetch usage, inline styles
+- `apps/ops-api/package.json` -- Verified Prisma ^5.20.0, Zod ^3.23.8, Express ^4.19.2, Socket.IO ^4.8.3
+- `package.json` (root) -- Verified Luxon ^3.4.4, workspace configuration
 
 ---
-*Research completed: 2026-03-19*
+*Stack research for: State-aware bundle commission requirements*
+*Researched: 2026-03-23*

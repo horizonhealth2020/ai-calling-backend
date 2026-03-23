@@ -1,375 +1,244 @@
-# Domain Pitfalls
+# Domain Pitfalls: State-Aware Bundle Commission Requirements
 
-**Domain:** Dashboard Consolidation & Uniform Date Ranges (v1.3) — Merging 5 Next.js apps into 1 unified app with role-gated tabs and adding uniform date range filtering to all KPI sections
-**Researched:** 2026-03-19
-**Applies to:** Major architectural change to an existing 6-dashboard + Express API + PostgreSQL/Prisma platform
+**Domain:** Adding state-aware bundle commission logic to existing commission engine
+**Researched:** 2026-03-23
+**Applies to:** v1.4 milestone -- modifying a working commission engine, adding state-dependent product availability, and configurable bundle requirements with fallback logic
+**Overall confidence:** HIGH (based on direct codebase analysis of payroll.ts, routes, schema, tests, and UI)
 
 ## Critical Pitfalls
 
-### P1: Monster Page File — All Dashboards Merged Into One Component Tree
+Mistakes that cause incorrect payroll calculations, data corruption, or production regressions.
 
-**What goes wrong:** The 4 dashboard page files total ~10,000 lines of TSX (manager: 2702, payroll: 3030, CS: 2377, owner: 1957). Plus auth-portal at 502 lines. The temptation is to create a single `page.tsx` with a tab state variable that conditionally renders the right dashboard content. This produces a 10,000+ line file that is impossible to maintain, slow to compile, and loads all code for all roles on initial page load regardless of which tab is active.
+### P1: Commission Preview Diverges from Actual Calculation
 
-**Why it happens:** Each existing dashboard is a single `page.tsx` with inline types, style constants, helper functions, and the main component. Copy-pasting these into tabs within one file is the path of least resistance.
+**What goes wrong:** The `/sales/preview` endpoint (routes/index.ts line 440-496) builds a `mockSale` object that does NOT include `memberState`. When state-aware logic is added to `calculateCommission()`, the preview will show different results than the actual sale submission because the mock lacks the state field. The preview schema (line 441-451) does not accept `memberState`.
 
-**Consequences:**
-- Next.js dev server becomes noticeably slow (HMR recompiles the entire mega-file on any change)
-- Browser downloads JavaScript for all 4 dashboards even when user only has access to one tab
-- Initial load time degrades significantly — the current per-app bundle only contains that dashboard's code
-- Style constant names will collide (every dashboard has `const CARD`, `const BTN`, `const HEADER`, etc.)
-- Type name collisions across dashboards (`Tab`, `Entry`, `Product` are defined differently in each)
+**Why it happens:** The preview route was built before state awareness existed. It constructs `mockSale as any` (line 473), bypassing TypeScript type checking entirely. There is no compile-time enforcement that the mock matches the real Sale type.
+
+**Consequences:** Agents see one commission amount in preview, get paid a different amount. Destroys trust in the preview feature -- the same preview that was carefully built in v1.0 (phase 5) specifically to prevent payroll disputes.
 
 **Prevention:**
-- Each dashboard becomes its own directory under `app/` with lazy-loaded components: `app/(dashboard)/manager/page.tsx`, `app/(dashboard)/payroll/page.tsx`, etc.
-- Use Next.js route groups `(dashboard)` with a shared layout that provides the tab navigation shell
-- Each page keeps its own types, styles, and state — no merging of component internals
-- The tab navigation is in the shared layout; the tab content is in separate route segments
-- This means the URL changes with the tab (`/manager`, `/payroll`, `/owner`, `/cs`) which is actually better for bookmarking and refresh behavior
-- Use `next/dynamic` with `ssr: false` if any dashboard component is particularly heavy
+1. Add `memberState` to the preview Zod schema alongside `productId`, `premium`, etc.
+2. Pass `memberState` through to the mockSale object so `calculateCommission()` receives it
+3. Write a test that explicitly verifies preview and actual calculation produce identical results for the same inputs across multiple states
+4. Consider replacing the `as any` cast with a proper type -- the `SaleWithProduct` type should be the contract
 
-**Detection:** After consolidation, check the compiled JS bundle sizes per route. If `/manager` downloads payroll code, the splitting failed.
+**Detection:** Compare preview responses to actual payroll entries for the same sale parameters. Any delta is a bug. Automate this as a test.
 
-**Phase:** This is THE foundational decision. Must be settled before any code is written. Getting this wrong means rewriting the entire consolidation.
+**Phase:** Must be addressed in the SAME phase that modifies `calculateCommission()`. Not a follow-up. The preview and the engine must change in lockstep.
 
 ---
 
-### P2: Auth Flow Rewrite — URL Token Passing Breaks When Apps Merge
+### P2: Existing Sales Without memberState Get Wrong Commission on Recalculation
 
-**What goes wrong:** The current auth flow works like this:
-1. User logs in at auth-portal (`localhost:3011`)
-2. Auth-portal's `/api/login` route calls ops-api, gets a JWT
-3. Auth-portal redirects to landing page with `?session_token=TOKEN&roles=ROLE1,ROLE2`
-4. Landing page calls `captureTokenFromUrl()` which stores token in localStorage
-5. Landing page shows dashboard cards, each links to a different origin with `?session_token=TOKEN`
-6. Each dashboard calls `captureTokenFromUrl()` on load to grab the token from URL
+**What goes wrong:** The system recalculates commission in multiple places: `upsertPayrollEntryForSale()` (line 220), `handleSaleEditApproval()` (line 277), and sale status changes. Existing sales have `memberState: null` (the field is nullable: `String? @map("member_state") @db.VarChar(2)` in schema.prisma line 176). If the new logic treats null state as "no required addon available in this state" and halves commission, every recalculated legacy sale gets its payout cut.
 
-When all dashboards merge into one app, step 5-6 becomes unnecessary (no cross-origin redirect needed). But the login flow still needs to work. The auth-portal's `/api/login` and `/api/verify` route handlers are Next.js API routes that proxy to ops-api. If these are naively merged, the login page and the dashboard share the same Next.js app, but the middleware (`middleware.ts`) that protects dashboard routes must NOT protect the login page.
+**Why it happens:** `memberState` has been nullable since the v1.0 migration (migration `20260312_add_member_state`). The commission engine currently ignores it entirely -- `calculateCommission()` never reads `sale.memberState`. New state-aware logic must treat `null` as "legacy behavior, apply current rules unchanged."
 
-**Why it happens:** The auth-portal was designed as a separate app specifically because it needed different middleware rules than the dashboards. Merging it in requires rethinking which routes are public vs protected.
-
-**Consequences:**
-- If middleware protects `/`, users can't reach the login page (infinite redirect loop)
-- If middleware is removed entirely, all dashboard routes are unprotected
-- The `DASHBOARD_MAP` in landing page references external URLs (`MANAGER_DASHBOARD_URL`, `PAYROLL_DASHBOARD_URL`) that no longer exist
-- The `AUTH_PORTAL_URL` env var that other dashboards used for token verification becomes self-referential
-- `captureTokenFromUrl()` still works but the cross-origin token passing via URL params is no longer needed (and is a security concern — tokens in URLs get logged)
+**Consequences:** Agents in OPEN payroll periods see their commission drop on existing sales. Finalized periods trigger clawback adjustments via `handleCommissionZeroing()`. Payroll chaos for sales already entered and potentially already paid.
 
 **Prevention:**
-- The unified app login is at `/login` (public route)
-- Login success stores token in localStorage via `captureTokenFromUrl()` and redirects to the user's default tab route (e.g., `/manager`)
-- Next.js middleware matcher protects `/manager/:path*`, `/payroll/:path*`, `/owner/:path*`, `/cs/:path*` but NOT `/login`, `/api/login`, `/api/verify`, `/api/change-password`
-- Remove all external dashboard URL env vars (`MANAGER_DASHBOARD_URL`, etc.) — tabs are internal routes now
-- Remove the landing page entirely — login redirects directly to the appropriate tab based on role
-- Keep `captureTokenFromUrl()` for backward compatibility but the primary flow is: login -> store token -> redirect to route
+1. Define explicit fallback: `memberState === null || memberState === undefined` means "skip state-aware addon check, apply only the existing `qualifierExists` logic"
+2. Write backward-compatibility tests FIRST: take every existing test in `commission.test.ts` (all 20+ test cases), verify they produce identical results after the engine change
+3. Run a pre-deploy check: query `SELECT COUNT(*) FROM sales WHERE member_state IS NULL AND payroll_status != 'PAID'` to know how many at-risk records exist
+4. The state-aware code path should be an ADDITIONAL check that only activates when `memberState` is non-null
 
-**Detection:** Log in as each role type and verify you land on the correct tab. Try accessing `/manager` without a token and verify redirect to `/login`. Try accessing `/login` with a valid token and verify no redirect loop.
+**Detection:** Run the full test suite after any change to `calculateCommission()`. All existing tests must pass unchanged. If any existing test needs modification, that is a regression signal.
 
-**Phase:** Must be designed and implemented as the very first step. Every other feature depends on auth working correctly in the unified app.
+**Phase:** Must be the FIRST thing validated in the commission engine modification phase. Gate everything else on this.
 
 ---
 
-### P3: CORS and Socket.IO Origin Whitelist — Stale Origins Cause Silent Failures
+### P3: Double Halving -- Bundle Qualifier Missing AND State-Required Addon Missing
 
-**What goes wrong:** The ops-api CORS whitelist currently contains 5 origins:
-```
-http://localhost:3011,http://localhost:3012,http://localhost:3013,http://localhost:3019,http://localhost:3026
-```
-The Socket.IO server uses the same whitelist. After consolidation, the unified app runs on a single port (e.g., 3000 or 3011). The old origins for individual dashboards no longer exist. If the CORS whitelist is not updated, the unified app's requests to ops-api are rejected with CORS errors. Socket.IO connections fail silently (the `useSocket` hook shows the disconnect banner after 10 seconds but doesn't explain why).
+**What goes wrong:** The current engine halves commission when `!qualifierExists && !sale.commissionApproved` (payroll.ts line 162). The v1.4 requirement adds another condition: "half commission when required addon missing." If both conditions apply independently, commission gets halved twice (quartered), which is not the business intent.
 
-**Why it happens:** CORS configuration is in ops-api's `index.ts` as an env var default, in `docker-compose.yml` as a service environment variable, and potentially in Railway service variables. All three must be updated.
+**Why it happens:** Two independent halving rules operating on the same `totalCommission` variable. The original halving at line 162 and a new state-based halving can stack if implemented as separate `if` blocks.
 
-**Consequences:**
-- All API calls from the unified app fail with CORS errors in the browser console
-- Socket.IO real-time updates stop working across all dashboards
-- The disconnect banner shows permanently but gives no useful diagnostic
-- If only the dev default is updated but not Docker/Railway, it works locally but breaks in production
+**Consequences:** Agent gets 25% of expected commission instead of 50%. This is a silent financial error -- no exception, no warning, just a wrong number that flows through payroll and gets paid out.
 
 **Prevention:**
-- Update the `ALLOWED_ORIGINS` default in `apps/ops-api/src/index.ts` to include the unified app's origin
-- Update `docker-compose.yml` `ALLOWED_ORIGINS` to remove old dashboard origins and add the unified app origin
-- Keep the sales-board origin (`localhost:3013`) since it remains standalone
-- The unified app needs exactly ONE origin in the whitelist (plus sales-board)
-- Add a startup log line in ops-api that prints the allowed origins so misconfiguration is immediately visible
-- Consider: if the unified app proxies API calls through Next.js API routes (server-to-server), CORS doesn't apply — but the current architecture uses direct browser-to-API calls via `authFetch()`
+1. Clarify the business rule BEFORE coding: The state-aware addon requirement likely REPLACES the existing `isBundleQualifier` check, not adds to it. The intent is: "For state X, addon Y is the required bundle qualifier. If addon Y is unavailable in that state, use fallback addon Z instead."
+2. Implementation approach: the state config determines WHICH product serves as the bundle qualifier for that state. The existing `qualifierExists` check at line 106 then checks if THAT state-appropriate product is present in the sale. One halving path, not two.
+3. Write explicit test: `sale in state where primary addon unavailable, no fallback present -> should be halved ONCE, not twice`
+4. Write another test: `sale in state where primary addon unavailable, fallback present -> should be full commission`
 
-**Detection:** Open browser DevTools Network tab after deploying the unified app. Any red CORS error is immediately visible.
+**Detection:** Any test where commission is less than 50% of the base rate (excluding enrollment fee halving) without explicit double-penalty intent is suspicious. Add an assertion that the halving penalty is applied at most once per sale.
 
-**Phase:** Must be done simultaneously with deployment configuration. Cannot be deferred.
+**Phase:** Must be resolved in requirements/design before any code changes. This is a business rule clarification, not a coding task.
 
 ---
 
-### P4: Style Constant Name Collisions When Merging Dashboard Code
+### P4: State-Availability Config Table Empty in Production
 
-**What goes wrong:** Every dashboard defines local style constants with generic names. For example:
-- Manager dashboard: `const CARD`, `const BTN`, `const HEADER`, `const FIELD`, `const INPUT_WRAP`
-- Payroll dashboard: `const CARD`, `const BTN`, `const HEADER` (different values)
-- CS dashboard: `const CARD`, `const BTN` (different values again)
-- Owner dashboard: `const CARD` (different values)
+**What goes wrong:** A new config table (or Product model extension) maps which addon products are available per state and which is the required addon. If this config is empty or incomplete after migration, the commission engine has no data to determine required addons. Depending on implementation: either ALL sales get full commission (ignoring requirements) or ALL sales get half (no valid addon found for any state).
 
-If components from different dashboards are ever imported into the same scope (e.g., a shared layout component), these constants shadow each other. Even if they are in separate files, IDE auto-import can grab the wrong one.
+**Why it happens:** The config is new. There is no migration that seeds it. The Prisma seed script (`prisma/seed.ts`) handles users and products but has no state-availability data. Developers test with manually entered config data; production deploys with empty tables.
 
-**Why it happens:** The inline CSSProperties pattern uses short, generic names because each file was historically isolated. There was never a naming conflict because each app was its own Next.js process.
-
-**Consequences:**
-- Subtle visual bugs: wrong padding, wrong colors, wrong border radius on components that "look almost right"
-- Extremely hard to debug because the style values are close but not identical across dashboards
-- If a shared component (like the tab navigation shell) imports a `CARD` constant, it gets whichever file's `CARD` the bundler resolves
+**Consequences:** First production deploy either overpays or underpays every agent. No middle ground. The error is silent -- commission amounts look plausible, just wrong.
 
 **Prevention:**
-- Since each dashboard becomes its own route/page file under separate directories, the local constants stay local — this is inherently handled by the route-segment-per-dashboard approach from P1
-- For the shared layout/navigation shell, prefix shared style constants clearly: `const NAV_TAB`, `const NAV_SHELL`, `const NAV_INDICATOR`
-- Do NOT create a "merged styles" file that combines all dashboard styles — keep them scoped to their files
-- If extracting shared styles, put them in `@ops/ui` with explicit, non-colliding names
+1. Migration must include default config data for all states where the business currently operates (not all 50 -- just the ones with active sales)
+2. Commission engine must have an explicit fallback when config is missing for a state: default to current behavior (existing `qualifierExists` check, no state filtering)
+3. Add an admin-visible config completeness indicator: "12 of 50 states configured" in the Products tab
+4. Config UI must be built AND populated BEFORE the commission engine reads from it -- phase ordering is critical
 
-**Detection:** After consolidation, visually compare each dashboard tab against the current standalone version. Any spacing, color, or layout difference indicates a style collision.
+**Detection:** On startup or first commission calc for a state with no config, log a warning: `"No bundle requirement config for state XX, using default qualifier logic"`. This makes missing config visible in production logs.
 
-**Phase:** Addressed implicitly by the file structure decision in P1. But must be explicitly verified during UI testing.
+**Phase:** Config table + seed data + config UI must be completed BEFORE commission engine changes are deployed. This determines phase ordering.
 
 ---
 
-### P5: Deployment Topology Change — Docker and Railway Both Need Reconfiguration
+### P5: Sale Edit Flow Breaks When memberState Changes
 
-**What goes wrong:** Currently there are 6 Docker services (5 frontends + API) and correspondingly 6 Railway services. After consolidation, there should be 3 services: unified-dashboard, sales-board, ops-api. If the old services are not removed and the new unified service is not added, Docker Compose builds stale containers and Railway runs (and bills for) phantom services.
+**What goes wrong:** `handleSaleEditApproval()` (line 277-328) recalculates commission and manages clawback adjustments for finalized periods. If a sale edit changes `memberState` from a state where the required addon was present (full commission) to one where it is not (half commission), the clawback logic must correctly compute the delta. But `memberState` changes have a unique property: unlike changing the product or premium, changing the state can flip the commission from full to half even though the sale's products haven't changed.
 
-**Why it happens:** Deployment configuration is easy to forget because it's not tested during local development (where `npm run dev` just starts one app).
+**Why it happens:** The edit flow was built for product/premium/agent changes. It calculates `oldPayout` from the existing entry (line 295-296) and `newPayout` from recalculation. This works correctly for state changes too, BUT only if `memberState` is actually persisted before recalculation. The edit route (line 555-662) applies changes field-by-field -- if `memberState` is updated in the database BEFORE `upsertPayrollEntryForSale()` is called, it works. If the order is wrong, the recalculation uses the old state.
 
-**Consequences:**
-- Docker: old containers start on old ports, consuming resources but serving nothing (or worse, serving stale code that conflicts with the unified app)
-- Railway: 5 frontend services billed at $5/month each when only 2 are needed, plus the old services may still be accessible at their old URLs
-- The `Dockerfile.nextjs` with `APP_NAME` build arg needs to reference the new unified app name
-- The auth-portal Docker service passes `MANAGER_DASHBOARD_URL`, `PAYROLL_DASHBOARD_URL`, etc. as environment variables — these no longer exist in the unified app
+**Consequences:** Incorrect clawback amounts. Agent overpaid or underpaid when state is corrected on an existing sale. Finalized period integrity compromised.
 
 **Prevention:**
-- Update `docker-compose.yml` in the same PR as the consolidation:
-  - Remove `auth-portal`, `manager-dashboard`, `payroll-dashboard`, `owner-dashboard`, `cs-dashboard` services
-  - Add `unified-dashboard` service with `APP_NAME: unified-dashboard` (or whatever the new app directory is named)
-  - Keep `sales-board` and `ops-api` unchanged
-- Update Railway configuration (document in PR description):
-  - Remove old frontend services
-  - Create new unified dashboard service
-  - Update `ALLOWED_ORIGINS` on the ops-api service
-- Update the `Dockerfile.nextjs` if the new app name doesn't match the expected `apps/${APP_NAME}` path pattern
-- Remove dashboard URL env vars from all configurations
+1. Ensure `memberState` is included in the SaleEditRequest `changes` JSON so the audit trail captures it
+2. Verify the field-update-then-recalculate ordering in the edit route handles `memberState` correctly
+3. Test the full flow: sale created with state A (full commission), edited to state B (half commission), verify clawback equals exactly the difference
+4. Test the reverse: state B (half) edited to state A (full), verify the adjustment is positive
 
-**Detection:** Run `docker-compose up` after consolidation and verify exactly 3 services start (postgres + ops-api + unified-dashboard + sales-board = 4 containers). Check Railway dashboard for orphaned services.
+**Detection:** Audit log should show `memberState` in the changes record. If an edit changes `memberState` but the audit log does not record it, the field is not being tracked.
 
-**Phase:** Must be part of the consolidation PR. Not a follow-up task.
+**Phase:** Same phase as commission engine changes. The edit flow touches the same code path.
 
 ## Moderate Pitfalls
 
-### P6: Role-Gated Tab Visibility Mismatch Between Client and Server
+### P6: Commission Preview Performance with Config Lookups
 
-**What goes wrong:** The tab navigation must show/hide tabs based on the user's roles. The user's roles come from the JWT token (decoded client-side or via middleware). If the client-side role check uses different logic than the server-side `requireRole()` middleware, a user might see a tab they can't actually use (API calls return 403) or not see a tab they should have access to.
-
-**Why it happens:** The current `ROLE_ACCESS` map in `auth-portal/lib/auth.ts` uses lowercase role names (`"owner"`, `"super_admin"`) while the `@ops/types` `AppRole` enum uses uppercase (`"SUPER_ADMIN"`, `"OWNER_VIEW"`, `"MANAGER"`). The auth-portal middleware was a separate implementation that doesn't use the shared types.
-
-**Consequences:**
-- User sees a tab, clicks it, and every API call returns 403 — broken experience
-- SUPER_ADMIN bypasses all server-side role checks but the client-side tab filter might not show all tabs if the mapping is wrong
-- Roles like `CUSTOMER_SERVICE` vs `CS` vs `CUSTOMER_SERVICE` — any inconsistency means a role falls through the cracks
+**What goes wrong:** The commission preview is called on every product/addon/premium change in the sales form (ManagerEntry.tsx triggers preview via `useEffect`). Adding a database lookup for state-availability config on every preview request adds latency. If the config query is not optimized, preview becomes sluggish and the UX degrades.
 
 **Prevention:**
-- Define the tab-to-role mapping once in a shared constant (e.g., in `@ops/types` or a new `@ops/auth/roles.ts`):
-  ```typescript
-  export const TAB_ROLES = {
-    manager: ["MANAGER", "SUPER_ADMIN"],
-    payroll: ["PAYROLL", "SUPER_ADMIN"],
-    owner: ["OWNER_VIEW", "SUPER_ADMIN"],
-    cs: ["CUSTOMER_SERVICE", "SUPER_ADMIN"],
-  } as const;
-  ```
-- Both the tab navigation component and the Next.js middleware use this same constant
-- SUPER_ADMIN always sees all tabs (already the pattern on the server side)
-- Decode the JWT client-side to get roles — the `@ops/auth/client` package already stores the token, just needs a `getRoles()` helper that decodes it
+1. Cache state-availability config in memory with a short TTL (60 seconds) -- the config changes rarely (admin action only)
+2. Or: load all products with their state config in a single query when the form mounts, send the relevant config as part of the preview request body (client already has the data)
+3. The preview endpoint already fetches product data (lines 455-461); extend that single query to include state config via a Prisma `include` or join
 
-**Detection:** Log in as each role type (MANAGER, PAYROLL, OWNER_VIEW, CUSTOMER_SERVICE, SUPER_ADMIN) and verify the correct tabs appear and all API calls within each tab succeed.
-
-**Phase:** Must be implemented alongside the tab navigation component. Test with every role.
+**Phase:** Address during commission engine modification. Not a separate optimization phase.
 
 ---
 
-### P7: Multiple Socket.IO Connections — One Per Dashboard Instead of One Per App
+### P7: The `commissionApproved` Override Scope Becomes Ambiguous
 
-**What goes wrong:** Each current dashboard page calls `useSocket(API, onSaleChanged)` which creates a new Socket.IO connection on mount. In the unified app, if the user navigates between tabs (route segments), each tab mount creates a new connection and each tab unmount disconnects. This means:
-- Switching from Manager to Payroll tab: disconnect + reconnect (visible disconnect banner flashes)
-- If tabs are rendered simultaneously (unlikely but possible with prefetching): multiple connections from one browser
+**What goes wrong:** Currently, `commissionApproved: true` bypasses TWO halving checks: bundle qualifier halving (line 162) and enrollment fee halving (line 69). With state-aware logic, does `commissionApproved` also bypass the state-required addon check? If yes, managers can override any state restriction. If no, the override is less powerful than before and managers will be confused when "Approve Full Commission" does not actually approve full commission.
 
-**Why it happens:** The `useSocket` hook creates the connection in a `useEffect` with `[apiUrl]` as the dependency. Each page component that uses it gets its own connection lifecycle tied to mount/unmount.
+**Why it happens:** `commissionApproved` was a simple binary override. Adding a third halving condition without extending the override creates an inconsistency.
 
-**Consequences:**
-- Brief disconnect banner flash on every tab switch (10-second timer in `useSocket` before showing, but if switch takes >10s on slow network, it shows)
-- Server sees rapid connect/disconnect churn in logs
-- If a sale event fires during the ~100ms between disconnect and reconnect, the dashboard misses it
-- The `onReconnect` callback triggers a full data refresh — so every tab switch causes an unnecessary full refresh
+**Consequences:** Manager approves full commission, agent still gets half because the state-required addon is missing. Manager files a bug report. Payroll staff cannot explain the discrepancy.
 
 **Prevention:**
-- Lift the Socket.IO connection to the shared layout component, not the individual tab pages
-- Create a `SocketProvider` context that wraps all tabs and maintains a single persistent connection
-- Individual tabs subscribe to specific events via context (e.g., `useSocketEvent("sale:changed", handler)`) without owning the connection lifecycle
-- The connection persists across tab switches — only created once on app mount, destroyed on app unmount (page close/navigate away)
-- This is a small refactor of `@ops/socket` to add a provider pattern alongside the existing hook
+1. Decide explicitly: `commissionApproved` bypasses ALL halving (bundle + state + enrollment fee). This is consistent with the current "override" mental model.
+2. If the business wants granular control (approve bundle halving but not state halving), that requires a different field -- do NOT overload `commissionApproved` with partial behavior.
+3. Current behavior is clearly "approve = bypass all halving." Maintain that pattern.
+4. Update the commission preview to reflect the override correctly for state-aware scenarios.
 
-**Detection:** Switch between tabs rapidly while watching the server logs. If you see connect/disconnect pairs, the connection is not shared.
-
-**Phase:** Should be done during the unified layout creation phase, before individual dashboards are wired in.
+**Phase:** Must be decided before commission engine changes. Document the decision in the plan.
 
 ---
 
-### P8: Date Range Filter State Not Preserved Across Tab Switches
+### P8: Fallback Addon Creates Confusing Commission Differences Across States
 
-**What goes wrong:** The user sets a custom date range (e.g., "Last 30 days") on the Manager tab, switches to Payroll tab, and the date range resets to default. They then switch back to Manager and the date range resets again. Each tab manages its own `DateRangeFilterValue` state, and React unmounts the component on tab switch, losing the state.
-
-**Why it happens:** If tabs are implemented as separate Next.js route segments (which they should be per P1), navigating between routes unmounts the previous page component and mounts the new one. Local `useState` is lost on unmount.
-
-**Consequences:**
-- User frustration: they set a date range, switch tabs to compare data, and have to re-set it
-- The "uniform" date range requirement implies the same date range should apply across all tabs, but without shared state, each tab is independent
-- If date ranges are independent per tab (acceptable alternative), users still lose their selection when switching away and back
+**What goes wrong:** The requirement says "fallback addon for unavailable states." If state X cannot get addon A (primary), use addon B (fallback). But addon A and addon B may have different premiums and commission rates. Two identical-looking sales in different states pay different amounts, and neither the agent nor the payroll staff can easily see why.
 
 **Prevention:**
-- Decision required: should the date range be **global** (same across all tabs) or **per-tab** (independent but preserved)?
-  - **Global** (recommended for "uniform" requirement): Store date range in a React context provider in the shared layout. All tabs read from the same context. Changing the date range on any tab changes it for all tabs.
-  - **Per-tab**: Store date range in URL search params (`?range=30d&from=2026-03-01&to=2026-03-19`). URL params survive navigation because they're part of the route. Each tab has its own params.
-- Either way, do NOT rely on `useState` alone — it will be lost on tab switch
-- The global approach is simpler and matches the "uniform" language in the requirements
-- If global: the `DateRangeFilter` component should be in the shared layout (above the tabs), not in each tab's content
+1. Commission preview must show WHICH addon is required and whether primary or fallback is being used
+2. The sales form should indicate when a primary addon is unavailable: gray it out, show a label like "Not available in [STATE]", auto-suggest the fallback
+3. Payroll entry display should include a note: "Commission based on fallback addon (primary unavailable in FL)"
+4. If possible, primary and fallback addons should have the same commission impact -- this is a business decision, not a code decision
 
-**Detection:** Set a custom date range, switch tabs, switch back. If the range reset, state preservation failed.
-
-**Phase:** Must be decided during the uniform date range picker implementation. Affects where the component lives in the component tree.
+**Phase:** UI phase, after commission engine logic is complete. But the data model must support storing which addon was used for qualification.
 
 ---
 
-### P9: Next.js Middleware Matcher Conflict With API Routes
+### P9: Socket.IO Does Not Propagate Config Changes
 
-**What goes wrong:** The auth-portal currently has a Next.js middleware that intercepts requests and verifies tokens. The matcher is:
-```typescript
-export const config = {
-  matcher: ["/owner/:path*", "/payroll/:path*", "/manager/:path*"],
-};
-```
-In the unified app, the login API routes (`/api/login`, `/api/verify`, `/api/change-password`) must be accessible without authentication. If the middleware matcher is too broad (e.g., `/((?!api|_next|login).*)`) it can accidentally intercept API routes or static assets, causing login to break.
-
-**Why it happens:** Middleware matchers in Next.js are regex-based and it's easy to accidentally match too much or too little. The existing auth-portal middleware was simple because it only had 3 protected path prefixes.
-
-**Consequences:**
-- Login page loads but `/api/login` POST returns 401 (middleware intercepts it and finds no token)
-- Static assets (fonts, images) blocked by middleware, causing visual breakage
-- `_next/` prefetch requests blocked, breaking client-side navigation
+**What goes wrong:** If an admin changes the state-availability config (adds a new product for a state, changes the fallback), connected clients do not learn about it. The sales entry form may show stale addon options. The commission preview may calculate based on old config data (if cached client-side or in the preview endpoint memory cache).
 
 **Prevention:**
-- Use an explicit positive matcher that lists only the protected route prefixes:
-  ```typescript
-  export const config = {
-    matcher: ["/manager/:path*", "/payroll/:path*", "/owner/:path*", "/cs/:path*"],
-  };
-  ```
-- Do NOT use a negative matcher (exclude everything except...) — it's fragile and hard to reason about
-- The `/login`, `/api/*`, `/_next/*`, and `/` (root) routes are implicitly unprotected because they're not in the matcher
-- Test the middleware by accessing every route type: login page, API routes, dashboard routes (with and without token), static assets
+1. Emit a `config-changed` event via Socket.IO when state-availability rules are modified
+2. The sales form should re-fetch available products when the `memberState` field changes, not rely on a stale initial product list
+3. If using server-side caching (P6), invalidate the cache when config changes
 
-**Detection:** After implementing middleware, open browser DevTools and check for any unexpected 401/307 responses on page load.
-
-**Phase:** Part of the auth flow rewrite (P2). Test immediately after implementing.
+**Phase:** Address during the config UI phase. Low priority if config changes are rare (admin-only action).
 
 ---
 
-### P10: Sales Board Isolation — Accidentally Breaking the Standalone App
+### P10: Payroll CSV Export Missing State Context
 
-**What goes wrong:** The sales board remains standalone (per requirements), but it shares `@ops/ui`, `@ops/auth`, `@ops/socket`, and `@ops/utils` packages with the dashboards being consolidated. If the consolidation modifies shared packages (e.g., adding a `SocketProvider` for P7, or changing `captureTokenFromUrl` behavior), the sales board breaks even though it's not being touched.
+**What goes wrong:** Current CSV exports include sale details but not `memberState` or which bundle requirement applied. When payroll staff review exported data offline, they cannot verify why a commission was full vs. half. Dispute resolution requires going back to the dashboard.
 
-**Why it happens:** Shared packages serve both the unified app and the standalone sales board. Changes to shared code have cross-cutting impact.
+**Prevention:** Add `memberState` and bundle qualification status to all CSV export queries that include sale data. Check: payroll export, sales export, agent summary export.
 
-**Consequences:**
-- Sales board stops connecting to Socket.IO (if the `useSocket` hook API changes)
-- Sales board auth breaks (if `captureTokenFromUrl` changes)
-- Sales board build fails (if new dependencies are added to shared packages that aren't in sales-board's `transpilePackages`)
-
-**Prevention:**
-- Any changes to `@ops/socket`, `@ops/auth/client`, `@ops/ui`, or `@ops/utils` must be backward-compatible
-- If adding a `SocketProvider` pattern, keep the existing `useSocket` hook working as-is — the provider is additive, not a replacement
-- After consolidation changes, explicitly test the sales board: `npm run salesboard:dev` and verify it loads, displays data, and receives real-time updates
-- Add sales-board verification to the testing checklist for every PR in the consolidation work
-
-**Detection:** Run the sales board after every shared package change.
-
-**Phase:** Ongoing throughout all consolidation phases. Add to PR checklist.
+**Phase:** Same milestone, but can be a later phase. Not blocking.
 
 ## Minor Pitfalls
 
-### P11: Duplicate `transpilePackages` and Config Consolidation
+### P11: State Validation Accepts Invalid State Codes
 
-**What goes wrong:** Each current app has its own `next.config.js` with slightly different `transpilePackages` arrays. Auth-portal transpiles `["@ops/ui", "@ops/auth"]`. Manager transpiles `["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`. The unified app needs the union of all packages: `["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`. If any package is missing from `transpilePackages`, builds fail with cryptic "Cannot use import statement outside a module" errors.
+**What goes wrong:** Current Zod validation for `memberState` is just `z.string().max(2)` (routes line 335) and `.optional()`. This accepts "ZZ", "99", "XX", empty string, single character. No validation against actual US state codes.
 
-**Prevention:**
-- The unified app's `next.config.js` must include ALL shared packages: `@ops/ui`, `@ops/auth`, `@ops/socket`, `@ops/utils`
-- Copy the most complete config (manager or payroll dashboard) as the starting point
-- Keep the conditional `output: "standalone"` pattern for Docker compatibility
+**Prevention:** Use `z.string().length(2).regex(/^[A-Z]{2}$/).optional()` at minimum. For strict validation, use a Zod enum with the 50 state codes plus DC and territories if applicable. Since the state config table will define which states are configured, validation can reference that list.
 
-**Phase:** First step of creating the unified app. Quick to get right, annoying to debug if missed.
+**Phase:** Quick fix, include in the first phase alongside schema changes.
 
 ---
 
-### P12: Package.json Workspace Configuration for New App
+### P12: Paste-to-Parse May Extract Wrong State
 
-**What goes wrong:** The monorepo uses npm workspaces. Each app has its own `package.json` with `workspace:*` dependencies. The new unified app needs a `package.json` that includes all dependencies from all 5 merged apps. Missing a dependency causes runtime errors that only appear when navigating to a specific tab (e.g., the CS tab uses `lucide-react` icons that the other tabs don't).
+**What goes wrong:** The parser in ManagerEntry.tsx (lines 195-199) extracts `memberState` from address patterns: `/,\s*([A-Z]{2})\s+\d{5}/` (state before ZIP code). If the pasted text has multiple addresses (company address + member address), it may grab the wrong one. The fallback regex `/\b([A-Z]{2})\s+\d{5}/` is even looser.
 
-**Prevention:**
-- Merge all `dependencies` from auth-portal, manager, payroll, owner, and CS dashboard `package.json` files
-- Run `npm install` from monorepo root after creating the new app
-- Test all tabs, not just the first one that loads
+**Prevention:** Test the parser with real paste samples containing multiple state+ZIP patterns. Consider making the state field required and prominent in the form so agents verify the parsed value rather than trusting auto-fill blindly.
 
-**Phase:** Part of initial app scaffolding.
+**Phase:** Minor, address during UI phase. The field is already editable so agents can correct it.
 
 ---
 
-### P13: Loss of Independent Deployability and Rollback Granularity
+### P13: Test Helper Defaults Hide State-Aware Bugs
 
-**What goes wrong:** Currently, if the payroll dashboard has a bug, only the payroll service needs to be redeployed/rolled back. After consolidation, any bug in any dashboard requires redeploying the entire unified app, which affects all users across all roles.
+**What goes wrong:** The test helper `makeSale()` in commission.test.ts (line 69) defaults `memberState: null`. This is correct for backward-compatibility tests. But if developers add state-aware tests and forget to set `memberState`, tests pass because null triggers the fallback behavior, not because the state logic works correctly.
 
-**Prevention:**
-- Accept this tradeoff explicitly — it's inherent to consolidation
-- Ensure comprehensive testing of all tabs before deploying
-- Consider feature flags for new date range functionality so it can be disabled per-tab if issues arise
-- Keep the ability to quickly revert to the previous multi-app architecture by not deleting the old app directories until the unified app is stable in production (tag the last multi-app commit)
+**Prevention:** Add a dedicated `describe` block for state-aware scenarios where `memberState` is ALWAYS explicitly set. Consider a separate `makeStateSale()` helper that requires `memberState` as a non-optional parameter.
 
-**Phase:** Deployment planning. No code change needed, just awareness and process.
+**Phase:** Concurrent with commission engine changes. Part of the test update.
 
 ---
 
-### P14: Metadata and Title Per Tab
+### P14: FL Exemption Test Suggests Abandoned State Logic
 
-**What goes wrong:** Each current app has its own `<title>` via Next.js `metadata` export (e.g., "Manager Dashboard", "Payroll Dashboard"). In the unified app with route segments, each route can export its own metadata. But if this is missed, all tabs show "Unified Dashboard" or whatever the root layout sets, making it hard for users to identify which tab they're on from their browser tab bar.
+**What goes wrong:** The existing test suite (commission.test.ts lines 372-388) has an "FL exemption removed" test that explicitly verifies Florida sales are NOT exempt from halving. This suggests there WAS a previous FL exemption that was removed. The v1.4 state-aware logic is essentially re-introducing state-specific behavior. If the new logic accidentally re-creates the FL exemption (or any other state-specific override that was intentionally removed), it reintroduces a bug.
 
 **Prevention:**
-- Each route segment (`/manager/page.tsx`, `/payroll/page.tsx`, etc.) must export its own `metadata`:
-  ```typescript
-  export const metadata: Metadata = { title: "Manager Dashboard" };
-  ```
-- This is a Next.js App Router feature that works automatically with route segments
+1. Review the "FL exemption removed" test and understand WHY it was removed
+2. Ensure the new state-aware config does not unintentionally give any state an exemption from the bundle qualifier requirement -- it should only control WHICH addon qualifies, not WHETHER one is required
+3. Keep the "FL exemption removed" test as a regression guard
 
-**Phase:** During tab/route creation. Easy to overlook, quick to fix.
+**Phase:** During commission engine modification. The existing test is your canary.
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| App scaffolding & file structure | P1 (monster file), P11 (transpilePackages), P12 (dependencies) | Route-segment-per-dashboard, union of all transpile packages, merge all deps |
-| Auth flow rewrite | P2 (token passing breaks), P9 (middleware matcher) | Positive matcher for protected routes, remove external URL env vars, test every role |
-| Deployment config | P3 (CORS origins), P5 (Docker/Railway topology) | Update all 3 config locations, remove old services, single unified origin |
-| Tab navigation & layout | P4 (style collisions), P6 (role mismatch), P7 (socket connections), P14 (metadata) | Scoped styles per route, shared role constant, SocketProvider context, per-route metadata |
-| Uniform date range | P8 (state lost on tab switch) | Global context in shared layout OR URL search params |
-| Throughout consolidation | P10 (sales board regression), P13 (rollback granularity) | Test sales-board after every shared package change, tag pre-consolidation commit |
+| Business rule clarification | P3 (double halving), P7 (commissionApproved scope) | Resolve before ANY code changes. These are design decisions, not implementation details. |
+| Schema migration + config table | P4 (empty config in production), P11 (state validation) | Migration seeds default data; engine falls back gracefully on empty config |
+| Commission engine modification | P1 (preview divergence), P2 (legacy sale regression), P3 (double halving), P14 (FL exemption) | Write backward-compatibility tests FIRST, update preview in same PR, single halving path |
+| Config UI (Products tab) | P4 (config completeness), P9 (stale client config) | Completeness indicator, Socket.IO event on config change |
+| Sales entry form (state field) | P8 (fallback confusion), P12 (parser wrong state) | Show which addon is required per state, validate parsed state |
+| Sale editing | P5 (state change clawback), P7 (approval override scope) | Test full edit-recalc-clawback flow with state changes |
+| Payroll display + exports | P10 (missing state in CSV), P8 (agents confused by different rates) | Add state column to exports, show qualification reason in payroll entries |
+| Commission preview | P1 (preview divergence), P6 (performance) | Add memberState to preview schema and mock, cache config lookups |
 
 ## Sources
 
-- Direct codebase analysis of all 6 app directories, shared packages, Docker/Railway configuration
-- Auth flow traced through: `auth-portal/app/api/login/route.ts` -> `auth-portal/app/landing/page.tsx` -> `@ops/auth/client.ts` `captureTokenFromUrl()`
-- CORS configuration in `apps/ops-api/src/index.ts` line 23 and `docker-compose.yml` line 34
-- Socket.IO connection lifecycle in `packages/socket/src/useSocket.ts`
-- Style constant patterns observed across all dashboard `page.tsx` files
-- Next.js App Router middleware documentation (HIGH confidence — well-established pattern)
-- Existing middleware in `apps/auth-portal/middleware.ts` with route matcher pattern
+- `apps/ops-api/src/services/payroll.ts` -- commission engine: `calculateCommission()` (line 94-188), `upsertPayrollEntryForSale()` (line 220-264), `handleSaleEditApproval()` (line 277-328)
+- `apps/ops-api/src/routes/index.ts` -- preview endpoint (line 440-496), sale creation (line 320-437), sale editing (line 555-662), memberState validation (line 335, 562)
+- `prisma/schema.prisma` -- Product model (line 127-148), Sale model with `memberState` (line 150-191), PayrollEntry model (line 257-279)
+- `apps/ops-api/src/services/__tests__/commission.test.ts` -- all 20+ test cases including FL exemption removed test (line 372-388), test helper defaults (line 44-73)
+- `apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx` -- paste parser state extraction (line 195-199), form fields (line 240-246), preview trigger
+- `.planning/PROJECT.md` -- v1.4 requirements, existing feature inventory, key decisions
 
 ---
-*Research completed: 2026-03-19*
+*Research completed: 2026-03-23*

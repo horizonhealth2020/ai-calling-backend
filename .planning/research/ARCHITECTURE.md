@@ -1,451 +1,582 @@
-# Architecture Patterns: Dashboard Consolidation & Uniform Date Ranges
+# Architecture Patterns: State-Aware Bundle Commission
 
-**Domain:** Multi-dashboard monorepo consolidation into single unified app
-**Researched:** 2026-03-19
-**Confidence:** HIGH (analysis based on direct codebase inspection of all 5 apps, shared packages, auth flow, and deployment configs)
+**Domain:** State-aware commission engine enhancement for existing Ops Platform
+**Researched:** 2026-03-23
+**Confidence:** HIGH (all recommendations based on direct codebase analysis)
 
-## Current Architecture (Before)
+## Current Architecture (Relevant Components)
+
+### Commission Data Flow Today
 
 ```
-Browser
+Sales Entry Form (ManagerEntry.tsx)
   |
-  auth-portal (:3011)     login -> /landing role picker -> opens dashboard in new tab
-  |           \          \          \
-  manager (:3019)  payroll (:3012)  owner (:3026)  cs (:3014)  sales-board (:3013)
-  |           |          |          |               |
-  +---------- authFetch (Bearer token) -----------+
-  |                                                |
-  ops-api (:8080) ------ CORS whitelist: 5 origins |
-  |                                                |
-  PostgreSQL                                       |
-  |                                                |
-  Socket.IO ------ 5 independent connections ------+
-```
-
-**5 separate Next.js apps** each with their own:
-- `package.json`, `next.config.js`, `tsconfig.json`
-- Single `app/page.tsx` (all UI in one file per app)
-- `captureTokenFromUrl()` call on mount
-- `PageShell` wrapper with sidebar nav for sub-tabs
-- Independent Socket.IO connection
-
-**Line counts:**
-| App | Lines | Sub-tabs |
-|-----|-------|----------|
-| manager-dashboard | 2,702 | entry, tracker, sales, audits, config |
-| payroll-dashboard | 3,030 | periods, chargebacks, exports, products, service |
-| owner-dashboard | 1,957 | dashboard, kpis, config, users |
-| cs-dashboard | 2,377 | submissions, tracking |
-| auth-portal | 502 | login, change-password, landing |
-| **Total** | **10,568** | |
-
-### Current Auth Flow (Critical Path)
-
-1. User visits `auth-portal:3011/` -- sees login form
-2. Login form POSTs to `/api/login` (Next.js route handler)
-3. Route handler proxies to `ops-api:8080/api/auth/login`
-4. ops-api returns `{ token, roles }` -- JWT contains `{ id, email, name, roles }`
-5. Route handler builds redirect: `/landing?session_token=TOKEN&roles=ROLE1,ROLE2`
-6. Landing page reads roles from URL, shows dashboard cards with env-var URLs
-7. User clicks card -- `window.open(DASHBOARD_URL?session_token=TOKEN, "_blank")`
-8. Dashboard app runs `captureTokenFromUrl()` -- stores token in localStorage, cleans URL
-9. All subsequent API calls use `authFetch()` which reads token from localStorage
-
-**Key observation:** Each dashboard is a completely separate origin. Token passes via URL query param across origins. This is the fragile part that consolidation eliminates.
-
-### Current Cross-Origin Dependencies
-
-| Env Var | Set On | Value |
-|---------|--------|-------|
-| `MANAGER_DASHBOARD_URL` | auth-portal | `http://localhost:3019` |
-| `PAYROLL_DASHBOARD_URL` | auth-portal | `http://localhost:3012` |
-| `OWNER_DASHBOARD_URL` | auth-portal | `http://localhost:3026` |
-| `CS_DASHBOARD_URL` | auth-portal | `http://localhost:3014` |
-| `AUTH_PORTAL_URL` | auth-portal | `http://localhost:3011` |
-| `ALLOWED_ORIGINS` | ops-api | All 5 dashboard origins |
-
-**After consolidation:** All of these env vars become unnecessary. One origin, one CORS entry.
-
-## Recommended Architecture (After)
-
-### Single Unified App: `apps/dashboard`
-
-```
-Browser
+  | POST /api/sales  { productId, addonProductIds, addonPremiums, memberState, ... }
   |
-  dashboard (:3011)
-  |  /              -- login page
-  |  /manager       -- manager content
-  |  /payroll       -- payroll content
-  |  /owner         -- owner content
-  |  /cs            -- CS content
+  v
+routes/index.ts  -- validates with Zod, creates Sale + SaleAddon rows
   |
-  +-- authFetch (Bearer token, same origin) --+
-  |                                           |
-  ops-api (:8080) -- CORS: 2 origins ---------+
-  |                                           |
-  PostgreSQL                                  |
-  |                                           |
-  Socket.IO -- 1 connection at a time --------+
-
-  sales-board (:3013)  -- unchanged, standalone
+  | upsertPayrollEntryForSale(saleId)
+  |
+  v
+services/payroll.ts
+  |-- calculateCommission(sale)  <-- PURE function, no DB access
+  |     |-- classifies products (CORE, ADDON, AD_D)
+  |     |-- checks isBundleQualifier flag on products
+  |     |-- if no qualifier && !commissionApproved: halves commission
+  |     |-- applies enrollment fee rules
+  |
+  |-- upsertPayrollEntryForSale()  <-- creates/updates PayrollEntry
+  v
+PayrollEntry row with payoutAmount = commission result
 ```
 
-### File Structure
+### Key Observations
+
+1. **`calculateCommission` is pure.** It receives a `SaleWithProduct` object (sale + product + addons with products) and returns a number. No DB queries inside. This is by design (see PROJECT.md: "Commission gate in upsert, not calc").
+
+2. **`memberState` already exists on Sale model** as `String? @map("member_state") @db.VarChar(2)`. The field is already captured in the sales entry form and saved to the database. It is NOT currently passed to `calculateCommission`.
+
+3. **`isBundleQualifier` is a boolean on Product.** Currently, the commission engine checks if ANY product in the sale has `isBundleQualifier = true`. If none do and sale has a core product, commission is halved (unless `commissionApproved`).
+
+4. **The preview endpoint mirrors the calc logic** in `POST /sales/preview`. It constructs a mock sale object and calls `calculateCommission`. Any changes to the calc must also flow through preview.
+
+5. **Product CRUD is simple PATCH/POST** on `/api/products`. The Product model has commission-related fields but NO state-awareness fields today.
+
+---
+
+## Recommended Architecture for State-Aware Bundles
+
+### Design Principle: Configuration-Driven, Not Code-Driven
+
+The business rule is: "In state X, the required bundle addon is product Y. If Y is unavailable in that state, fall back to product Z. If neither is present, half commission."
+
+This should be **data in the database**, not conditionals in code. The commission engine should read configuration rows, not hardcode state-to-product mappings.
+
+### New Component: BundleRequirement Model
 
 ```
-apps/dashboard/
-  app/
-    layout.tsx                  -- root layout: html, body, font, metadata
-    page.tsx                    -- login page (from auth-portal/app/page.tsx)
-    api/
-      login/route.ts            -- proxy to ops-api (from auth-portal)
-      verify/route.ts           -- JWT verification (from auth-portal)
-      change-password/route.ts  -- password change (from auth-portal)
-    (dashboard)/                -- route group: no URL segment, just auth boundary
-      layout.tsx                -- DashboardShell: role-gated top-level sidebar + user info
-      manager/page.tsx          -- manager content (2,702 lines, keeps internal sub-tabs)
-      payroll/page.tsx          -- payroll content (3,030 lines, keeps internal sub-tabs)
-      owner/page.tsx            -- owner content (1,957 lines, keeps internal sub-tabs)
-      cs/page.tsx               -- CS content (2,377 lines, keeps internal sub-tabs)
-  lib/
-    auth.ts                     -- JWT verification for middleware (from auth-portal/lib/auth.ts)
-    roles.ts                    -- role-to-tab mapping, default tab resolution
-  middleware.ts                 -- protect (dashboard)/* routes, redirect to / if unauthenticated
-  next.config.js
-  package.json
-  tsconfig.json
+BundleRequirement (NEW TABLE)
+
+  id            String   @id @default(cuid())
+  coreProductId String   -- which core product this rule is for
+  state         String?  @db.VarChar(2)  -- null = default rule
+  primaryAddonId   String  -- required addon in this state
+  fallbackAddonId  String? -- if primary unavailable
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([coreProductId, state])  -- one rule per core+state
+  @@map("bundle_requirements")
+
+Relations:
+  coreProduct    Product  @relation("BundleReqCore", ...)
+  primaryAddon   Product  @relation("BundleReqPrimary", ...)
+  fallbackAddon  Product? @relation("BundleReqFallback", ...)
 ```
 
-### Component Boundaries
+### New Component: ProductStateAvailability Model
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `app/page.tsx` (login) | Login form + change-password | `/api/login` route handler |
-| `app/api/login/route.ts` | Proxy auth to ops-api, return redirect path | ops-api `/api/auth/login` |
-| `middleware.ts` | Verify JWT on `/(dashboard)/*`, redirect to `/` if invalid | `/api/verify` |
-| `(dashboard)/layout.tsx` | Top-level sidebar with role-gated tabs, user name display, logout | Reads JWT claims client-side |
-| `(dashboard)/manager/page.tsx` | Manager tab: entry, tracker, sales, audits, config sub-tabs | ops-api via `authFetch`, Socket.IO |
-| `(dashboard)/payroll/page.tsx` | Payroll tab: periods, chargebacks, exports, products, service sub-tabs | ops-api via `authFetch`, Socket.IO |
-| `(dashboard)/owner/page.tsx` | Owner tab: dashboard, kpis, config, users sub-tabs | ops-api via `authFetch`, Socket.IO |
-| `(dashboard)/cs/page.tsx` | CS tab: submissions, tracking sub-tabs | ops-api via `authFetch`, Socket.IO |
-
-### Data Flow
-
-**Login (simplified -- same origin):**
 ```
-1. User visits /                        -- login page renders
-2. User submits credentials
-3. POST /api/login                      -- Next.js route handler
-4.   -> ops-api /api/auth/login         -- validates credentials
-5.   <- { token, roles }
-6.   <- { redirect: "/manager?session_token=TOKEN" }  -- path, not URL
-7. Browser navigates to /manager?session_token=TOKEN
-8. middleware.ts verifies JWT            -- passes
-9. (dashboard)/layout.tsx renders        -- decodes JWT for roles, shows nav
-10. captureTokenFromUrl() stores token   -- cleans URL to /manager
-11. manager/page.tsx renders content
+ProductStateAvailability (NEW TABLE)
+
+  id         String   @id @default(cuid())
+  productId  String
+  state      String   @db.VarChar(2)
+  available  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, state])
+  @@map("product_state_availability")
 ```
 
-**Tab navigation (client-side, no reload):**
-```
-1. User clicks "Payroll" in sidebar
-2. Next.js Link navigates to /payroll   -- client-side transition
-3. manager/page.tsx unmounts             -- Socket.IO disconnects
-4. payroll/page.tsx mounts               -- Socket.IO connects
-5. Token already in localStorage         -- authFetch works immediately
-```
+**Why two tables instead of JSON on Product?** Three reasons:
+1. Queryable -- "which products are available in FL?" is a single indexed query.
+2. Auditable -- changes tracked via updatedAt, compatible with audit logging pattern.
+3. Relational integrity -- foreign keys ensure referenced products exist.
 
-**Key improvement:** No cross-origin redirects. No `window.open`. No env vars for dashboard URLs. Token stays in localStorage on the same origin.
+### Modified Component: calculateCommission
 
-### Role-to-Tab Mapping
+The current function signature is:
 
 ```typescript
-// lib/roles.ts
-import type { AppRole } from "@ops/types";
+export const calculateCommission = (sale: SaleWithProduct): number
+```
 
-interface TabConfig {
-  path: string;
-  label: string;
-  iconKey: string; // resolved to React element in layout
-}
+The new signature adds bundle requirement context:
 
-const TAB_CONFIG: TabConfig[] = [
-  { path: "/manager", label: "Manager", iconKey: "users" },
-  { path: "/payroll", label: "Payroll", iconKey: "dollar" },
-  { path: "/owner",   label: "Owner",   iconKey: "chart" },
-  { path: "/cs",      label: "Customer Service", iconKey: "headphones" },
-];
+```typescript
+type BundleRequirementContext = {
+  primaryAddonId: string | null;
+  fallbackAddonId: string | null;
+} | null;
 
-const ROLE_TO_TABS: Record<string, string[]> = {
-  MANAGER:          ["/manager"],
-  PAYROLL:          ["/payroll"],
-  OWNER_VIEW:       ["/owner"],
-  CUSTOMER_SERVICE: ["/cs"],
-  SUPER_ADMIN:      ["/manager", "/payroll", "/owner", "/cs"], // all tabs
-};
+export const calculateCommission = (
+  sale: SaleWithProduct,
+  bundleReq?: BundleRequirementContext
+): number
+```
 
-export function getTabsForRoles(roles: string[]): TabConfig[] {
-  const allowed = new Set<string>();
-  for (const role of roles) {
-    for (const path of ROLE_TO_TABS[role] ?? []) {
-      allowed.add(path);
-    }
-  }
-  return TAB_CONFIG.filter(t => allowed.has(t.path));
-}
+**Critical: Keep it pure.** The function does NOT query the database. The caller (upsertPayrollEntryForSale or preview endpoint) resolves the bundle requirement and passes it in. This preserves the existing design principle.
 
-export function getDefaultTab(roles: string[]): string {
-  // Priority: manager > payroll > owner > cs
-  const tabs = getTabsForRoles(roles);
-  return tabs[0]?.path ?? "/manager";
+### Modified Logic Flow
+
+The existing halving logic (lines 160-164 of payroll.ts):
+
+```typescript
+// CURRENT: Binary check -- any isBundleQualifier product present?
+if (!qualifierExists && !sale.commissionApproved) {
+  totalCommission /= 2;
 }
 ```
 
-### Two-Level Navigation Architecture
+Becomes:
 
-**Top level (route-based, in layout.tsx):** Manager | Payroll | Owner | CS
-- Implemented as Next.js `<Link>` navigation between routes
-- Role-gated: only tabs the user has access to appear
-- Persists across page transitions (layout does not remount)
+```typescript
+// NEW: State-aware check
+if (hasCoreInSale && !sale.commissionApproved) {
+  if (bundleReq) {
+    // A bundle requirement exists for this core+state combination
+    const addonIds = allEntries.map(e => e.product.id);
+    const hasPrimary = bundleReq.primaryAddonId
+      && addonIds.includes(bundleReq.primaryAddonId);
+    const hasFallback = bundleReq.fallbackAddonId
+      && addonIds.includes(bundleReq.fallbackAddonId);
+    if (!hasPrimary && !hasFallback) {
+      totalCommission /= 2;
+    }
+  } else {
+    // No bundle requirement configured -- fall back to existing isBundleQualifier logic
+    if (!qualifierExists) {
+      totalCommission /= 2;
+    }
+  }
+}
+```
 
-**Sub level (state-based, in each page.tsx):** e.g., Entry | Tracker | Sales | Audits | Config
-- Implemented with `useState` inside each page component (unchanged from today)
-- Resets when navigating away and back (acceptable -- matches current behavior)
+**Backward compatibility:** When no `BundleRequirement` row exists for a core product + state, the old `isBundleQualifier` logic applies. This means existing products work without any migration changes.
 
-**PageShell modification:** The existing `PageShell` component renders a full sidebar with logo, title, and nav items. For the unified app:
+### Modified Component: upsertPayrollEntryForSale
 
-**Recommended approach: Split PageShell into two components.**
+Currently fetches sale with product and addons. Must now also resolve the bundle requirement:
 
-1. **`DashboardShell`** (new, in `@ops/ui` or in `apps/dashboard`): Renders the outer sidebar with top-level role-gated tabs, user info, logout button. This is the `(dashboard)/layout.tsx`.
+```typescript
+export const upsertPayrollEntryForSale = async (saleId: string) => {
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    include: { product: true, addons: { include: { product: true } } },
+  });
+  if (!sale) throw new Error("Sale not found");
 
-2. **`SubTabBar`** (new, extracted from PageShell): Renders a horizontal tab bar for in-page sub-navigation. Each dashboard page uses this for its internal tabs.
+  // NEW: Resolve bundle requirement for this sale's core product + member state
+  const bundleReq = await resolveBundleRequirement(
+    sale.product.type === 'CORE' ? sale.product.id : null,
+    sale.memberState
+  );
 
-This avoids nested sidebars and gives a clean separation. The existing `PageShell` continues to work for sales-board (which remains standalone).
+  const payoutAmount = sale.status === 'RAN'
+    ? calculateCommission(sale, bundleReq)
+    : 0;
+  // ... rest unchanged
+};
+```
 
-## Migration Path (Detailed)
+### New Service Function: resolveBundleRequirement
 
-### Phase 1: Create App Shell + Login
+```typescript
+export async function resolveBundleRequirement(
+  coreProductId: string | null,
+  memberState: string | null | undefined
+): Promise<BundleRequirementContext | null> {
+  if (!coreProductId) return null;
 
-**New files:**
-- `apps/dashboard/package.json` -- dependencies from auth-portal + any dashboard (union of all transpilePackages)
-- `apps/dashboard/next.config.js` -- standard config with `transpilePackages: ["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`
-- `apps/dashboard/tsconfig.json` -- extends `../../tsconfig.base.json`
-- `apps/dashboard/app/layout.tsx` -- root layout (html/body/metadata)
-- `apps/dashboard/app/page.tsx` -- login page (copy from auth-portal)
-- `apps/dashboard/app/api/login/route.ts` -- copy from auth-portal, change redirect from `/landing` to `/(dashboard)/[default-tab]`
-- `apps/dashboard/app/api/verify/route.ts` -- copy from auth-portal
-- `apps/dashboard/app/api/change-password/route.ts` -- copy from auth-portal
+  // Try state-specific rule first, then default (state=null)
+  const req = await prisma.bundleRequirement.findFirst({
+    where: {
+      coreProductId,
+      active: true,
+      state: memberState ?? null,
+    },
+  });
 
-**Modified files:**
-- `package.json` (root) -- add `"dashboard:dev": "npm run dev -w apps/dashboard"`
+  // Fall back to default rule if no state-specific one
+  const rule = req ?? await prisma.bundleRequirement.findFirst({
+    where: { coreProductId, active: true, state: null },
+  });
 
-**Validation:** Login works, redirects to a placeholder dashboard page.
+  if (!rule) return null;
 
-### Phase 2: Auth Middleware + Dashboard Layout
+  // Check state availability of primary addon
+  let primaryAvailable = true;
+  if (memberState && rule.primaryAddonId) {
+    const avail = await prisma.productStateAvailability.findUnique({
+      where: {
+        productId_state: {
+          productId: rule.primaryAddonId,
+          state: memberState,
+        },
+      },
+    });
+    if (avail && !avail.available) primaryAvailable = false;
+  }
 
-**New files:**
-- `apps/dashboard/middleware.ts` -- protect `/(dashboard)/*` routes, redirect to `/` if no valid JWT
-- `apps/dashboard/app/(dashboard)/layout.tsx` -- DashboardShell with role-gated top-level tabs
-- `apps/dashboard/lib/auth.ts` -- JWT verification helpers (from auth-portal)
-- `apps/dashboard/lib/roles.ts` -- role-to-tab mapping
+  return {
+    primaryAddonId: primaryAvailable ? rule.primaryAddonId : null,
+    fallbackAddonId: rule.fallbackAddonId,
+  };
+}
+```
 
-**New in @ops/ui (or local):**
-- `SubTabBar` component for in-page sub-navigation
+---
 
-**Validation:** Login redirects to correct default tab. Sidebar shows role-appropriate tabs. Clicking tabs navigates between routes. Unauthorized users see only their permitted tabs.
+## Component Boundaries
 
-### Phase 3: Migrate CS Dashboard (simplest)
+| Component | Responsibility | Changes Required |
+|-----------|---------------|-----------------|
+| `prisma/schema.prisma` | Data model | ADD BundleRequirement + ProductStateAvailability models, ADD relations to Product |
+| `services/payroll.ts` | Commission calculation | MODIFY calculateCommission signature + halving logic, ADD resolveBundleRequirement function |
+| `routes/index.ts` | API endpoints | ADD CRUD routes for bundle requirements + state availability, MODIFY preview endpoint to pass bundleReq |
+| `PayrollProducts.tsx` | Product config UI | ADD bundle requirement config section (per-product), ADD state availability toggles |
+| `ManagerEntry.tsx` | Sales entry form | MODIFY preview call to include memberState, MODIFY commission preview display to show bundle status |
 
-**New files:**
-- `apps/dashboard/app/(dashboard)/cs/page.tsx` -- content from `apps/cs-dashboard/app/page.tsx`
+### What Does NOT Change
 
-**Changes to content:**
-1. Remove `captureTokenFromUrl()` useEffect (layout handles it)
-2. Replace outer `<PageShell>` with `<SubTabBar>` for submissions/tracking sub-tabs
-3. Keep all internal state, fetch logic, Socket.IO connection unchanged
-4. Role-based tab visibility (`canManageCS`) stays in the page (reads JWT roles)
+| Component | Why Unchanged |
+|-----------|--------------|
+| `Sale` model | `memberState` field already exists |
+| `Product` model | `isBundleQualifier` stays as fallback; no schema change needed |
+| `SaleAddon` model | Unchanged -- addons still recorded the same way |
+| `PayrollEntry` model | Commission result stored the same way |
+| Socket.IO events | Same `sale:changed` payload -- commission is just a different number |
+| Auth/RBAC middleware | Same role gates (PAYROLL/SUPER_ADMIN for config, MANAGER for entry) |
+| Export/CSV logic | Reads payoutAmount from PayrollEntry -- unchanged |
 
-**Validation:** CS tab works with submissions and tracking. Socket.IO real-time updates work.
+---
 
-### Phase 4: Migrate Owner Dashboard
+## Data Flow: New State-Aware Commission Path
 
-**New files:**
-- `apps/dashboard/app/(dashboard)/owner/page.tsx`
+```
+1. Manager enters sale with memberState = "FL"
+   |
+2. POST /api/sales -- saves Sale with memberState="FL"
+   |
+3. upsertPayrollEntryForSale(saleId)
+   |
+   |-- Fetches sale (with product, addons)
+   |-- sale.product.type === "CORE" && sale.memberState === "FL"
+   |
+   |-- resolveBundleRequirement("core-product-id", "FL")
+   |     |-- Query: BundleRequirement WHERE coreProductId=X AND state="FL"
+   |     |-- Found? Check if primaryAddon is available in FL
+   |     |     |-- ProductStateAvailability WHERE productId=primaryAddon AND state="FL"
+   |     |     |-- Available: return { primaryAddonId: Y, fallbackAddonId: Z }
+   |     |     |-- Unavailable: return { primaryAddonId: null, fallbackAddonId: Z }
+   |     |-- Not found? Try state=null (default rule)
+   |     |-- No rule at all? return null (old isBundleQualifier logic applies)
+   |
+   |-- calculateCommission(sale, bundleReq)
+   |     |-- Checks if sale addons include primaryAddonId or fallbackAddonId
+   |     |-- Present: full commission
+   |     |-- Neither present && !commissionApproved: half commission
+   |
+4. PayrollEntry created with calculated payoutAmount
+```
 
-**Changes:** Same pattern as Phase 3. Owner has role-dependent sub-tabs (SUPER_ADMIN sees "Users" tab) -- this logic stays in the page.
+---
 
-### Phase 5: Migrate Payroll Dashboard
+## API Routes (New)
 
-**New files:**
-- `apps/dashboard/app/(dashboard)/payroll/page.tsx`
+### Bundle Requirements CRUD
 
-**Changes:** Same pattern. Payroll has badge counts on sub-tabs (approval needed) -- this stays in the page.
+```
+GET    /api/bundle-requirements              -- list all (filterable by coreProductId)
+GET    /api/bundle-requirements/:id          -- single
+POST   /api/bundle-requirements              -- create
+PATCH  /api/bundle-requirements/:id          -- update
+DELETE /api/bundle-requirements/:id          -- soft-delete (set active=false)
+```
 
-### Phase 6: Migrate Manager Dashboard
+Access: `requireRole("PAYROLL", "SUPER_ADMIN")` -- same as product CRUD.
 
-**New files:**
-- `apps/dashboard/app/(dashboard)/manager/page.tsx`
+### State Availability CRUD
 
-**Changes:** Same pattern. Manager is the most complex with 5 sub-tabs and cross-tab shared state (agents, products, lead sources loaded once and used across tabs). All of this stays within the single page component.
+```
+GET    /api/products/:id/state-availability  -- list states for a product
+PUT    /api/products/:id/state-availability  -- bulk upsert states
+```
 
-### Phase 7: Uniform Date Range Picker
+Access: `requireRole("PAYROLL", "SUPER_ADMIN")`.
 
-**Modified files:**
-- Each migrated page.tsx -- add `DateRangeFilter` component to KPI sections
-- `DateRangeFilter` already exists in `@ops/ui` (added in v1.2 for CSV exports)
+**Why PUT for bulk upsert?** State availability is toggle-based (50 states). Individual POST/DELETE per state would be 50 API calls. A single PUT with `{ states: { FL: true, CA: false, NY: true } }` is one call.
 
-**New behavior:** The `DateRangeFilter` component gets applied to KPI counters/cards, not just CSV exports. Each page manages its own date range state. Options: Current Week, Last Week, 30 Days, Custom.
+### Preview Endpoint Enhancement
 
-The `DateRangeFilter` component and `DateRangeFilterValue` type already exist in `@ops/ui` -- they were added in v1.2. The work is wiring them to KPI fetch calls in each dashboard.
+The existing `POST /api/sales/preview` must also resolve bundle requirements to show accurate commission:
 
-### Phase 8: Update Deployment + Remove Old Apps
+```typescript
+// ADD to preview endpoint:
+const bundleReq = await resolveBundleRequirement(
+  product.type === 'CORE' ? product.id : null,
+  parsed.data.memberState  // NEW field in preview schema
+);
+const commission = calculateCommission(mockSale, bundleReq);
 
-**Modified files:**
-- `docker-compose.yml` -- replace 5 dashboard services with 1, update ALLOWED_ORIGINS
-- `.env.example` files -- remove dashboard URL vars
-- ops-api `ALLOWED_ORIGINS` -- reduce to 2 origins
+// ADD to response breakdown:
+bundleRequirement: bundleReq ? {
+  primaryAddonId: bundleReq.primaryAddonId,
+  fallbackAddonId: bundleReq.fallbackAddonId,
+  satisfied: /* check if addon present */,
+} : null,
+```
 
-**Deleted:**
-- `apps/auth-portal/` (entire directory)
-- `apps/manager-dashboard/` (entire directory)
-- `apps/payroll-dashboard/` (entire directory)
-- `apps/owner-dashboard/` (entire directory)
-- `apps/cs-dashboard/` (entire directory)
+---
 
-**Railway:** Delete 5 services, create 1 dashboard service.
+## UI Architecture: Config in PayrollProducts
+
+### Approach: Expandable Section Per Product
+
+Do NOT create a separate tab or page. Bundle requirements are per-product configuration. Add a collapsible "Bundle Requirements" section inside each `ProductCard` component when the product type is CORE.
+
+```
++-----------------------------------------------------+
+| Health Insurance Core                    [Core] Active |
+| Below $250: 30%  Above $250: 40%                      |
+|                                                        |
+| v Bundle Requirements                                  |
+| +----------------------------------------------------+ |
+| | Default Rule:                                      | |
+| |   Primary Addon: [Compass VAB v]                   | |
+| |   Fallback Addon: [None v]                         | |
+| |                                                    | |
+| | State Overrides:            [+ Add State Override] | |
+| |   FL: Primary = Compass VAB, Fallback = Dental Plus| |
+| |   CA: Primary = Dental Plus, Fallback = None       | |
+| +----------------------------------------------------+ |
+|                                                        |
+| v State Availability (for this addon product)          |
+| +----------------------------------------------------+ |
+| | Available in all states except:                    | |
+| |   [ ] FL  [ ] CA  [x] NY  [ ] TX  ...             | |
+| | (Only shown for ADDON/AD_D products)               | |
+| +----------------------------------------------------+ |
++--------------------------------------------------------+
+```
+
+**Bundle Requirements section** appears only on CORE products.
+**State Availability section** appears only on ADDON/AD_D products.
+
+This separation makes logical sense: core products define "what addon is required," addon products define "where I am available."
+
+### Commission Preview Enhancement
+
+In `ManagerEntry.tsx`, the preview panel currently shows:
+
+```
+Bundle: Compass VAB included / No qualifier -- half rate applied / Standalone
+```
+
+Enhance to show state-aware info:
+
+```
+Bundle: Required addon (Compass VAB) included -- full rate
+Bundle: Required addon unavailable in FL -- fallback (Dental Plus) included
+Bundle: No required addon present -- half rate applied
+```
+
+The preview response already returns a `breakdown` object. Extend it with `bundleRequirement` details.
+
+---
+
+## Patterns to Follow
+
+### Pattern 1: Configuration Resolution with Fallback Chain
+
+**What:** State-specific rule -> default rule -> legacy isBundleQualifier flag.
+**When:** Any time bundle requirement is checked.
+**Why:** Zero-migration deployment. Existing products work without bundle requirement rows because the `isBundleQualifier` fallback is preserved.
+
+```typescript
+// Resolution priority:
+// 1. BundleRequirement WHERE coreProductId=X AND state="FL"
+// 2. BundleRequirement WHERE coreProductId=X AND state IS NULL
+// 3. Fall back to isBundleQualifier boolean (existing behavior)
+```
+
+### Pattern 2: Pure Calc + Resolved Context
+
+**What:** Keep `calculateCommission` pure. Resolve all DB-dependent context in the caller.
+**When:** Any commission calculation path (sale creation, sale edit, preview, commission recalc).
+**Why:** Matches existing architecture decision. Makes testing straightforward -- pass different context objects to test different scenarios.
+
+### Pattern 3: Bulk State Operations
+
+**What:** PUT endpoint that accepts all 50 states at once rather than individual toggle endpoints.
+**When:** State availability configuration.
+**Why:** The UI will render a grid of 50 state checkboxes. On save, send the entire map. Server upserts all rows in a transaction.
+
+---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Global State Manager for Auth
-**What:** Adding Redux/Zustand/Context to share auth state across tabs.
-**Why bad:** Over-engineered. Token is in localStorage; each page reads it via `getToken()`. The JWT contains roles. No synchronization needed.
-**Instead:** Keep `localStorage` + `getToken()` / `authFetch()`. Decode JWT for roles where needed.
+### Anti-Pattern 1: Hardcoding State-Product Mappings
 
-### Anti-Pattern 2: Single Mega Page
-**What:** Putting all 4 dashboards into one giant page.tsx with top-level tab state.
-**Why bad:** 10,000+ line file. No code splitting. Every tab's code loads on first visit.
-**Instead:** Use Next.js file-based routing. Each dashboard is a separate route with automatic code splitting.
+**What:** `if (state === 'FL') requiredAddon = 'compass-vab'`
+**Why bad:** Every new state or product change requires a code deploy. The whole point of this feature is configurability.
+**Instead:** Database-driven BundleRequirement rows.
 
-### Anti-Pattern 3: Converting Sub-Tabs to Nested Routes
-**What:** Making manager/entry, manager/tracker, manager/sales into separate Next.js routes.
-**Why bad:** Each dashboard page has deeply shared state (agents list, products, lead sources loaded once and used across all sub-tabs). Breaking into routes forces lifting all shared state into a layout, which is far more complex than the current useState approach.
-**Instead:** Keep sub-tabs as React state within each page. Only top-level dashboard tabs use Next.js routing.
+### Anti-Pattern 2: Making calculateCommission Async
 
-### Anti-Pattern 4: Keeping Auth-Portal Separate
-**What:** Running auth-portal alongside the unified dashboard, redirecting between them.
-**Why bad:** Cross-origin token passing via URL params is fragile. Adds CORS complexity. Defeats the purpose of consolidation.
-**Instead:** Login is `app/page.tsx` in the unified app. Same origin throughout.
+**What:** Adding `await prisma.bundleRequirement.findFirst(...)` inside calculateCommission.
+**Why bad:** Breaks the pure-function design. The function is called from both the upsert flow and the preview endpoint. Making it async changes all callers and makes testing harder.
+**Instead:** Resolve bundle requirement context before calling calculateCommission.
 
-### Anti-Pattern 5: Dynamic Imports for Dashboard Pages
-**What:** Using `next/dynamic` to lazy-load each dashboard page component.
-**Why bad:** Next.js App Router already code-splits by route automatically. Dynamic imports add complexity and break the built-in splitting.
-**Instead:** Let file-based routing handle code splitting naturally.
+### Anti-Pattern 3: Separate Config Page for Bundle Rules
 
-### Anti-Pattern 6: URL-Based Date Range State Across Top-Level Tabs
-**What:** Persisting date range selection in URL search params so it survives navigation between /manager and /payroll.
-**Why bad:** Different dashboards have different KPI sections with different date range semantics. A "Last Week" filter on payroll means payroll week; on manager it means sales week. Sharing creates confusion.
-**Instead:** Each page manages its own date range state. Navigating away resets it (matches current behavior where each app was independent).
+**What:** Creating a new "Bundle Rules" tab or standalone config page.
+**Why bad:** Bundle requirements are per-product configuration. A separate page creates navigation overhead and disconnects the rule from its product context.
+**Instead:** Inline collapsible section within the existing ProductCard component.
 
-## New vs Modified vs Removed
+### Anti-Pattern 4: Storing State Availability as JSON on Product
 
-### New Components
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `DashboardShell` | `apps/dashboard/app/(dashboard)/layout.tsx` | Role-gated sidebar with top-level tabs |
-| `SubTabBar` | `@ops/ui` or `apps/dashboard/lib/` | Horizontal tab bar for in-page sub-navigation |
-| `useUserRoles` | `apps/dashboard/lib/roles.ts` | Decode JWT to extract roles array |
-| `getTabsForRoles` | `apps/dashboard/lib/roles.ts` | Map roles to permitted top-level tabs |
-| `getDefaultTab` | `apps/dashboard/lib/roles.ts` | Determine post-login redirect path |
+**What:** `stateAvailability Json? @map("state_availability")` on the Product model.
+**Why bad:** Not queryable ("which products are available in FL?"), no relational integrity, harder to audit changes.
+**Instead:** Separate ProductStateAvailability table with proper indices.
 
-### Modified Components
-| Component | Change |
-|-----------|--------|
-| `@ops/auth/client` | Export `decodeTokenPayload` (currently private function) |
-| Each dashboard page.tsx | Remove `captureTokenFromUrl()`, remove outer `PageShell`, use `SubTabBar` for sub-tabs |
-| `apps/dashboard/app/api/login/route.ts` | Redirect to `/{default-tab}?session_token=TOKEN` instead of `/landing?...&roles=...` |
+---
 
-### Removed
-| Component | Replaced By |
-|-----------|-------------|
-| `auth-portal/app/landing/page.tsx` | Role-gated tabs in dashboard layout |
-| `auth-portal/middleware.ts` | `dashboard/middleware.ts` |
-| All 4 dashboard `next.config.js` | Single `apps/dashboard/next.config.js` |
-| All 4 dashboard `package.json` | Single `apps/dashboard/package.json` |
-| `MANAGER_DASHBOARD_URL` env var | Not needed (same origin) |
-| `PAYROLL_DASHBOARD_URL` env var | Not needed |
-| `OWNER_DASHBOARD_URL` env var | Not needed |
-| `CS_DASHBOARD_URL` env var | Not needed |
-| `AUTH_PORTAL_URL` env var | Not needed |
+## Migration Strategy
 
-### Unchanged
-| Component | Why |
-|-----------|-----|
-| `@ops/ui PageShell` | Still used by sales-board (standalone) |
-| `@ops/auth` (server) | JWT signing/verification unchanged |
-| `@ops/socket` | `useSocket` hook works identically per-page |
-| `@ops/utils` | No changes |
-| `@ops/types` | No changes (AppRole enum stays) |
-| `ops-api` | No API changes. Only CORS origin list simplified. |
-| `sales-board` | Remains standalone, unchanged |
+### Database Migration
 
-## Deployment Impact
+Single Prisma migration adding two tables. No existing table modifications required.
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Next.js services | 6 (auth + 4 dashboards + sales-board) | 2 (dashboard + sales-board) |
-| Docker containers | 8 (postgres + api + 6 Next.js) | 4 (postgres + api + 2 Next.js) |
-| Railway services | 7 | 3 |
-| CORS origins | 5-6 | 2 |
-| Cross-service env vars | 5 dashboard URLs | 0 |
-| Build time | 6 parallel Next.js builds | 2 builds (1 larger) |
-| Runtime memory | ~6 Node.js processes | ~2 Node.js processes |
-| Cold start surface | 6 independent cold starts | 2 cold starts |
+```sql
+CREATE TABLE "bundle_requirements" (
+  "id" TEXT NOT NULL PRIMARY KEY DEFAULT cuid(),
+  "core_product_id" TEXT NOT NULL REFERENCES "products"("id"),
+  "state" VARCHAR(2),
+  "primary_addon_id" TEXT NOT NULL REFERENCES "products"("id"),
+  "fallback_addon_id" TEXT REFERENCES "products"("id"),
+  "active" BOOLEAN NOT NULL DEFAULT true,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL,
+  CONSTRAINT "bundle_requirements_core_product_id_state_key"
+    UNIQUE("core_product_id", "state")
+);
 
-### Docker Compose (After)
-
-```yaml
-dashboard:
-  build:
-    context: .
-    dockerfile: Dockerfile.nextjs
-    args:
-      APP_NAME: dashboard
-      NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
-  restart: unless-stopped
-  depends_on:
-    - ops-api
-  environment:
-    AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-  ports:
-    - "3011:3000"  # keep same port for minimal infra change
-
-# Remove: auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, cs-dashboard
+CREATE TABLE "product_state_availability" (
+  "id" TEXT NOT NULL PRIMARY KEY DEFAULT cuid(),
+  "product_id" TEXT NOT NULL REFERENCES "products"("id"),
+  "state" VARCHAR(2) NOT NULL,
+  "available" BOOLEAN NOT NULL DEFAULT true,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL,
+  CONSTRAINT "product_state_availability_product_id_state_key"
+    UNIQUE("product_id", "state")
+);
 ```
 
-ops-api `ALLOWED_ORIGINS` changes to: `http://localhost:3011,http://localhost:3013`
+**Zero-downtime:** Adding new tables does not affect existing queries. The fallback chain ensures existing sales calculate correctly before any BundleRequirement rows are created.
 
-## Build Order Summary
+### Seed Data
 
-| Step | What | Validates | Depends On |
-|------|------|-----------|------------|
-| 1 | App shell + login page | Login works on single origin | Nothing |
-| 2 | Middleware + dashboard layout + role nav | Auth boundary, tab navigation | Step 1 |
-| 3 | Migrate CS dashboard | Migration pattern works | Step 2 |
-| 4 | Migrate owner dashboard | Role-dependent sub-tabs work | Step 2 |
-| 5 | Migrate payroll dashboard | Complex sub-tabs + badges work | Step 2 |
-| 6 | Migrate manager dashboard | Full feature set works | Step 2 |
-| 7 | Uniform date range on all KPI sections | Date filtering works per-page | Steps 3-6 |
-| 8 | Deployment update + old app removal | Production-ready | Steps 1-7 |
+No seed data required. Bundle requirements are configured by payroll staff through the UI. The system works without any rows (falls back to isBundleQualifier).
 
-**Ordering rationale:** Steps 1-2 create the foundation. Steps 3-6 are independent of each other (can be done in any order) but CS is simplest so it validates the pattern first. Step 7 can be done incrementally as each page is migrated. Step 8 is last because old apps remain functional until all pages are migrated.
+---
+
+## Suggested Build Order
+
+Build order follows the dependency graph -- each phase builds on the previous.
+
+### Phase 1: Data Model + Service Layer (Backend Foundation)
+
+**What:** Prisma schema changes, migration, `resolveBundleRequirement` function, modify `calculateCommission`.
+
+**Deliverables:**
+- Add BundleRequirement and ProductStateAvailability to schema.prisma
+- Create and run migration
+- Add `resolveBundleRequirement()` to services/payroll.ts
+- Modify `calculateCommission()` to accept optional `BundleRequirementContext`
+- Modify `upsertPayrollEntryForSale()` to call resolveBundleRequirement
+- Unit tests for calculateCommission with various bundleReq contexts
+
+**Why first:** Everything else depends on the data model and calc logic being correct. This is the foundation.
+
+**Risk:** LOW -- additive schema change, backward-compatible calc modification.
+
+### Phase 2: API Routes + Preview Enhancement (Backend Complete)
+
+**What:** CRUD endpoints for bundle requirements and state availability, preview endpoint enhancement.
+
+**Deliverables:**
+- GET/POST/PATCH/DELETE /api/bundle-requirements routes
+- GET/PUT /api/products/:id/state-availability routes
+- Add memberState to preview schema, resolve bundleReq in preview
+- Add bundleRequirement info to preview response breakdown
+- Zod validation schemas for all new endpoints
+
+**Why second:** API must exist before UI can call it. Preview enhancement enables accurate commission display during entry.
+
+**Risk:** LOW -- follows existing route patterns exactly.
+
+### Phase 3: Config UI in PayrollProducts (Admin Interface)
+
+**What:** Bundle requirement config in ProductCard, state availability toggles.
+
+**Deliverables:**
+- Collapsible "Bundle Requirements" section on CORE product cards
+- Default rule + state override management
+- Collapsible "State Availability" section on ADDON/AD_D product cards
+- State grid with checkboxes (default: available everywhere)
+
+**Why third:** Config UI must work before testing end-to-end flow. Payroll staff need to set up rules before commission calc can be verified.
+
+**Risk:** MEDIUM -- UI complexity with state grid (50 states). Keep it simple: checkbox grid, not a fancy map.
+
+### Phase 4: Sales Entry Integration + Polish (End-to-End)
+
+**What:** Commission preview enhancement in ManagerEntry, memberState-aware preview display.
+
+**Deliverables:**
+- Enhanced commission preview panel showing bundle requirement status
+- memberState field included in preview API call
+- Preview breakdown shows which addon satisfies requirement (or explains half-rate reason)
+- Validation: warn if required addon not selected for the member's state
+
+**Why last:** This is the user-facing polish. The backend and config must be solid first.
+
+**Risk:** LOW -- mostly display changes to existing preview panel.
+
+### Parallel: Housekeeping (No Dependencies)
+
+- Role dashboard selector delay fix
+- Remove seed agents from database seed
+
+These have no dependency on the bundle commission work and can be done in any phase.
+
+---
+
+## Scalability Considerations
+
+| Concern | Current Scale | At Growth |
+|---------|--------------|-----------|
+| BundleRequirement rows | ~5-10 (few core products x few state overrides) | Still small -- max ~250 (5 cores x 50 states) |
+| ProductStateAvailability rows | ~50-250 (few addons x 50 states) | Still small -- max ~500 |
+| Commission calc latency | 0ms (pure function) | +1-2ms for resolveBundleRequirement DB query |
+| Config UI load | Single product list fetch | +2 queries (bundle reqs + state avail) -- consider eager loading with products |
+
+**Verdict:** Scale is not a concern. This is configuration data with a hard ceiling of a few hundred rows.
+
+---
 
 ## Sources
 
-- Direct codebase analysis of all 5 dashboard apps, auth flow, shared packages, and deployment config
-- Next.js App Router route groups documentation (HIGH confidence -- well-established pattern since Next.js 13)
-- Existing `@ops/auth/client` token handling pattern (direct code inspection)
-- Existing `@ops/ui` PageShell component API (direct code inspection)
-
----
-*Research completed: 2026-03-19 -- v1.3 Dashboard Consolidation & Uniform Date Ranges*
+- Direct codebase analysis of:
+  - `prisma/schema.prisma` -- existing Product, Sale, SaleAddon models
+  - `apps/ops-api/src/services/payroll.ts` -- calculateCommission, upsertPayrollEntryForSale
+  - `apps/ops-api/src/routes/index.ts` -- sale creation, preview, product CRUD routes
+  - `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` -- product config UI
+  - `apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx` -- sales entry form
+  - `.planning/PROJECT.md` -- project context, design decisions, constraints
