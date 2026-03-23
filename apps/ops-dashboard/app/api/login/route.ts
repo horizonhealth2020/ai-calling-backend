@@ -3,7 +3,7 @@ import type { AppRole } from "@ops/types";
 
 export async function POST(req: Request) {
   const { email, password } = await req.json();
-  const opsApiUrl = process.env.NEXT_PUBLIC_OPS_API_URL;
+  const opsApiUrl = process.env.OPS_API_INTERNAL_URL || process.env.NEXT_PUBLIC_OPS_API_URL;
 
   if (!opsApiUrl) {
     console.error("[login] NEXT_PUBLIC_OPS_API_URL is not set");
