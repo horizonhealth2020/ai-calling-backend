@@ -81,7 +81,9 @@
   2. Shared helpers (zodErr, asyncHandler, date range parsing) are extracted to a common helpers file
   3. Every existing API endpoint returns identical responses before and after the split (zero behavior change)
   4. All existing tests pass without modification
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 21-01-PLAN.md — Extract helpers, split 17 domain modules, create barrel index
 
 ### Phase 22: CS Payroll on Owner Dashboard
 **Goal**: Owners see complete financial picture including service staff payroll alongside commission totals
@@ -161,7 +163,7 @@
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
-| 21. Route File Splitting | v1.5 | 0/? | Not started | - |
+| 21. Route File Splitting | v1.5 | 0/1 | Not started | - |
 | 22. CS Payroll on Owner Dashboard | v1.5 | 0/? | Not started | - |
 | 23. Payroll CSV Print Card Export | v1.5 | 0/? | Not started | - |
 | 24. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
