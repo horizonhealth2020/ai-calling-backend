@@ -77,7 +77,7 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
   }
 
   if (fee < halfThreshold && !commissionApproved) {
-    return { finalCommission: commission / 2, enrollmentBonus, feeHalvingReason: `Half commission - waived enrollment fee` };
+    return { finalCommission: commission, enrollmentBonus, feeHalvingReason: `Half commission - waived enrollment fee` };
   }
 
   return { finalCommission: commission, enrollmentBonus, feeHalvingReason: null };
@@ -163,9 +163,8 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
       totalCommission += entry.premium * (addDRate / 100);
     }
 
-    // --- BUNDLE QUALIFIER HALVING ---
+    // --- BUNDLE QUALIFIER CHECK (collect reason, don't halve yet) ---
     if (bundleCtx && !bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable && !sale.commissionApproved) {
-      totalCommission /= 2;
       halvingReason = bundleCtx.halvingReason;
     }
   } else {
@@ -190,12 +189,13 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     sale.product,
   );
 
-  // Combine halving reasons (bundle + enrollment fee)
+  // Combine halving reasons — halve only once regardless of how many reasons
   const reasons = [halvingReason, feeHalvingReason].filter(Boolean);
   const combinedReason = reasons.length > 0 ? reasons.join("; ") : null;
+  const halvedCommission = combinedReason ? finalCommission / 2 : finalCommission;
 
   return {
-    commission: Math.round((finalCommission + enrollmentBonus) * 100) / 100,
+    commission: Math.round((halvedCommission + enrollmentBonus) * 100) / 100,
     halvingReason: combinedReason,
   };
 };

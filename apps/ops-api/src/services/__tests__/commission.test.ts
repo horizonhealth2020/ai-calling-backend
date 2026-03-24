@@ -885,4 +885,64 @@ describe('calculateCommission', () => {
       expect(result.halvingReason).toBeNull();
     });
   });
+
+  // =============================================
+  // Multiple halving events — single halve
+  // =============================================
+  describe('multiple halving events halve only once', () => {
+    it('missing bundle addon + low enrollment fee -> halved once, both reasons listed', () => {
+      const sale = makeSale({
+        premium: new Decimal(200),
+        enrollmentFee: new Decimal(80),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          premiumThreshold: new Decimal(50),
+          requiredBundleAddonId: 'addon-vab',
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', id: 'addon-vab' }, 10),
+        ],
+      });
+      // bundlePremium = 210, rate = 50% -> 105
+      // Two halving reasons: missing addon + waived enrollment fee
+      // Commission halved ONCE: 105 / 2 = 52.50 (NOT 105 / 4 = 26.25)
+      const bundleCtx = {
+        requiredAddonAvailable: false,
+        fallbackAddonAvailable: false,
+        halvingReason: 'Half commission - missing Compass VAB',
+      };
+      const result = calculateCommission(sale, bundleCtx);
+      expect(result.commission).toBe(52.50);
+      expect(result.halvingReason).toContain('missing Compass VAB');
+      expect(result.halvingReason).toContain('waived enrollment fee');
+    });
+
+    it('single halving reason still halves once', () => {
+      const sale = makeSale({
+        premium: new Decimal(200),
+        enrollmentFee: new Decimal(100),
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          premiumThreshold: new Decimal(50),
+          requiredBundleAddonId: 'addon-vab',
+        }),
+        addons: [
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', id: 'addon-vab' }, 10),
+        ],
+      });
+      // bundlePremium = 210, rate = 50% -> 105
+      // Only bundle halving (fee 100 >= 99 threshold)
+      // Commission halved once: 105 / 2 = 52.50
+      const bundleCtx = {
+        requiredAddonAvailable: false,
+        fallbackAddonAvailable: false,
+        halvingReason: 'Half commission - missing Compass VAB',
+      };
+      const result = calculateCommission(sale, bundleCtx);
+      expect(result.commission).toBe(52.50);
+      expect(result.halvingReason).toBe('Half commission - missing Compass VAB');
+    });
+  });
 });
