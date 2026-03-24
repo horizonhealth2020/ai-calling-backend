@@ -1,15 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: State-Aware Bundle Requirements
-status: executing
-last_updated: "2026-03-24T17:28:11.253Z"
-last_activity: 2026-03-24
+milestone: v1.5
+milestone_name: Platform Cleanup & Remaining Features
+status: Ready to plan
+last_updated: "2026-03-24T17:55:04.379Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,22 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.5 Owner & Payroll Enhancements -- executing Phase 22
+**Current focus:** Phase 23 — ai-scoring-dashboard
 
 ## Current Position
 
-Phase: 22
+Phase: 24
 Plan: Not started
-Status: In progress
-Last activity: 2026-03-24
-
-```
-[====================] v1.0 (10/10 phases)
-[====================] v1.1 (7/7 phases)
-[====================] v1.2 (1/1 phases)
-[====================] v1.3 (1/1 phases)
-[____________________] v1.4 (0/1 phases)
-```
 
 ## Performance Metrics
 
@@ -45,6 +34,7 @@ Last activity: 2026-03-24
 | Total plans | 64 complete |
 | Total requirements | 133 shipped + 14 v1.4 |
 | Timeline | 10 days shipped (2026-03-14 to 2026-03-23) |
+| Phase 23 P01 | 229 | 2 tasks | 3 files |
 
 ## Accumulated Context
 

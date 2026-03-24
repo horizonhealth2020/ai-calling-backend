@@ -65,7 +65,7 @@
 
 - [x] **Phase 21: Route File Splitting** - Split 2750-line monolith route file into domain modules with zero behavior change
 - [x] **Phase 22: Owner & Payroll Enhancements** - CS payroll totals on owner dashboard + agent-grouped CSV print card export
-- [ ] **Phase 23: AI Scoring Dashboard** - Owner dashboard scoring tab with aggregate KPIs, per-agent breakdown, and weekly trends
+- [x] **Phase 23: AI Scoring Dashboard** - Owner dashboard scoring tab with aggregate KPIs, per-agent breakdown, and weekly trends (completed 2026-03-24)
 - [ ] **Phase 24: Chargeback Automation & Data Archival** - Auto-match chargebacks to sales, auto-create clawbacks, archive high-volume logs with restore
 
 ## Phase Details
@@ -154,7 +154,7 @@ Plans:
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
 | 21. Route File Splitting | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 22. Owner & Payroll Enhancements | v1.5 | 2/2 | Complete | 2026-03-24 |
-| 23. AI Scoring Dashboard | v1.5 | 0/1 | Not started | - |
+| 23. AI Scoring Dashboard | v1.5 | 0/1 | Complete    | 2026-03-24 |
 | 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
 
 ---
