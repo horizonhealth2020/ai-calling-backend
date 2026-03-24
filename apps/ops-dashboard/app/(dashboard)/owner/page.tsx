@@ -11,13 +11,15 @@ import {
   Users,
   Database,
   X,
+  Target,
 } from "lucide-react";
 import OwnerOverview from "./OwnerOverview";
 import OwnerKPIs from "./OwnerKPIs";
 import OwnerConfig from "./OwnerConfig";
 import OwnerUsers from "./OwnerUsers";
+import OwnerScoring from "./OwnerScoring";
 
-type ActiveSection = "overview" | "kpis" | "config" | "users";
+type ActiveSection = "overview" | "kpis" | "config" | "users" | "scoring";
 type StorageStats = { dbSizeMB: number; planLimitMB: number; usagePct: number; thresholdPct: number; alertActive: boolean };
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
@@ -55,6 +57,7 @@ function OwnerPageInner() {
   const navItems = [
     { icon: <BarChart3 size={18} />, label: "Dashboard", key: "overview" },
     { icon: <Activity size={18} />, label: "KPIs", key: "kpis" },
+    { icon: <Target size={18} />, label: "Scoring", key: "scoring" },
     { icon: <Settings size={18} />, label: "AI Config", key: "config" },
     ...(isSuperAdmin ? [{ icon: <Users size={18} />, label: "Users", key: "users" }] : []),
   ];
@@ -62,6 +65,7 @@ function OwnerPageInner() {
   const subtitleMap: Record<ActiveSection, string> = {
     overview: "Performance overview and agent leaderboard",
     kpis: "Agent retention metrics and chargeback tracking",
+    scoring: "AI audit scores and agent quality trends",
     config: "AI audit settings and scoring controls",
     users: "Platform users and role management",
   };
@@ -109,6 +113,7 @@ function OwnerPageInner() {
 
       {activeTab === "overview" && <OwnerOverview socket={socket} API={API} />}
       {activeTab === "kpis" && <OwnerKPIs API={API} />}
+      {activeTab === "scoring" && <OwnerScoring API={API} />}
       {activeTab === "config" && <OwnerConfig API={API} />}
       {activeTab === "users" && isSuperAdmin && <OwnerUsers API={API} />}
     </PageShell>
