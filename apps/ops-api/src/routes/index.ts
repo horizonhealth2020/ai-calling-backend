@@ -14,8 +14,10 @@ import { computeTrend, shiftRange } from "../services/reporting";
 import { fetchConvosoCallLogs, enrichWithTiers, filterByCallLength, filterByTier, buildKpiSummary, CallLengthTier } from "../services/convosoCallLogs";
 import { getAgentRetentionKpis } from "../services/agentKpiAggregator";
 import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
+import archiveRoutes from "./archive";
 
 const router = Router();
+router.use(archiveRoutes);
 
 /** Format Zod errors so the response always includes an `error` key for dashboard display. */
 function zodErr(ze: z.ZodError) {
