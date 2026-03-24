@@ -222,9 +222,13 @@ function matchProduct(name: string, products: Product[]): Product | undefined {
     return re1.test(lower) || re2.test(pn);
   });
   if (wordMatch) return wordMatch;
+  // Substring fallback: require word-boundary match to prevent short names
+  // (e.g. "AME") from matching inside longer words (e.g. "AmeriCare")
   const subs = products.filter(p => {
     const pn = p.name.toLowerCase();
-    return pn.includes(lower) || lower.includes(pn);
+    const pnRe = new RegExp(`\\b${pn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+    const lowerRe = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+    return pnRe.test(lower) || lowerRe.test(pn);
   });
   if (subs.length > 0) return subs.sort((a, b) => b.name.length - a.name.length)[0];
   return undefined;
@@ -296,6 +300,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             paymentType: form.paymentType || "CC",
             status: form.status || "RAN",
             saleDate: form.saleDate || undefined,
+            memberState: form.memberState || null,
           }),
           signal: previewAbort.current.signal,
         });

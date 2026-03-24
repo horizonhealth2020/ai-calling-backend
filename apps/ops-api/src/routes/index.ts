@@ -207,9 +207,26 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
 }));
 
 router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await prisma.agent.update({ where: { id: req.params.id }, data: { active: false, email: null } });
-  await logAudit(req.user!.id, "DELETE", "Agent", req.params.id);
+  const hard = req.query.permanent === "true";
+  if (hard) {
+    try {
+      await prisma.agent.delete({ where: { id: req.params.id } });
+      await logAudit(req.user!.id, "HARD_DELETE", "Agent", req.params.id);
+    } catch (e: any) {
+      if (e.code === "P2003") return res.status(409).json({ error: "Cannot delete — agent has associated sales or payroll entries. Deactivate instead." });
+      throw e;
+    }
+  } else {
+    await prisma.agent.update({ where: { id: req.params.id }, data: { active: false, email: null } });
+    await logAudit(req.user!.id, "DEACTIVATE", "Agent", req.params.id);
+  }
   return res.status(204).end();
+}));
+
+router.patch("/agents/:id/reactivate", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const agent = await prisma.agent.update({ where: { id: req.params.id }, data: { active: true } });
+  await logAudit(req.user!.id, "REACTIVATE", "Agent", req.params.id);
+  res.json(agent);
 }));
 
 router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -260,13 +277,17 @@ router.delete("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_AD
   return res.status(204).end();
 }));
 
-router.get("/products", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.product.findMany({
-  include: {
-    requiredBundleAddon: { select: { id: true, name: true } },
-    fallbackBundleAddon: { select: { id: true, name: true } },
-    stateAvailability: { select: { stateCode: true } },
-  },
-}))));
+router.get("/products", requireAuth, asyncHandler(async (req, res) => {
+  const includeInactive = req.query.all === "true";
+  res.json(await prisma.product.findMany({
+    where: includeInactive ? {} : { active: true },
+    include: {
+      requiredBundleAddon: { select: { id: true, name: true } },
+      fallbackBundleAddon: { select: { id: true, name: true } },
+      stateAvailability: { select: { stateCode: true } },
+    },
+  }));
+}));
 
 router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
@@ -329,9 +350,35 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
 }));
 
 router.delete("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await prisma.product.update({ where: { id: req.params.id }, data: { active: false } });
-  await logAudit(req.user!.id, "DELETE", "Product", req.params.id);
+  const hard = req.query.permanent === "true";
+  if (hard) {
+    try {
+      await prisma.productStateAvailability.deleteMany({ where: { productId: req.params.id } });
+      await prisma.product.delete({ where: { id: req.params.id } });
+      await logAudit(req.user!.id, "HARD_DELETE", "Product", req.params.id);
+    } catch (e: any) {
+      if (e.code === "P2003") return res.status(409).json({ error: "Cannot delete — product has associated sales or payroll entries. Deactivate instead." });
+      throw e;
+    }
+  } else {
+    await prisma.product.update({ where: { id: req.params.id }, data: { active: false } });
+    await logAudit(req.user!.id, "DEACTIVATE", "Product", req.params.id);
+  }
   return res.status(204).end();
+}));
+
+router.patch("/products/:id/reactivate", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const product = await prisma.product.update({
+    where: { id: req.params.id },
+    data: { active: true },
+    include: {
+      requiredBundleAddon: { select: { id: true, name: true } },
+      fallbackBundleAddon: { select: { id: true, name: true } },
+      stateAvailability: { select: { stateCode: true } },
+    },
+  });
+  await logAudit(req.user!.id, "REACTIVATE", "Product", req.params.id);
+  res.json(product);
 }));
 
 router.get("/products/:id/state-availability", requireAuth, asyncHandler(async (req, res) => {

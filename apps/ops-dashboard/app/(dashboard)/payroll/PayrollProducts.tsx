@@ -41,11 +41,12 @@ const TYPE_COLORS: Record<ProductType, string> = {
 /* ── Product Card ─────────────────────────────────────────────── */
 
 function ProductCard({
-  product, onSave, onDelete, allProducts,
+  product, onSave, onDelete, onReactivate, allProducts,
 }: {
   product: Product;
   onSave: (id: string, data: Partial<Product>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, permanent: boolean) => Promise<void>;
+  onReactivate: (id: string) => Promise<void>;
   allProducts: Product[];
 }) {
   const [edit, setEdit] = useState(false);
@@ -76,6 +77,7 @@ function ProductCard({
     borderRadius: R.xl,
     overflow: "hidden",
     transition: `box-shadow ${motion.duration.fast} ${motion.easing.out}, transform ${motion.duration.fast} ${motion.easing.out}`,
+    ...(product.active ? {} : { opacity: 0.5, filter: "grayscale(0.6)" }),
   };
 
   const topBorderStyle: React.CSSProperties = {
@@ -207,24 +209,48 @@ function ProductCard({
                   background: "rgba(239,68,68,0.08)",
                   border: "1px solid rgba(239,68,68,0.2)",
                   borderRadius: R.lg,
-                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: S[3],
                 }}
               >
-                <span style={{ fontSize: 13, color: C.danger }}>
-                  Delete &ldquo;{product.name}&rdquo;? This will deactivate it.
+                <span style={{ fontSize: 13, color: C.danger, display: "block", marginBottom: S[2] }}>
+                  Remove &ldquo;{product.name}&rdquo;?
                 </span>
-                <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: S[2], flexWrap: "wrap" }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { onDelete(product.id, false); setShowDeleteConfirm(false); }}
+                    style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24" }}
+                  >
+                    Deactivate
+                  </Button>
                   <Button
                     variant="danger"
                     size="sm"
-                    onClick={() => { onDelete(product.id); setShowDeleteConfirm(false); }}
+                    onClick={() => { onDelete(product.id, true); setShowDeleteConfirm(false); }}
                   >
-                    <Trash2 size={11} /> Delete
+                    <Trash2 size={11} /> Delete Permanently
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)}>
                     Cancel
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {!product.active && (
+              <div
+                style={{
+                  marginTop: S[3], padding: "8px 14px",
+                  background: "rgba(251,191,36,0.08)",
+                  border: "1px solid rgba(251,191,36,0.2)",
+                  borderRadius: R.lg,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 13, color: "#fbbf24" }}>Deactivated</span>
+                <Button variant="ghost" size="sm" onClick={() => onReactivate(product.id)} style={{ color: "#34d399" }}>
+                  Reactivate
+                </Button>
               </div>
             )}
           </>
@@ -412,12 +438,34 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
     }
   }
 
-  async function deleteProduct(id: string) {
+  async function deleteProduct(id: string, permanent: boolean) {
     try {
-      const res = await authFetch(`${API}/api/products/${id}`, { method: "DELETE" });
+      const url = permanent ? `${API}/api/products/${id}?permanent=true` : `${API}/api/products/${id}`;
+      const res = await authFetch(url, { method: "DELETE" });
       if (res.ok) {
-        setProducts(prev => prev.filter(p => p.id !== id));
-        setCfgMsg("Product deleted");
+        if (permanent) {
+          setProducts(prev => prev.filter(p => p.id !== id));
+          setCfgMsg("Product permanently deleted");
+        } else {
+          setProducts(prev => prev.map(p => p.id === id ? { ...p, active: false } : p));
+          setCfgMsg("Product deactivated");
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: any) {
+      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    }
+  }
+
+  async function reactivateProduct(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/products/${id}/reactivate`, { method: "PATCH" });
+      if (res.ok) {
+        const updated = await res.json();
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updated, active: true } : p));
+        setCfgMsg("Product reactivated");
       } else {
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
@@ -539,7 +587,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[4] }} className="grid-mobile-1">
           {products.map((p, i) => (
             <div key={p.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 10)}`}>
-              <ProductCard product={p} onSave={saveProduct} onDelete={deleteProduct} allProducts={products} />
+              <ProductCard product={p} onSave={saveProduct} onDelete={deleteProduct} onReactivate={reactivateProduct} allProducts={products} />
             </div>
           ))}
         </div>

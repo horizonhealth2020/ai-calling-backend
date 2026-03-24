@@ -76,7 +76,7 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 function AgentRow({ agent, onSave, onDelete }: {
   agent: Agent;
   onSave: (id: string, data: Partial<Agent>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, permanent: boolean) => Promise<void>;
 }) {
   const [edit, setEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -129,10 +129,11 @@ function AgentRow({ agent, onSave, onDelete }: {
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {confirmDelete ? (
-          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
+          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove agent?</span>
-            <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id); setConfirmDelete(false); }}>Yes</Button>
-            <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px", borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24" }} onClick={() => { onDelete(agent.id, false); setConfirmDelete(false); }}>Deactivate</Button>
+            <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id, true); setConfirmDelete(false); }}>Delete Permanently</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>Cancel</Button>
           </div>
         ) : (
           <>
@@ -324,11 +325,22 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 
-  async function deleteAgent(id: string) {
+  async function deleteAgent(id: string, permanent: boolean) {
     try {
-      const res = await authFetch(`${API}/api/agents/${id}`, { method: "DELETE" });
-      if (res.ok) { setAgents(prev => prev.filter(a => a.id !== id)); setCfgMsg("Agent deleted"); }
-      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
+      const url = permanent ? `${API}/api/agents/${id}?permanent=true` : `${API}/api/agents/${id}`;
+      const res = await authFetch(url, { method: "DELETE" });
+      if (res.ok) {
+        if (permanent) {
+          setAgents(prev => prev.filter(a => a.id !== id));
+          setCfgMsg("Agent permanently deleted");
+        } else {
+          setAgents(prev => prev.map(a => a.id === id ? { ...a, active: false } : a));
+          setCfgMsg("Agent deactivated");
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
     } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
   }
 

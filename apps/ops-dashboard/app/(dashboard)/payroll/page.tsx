@@ -215,7 +215,7 @@ function PayrollInner() {
   useEffect(() => {
     Promise.all([
       authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).catch(() => []),
-      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/products?all=true`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/service-agents`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/settings/service-bonus-categories`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
