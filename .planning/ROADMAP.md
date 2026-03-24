@@ -89,12 +89,15 @@ Plans:
 **Requirements**: OWNER-01, OWNER-02, EXPORT-01, EXPORT-02, EXPORT-03
 **Success Criteria** (what must be TRUE):
   1. Owner period summary endpoint returns a CS payroll total (sum of ServicePayrollEntry amounts) alongside the existing commission total
-  2. Owner dashboard displays the CS payroll total as a KPI card in the period summary section
+  2. Owner dashboard displays the CS payroll total as a column in the period summary table
   3. When a service payroll entry is created or updated, the owner dashboard CS payroll total updates in real-time via Socket.IO without page refresh
-  4. A new export option produces a CSV with rows grouped by agent, matching the print card visual layout
-  5. Each agent section has a header row (agent name, totals), individual sale rows, and a subtotal row
+  4. Detailed CSV export produces rows grouped by agent first, matching the print card visual layout
+  5. Each agent section has a header row (agent name + week range), individual sale rows, and a subtotal row
   6. Export completes without browser hang or memory error for periods with 100+ agents and 1000+ sales
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 22-01-PLAN.md — Add csPayrollTotal to reporting API, Socket.IO emitter, owner dashboard column
+- [ ] 22-02-PLAN.md — Refactor detailed CSV export to agent-first print card layout with service staff section
 
 ### Phase 23: AI Scoring Dashboard
 **Goal**: Owners can monitor call audit quality trends and identify agents needing coaching from a dedicated scoring tab
@@ -148,7 +151,7 @@ Plans:
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
 | 21. Route File Splitting | v1.5 | 1/1 | Complete    | 2026-03-24 |
-| 22. Owner & Payroll Enhancements | v1.5 | 0/? | Not started | - |
+| 22. Owner & Payroll Enhancements | v1.5 | 0/2 | Not started | - |
 | 23. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
 | 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
 
