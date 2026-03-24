@@ -63,7 +63,7 @@
 
 ### v1.5 Platform Cleanup & Remaining Features (Phases 21-26)
 
-- [ ] **Phase 21: Route File Splitting** - Split 2750-line monolith route file into domain modules with zero behavior change
+- [x] **Phase 21: Route File Splitting** - Split 2750-line monolith route file into domain modules with zero behavior change
 - [ ] **Phase 22: CS Payroll on Owner Dashboard** - Surface service payroll totals in owner period summary with real-time updates
 - [ ] **Phase 23: Payroll CSV Print Card Export** - Agent-grouped CSV export matching print card layout with header/subtotal rows
 - [ ] **Phase 24: AI Scoring Dashboard** - Owner dashboard scoring tab with aggregate KPIs, per-agent breakdown, and weekly trends
@@ -83,7 +83,7 @@
   4. All existing tests pass without modification
 **Plans**: 1 plan
 Plans:
-- [ ] 21-01-PLAN.md — Extract helpers, split 17 domain modules, create barrel index
+- [x] 21-01-PLAN.md — Extract helpers, split 17 domain modules, create barrel index
 
 ### Phase 22: CS Payroll on Owner Dashboard
 **Goal**: Owners see complete financial picture including service staff payroll alongside commission totals
@@ -163,7 +163,7 @@ Plans:
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
-| 21. Route File Splitting | v1.5 | 0/1 | Not started | - |
+| 21. Route File Splitting | v1.5 | 1/1 | Complete    | 2026-03-24 |
 | 22. CS Payroll on Owner Dashboard | v1.5 | 0/? | Not started | - |
 | 23. Payroll CSV Print Card Export | v1.5 | 0/? | Not started | - |
 | 24. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
