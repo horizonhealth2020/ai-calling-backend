@@ -37,7 +37,7 @@ type Summary = {
   trends: { salesCount: { priorWeek: number; priorMonth: number }; premiumTotal: { priorWeek: number; priorMonth: number }; clawbacks: { priorWeek: number; priorMonth: number } } | null;
 };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
-type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; periodStatus?: string };
+type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; csPayrollTotal: number; periodStatus?: string };
 
 function computeTrend(current: number, prior: number): { value: number; direction: "up" | "down" | "flat" } {
   if (prior === 0) return current > 0 ? { value: 100, direction: "up" } : { value: 0, direction: "flat" };
@@ -306,12 +306,13 @@ function DashboardSection({
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Service Payroll</th>
                 {periodView === "weekly" && <th style={baseThStyle}>Status</th>}
               </tr>
             </thead>
             <tbody>
               {periods.length === 0 && (
-                <tr><td colSpan={periodView === "weekly" ? 5 : 4}><EmptyState icon={<Clock size={32} />} title="No period data" description="Period summaries appear once sales are entered." /></td></tr>
+                <tr><td colSpan={periodView === "weekly" ? 6 : 5}><EmptyState icon={<Clock size={32} />} title="No period data" description="Period summaries appear once sales are entered." /></td></tr>
               )}
               {periods.map(p => (
                 <tr key={p.period} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
@@ -319,6 +320,7 @@ function DashboardSection({
                   <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold }}>{p.salesCount}</td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning }}>{fmt.format(p.csPayrollTotal ?? 0)}</td>
                   {periodView === "weekly" && <td style={baseTdStyle}><Badge color={p.periodStatus === "OPEN" ? colors.success : colors.textMuted} variant="subtle" size="sm">{p.periodStatus}</Badge></td>}
                 </tr>
               ))}
@@ -418,6 +420,19 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     socket.on("sale:changed", handleSaleChanged);
     return () => { socket.off("sale:changed", handleSaleChanged); };
   }, [socket, handleSaleChanged]);
+
+  // Socket.IO: refetch periods when service payroll changes
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () => {
+      authFetch(`${API}/api/reporting/periods?view=${periodView}`)
+        .then(res => res.ok ? res.json() : { periods: [] })
+        .then(data => setPeriods(data.periods ?? []))
+        .catch(() => {});
+    };
+    socket.on("service-payroll:changed", handler);
+    return () => { socket.off("service-payroll:changed", handler); };
+  }, [socket, API, periodView]);
 
   // Refetch on reconnect
   useEffect(() => {
