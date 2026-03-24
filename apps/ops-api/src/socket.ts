@@ -92,3 +92,14 @@ export interface ServicePayrollChangedPayload {
 export function emitServicePayrollChanged(payload: ServicePayrollChangedPayload) {
   io?.emit("service-payroll:changed", payload);
 }
+
+export interface ClawbackCreatedPayload {
+  clawbackId: string;
+  saleId: string;
+  agentName?: string;
+  amount: number;
+}
+
+export function emitClawbackCreated(payload: ClawbackCreatedPayload) {
+  io?.emit("clawback:created", payload);
+}
