@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: State-Aware Bundle Requirements
 status: completed
-last_updated: "2026-03-23T20:24:53.935Z"
-last_activity: 2026-03-23
+last_updated: "2026-03-24T17:17:41Z"
+last_activity: 2026-03-24
 progress:
   total_phases: 1
   completed_phases: 1
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.4 State-Aware Bundle Requirements -- executing Phase 20
+**Current focus:** v1.5 Owner & Payroll Enhancements -- executing Phase 22
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: All plans complete
-Last activity: 2026-03-23
+Phase: 22
+Plan: 02 complete
+Status: In progress
+Last activity: 2026-03-24
 
 ```
 [====================] v1.0 (10/10 phases)
@@ -56,6 +56,14 @@ Last activity: 2026-03-23
 | 260317-dqd | Wire Convoso call logs to Agent model with cost-per-sale and CallAudit auto-tag | 2026-03-17 | ba7b111 | [260317-dqd-wire-convoso-call-logs-to-agent-model-an](./quick/260317-dqd-wire-convoso-call-logs-to-agent-model-an/) |
 | 260317-dxw | Cron worker polling Convoso every 10 min for per-agent KPI snapshots | 2026-03-17 | 2083caa | [260317-dxw-cron-worker-polling-convoso-every-10-min](./quick/260317-dxw-cron-worker-polling-convoso-every-10-min/) |
 | 260317-e6a | Deduplicate Convoso call log processing to prevent KPI inflation | 2026-03-17 | b422e4b | [260317-e6a-deduplicate-convoso-call-logs-prevent-sa](./quick/260317-e6a-deduplicate-convoso-call-logs-prevent-sa/) |
+
+### Key Decisions (v1.5)
+
+| Decision | Rationale |
+|----------|-----------|
+| Agent-first grouping in detailed CSV | Matches print card workflow -- each agent gets a stack of weekly cards |
+| Service staff trailing section with separate columns | Different pay structure (basePay/bonus/deductions vs commission/fronted/hold) |
+| Map-based grouping with tagged entries | Clean separation of grouping logic, handles multi-period exports correctly |
 
 ### Key Decisions (v1.4)
 
@@ -87,4 +95,4 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-24*

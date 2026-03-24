@@ -86,6 +86,14 @@ Plans:
 - [ ] 20-04-PLAN.md -- Config UI (CORE bundle requirement section, ADDON state availability section, completeness indicator)
 - [x] 20-05-PLAN.md -- Sales entry state dropdown, payroll halving reason display, role selector delay fix
 
+### Phase 22: Owner & Payroll Enhancements
+**Goal**: Surface CS payroll totals on owner dashboard and enhance detailed CSV export to agent-first print card layout
+**Depends on**: Phase 20
+**Requirements**: OWNER-01, OWNER-02, EXPORT-01, EXPORT-02, EXPORT-03
+**Plans:**
+- [ ] 22-01-PLAN.md -- Owner dashboard CS payroll column with Socket.IO updates
+- [x] 22-02-PLAN.md -- Detailed CSV export refactored to agent-first print card layout with service staff section
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -110,6 +118,7 @@ Plans:
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete    | 2026-03-23 |
+| 22. Owner & Payroll Enhancements | v1.5 | 1/2 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*
