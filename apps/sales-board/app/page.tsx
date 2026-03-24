@@ -300,10 +300,10 @@ function DailyView({ data }: { data: DetailedData }) {
   const rest = sorted.slice(3);
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Podium section */}
       {top3.length > 0 && (
-        <div style={{ marginBottom: spacing[6] }}>
+        <div style={{ marginBottom: spacing[4], flexShrink: 0 }}>
           {/* Podium stage header */}
           <div
             style={{
@@ -380,7 +380,7 @@ function DailyView({ data }: { data: DetailedData }) {
 
       {/* Remaining agents — individual columns */}
       {rest.length > 0 && (
-        <>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div
             style={{
               fontSize: 11,
@@ -390,6 +390,7 @@ function DailyView({ data }: { data: DetailedData }) {
               textTransform: "uppercase",
               textAlign: "center",
               marginBottom: spacing[3],
+              flexShrink: 0,
             }}
           >
             All Agents
@@ -399,8 +400,8 @@ function DailyView({ data }: { data: DetailedData }) {
               display: "flex",
               justifyContent: "center",
               alignItems: "flex-end",
-              gap: spacing[3],
-              flexWrap: "wrap",
+              flex: 1,
+              minHeight: 0,
             }}
           >
             {rest.map((agent, i) => {
@@ -416,25 +417,28 @@ function DailyView({ data }: { data: DetailedData }) {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    width: 120,
-                    flexShrink: 0,
+                    flex: 1,
+                    minWidth: 0,
+                    maxWidth: 200,
+                    height: "100%",
                   }}
                 >
                   {/* Rank */}
                   <div
                     style={{
-                      width: 24,
-                      height: 24,
+                      width: 26,
+                      height: 26,
                       borderRadius: radius.full,
                       background: colors.bgSurfaceOverlay,
                       border: `1px solid ${colors.borderDefault}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: 700,
                       color: colors.textMuted,
                       marginBottom: 6,
+                      flexShrink: 0,
                     }}
                   >
                     {i + 4}
@@ -443,7 +447,8 @@ function DailyView({ data }: { data: DetailedData }) {
                   <div
                     style={{
                       width: "100%",
-                      minHeight: 100,
+                      flex: 1,
+                      minHeight: 120,
                       borderRadius: `${radius.xl}px ${radius.xl}px 0 0`,
                       background: "linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(100,116,139,0.02) 100%)",
                       border: `1.5px solid ${count > 0 ? "rgba(20,184,166,0.3)" : colors.borderSubtle}`,
@@ -452,17 +457,17 @@ function DailyView({ data }: { data: DetailedData }) {
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      padding: `${spacing[3]}px ${spacing[2]}px ${spacing[4]}px`,
+                      padding: `${spacing[4]}px ${spacing[2]}px ${spacing[5]}px`,
                       textAlign: "center",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: 700,
                         color: count > 0 ? colors.textPrimary : colors.textMuted,
                         lineHeight: 1.2,
-                        marginBottom: spacing[1],
+                        marginBottom: spacing[2],
                         wordBreak: "break-word",
                       }}
                     >
@@ -470,18 +475,18 @@ function DailyView({ data }: { data: DetailedData }) {
                     </div>
                     <div
                       style={{
-                        fontSize: 22,
+                        fontSize: 28,
                         fontWeight: 800,
                         color: count > 0 ? colors.textPrimary : colors.textMuted,
                         lineHeight: 1,
                         letterSpacing: "-0.03em",
-                        marginBottom: 2,
+                        marginBottom: 4,
                         opacity: count > 0 ? 1 : 0.4,
                       }}
                     >
                       <AnimatedNumber value={count} />
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: colors.textTertiary, opacity: count > 0 ? 1 : 0.4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary, opacity: count > 0 ? 1 : 0.4 }}>
                       <AnimatedNumber value={premium} prefix="$" decimals={2} />
                     </div>
                   </div>
@@ -497,7 +502,7 @@ function DailyView({ data }: { data: DetailedData }) {
               marginTop: -1,
             }}
           />
-        </>
+        </div>
       )}
 
       {/* Empty state if no agents at all */}
@@ -861,7 +866,9 @@ export default function SalesBoard() {
       style={{
         background: colors.bgRoot,
         minHeight: "100vh",
-        padding: `0 ${spacing[10]}px ${spacing[12]}px`,
+        display: "flex",
+        flexDirection: "column",
+        padding: `0 ${spacing[10]}px ${spacing[6]}px`,
         color: colors.textPrimary,
       }}
     >
@@ -1197,26 +1204,28 @@ export default function SalesBoard() {
       </div>
 
       {/* ── Content area ─────────────────────────────────────────── */}
-      {!data ? (
-        <LoadingSkeleton />
-      ) : data.agents.length === 0 ? (
-        <div
-          style={{
-            ...baseCardStyle,
-            padding: `${spacing[16]}px ${spacing[8]}px`,
-          }}
-        >
-          <EmptyState
-            icon={<Users size={32} />}
-            title="No Agents Yet"
-            description="Add agents in the Manager Dashboard to start tracking the leaderboard."
-          />
-        </div>
-      ) : view === "weekly" ? (
-        <WeeklyView key="weekly" data={data} />
-      ) : (
-        <DailyView key="daily" data={data} />
-      )}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {!data ? (
+          <LoadingSkeleton />
+        ) : data.agents.length === 0 ? (
+          <div
+            style={{
+              ...baseCardStyle,
+              padding: `${spacing[16]}px ${spacing[8]}px`,
+            }}
+          >
+            <EmptyState
+              icon={<Users size={32} />}
+              title="No Agents Yet"
+              description="Add agents in the Manager Dashboard to start tracking the leaderboard."
+            />
+          </div>
+        ) : view === "weekly" ? (
+          <WeeklyView key="weekly" data={data} />
+        ) : (
+          <DailyView key="daily" data={data} />
+        )}
+      </div>
     </main>
   );
 }
