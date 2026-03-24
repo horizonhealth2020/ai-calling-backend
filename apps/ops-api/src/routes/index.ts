@@ -352,14 +352,20 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
 router.delete("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const hard = req.query.permanent === "true";
   if (hard) {
-    try {
-      await prisma.productStateAvailability.deleteMany({ where: { productId: req.params.id } });
-      await prisma.product.delete({ where: { id: req.params.id } });
-      await logAudit(req.user!.id, "HARD_DELETE", "Product", req.params.id);
-    } catch (e: any) {
-      if (e.code === "P2003") return res.status(409).json({ error: "Cannot delete — product has associated sales or payroll entries. Deactivate instead." });
-      throw e;
+    // Check for sales referencing this product (these are not safe to cascade)
+    const saleCount = await prisma.sale.count({ where: { productId: req.params.id } });
+    const addonCount = await prisma.saleAddon.count({ where: { productId: req.params.id } });
+    if (saleCount > 0 || addonCount > 0) {
+      return res.status(409).json({ error: `Cannot delete — product has ${saleCount} sale(s) and ${addonCount} addon reference(s). Deactivate instead.` });
     }
+    // Safe to cascade: clean up non-sale references then delete
+    await prisma.productStateAvailability.deleteMany({ where: { productId: req.params.id } });
+    await prisma.payoutRule.deleteMany({ where: { productId: req.params.id } });
+    // Clear bundle FKs on other products pointing to this one
+    await prisma.product.updateMany({ where: { requiredBundleAddonId: req.params.id }, data: { requiredBundleAddonId: null } });
+    await prisma.product.updateMany({ where: { fallbackBundleAddonId: req.params.id }, data: { fallbackBundleAddonId: null } });
+    await prisma.product.delete({ where: { id: req.params.id } });
+    await logAudit(req.user!.id, "HARD_DELETE", "Product", req.params.id);
   } else {
     await prisma.product.update({ where: { id: req.params.id }, data: { active: false } });
     await logAudit(req.user!.id, "DEACTIVATE", "Product", req.params.id);
@@ -1014,6 +1020,24 @@ router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", 
   const updated = await prisma.payrollPeriod.update({ where: { id: req.params.id }, data: { status: parsed.data.status } });
   await logAudit(req.user!.id, "UPDATE", "PayrollPeriod", req.params.id, { status: parsed.data.status });
   res.json(updated);
+}));
+
+router.delete("/payroll/periods/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const period = await prisma.payrollPeriod.findUnique({
+    where: { id: req.params.id },
+    include: { _count: { select: { entries: true, serviceEntries: true } } },
+  });
+  if (!period) return res.status(404).json({ error: "Period not found" });
+
+  // Delete entries first, then the period
+  await prisma.payrollEntry.deleteMany({ where: { payrollPeriodId: req.params.id } });
+  await prisma.servicePayrollEntry.deleteMany({ where: { payrollPeriodId: req.params.id } });
+  await prisma.payrollPeriod.delete({ where: { id: req.params.id } });
+  await logAudit(req.user!.id, "HARD_DELETE", "PayrollPeriod", req.params.id, {
+    weekStart: period.weekStart, weekEnd: period.weekEnd,
+    entriesDeleted: period._count.entries, serviceEntriesDeleted: period._count.serviceEntries,
+  });
+  return res.status(204).end();
 }));
 
 router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {

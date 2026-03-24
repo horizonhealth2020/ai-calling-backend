@@ -1546,6 +1546,27 @@ export default function PayrollPeriods({
                     )}
                   </div>
                 )}
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={async (ev) => {
+                    ev.stopPropagation();
+                    const entryCount = p.entries.length + (p.serviceEntries ?? []).length;
+                    const msg = entryCount > 0
+                      ? `Delete this period and its ${entryCount} payroll entries? This cannot be undone.`
+                      : `Delete this empty period?`;
+                    if (!window.confirm(msg)) return;
+                    const res = await authFetch(`${API}/api/payroll/periods/${p.id}`, { method: "DELETE" });
+                    if (res.ok) refreshPeriods();
+                    else {
+                      const err = await res.json().catch(() => ({}));
+                      alert(err.error ?? `Delete failed (${res.status})`);
+                    }
+                  }}
+                  title="Delete period"
+                >
+                  <Trash2 size={12} />
+                </Button>
                 {(() => {
                   const allEntries = [...p.entries, ...(p.serviceEntries ?? [])];
                   const allPaid = allEntries.length > 0 && allEntries.every(e => e.status === "PAID");
