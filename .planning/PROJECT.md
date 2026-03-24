@@ -64,9 +64,18 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Halving reason display on payroll entries — v1.4
 - ✓ Role dashboard selector 400ms collapse delay fix — v1.4
 
+- ✓ Route file splitting into 17 focused domain modules — v1.5
+- ✓ Owner dashboard CS payroll totals with Socket.IO real-time updates — v1.5
+- ✓ Agent-grouped detailed CSV export matching print card layout — v1.5
+- ✓ AI scoring dashboard with aggregate KPIs, per-agent breakdown, weekly trends — v1.5
+- ✓ Chargeback auto-matching to sales by memberId with MATCHED/MULTIPLE/UNMATCHED status — v1.5
+- ✓ Commission-based clawback auto-creation on chargeback approval with dedupe guard — v1.5
+- ✓ Data archival for 3 high-volume log tables with batch operations and restore — v1.5
+- ✓ Archive management UI in owner Config tab with preview counts and batch history — v1.5
+
 ### Active
 
-- Route file splitting into focused domain modules — v1.5 (Phase 21 complete)
+(No active requirements — all milestones shipped)
 
 ### Out of Scope
 
@@ -75,27 +84,12 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
-- Data archival with restore capability — beyond simple CSV export (deferred from v1.2)
-- AI scoring dashboard with trend analysis — deferred from v1.2
-- Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
-
-## Current Milestone: v1.5 Platform Cleanup & Remaining Features
-
-**Goal:** Ship all remaining backlog items — AI scoring dashboard, chargeback-to-clawback automation, data archival, route splitting, and CS payroll on owner dashboard.
-
-**Target features:**
-- AI scoring dashboard with trend analysis
-- Chargeback → payroll clawback auto-creation
-- Data archival with restore capability
-- Route file splitting (tech debt)
-- CS payroll amount on owner dashboard period summary
 
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19) + v1.3 Dashboard Consolidation (2026-03-23) + v1.4 State-Aware Bundles (2026-03-23) + v1.5 Platform Cleanup (2026-03-24)
-**Phase 24 complete:** Chargeback automation (auto-matching, commission-based clawbacks, dedupe guard) + data archival (3 log tables, batch operations, restore)
-**Total:** 24 phases, 76 plans, 160 requirements across 11 days
-**LOC:** ~124,000 TypeScript/TSX
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24)
+**Total:** 6 milestones, 24 phases, 76 plans, 160 requirements across 11 days
+**LOC:** ~128,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
 - **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs
@@ -108,7 +102,7 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 
 ## Context
 
-Shipped 4 milestones in 10 days (19 phases, 64 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages.
+Shipped 6 milestones in 11 days (24 phases, 76 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages.
 
 ## Constraints
 
@@ -150,4 +144,4 @@ Shipped 4 milestones in 10 days (19 phases, 64 plans). Tech stack: Next.js 15, E
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 after v1.5 phase 23 (AI scoring dashboard) complete*
+*Last updated: 2026-03-24 after v1.5 milestone complete*

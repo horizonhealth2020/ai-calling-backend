@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.5 Platform Cleanup & Remaining Features (Shipped: 2026-03-24)
+
+**Phases completed:** 4 phases, 8 plans, 15 tasks
+**Timeline:** 2026-03-23 → 2026-03-24 (2 days)
+**Requirements:** 20/20 satisfied
+
+**Key accomplishments:**
+
+- Split 2750-line monolith route file into 17 domain modules with shared helpers (zero behavior change)
+- Owner dashboard CS payroll totals with Socket.IO real-time updates
+- Agent-grouped detailed CSV export matching print card layout for payroll staff
+- AI scoring dashboard with aggregate KPIs, per-agent breakdown, and weekly trends
+- Chargeback auto-matching to sales with commission-based clawback creation and dedupe guard
+- Data archival system for 3 high-volume log tables with batch operations, restore, and admin UI
+
+---
+
 ## v1.3 Dashboard Consolidation & Uniform Date Ranges (Shipped: 2026-03-23)
 
 **Phases completed:** 1 phases, 10 plans, 19 tasks
