@@ -91,7 +91,7 @@ Plans:
 **Depends on**: Phase 20
 **Requirements**: OWNER-01, OWNER-02, EXPORT-01, EXPORT-02, EXPORT-03
 **Plans:**
-- [ ] 22-01-PLAN.md -- Owner dashboard CS payroll column with Socket.IO updates
+2/2 plans complete
 - [x] 22-02-PLAN.md -- Detailed CSV export refactored to agent-first print card layout with service staff section
 
 ## Progress
@@ -118,7 +118,7 @@ Plans:
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete    | 2026-03-23 |
-| 22. Owner & Payroll Enhancements | v1.5 | 1/2 | In Progress | - |
+| 22. Owner & Payroll Enhancements | v1.5 | 1/2 | Complete    | 2026-03-24 |
 
 ---
 *Roadmap created: 2026-03-14*
