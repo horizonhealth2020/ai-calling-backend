@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { createSyncedRep } from "../services/repSync";
 import { zodErr, asyncHandler } from "./helpers";
+import { emitServicePayrollChanged } from "../socket";
 
 const router = Router();
 
@@ -113,6 +114,12 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
     include: { serviceAgent: true },
   });
   res.status(201).json(entry);
+  emitServicePayrollChanged({
+    type: "created",
+    periodId: parsed.data.payrollPeriodId,
+    serviceAgentId: parsed.data.serviceAgentId,
+    totalPay: Number(entry.totalPay),
+  });
 }));
 
 router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -154,6 +161,12 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
     include: { serviceAgent: true },
   });
   res.json(updated);
+  emitServicePayrollChanged({
+    type: "updated",
+    periodId: updated.payrollPeriodId,
+    serviceAgentId: updated.serviceAgentId,
+    totalPay: Number(updated.totalPay),
+  });
 }));
 
 export default router;

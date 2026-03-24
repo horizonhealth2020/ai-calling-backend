@@ -81,3 +81,14 @@ export function emitAlertCreated(payload: AlertCreatedPayload) {
 export function emitAlertResolved(data: { alertId: string; status: "APPROVED" | "CLEARED" }) {
   io?.emit("alert:resolved", data);
 }
+
+export interface ServicePayrollChangedPayload {
+  type: "created" | "updated";
+  periodId: string;
+  serviceAgentId: string;
+  totalPay: number;
+}
+
+export function emitServicePayrollChanged(payload: ServicePayrollChangedPayload) {
+  io?.emit("service-payroll:changed", payload);
+}

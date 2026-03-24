@@ -621,17 +621,24 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
         entries: {
           include: { sale: { select: { premium: true, status: true, addons: { select: { premium: true } } } } },
         },
+        serviceEntries: {
+          select: { totalPay: true },
+        },
       },
       orderBy: { weekStart: "desc" },
       take: 12,
     });
     const result = periods.map(p => {
       const ranEntries = p.entries.filter(e => e.sale?.status === 'RAN');
+      const csPayrollTotal = p.serviceEntries.reduce(
+        (sum: number, se: any) => sum + Number(se.totalPay), 0
+      );
       return {
         period: `${p.weekStart.toISOString().slice(0, 10)} - ${p.weekEnd.toISOString().slice(0, 10)}`,
         salesCount: ranEntries.length,
         premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0) + ((e.sale as any)?.addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0),
         commissionPaid: ranEntries.reduce((s, e) => s + Number(e.netAmount), 0),
+        csPayrollTotal,
         periodStatus: p.status,
       };
     });
@@ -653,7 +660,20 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
     ORDER BY period DESC
     LIMIT 6
   `;
-  return res.json({ view, periods: monthlySales });
+  const monthlyCSPayroll: any[] = await prisma.$queryRaw`
+    SELECT
+      TO_CHAR(pp.week_start, 'YYYY-MM') as period,
+      COALESCE(SUM(spe.total_pay), 0)::float as "csPayrollTotal"
+    FROM service_payroll_entries spe
+    JOIN payroll_periods pp ON pp.id = spe.payroll_period_id
+    GROUP BY TO_CHAR(pp.week_start, 'YYYY-MM')
+  `;
+  const csMap = new Map(monthlyCSPayroll.map((r: any) => [r.period, r.csPayrollTotal]));
+  const merged = (monthlySales as any[]).map(r => ({
+    ...r,
+    csPayrollTotal: csMap.get(r.period) ?? 0,
+  }));
+  return res.json({ view, periods: merged });
 }));
 
 router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
