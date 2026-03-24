@@ -129,7 +129,7 @@ Plans:
 **Plans**: 4 plans
 Plans:
 - [x] 24-01-PLAN.md — Prisma schema changes (matching fields) + archive table migration + socket emitter
-- [ ] 24-02-PLAN.md — Chargeback auto-matching on submission + approveAlert bug fix + dedupe guard
+- [x] 24-02-PLAN.md — Chargeback auto-matching on submission + approveAlert bug fix + dedupe guard
 - [ ] 24-03-PLAN.md — Archive service with batch operations + archive/restore/stats routes
 - [ ] 24-04-PLAN.md — CSTracking match status badges + OwnerConfig data archive section
 

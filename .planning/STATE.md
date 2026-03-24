@@ -8,7 +8,7 @@ progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 24 (chargeback-automation-data-archival) — EXECUTING
-Plan: 01 complete
+Plan: 02 complete
 Last activity: 2026-03-24
 
 ## Performance Metrics
@@ -37,6 +37,7 @@ Last activity: 2026-03-24
 | Timeline | 10 days shipped (2026-03-14 to 2026-03-23) |
 | Phase 23 P01 | 229 | 2 tasks | 3 files |
 | Phase 24 P01 | 141s | 2 tasks | 3 files |
+| Phase 24 P02 | 284s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -53,6 +54,9 @@ Last activity: 2026-03-24
 
 | Decision | Rationale |
 |----------|-----------|
+| Auto-matching runs after createMany before alerts | Ensures alerts reference already-matched chargebacks |
+| Commission-based clawback from PayrollEntry.payoutAmount | Agent pays back their commission portion, not full chargeback amount |
+| Dedupe guard on saleId + matchedBy + matchedValue | Prevents double clawbacks from multiple submission paths |
 | Agent-first grouping in detailed CSV | Matches print card workflow -- each agent gets a stack of weekly cards |
 | Service staff trailing section with separate columns | Different pay structure (basePay/bonus/deductions vs commission/fronted/hold) |
 | Map-based grouping with tagged entries | Clean separation of grouping logic, handles multi-period exports correctly |

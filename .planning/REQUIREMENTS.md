@@ -30,11 +30,11 @@
 
 ### Chargeback Automation
 
-- [ ] **CLAWBACK-01**: Fix approveAlert() to use correct sale reference (not memberId as saleId)
-- [ ] **CLAWBACK-02**: Auto-match chargebacks to sales by memberId/memberName on submission
-- [ ] **CLAWBACK-03**: Auto-create clawback record when chargeback is approved and sale is matched
+- [x] **CLAWBACK-01**: Fix approveAlert() to use correct sale reference (not memberId as saleId)
+- [x] **CLAWBACK-02**: Auto-match chargebacks to sales by memberId/memberName on submission
+- [x] **CLAWBACK-03**: Auto-create clawback record when chargeback is approved and sale is matched
 - [ ] **CLAWBACK-04**: Unmatched chargebacks flagged for manual review
-- [ ] **CLAWBACK-05**: Socket.IO event when clawback is auto-created
+- [x] **CLAWBACK-05**: Socket.IO event when clawback is auto-created
 
 ### Data Archival
 
@@ -76,11 +76,11 @@
 | SCORE-02 | Phase 23 | Complete |
 | SCORE-03 | Phase 23 | Complete |
 | SCORE-04 | Phase 23 | Complete |
-| CLAWBACK-01 | Phase 24 | pending |
-| CLAWBACK-02 | Phase 24 | pending |
-| CLAWBACK-03 | Phase 24 | pending |
+| CLAWBACK-01 | Phase 24 | complete |
+| CLAWBACK-02 | Phase 24 | complete |
+| CLAWBACK-03 | Phase 24 | complete |
 | CLAWBACK-04 | Phase 24 | pending |
-| CLAWBACK-05 | Phase 24 | pending |
+| CLAWBACK-05 | Phase 24 | complete |
 | ARCHIVE-01 | Phase 24 | pending |
 | ARCHIVE-02 | Phase 24 | pending |
 | ARCHIVE-03 | Phase 24 | pending |
