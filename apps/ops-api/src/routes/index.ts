@@ -16,6 +16,7 @@ import pendingTermRoutes from "./pending-terms";
 import alertRoutes from "./alerts";
 import aiBudgetRoutes from "./ai-budget";
 import adminRoutes from "./admin";
+import archiveRoutes from "./archive";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use(pendingTermRoutes);
 router.use(alertRoutes);
 router.use(aiBudgetRoutes);
 router.use(adminRoutes);
+router.use(archiveRoutes);
 
 export default router;
