@@ -79,11 +79,16 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - AI scoring dashboard with trend analysis — deferred from v1.2
 - Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
 
-## Current Milestone: v1.4 State-Aware Bundle Requirements (Complete)
+## Current Milestone: v1.5 Platform Cleanup & Remaining Features
 
-**Goal:** Make bundle commission requirements configurable per state with primary/fallback addon logic, plus UI and data fixes.
+**Goal:** Ship all remaining backlog items — AI scoring dashboard, chargeback-to-clawback automation, data archival, route splitting, and CS payroll on owner dashboard.
 
-**Status:** Complete — Phase 20 shipped 2026-03-23
+**Target features:**
+- AI scoring dashboard with trend analysis
+- Chargeback → payroll clawback auto-creation
+- Data archival with restore capability
+- Route file splitting (tech debt)
+- CS payroll amount on owner dashboard period summary
 
 ## Current State
 
@@ -99,10 +104,6 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 
 **Known areas for future work:**
 - Bulk sale import from CSV
-- AI scoring dashboard with trend analysis
-- Chargeback → payroll clawback auto-creation
-- Data archival with restore capability
-- Route file splitting (tech debt)
 
 ## Context
 
