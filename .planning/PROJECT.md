@@ -92,9 +92,9 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19) + v1.3 Dashboard Consolidation (2026-03-23) + v1.4 State-Aware Bundles (2026-03-23)
-**In progress:** v1.5 Platform Cleanup — Phase 23 (AI scoring dashboard) complete
-**Total:** 23 phases, 72 plans, 151 requirements across 10 days
+**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19) + v1.3 Dashboard Consolidation (2026-03-23) + v1.4 State-Aware Bundles (2026-03-23) + v1.5 Platform Cleanup (2026-03-24)
+**Phase 24 complete:** Chargeback automation (auto-matching, commission-based clawbacks, dedupe guard) + data archival (3 log tables, batch operations, restore)
+**Total:** 24 phases, 76 plans, 160 requirements across 11 days
 **LOC:** ~124,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
