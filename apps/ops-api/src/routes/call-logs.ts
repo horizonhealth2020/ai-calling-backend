@@ -1,0 +1,145 @@
+import { Router } from "express";
+import { z } from "zod";
+import { prisma } from "@ops/db";
+import { requireAuth } from "../middleware/auth";
+import { fetchConvosoCallLogs, enrichWithTiers, filterByCallLength, filterByTier, buildKpiSummary, CallLengthTier } from "../services/convosoCallLogs";
+import { zodErr, asyncHandler } from "./helpers";
+
+const router = Router();
+
+const callLogsQuerySchema = z.object({
+  queue_id: z.string().min(1, "queue_id is required"),
+  list_id: z.string().min(1, "list_id is required"),
+});
+
+const CALL_LOG_PASS_THROUGH_PARAMS = [
+  "id", "lead_id", "campaign_id", "user_id", "status", "phone_number",
+  "number_dialed", "first_name", "last_name", "start_time", "end_time",
+  "limit", "offset", "order",
+] as const;
+
+function buildConvosoParams(query: Record<string, any>): Record<string, string> {
+  const params: Record<string, string> = {
+    queue_id: query.queue_id,
+    list_id: query.list_id,
+    call_type: (query.call_type as string) || "INBOUND",
+    called_count: (query.called_count as string) || "0",
+    include_recordings: (query.include_recordings as string) || "1",
+  };
+  for (const key of CALL_LOG_PASS_THROUGH_PARAMS) {
+    if (query[key] !== undefined && query[key] !== "") {
+      params[key] = String(query[key]);
+    }
+  }
+  return params;
+}
+
+function extractConvosoResults(response: any): any[] {
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.results)) return response.results;
+  if (Array.isArray(response)) return response;
+  return [];
+}
+
+function tierBreakdown(records: { call_length_tier: string }[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const r of records) {
+    counts[r.call_length_tier] = (counts[r.call_length_tier] || 0) + 1;
+  }
+  return counts;
+}
+
+// KPI route registered first to avoid Express treating /kpi as a param on /call-logs
+router.get("/call-logs/kpi", requireAuth, asyncHandler(async (req, res) => {
+  const parsed = callLogsQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const { queue_id, list_id } = parsed.data;
+  const minCallLength = req.query.min_call_length ? Number(req.query.min_call_length) : undefined;
+  const maxCallLength = req.query.max_call_length ? Number(req.query.max_call_length) : undefined;
+  const tierParam = req.query.tier as CallLengthTier | undefined;
+
+  try {
+    const params = buildConvosoParams(req.query);
+    const response = await fetchConvosoCallLogs(params);
+    const raw = extractConvosoResults(response);
+
+    let enriched = enrichWithTiers(raw);
+    if (minCallLength !== undefined || maxCallLength !== undefined) {
+      enriched = filterByCallLength(enriched, minCallLength, maxCallLength);
+    }
+    if (tierParam) {
+      enriched = filterByTier(enriched, tierParam);
+    }
+
+    // Fetch agents and lead source for agent-aware KPI aggregation
+    const agents = await prisma.agent.findMany({ where: { active: true }, select: { id: true, name: true, email: true } });
+    const agentMap = new Map(agents.filter(a => a.email).map(a => [a.email!, { id: a.id, name: a.name }]));
+    let costPerLead = 0;
+    if (list_id) {
+      const leadSource = await prisma.leadSource.findFirst({ where: { listId: list_id } });
+      costPerLead = leadSource?.costPerLead ? Number(leadSource.costPerLead) : 0;
+    }
+
+    const kpiResponse = buildKpiSummary(enriched, { agentMap, costPerLead });
+
+    console.log(JSON.stringify({
+      event: "call_logs_kpi_fetch",
+      queue_id,
+      list_id,
+      timestamp: new Date().toISOString(),
+      total_results: enriched.length,
+      tier_breakdown: tierBreakdown(enriched),
+      summary: kpiResponse.summary,
+    }));
+
+    return res.json({ success: true, ...kpiResponse });
+  } catch (err: any) {
+    if (err.message?.includes("CONVOSO_AUTH_TOKEN")) {
+      return res.status(500).json({ error: "Convoso integration not configured" });
+    }
+    return res.status(502).json({ error: "Failed to fetch from Convoso", details: err.message });
+  }
+}));
+
+router.get("/call-logs", requireAuth, asyncHandler(async (req, res) => {
+  const parsed = callLogsQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const { queue_id, list_id } = parsed.data;
+  const minCallLength = req.query.min_call_length ? Number(req.query.min_call_length) : undefined;
+  const maxCallLength = req.query.max_call_length ? Number(req.query.max_call_length) : undefined;
+  const tierParam = req.query.tier as CallLengthTier | undefined;
+
+  try {
+    const params = buildConvosoParams(req.query);
+    const response = await fetchConvosoCallLogs(params);
+    const raw = extractConvosoResults(response);
+
+    let enriched = enrichWithTiers(raw);
+    if (minCallLength !== undefined || maxCallLength !== undefined) {
+      enriched = filterByCallLength(enriched, minCallLength, maxCallLength);
+    }
+    if (tierParam) {
+      enriched = filterByTier(enriched, tierParam);
+    }
+
+    console.log(JSON.stringify({
+      event: "call_logs_fetch",
+      queue_id,
+      list_id,
+      timestamp: new Date().toISOString(),
+      total_results: enriched.length,
+      tier_breakdown: tierBreakdown(enriched),
+    }));
+
+    return res.json({ success: true, count: enriched.length, data: enriched });
+  } catch (err: any) {
+    if (err.message?.includes("CONVOSO_AUTH_TOKEN")) {
+      return res.status(500).json({ error: "Convoso integration not configured" });
+    }
+    return res.status(502).json({ error: "Failed to fetch from Convoso", details: err.message });
+  }
+}));
+
+export default router;
