@@ -115,7 +115,10 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
 }));
 
 router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
-  await prisma.chargebackSubmission.delete({ where: { id: req.params.id } });
+  const id = req.params.id;
+  // Delete related alerts first (FK constraint)
+  await prisma.payrollAlert.deleteMany({ where: { chargebackSubmissionId: id } });
+  await prisma.chargebackSubmission.delete({ where: { id } });
   return res.status(204).end();
 }));
 

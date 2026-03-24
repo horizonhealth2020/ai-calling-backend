@@ -306,10 +306,14 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       const res = await authFetch(`${API}/api/chargebacks/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
         setChargebacks((prev) => prev.filter((cb: any) => cb.id !== id));
+        toast.success("Chargeback deleted");
         const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
         if (totalsRes.ok) setTotals(await totalsRes.json());
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || `Delete failed (${res.status})`);
       }
-    } catch { /* ignore */ }
+    } catch { toast.error("Delete request failed"); }
   };
 
   // Delete pending term handler
