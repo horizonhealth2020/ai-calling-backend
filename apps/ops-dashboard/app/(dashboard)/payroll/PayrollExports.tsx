@@ -114,59 +114,157 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
   function exportDetailedCSV() {
     const filtered = filterPeriodsByDateRange(exportDateFilter);
     const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
-    const rows = [["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Hold","Net"]];
+    const rows: string[][] = [];
+
+    // ── Commission Agent Section ───────────────────────────────
+    // Step 1: Collect all entries across periods, tagged with period info
+    type TaggedEntry = { entry: Entry; weekStart: string; weekEnd: string; quarterLabel: string };
+    const tagged: TaggedEntry[] = [];
     for (const p of filtered) {
-      const sortedEntries = [...p.entries].sort((a, b) =>
-        (a.agent?.name ?? "").localeCompare(b.agent?.name ?? "")
-      );
-      let currentAgent = "";
-      let agentCommission = 0, agentBonus = 0, agentFronted = 0, agentHold = 0, agentNet = 0;
-      for (const e of sortedEntries) {
-        const agentName = e.agent?.name ?? "Unknown";
-        if (agentName !== currentAgent) {
-          if (currentAgent !== "") {
-            rows.push([
-              "", "", "", esc(currentAgent + " \u2014 Subtotal"), "", "",
-              "", "", "", "",
-              agentCommission.toFixed(2), agentBonus.toFixed(2),
-              agentFronted.toFixed(2), agentHold.toFixed(2), agentNet.toFixed(2),
-            ]);
-            rows.push([""]); // blank separator
-          }
-          currentAgent = agentName;
-          agentCommission = 0; agentBonus = 0; agentFronted = 0; agentHold = 0; agentNet = 0;
-        }
-        const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
-        if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
-        if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
-        const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee).toFixed(2) : "";
-        const commission = Number(e.payoutAmount);
-        const bonus = Number(e.bonusAmount);
-        const fronted = Number(e.frontedAmount);
-        const hold = Number(e.holdAmount ?? 0);
-        const net = Number(e.netAmount);
-        agentCommission += commission; agentBonus += bonus; agentFronted += fronted; agentHold += hold; agentNet += net;
-        rows.push([
-          fmtDate(p.weekStart), fmtDate(p.weekEnd), p.quarterLabel,
-          esc(agentName), e.sale?.memberId ?? "", esc(e.sale?.memberName ?? ""),
-          esc(byType.CORE.join(", ")), esc(byType.ADDON.join(", ")), esc(byType.AD_D.join(", ")),
-          fee, commission.toFixed(2), bonus.toFixed(2),
-          fronted.toFixed(2), hold.toFixed(2), net.toFixed(2),
-        ]);
-      }
-      if (currentAgent !== "") {
-        rows.push([
-          "", "", "", esc(currentAgent + " \u2014 Subtotal"), "", "",
-          "", "", "", "",
-          agentCommission.toFixed(2), agentBonus.toFixed(2),
-          agentFronted.toFixed(2), agentHold.toFixed(2), agentNet.toFixed(2),
-        ]);
-        rows.push([""]); // blank separator between periods
+      for (const e of p.entries) {
+        tagged.push({ entry: e, weekStart: p.weekStart, weekEnd: p.weekEnd, quarterLabel: p.quarterLabel });
       }
     }
+
+    // Step 2: Group by agent name
+    const agentMap = new Map<string, TaggedEntry[]>();
+    for (const t of tagged) {
+      const name = t.entry.agent?.name ?? "Unknown";
+      if (!agentMap.has(name)) agentMap.set(name, []);
+      agentMap.get(name)!.push(t);
+    }
+
+    // Step 3: Sort agents alphabetically (D-05)
+    const sortedAgents = [...agentMap.keys()].sort((a, b) => a.localeCompare(b));
+
+    // Commission column headers
+    rows.push(["Week Start","Week End","Quarter","Agent","Member ID","Member Name","Core","Add-on","AD&D","Enroll Fee","Commission","Bonus","Fronted","Hold","Net"]);
+
+    for (const agentName of sortedAgents) {
+      const agentEntries = agentMap.get(agentName)!;
+
+      // Step 4: Group this agent's entries by period (weekStart)
+      const periodMap = new Map<string, TaggedEntry[]>();
+      for (const t of agentEntries) {
+        if (!periodMap.has(t.weekStart)) periodMap.set(t.weekStart, []);
+        periodMap.get(t.weekStart)!.push(t);
+      }
+
+      // Sort periods chronologically (D-05)
+      const sortedPeriodKeys = [...periodMap.keys()].sort((a, b) => a.localeCompare(b));
+
+      for (const periodKey of sortedPeriodKeys) {
+        const periodEntries = periodMap.get(periodKey)!;
+        const sample = periodEntries[0];
+
+        // Header row (D-06): agent name + week range
+        rows.push([esc(`${agentName} | Week ${fmtDate(sample.weekStart)} to ${fmtDate(sample.weekEnd)}`)]);
+
+        let pCommission = 0, pBonus = 0, pFronted = 0, pHold = 0, pNet = 0;
+
+        for (const t of periodEntries) {
+          const e = t.entry;
+          const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
+          if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
+          if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
+          const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee).toFixed(2) : "";
+          const commission = Number(e.payoutAmount);
+          const bonus = Number(e.bonusAmount);
+          const fronted = Number(e.frontedAmount);
+          const hold = Number(e.holdAmount ?? 0);
+          const net = Number(e.netAmount);
+          pCommission += commission; pBonus += bonus; pFronted += fronted; pHold += hold; pNet += net;
+
+          rows.push([
+            fmtDate(t.weekStart), fmtDate(t.weekEnd), t.quarterLabel,
+            esc(agentName), e.sale?.memberId ?? "", esc(e.sale?.memberName ?? ""),
+            esc(byType.CORE.join(", ")), esc(byType.ADDON.join(", ")), esc(byType.AD_D.join(", ")),
+            fee, commission.toFixed(2), bonus.toFixed(2),
+            fronted.toFixed(2), hold.toFixed(2), net.toFixed(2),
+          ]);
+        }
+
+        // Subtotal row (D-06)
+        rows.push([
+          "", "", "", esc(agentName + " \u2014 Subtotal"), "", "",
+          "", "", "", "",
+          pCommission.toFixed(2), pBonus.toFixed(2),
+          pFronted.toFixed(2), pHold.toFixed(2), pNet.toFixed(2),
+        ]);
+      }
+
+      // Blank separator between agents
+      rows.push([""]);
+    }
+
+    // ── Service Staff Section (D-08, D-09) ─────────────────────
+    // Collect all service entries across filtered periods
+    type TaggedServiceEntry = { entry: ServiceEntry; weekStart: string; weekEnd: string };
+    const taggedService: TaggedServiceEntry[] = [];
+    for (const p of filtered) {
+      for (const se of p.serviceEntries) {
+        taggedService.push({ entry: se, weekStart: p.weekStart, weekEnd: p.weekEnd });
+      }
+    }
+
+    if (taggedService.length > 0) {
+      // Section separator
+      rows.push([""]);
+      rows.push(["=== SERVICE STAFF ==="]);
+
+      // Service staff column headers (D-09: different from commission columns)
+      rows.push(["Week Start", "Week End", "Service Agent", "Base Pay", "Bonus", "Deductions", "Fronted", "Total Pay"]);
+
+      // Group by service agent name
+      const serviceMap = new Map<string, TaggedServiceEntry[]>();
+      for (const t of taggedService) {
+        const name = t.entry.serviceAgent.name;
+        if (!serviceMap.has(name)) serviceMap.set(name, []);
+        serviceMap.get(name)!.push(t);
+      }
+
+      const sortedServiceAgents = [...serviceMap.keys()].sort((a, b) => a.localeCompare(b));
+
+      for (const saName of sortedServiceAgents) {
+        const saEntries = serviceMap.get(saName)!;
+
+        // Group by period
+        const saPeriodMap = new Map<string, TaggedServiceEntry[]>();
+        for (const t of saEntries) {
+          if (!saPeriodMap.has(t.weekStart)) saPeriodMap.set(t.weekStart, []);
+          saPeriodMap.get(t.weekStart)!.push(t);
+        }
+
+        const sortedSaPeriods = [...saPeriodMap.keys()].sort((a, b) => a.localeCompare(b));
+
+        for (const pk of sortedSaPeriods) {
+          const entries = saPeriodMap.get(pk)!;
+          const sample = entries[0];
+
+          // Header row for service agent
+          rows.push([esc(`${saName} | Week ${fmtDate(sample.weekStart)} to ${fmtDate(sample.weekEnd)}`)]);
+
+          for (const t of entries) {
+            const se = t.entry;
+            rows.push([
+              fmtDate(t.weekStart), fmtDate(t.weekEnd), esc(saName),
+              Number(se.basePay).toFixed(2),
+              Number(se.bonusAmount).toFixed(2),
+              Number(se.deductionAmount).toFixed(2),
+              Number(se.frontedAmount ?? 0).toFixed(2),
+              Number(se.totalPay).toFixed(2),
+            ]);
+          }
+        }
+
+        rows.push([""]);
+      }
+    }
+
+    // Download
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" })),
-      download: `payroll-detailed.csv`,
+      download: "payroll-detailed.csv",
     });
     a.click();
   }
