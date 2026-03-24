@@ -208,6 +208,7 @@ model Sale {
   addons               SaleAddon[]
   statusChangeRequests StatusChangeRequest[]
   saleEditRequests     SaleEditRequest[]
+  matchedChargebacks   ChargebackSubmission[] @relation("ChargebackMatchedSale")
 
   @@index([saleDate])
   @@index([memberId])
@@ -560,9 +561,13 @@ model ChargebackSubmission {
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  submitter User  @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
-  resolver  User? @relation("ChargebackResolvedBy", fields: [resolvedBy], references: [id])
-  alerts    PayrollAlert[]
+  matchedSaleId  String?  @map("matched_sale_id")
+  matchStatus    String?  @map("match_status")
+
+  matchedSale Sale?  @relation("ChargebackMatchedSale", fields: [matchedSaleId], references: [id])
+  submitter   User   @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
+  resolver    User?  @relation("ChargebackResolvedBy", fields: [resolvedBy], references: [id])
+  alerts      PayrollAlert[]
 
   @@map("chargeback_submissions")
 }
