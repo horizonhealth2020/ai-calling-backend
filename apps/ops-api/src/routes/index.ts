@@ -1022,7 +1022,7 @@ router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", 
   res.json(updated);
 }));
 
-router.delete("/payroll/periods/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
+router.delete("/payroll/periods/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const period = await prisma.payrollPeriod.findUnique({
     where: { id: req.params.id },
     include: { _count: { select: { entries: true, serviceEntries: true } } },
