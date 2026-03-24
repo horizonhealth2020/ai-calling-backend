@@ -161,7 +161,7 @@ function parseReceipt(text: string): ParseResult {
     }
     for (const block of blocks) {
       const bt = block.text.trim();
-      const nameMatch = bt.match(/^([A-Za-z][A-Za-z0-9&\s/+'.()-]+?)(?:\s+(?:Individual|Family|Employee|Member)\b|\s+-\s+ID:)/i);
+      const nameMatch = bt.match(/^([A-Za-z][A-Za-z0-9&$\s/+'.()-]+?)(?:\s+(?:Individual|Family|Employee|Member)\b|\s+-\s+ID:)/i);
       if (nameMatch) {
         const rawName = nameMatch[1].trim();
         const isAddon = /[-\u2013]\s*Add-on/i.test(rawName) || /\bAdd-on\b/i.test(rawName);
