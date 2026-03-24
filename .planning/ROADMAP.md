@@ -6,8 +6,7 @@
 - ✅ **v1.1 Customer Service** — Phases 11-17 (shipped 2026-03-18)
 - ✅ **v1.2 Platform Polish & Integration** — Phase 18 (shipped 2026-03-19)
 - ✅ **v1.3 Dashboard Consolidation & Uniform Date Ranges** — Phase 19 (shipped 2026-03-23)
-- ✅ **v1.4 State-Aware Bundle Requirements** — Phase 20 (shipped 2026-03-23)
-- [ ] **v1.5 Platform Cleanup & Remaining Features** — Phases 21-24
+- [ ] **v1.4 State-Aware Bundle Requirements** — Phase 20
 
 ## Phases
 
@@ -54,77 +53,46 @@
 
 </details>
 
-<details>
-<summary>✅ v1.4 State-Aware Bundle Requirements (Phase 20) — SHIPPED 2026-03-23</summary>
+### v1.4 State-Aware Bundle Requirements (Phase 20)
 
-- [x] Phase 20: State-Aware Bundle Requirements (5/5 plans) — completed 2026-03-23
-
-</details>
-
-### v1.5 Platform Cleanup & Remaining Features (Phases 21-24)
-
-- [x] **Phase 21: Route File Splitting** - Split 2750-line monolith route file into domain modules with zero behavior change
-- [ ] **Phase 22: Owner & Payroll Enhancements** - CS payroll totals on owner dashboard + agent-grouped CSV print card export
-- [ ] **Phase 23: AI Scoring Dashboard** - Owner dashboard scoring tab with aggregate KPIs, per-agent breakdown, and weekly trends
-- [ ] **Phase 24: Chargeback Automation & Data Archival** - Auto-match chargebacks to sales, auto-create clawbacks, archive high-volume logs with restore
+- [x] **Phase 20: State-Aware Bundle Requirements** - Schema, commission engine, API routes, config UI, sales entry integration, and housekeeping fixes (completed 2026-03-23)
 
 ## Phase Details
 
-### Phase 21: Route File Splitting
-**Goal**: Every API route lives in a focused domain module so subsequent features target clean, small files
-**Depends on**: Nothing (first phase of v1.5)
-**Requirements**: SPLIT-01, SPLIT-02
+### Phase 20: State-Aware Bundle Requirements
+**Goal**: State-aware bundle commission with configurable primary/fallback addons per state, config UI in Products tab, client state on sales entry, and housekeeping fixes
+**Depends on**: Nothing (first phase of v1.4)
+**Requirements**: BUNDLE-01, BUNDLE-02, BUNDLE-03, BUNDLE-04, BUNDLE-05, BUNDLE-06, BUNDLE-07, BUNDLE-08, CFG-01, CFG-02, CFG-03, SALE-01, FIX-01, FIX-02
 **Success Criteria** (what must be TRUE):
-  1. The route file is split into domain-specific modules (e.g., sales.ts, payroll.ts, reporting.ts) averaging 100-300 lines each
-  2. Shared helpers (zodErr, asyncHandler, date range parsing) are extracted to a common helpers file
-  3. Every existing API endpoint returns identical responses before and after the split (zero behavior change)
-  4. All existing tests pass without modification
-**Plans**: 1 plan
+  1. BundleRequirement and ProductStateAvailability tables exist with Prisma migration applied, supporting per-state rules, default rules, and multiple fallback tiers
+  2. resolveBundleRequirement() returns correct primary addon, fallback addon, or null for any combination of core product and client state
+  3. calculateCommission produces half commission with stored reason when required addon is missing for the client's state
+  4. Existing sales with null memberState produce identical commission results as before (all 20+ existing tests pass unchanged)
+  5. State-aware halving replaces legacy isBundleQualifier halving for products with a BundleRequirement configured -- no double halving possible
+  6. CRUD endpoints for bundle requirements and state availability with Zod validation
+  7. Payroll entry rows display the halving reason when commission was reduced due to missing required addon
+  8. CORE product cards show bundle requirement section (primary + fallback addon selectors per state)
+  9. ADDON product cards show state availability multi-select (50 states + DC)
+  10. Completeness indicator surfaces states without bundle coverage
+  11. Sales entry form includes US state dropdown populating memberState
+  12. Role dashboard selector has configurable delay before collapsing
+  13. Database seed script no longer creates Amy, Bob, Cara, David, or Elena
+**Plans:** 5/5 plans complete
+
 Plans:
-- [x] 21-01-PLAN.md — Extract helpers, split 17 domain modules, create barrel index
+- [x] 20-01-PLAN.md -- Schema migration (Product FKs, ProductStateAvailability, PayrollEntry halvingReason) + US_STATES constant + FIX-02 verification
+- [ ] 20-02-PLAN.md -- Commission engine (resolveBundleRequirement, modified calculateCommission, updated callers, new tests)
+- [x] 20-03-PLAN.md -- API routes (product PATCH/GET extension, state-availability PUT/GET endpoints)
+- [ ] 20-04-PLAN.md -- Config UI (CORE bundle requirement section, ADDON state availability section, completeness indicator)
+- [x] 20-05-PLAN.md -- Sales entry state dropdown, payroll halving reason display, role selector delay fix
 
 ### Phase 22: Owner & Payroll Enhancements
-**Goal**: Owners see complete financial picture including CS payroll totals, and payroll staff can export agent-grouped CSV matching print card layout
-**Depends on**: Phase 21 (routes are split into clean domain files)
+**Goal**: Surface CS payroll totals on owner dashboard and enhance detailed CSV export to agent-first print card layout
+**Depends on**: Phase 20
 **Requirements**: OWNER-01, OWNER-02, EXPORT-01, EXPORT-02, EXPORT-03
-**Success Criteria** (what must be TRUE):
-  1. Owner period summary endpoint returns a CS payroll total (sum of ServicePayrollEntry amounts) alongside the existing commission total
-  2. Owner dashboard displays the CS payroll total as a column in the period summary table
-  3. When a service payroll entry is created or updated, the owner dashboard CS payroll total updates in real-time via Socket.IO without page refresh
-  4. Detailed CSV export produces rows grouped by agent first, matching the print card visual layout
-  5. Each agent section has a header row (agent name + week range), individual sale rows, and a subtotal row
-  6. Export completes without browser hang or memory error for periods with 100+ agents and 1000+ sales
-**Plans**: 2 plans
-Plans:
-- [x] 22-01-PLAN.md — Add csPayrollTotal to reporting API, Socket.IO emitter, owner dashboard column
-- [ ] 22-02-PLAN.md — Refactor detailed CSV export to agent-first print card layout with service staff section
-
-### Phase 23: AI Scoring Dashboard
-**Goal**: Owners can monitor call audit quality trends and identify agents needing coaching from a dedicated scoring tab
-**Depends on**: Phase 21 (routes are split, scoring endpoints in clean file)
-**Requirements**: SCORE-01, SCORE-02, SCORE-03, SCORE-04
-**Success Criteria** (what must be TRUE):
-  1. Owner dashboard has a "Scoring" tab showing aggregate KPIs: average score, total audits scored, and score distribution breakdown
-  2. Per-agent score breakdown table is visible with sortable columns (agent name, avg score, audit count, trend direction)
-  3. Weekly trend data shows how scores change over time (at minimum a table with week-over-week values)
-  4. DateRangeFilter on the scoring tab filters all KPIs and tables to the selected range
-**Plans**: TBD
-
-### Phase 24: Chargeback Automation & Data Archival
-**Goal**: Approved chargebacks automatically create clawback records against the correct sale, and admins can archive high-volume logs with restore capability
-**Depends on**: Phase 22 (owner dashboard enhancements stable)
-**Requirements**: CLAWBACK-01, CLAWBACK-02, CLAWBACK-03, CLAWBACK-04, CLAWBACK-05, ARCHIVE-01, ARCHIVE-02, ARCHIVE-03, ARCHIVE-04
-**Success Criteria** (what must be TRUE):
-  1. approveAlert() creates clawback records referencing the correct sale (not using memberId as saleId)
-  2. When a chargeback is submitted, the system auto-matches it to a sale by memberId or memberName and stores the match
-  3. When a matched chargeback is approved, a clawback record is auto-created against the matched sale with correct amounts
-  4. Chargebacks that cannot be auto-matched are visually flagged for manual review in the tracking table
-  5. When a clawback is auto-created, a Socket.IO event notifies the payroll dashboard in real-time
-  6. Admin can select a date range and archive call logs, audit logs, and KPI snapshots -- rows move from main tables to parallel archive tables
-  7. Archived rows are physically removed from main tables (not soft-deleted), reducing query scan size
-  8. Admin can select archived batches and restore them back to main tables with original data intact
-  9. Owner dashboard has a data management section showing archive statistics (row counts, date ranges, last archive date)
-**Plans**: TBD
+**Plans:**
+- [ ] 22-01-PLAN.md -- Owner dashboard CS payroll column with Socket.IO updates
+- [x] 22-02-PLAN.md -- Detailed CSV export refactored to agent-first print card layout with service staff section
 
 ## Progress
 
@@ -149,16 +117,12 @@ Plans:
 | 17. Documentation & Permission Cleanup | v1.1 | 1/1 | Complete | 2026-03-18 |
 | 18. Platform Polish & Integration | v1.2 | 8/8 | Complete | 2026-03-19 |
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
-| 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
-| 21. Route File Splitting | v1.5 | 1/1 | Complete    | 2026-03-24 |
-| 22. Owner & Payroll Enhancements | v1.5 | 1/2 | In progress | - |
-| 23. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
-| 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
+| 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete    | 2026-03-23 |
+| 22. Owner & Payroll Enhancements | v1.5 | 1/2 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*
 *v1.1 shipped: 2026-03-18*
 *v1.2 shipped: 2026-03-19*
 *v1.3 shipped: 2026-03-23*
-*v1.4 shipped: 2026-03-23*
-*v1.5 roadmap added: 2026-03-24*
+*v1.4 roadmap added: 2026-03-23*

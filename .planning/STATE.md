@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Platform Cleanup & Remaining Features
-status: executing
-last_updated: "2026-03-24T17:18:46Z"
+milestone: v1.4
+milestone_name: State-Aware Bundle Requirements
+status: completed
+last_updated: "2026-03-24T17:17:41Z"
 last_activity: 2026-03-24
 progress:
-  total_phases: 4
+  total_phases: 1
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,12 +19,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.5 Platform Cleanup -- Phase 22 executing
+**Current focus:** v1.5 Owner & Payroll Enhancements -- executing Phase 22
 
 ## Current Position
 
 Phase: 22
-Plan: 01 complete
+Plan: 02 complete
+Status: In progress
 Last activity: 2026-03-24
 
 ```
@@ -56,6 +57,14 @@ Last activity: 2026-03-24
 | 260317-dxw | Cron worker polling Convoso every 10 min for per-agent KPI snapshots | 2026-03-17 | 2083caa | [260317-dxw-cron-worker-polling-convoso-every-10-min](./quick/260317-dxw-cron-worker-polling-convoso-every-10-min/) |
 | 260317-e6a | Deduplicate Convoso call log processing to prevent KPI inflation | 2026-03-17 | b422e4b | [260317-e6a-deduplicate-convoso-call-logs-prevent-sa](./quick/260317-e6a-deduplicate-convoso-call-logs-prevent-sa/) |
 
+### Key Decisions (v1.5)
+
+| Decision | Rationale |
+|----------|-----------|
+| Agent-first grouping in detailed CSV | Matches print card workflow -- each agent gets a stack of weekly cards |
+| Service staff trailing section with separate columns | Different pay structure (basePay/bonus/deductions vs commission/fronted/hold) |
+| Map-based grouping with tagged entries | Clean separation of grouping logic, handles multi-period exports correctly |
+
 ### Key Decisions (v1.4)
 
 | Decision | Rationale |
@@ -75,14 +84,6 @@ Last activity: 2026-03-24
 | US_STATES dropdown replaces free-text memberState | Better data quality, consistent 2-char codes |
 | C.warning color for halving reason | Amber tone, consistent with other payroll warnings |
 | 400ms role selector delay | Prevents premature collapse on mouse leave |
-
-### Key Decisions (v1.5)
-
-| Decision | Rationale |
-|----------|-----------|
-| Separate monthly CS payroll query | Avoids modifying complex raw SQL join in reporting/periods |
-| Full refetch on service-payroll socket event | csPayrollTotal is a server-computed aggregate; no client-side optimistic patching |
-| Amber/warning color for Service Payroll column | Visual distinction from teal commission column |
 
 ### Open Questions
 
