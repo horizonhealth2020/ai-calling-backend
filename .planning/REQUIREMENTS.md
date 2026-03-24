@@ -65,28 +65,28 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| SPLIT-01 | | pending |
-| SPLIT-02 | | pending |
-| OWNER-01 | | pending |
-| OWNER-02 | | pending |
-| EXPORT-01 | | pending |
-| EXPORT-02 | | pending |
-| EXPORT-03 | | pending |
-| SCORE-01 | | pending |
-| SCORE-02 | | pending |
-| SCORE-03 | | pending |
-| SCORE-04 | | pending |
-| CLAWBACK-01 | | pending |
-| CLAWBACK-02 | | pending |
-| CLAWBACK-03 | | pending |
-| CLAWBACK-04 | | pending |
-| CLAWBACK-05 | | pending |
-| ARCHIVE-01 | | pending |
-| ARCHIVE-02 | | pending |
-| ARCHIVE-03 | | pending |
-| ARCHIVE-04 | | pending |
+| SPLIT-01 | Phase 21 | pending |
+| SPLIT-02 | Phase 21 | pending |
+| OWNER-01 | Phase 22 | pending |
+| OWNER-02 | Phase 22 | pending |
+| EXPORT-01 | Phase 23 | pending |
+| EXPORT-02 | Phase 23 | pending |
+| EXPORT-03 | Phase 23 | pending |
+| SCORE-01 | Phase 24 | pending |
+| SCORE-02 | Phase 24 | pending |
+| SCORE-03 | Phase 24 | pending |
+| SCORE-04 | Phase 24 | pending |
+| CLAWBACK-01 | Phase 25 | pending |
+| CLAWBACK-02 | Phase 25 | pending |
+| CLAWBACK-03 | Phase 25 | pending |
+| CLAWBACK-04 | Phase 25 | pending |
+| CLAWBACK-05 | Phase 25 | pending |
+| ARCHIVE-01 | Phase 26 | pending |
+| ARCHIVE-02 | Phase 26 | pending |
+| ARCHIVE-03 | Phase 26 | pending |
+| ARCHIVE-04 | Phase 26 | pending |
 
-**Coverage:** 20 requirements, 0 mapped
+**Coverage:** 20/20 requirements mapped
 
 ---
 *Created: 2026-03-24*
