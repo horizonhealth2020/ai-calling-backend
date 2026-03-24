@@ -108,7 +108,9 @@ Plans:
   2. Per-agent score breakdown table is visible with sortable columns (agent name, avg score, audit count, trend direction)
   3. Weekly trend data shows how scores change over time (at minimum a table with week-over-week values)
   4. DateRangeFilter on the scoring tab filters all KPIs and tables to the selected range
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 23-01-PLAN.md — Add scoring-stats API endpoint and OwnerScoring tab component
 
 ### Phase 24: Chargeback Automation & Data Archival
 **Goal**: Approved chargebacks automatically create clawback records against the correct sale, and admins can archive high-volume logs with restore capability
@@ -152,7 +154,7 @@ Plans:
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
 | 21. Route File Splitting | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 22. Owner & Payroll Enhancements | v1.5 | 2/2 | Complete | 2026-03-24 |
-| 23. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
+| 23. AI Scoring Dashboard | v1.5 | 0/1 | Not started | - |
 | 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
 
 ---
