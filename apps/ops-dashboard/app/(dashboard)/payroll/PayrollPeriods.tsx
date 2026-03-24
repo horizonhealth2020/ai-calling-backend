@@ -533,9 +533,19 @@ function AgentPayCard({
   const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
   const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
 
+  // Group entries by product type: CORE first, then ADDON, then AD_D
+  const TYPE_ORDER: Record<string, number> = { CORE: 0, ADDON: 1, AD_D: 2 };
+  const sortedEntries = [...entries].sort((a, b) => {
+    const aType = a.sale?.product?.type ?? "CORE";
+    const bType = b.sale?.product?.type ?? "CORE";
+    const typeComp = (TYPE_ORDER[aType] ?? 9) - (TYPE_ORDER[bType] ?? 9);
+    if (typeComp !== 0) return typeComp;
+    return (a.sale?.product?.name ?? "").localeCompare(b.sale?.product?.name ?? "");
+  });
+
   const [showAllEntries, setShowAllEntries] = useState(false);
   const COLLAPSED_LIMIT = 5;
-  const visibleEntries = showAllEntries ? entries : entries.slice(0, COLLAPSED_LIMIT);
+  const visibleEntries = showAllEntries ? sortedEntries : sortedEntries.slice(0, COLLAPSED_LIMIT);
   const hiddenCount = entries.length - COLLAPSED_LIMIT;
 
   const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED");
@@ -1636,10 +1646,16 @@ export default function PayrollPeriods({
                       activeCount: active.length,
                     };
                   });
-                  const sorted = [...agentEntries].sort((a, b) => b.net - a.net);
+                  // Agents with sales sort by premium desc; agents without sort alphabetically
+                  const sorted = [...agentEntries].sort((a, b) => {
+                    if (a.activeCount > 0 && b.activeCount > 0) return b.gross - a.gross;
+                    if (a.activeCount > 0) return -1;
+                    if (b.activeCount > 0) return 1;
+                    return a.name.localeCompare(b.name);
+                  });
                   const top3 = new Set(sorted.slice(0, 3).filter(a => a.net > 0).map(a => a.name));
 
-                  return agentEntries.map(({ name: agentName, entries, net: agentNet, gross: agentGross, activeCount }, agentIdx) => {
+                  return sorted.map(({ name: agentName, entries, net: agentNet, gross: agentGross, activeCount }, agentIdx) => {
                     const isTopEarner = top3.has(agentName);
                     return (
                       <div

@@ -1,7 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useSocket, DISCONNECT_BANNER, HIGHLIGHT_GLOW } from "@ops/socket";
-import type { SaleChangedPayload } from "@ops/socket";
+import { useState, useEffect } from "react";
 import {
   Trophy,
   Medal,
@@ -18,6 +16,7 @@ import {
   AnimatedNumber,
   Badge,
   TabNav,
+  ProgressRing,
   EmptyState,
   SkeletonCard,
   SkeletonLine,
@@ -25,9 +24,9 @@ import {
   ThemeToggle,
 } from "@ops/ui";
 import { colors, spacing, radius, shadows, baseCardStyle } from "@ops/ui";
-import { formatDollar, formatDate } from "@ops/utils";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
+const INTERVAL = 30_000;
 
 type AgentStat = { count: number; premium: number };
 type DayRow = { label: string; agents: Record<string, AgentStat>; totalSales: number; totalPremium: number };
@@ -40,244 +39,239 @@ type DetailedData = {
   todayStats: Record<string, AgentStat>;
 };
 
-
+const fmt$ = (n: number) =>
+  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
-/* ── Race bar configuration ───────────────────────────────────── */
+/* ── Podium rank configuration ────────────────────────────────── */
 
-const BAR_HEIGHT = 340;
-const BAR_MIN_W = 60;
-const BAR_MAX_W = 160;
-
-const RANK_STYLES: Record<number, { bg: string; fill: string; border: string; glow: string; rankColor: string; icon: React.ReactNode }> = {
+const PODIUM_CONFIG = {
   0: {
-    bg: "linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(180,83,9,0.03) 100%)",
-    fill: "linear-gradient(to top, rgba(251,191,36,0.35) 0%, rgba(217,119,6,0.15) 60%, transparent 100%)",
+    bg: "radial-gradient(ellipse at top, rgba(251,191,36,0.25) 0%, rgba(217,119,6,0.12) 50%, transparent 100%), linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(180,83,9,0.1) 100%)",
     border: "rgba(251,191,36,0.45)",
     glow: `0 0 40px rgba(251,191,36,0.3), ${shadows.xl}`,
     rankColor: colors.gold,
-    icon: <Trophy size={24} strokeWidth={1.5} />,
+    icon: <Trophy size={32} strokeWidth={1.5} />,
+    height: 220,
+    width: 200,
+    nameSize: 17,
+    countSize: 36,
+    stagger: "stagger-2",
+    label: "1st Place",
+    order: 1,
   },
   1: {
-    bg: "linear-gradient(135deg, rgba(209,213,219,0.05) 0%, rgba(107,114,128,0.03) 100%)",
-    fill: "linear-gradient(to top, rgba(209,213,219,0.3) 0%, rgba(156,163,175,0.1) 60%, transparent 100%)",
+    bg: "radial-gradient(ellipse at top, rgba(209,213,219,0.18) 0%, rgba(156,163,175,0.08) 50%, transparent 100%), linear-gradient(135deg, rgba(209,213,219,0.12) 0%, rgba(107,114,128,0.08) 100%)",
     border: "rgba(209,213,219,0.35)",
     glow: `0 0 24px rgba(209,213,219,0.2), ${shadows.lg}`,
     rankColor: colors.silver,
-    icon: <Medal size={22} strokeWidth={1.5} />,
+    icon: <Medal size={28} strokeWidth={1.5} />,
+    height: 180,
+    width: 175,
+    nameSize: 15,
+    countSize: 28,
+    stagger: "stagger-1",
+    label: "2nd Place",
+    order: 0,
   },
   2: {
-    bg: "linear-gradient(135deg, rgba(217,119,6,0.05) 0%, rgba(146,64,14,0.03) 100%)",
-    fill: "linear-gradient(to top, rgba(217,119,6,0.3) 0%, rgba(180,83,9,0.12) 60%, transparent 100%)",
+    bg: "radial-gradient(ellipse at top, rgba(217,119,6,0.2) 0%, rgba(180,83,9,0.1) 50%, transparent 100%), linear-gradient(135deg, rgba(217,119,6,0.12) 0%, rgba(146,64,14,0.08) 100%)",
     border: "rgba(217,119,6,0.4)",
     glow: `0 0 24px rgba(217,119,6,0.25), ${shadows.lg}`,
     rankColor: colors.bronze,
-    icon: <Award size={20} strokeWidth={1.5} />,
+    icon: <Award size={26} strokeWidth={1.5} />,
+    height: 160,
+    width: 165,
+    nameSize: 14,
+    countSize: 26,
+    stagger: "stagger-3",
+    label: "3rd Place",
+    order: 2,
   },
-};
+} as const;
 
-const GHOST_STYLE = {
-  bg: "linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(100,116,139,0.02) 100%)",
-  fill: "none",
-  border: "rgba(148,163,184,0.15)",
-  glow: "none",
-  rankColor: colors.textMuted,
-  icon: null,
-};
+/* ── PodiumCard ───────────────────────────────────────────────── */
 
-const DEFAULT_BAR_STYLE = {
-  bg: "linear-gradient(135deg, rgba(20,184,166,0.06) 0%, rgba(13,148,136,0.03) 100%)",
-  fill: "linear-gradient(to top, rgba(20,184,166,0.25) 0%, rgba(13,148,136,0.08) 60%, transparent 100%)",
-  border: "rgba(20,184,166,0.3)",
-  glow: shadows.md,
-  rankColor: colors.textSecondary,
-  icon: null,
-};
-
-/** Arrange sorted items center-out: 1st->center, 2nd->left, 3rd->right, 4th->further left... */
-function buildRaceOrder(count: number): number[] {
-  if (count === 0) return [];
-  const result = new Array<number>(count);
-  const positions: number[] = [];
-  const center = Math.floor(count / 2);
-  positions.push(center);
-  for (let offset = 1; positions.length < count; offset++) {
-    if (center - offset >= 0) positions.push(center - offset);
-    if (positions.length < count && center + offset < count) positions.push(center + offset);
-  }
-  for (let i = 0; i < count; i++) {
-    result[i] = positions[i];
-  }
-  return result;
-}
-
-/* ── RaceBar ──────────────────────────────────────────────────── */
-
-function RaceBar({
+function PodiumCard({
   rank,
   name,
   count,
   premium,
-  fillPercent,
-  order,
-  hasMedal,
-  highlighted,
 }: {
-  rank: number;
+  rank: 0 | 1 | 2;
   name: string;
   count: number;
   premium: number;
-  fillPercent: number;
-  order: number;
-  hasMedal: boolean;
-  highlighted?: boolean;
 }) {
-  const noSales = count === 0;
-  const style = noSales
-    ? GHOST_STYLE
-    : hasMedal
-      ? (RANK_STYLES[rank] ?? DEFAULT_BAR_STYLE)
-      : DEFAULT_BAR_STYLE;
-  const isTop3 = hasMedal && rank < 3;
+  const cfg = PODIUM_CONFIG[rank];
 
   return (
     <div
-      className={`animate-podium-rise stagger-${Math.min(rank + 1, 10)}`}
+      className={`animate-podium-rise ${cfg.stagger}`}
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "flex-end",
-        order,
-        flex: `1 1 0`,
-        minWidth: BAR_MIN_W,
-        maxWidth: BAR_MAX_W,
+        order: cfg.order,
       }}
     >
-      {/* Medal or rank label above bar */}
-      {isTop3 && style.icon ? (
-        <div
-          style={{
-            color: style.rankColor,
-            marginBottom: 6,
-            filter: `drop-shadow(0 2px 6px ${style.rankColor}60)`,
-          }}
-        >
-          {style.icon}
-        </div>
-      ) : (
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: radius.full,
-            background: noSales ? "transparent" : colors.bgSurfaceOverlay,
-            border: `1px solid ${noSales ? colors.borderSubtle : colors.borderDefault}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 10,
-            fontWeight: 700,
-            color: colors.textMuted,
-            marginBottom: 6,
-            opacity: noSales ? 0.5 : 1,
-          }}
-        >
-          {rank + 1}
-        </div>
-      )}
-
-      {/* Bar column — always full height, fill grows from bottom */}
+      {/* Rank label above card */}
       <div
         style={{
-          width: "100%",
-          height: BAR_HEIGHT,
-          borderRadius: `${radius.xl}px ${radius.xl}px 0 0`,
-          background: style.bg,
-          border: `1.5px solid ${style.border}`,
+          fontSize: 10,
+          fontWeight: 700,
+          color: cfg.rankColor,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: 8,
+          opacity: 0.8,
+        }}
+      >
+        {cfg.label}
+      </div>
+
+      {/* Podium column */}
+      <div
+        style={{
+          width: cfg.width,
+          height: cfg.height,
+          borderRadius: `${radius["2xl"]}px ${radius["2xl"]}px 0 0`,
+          background: cfg.bg,
+          border: `1.5px solid ${cfg.border}`,
           borderBottom: "none",
-          boxShadow: noSales ? "none" : style.glow,
+          boxShadow: cfg.glow,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "flex-end",
+          justifyContent: "center",
+          padding: `${spacing[5]}px ${spacing[4]}px`,
           position: "relative",
-          backdropFilter: noSales ? undefined : "blur(8px)",
-          transition: "box-shadow 1.5s ease-out, border-color 0.6s ease",
-          ...(highlighted ? HIGHLIGHT_GLOW : {}),
+          overflow: "hidden",
+          backdropFilter: "blur(8px)",
         }}
       >
-        {/* Fill overlay — grows from bottom */}
-        {fillPercent > 0 && style.fill !== "none" && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: `${fillPercent}%`,
-              background: style.fill,
-              borderRadius: fillPercent >= 98 ? `${radius.xl}px ${radius.xl}px 0 0` : undefined,
-              transition: "height 1s cubic-bezier(0.4,0,0.2,1)",
-              pointerEvents: "none",
-            }}
-          />
-        )}
+        {/* Subtle top highlight */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "10%",
+            right: "10%",
+            height: 1,
+            background: `linear-gradient(90deg, transparent, ${cfg.border}, transparent)`,
+            pointerEvents: "none",
+          }}
+        />
 
-        {/* Top highlight */}
-        {!noSales && (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: "10%",
-              right: "10%",
-              height: 1,
-              background: `linear-gradient(90deg, transparent, ${style.border}, transparent)`,
-              pointerEvents: "none",
-            }}
-          />
-        )}
-
-        {/* Content — always at bottom of bar */}
-        <div style={{ position: "relative", zIndex: 1, padding: `${spacing[3]}px ${spacing[1]}px ${spacing[4]}px`, textAlign: "center", width: "100%" }}>
-          {/* Agent name */}
-          <div
-            style={{
-              fontSize: isTop3 ? 13 : 11,
-              fontWeight: 700,
-              color: noSales ? colors.textMuted : colors.textPrimary,
-              lineHeight: 1.2,
-              marginBottom: spacing[1],
-              letterSpacing: "-0.01em",
-              wordBreak: "break-word",
-              opacity: noSales ? 0.6 : 1,
-            }}
-          >
-            {name}
-          </div>
-
-          {/* Sales count */}
-          <div
-            style={{
-              fontSize: isTop3 ? 26 : 20,
-              fontWeight: 800,
-              color: noSales ? colors.textMuted : (isTop3 ? style.rankColor : colors.textPrimary),
-              lineHeight: 1,
-              letterSpacing: "-0.03em",
-              marginBottom: 2,
-              opacity: noSales ? 0.4 : 1,
-            }}
-          >
-            <AnimatedNumber value={count} />
-          </div>
-
-          {/* Premium */}
-          <div style={{ fontSize: 10, fontWeight: 600, color: colors.textTertiary, opacity: noSales ? 0.4 : 1 }}>
-            <AnimatedNumber value={premium} prefix="$" decimals={2} />
-          </div>
+        {/* Icon */}
+        <div
+          style={{
+            color: cfg.rankColor,
+            marginBottom: spacing[2],
+            filter: `drop-shadow(0 2px 8px ${cfg.rankColor}60)`,
+          }}
+        >
+          {cfg.icon}
         </div>
+
+        {/* Agent name */}
+        <div
+          style={{
+            fontSize: cfg.nameSize,
+            fontWeight: 700,
+            color: colors.textPrimary,
+            textAlign: "center",
+            lineHeight: 1.2,
+            marginBottom: spacing[2],
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {name}
+        </div>
+
+        {/* Sales count */}
+        <div
+          style={{
+            fontSize: cfg.countSize,
+            fontWeight: 800,
+            color: cfg.rankColor,
+            lineHeight: 1,
+            letterSpacing: "-0.03em",
+            marginBottom: 4,
+          }}
+        >
+          <AnimatedNumber value={count} />
+        </div>
+
+        {/* Premium */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary }}>
+          <AnimatedNumber value={premium} prefix="$" decimals={2} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Podium base platform ─────────────────────────────────────── */
+
+function PodiumPlatform() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        gap: 0,
+        height: 48,
+        marginTop: -1,
+      }}
+    >
+      {/* 2nd */}
+      <div
+        style={{
+          width: 175,
+          height: 32,
+          background: "rgba(209,213,219,0.06)",
+          border: "1px solid rgba(209,213,219,0.15)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.silver, opacity: 0.6 }}>2</span>
+      </div>
+      {/* 1st */}
+      <div
+        style={{
+          width: 200,
+          height: 48,
+          background: "rgba(251,191,36,0.06)",
+          border: "1px solid rgba(251,191,36,0.2)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.gold, opacity: 0.7 }}>1</span>
+      </div>
+      {/* 3rd */}
+      <div
+        style={{
+          width: 165,
+          height: 20,
+          background: "rgba(217,119,6,0.06)",
+          border: "1px solid rgba(217,119,6,0.15)",
+          borderBottom: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.bronze, opacity: 0.6 }}>3</span>
       </div>
     </div>
   );
@@ -285,33 +279,36 @@ function RaceBar({
 
 /* ── DailyView ────────────────────────────────────────────────── */
 
-function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highlightedAgentNames: Set<string> }) {
+function DailyView({ data }: { data: DetailedData }) {
   const [lbMode, setLbMode] = useState<"day" | "week">("day");
   const { agents, todayStats, weeklyTotals } = data;
 
   const stats = lbMode === "day" ? todayStats : weeklyTotals;
 
-  // Sort all agents by premium (descending) for the race
-  const sorted = [...agents].sort(
-    (a, b) => (stats[b]?.premium ?? 0) - (stats[a]?.premium ?? 0)
-  );
-
-  const maxPremium = Math.max(...sorted.map((a) => stats[a]?.premium ?? 0), 0);
-  const orders = buildRaceOrder(sorted.length);
-
-  // Only award medals when there are clear leaders with actual sales
-  const agentsWithSales = sorted.filter(a => (todayStats[a]?.count ?? 0) > 0).length;
-  const showMedals = agentsWithSales >= 1;
+  const sorted = [...agents].sort((a, b) => {
+    const aPrem = stats[a]?.premium ?? 0;
+    const bPrem = stats[b]?.premium ?? 0;
+    // Agents with sales sort by premium desc; agents without sales sort alphabetically
+    if (aPrem > 0 && bPrem > 0) return bPrem - aPrem;
+    if (aPrem > 0) return -1;
+    if (bPrem > 0) return 1;
+    return a.localeCompare(b);
+  });
+  const top3 = sorted
+    .slice(0, 3)
+    .map((a) => ({ name: a, count: stats[a]?.count ?? 0, premium: stats[a]?.premium ?? 0 }));
+  const rest = sorted.slice(3);
 
   return (
     <div className="animate-fade-in">
-      {sorted.length > 0 ? (
-        <>
-          {/* Race header */}
+      {/* Podium section */}
+      {top3.length > 0 && (
+        <div style={{ marginBottom: spacing[6] }}>
+          {/* Podium stage header */}
           <div
             style={{
               textAlign: "center",
-              marginBottom: spacing[6],
+              marginBottom: spacing[4],
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -320,7 +317,7 @@ function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highli
           >
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to right, transparent, ${colors.borderDefault})` }} />
             <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-              <Crown size={14} color={showMedals ? colors.gold : colors.textMuted} />
+              <Crown size={14} color={colors.gold} />
               <span
                 style={{
                   fontSize: 11,
@@ -330,15 +327,15 @@ function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highli
                   textTransform: "uppercase",
                 }}
               >
-                Leaderboard
+                Top Performers
               </span>
-              <Crown size={14} color={showMedals ? colors.gold : colors.textMuted} />
+              <Crown size={14} color={colors.gold} />
             </div>
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${colors.borderDefault})` }} />
           </div>
 
           {/* Day / Week toggle */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: spacing[5] }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: spacing[4] }}>
             {(["day", "week"] as const).map(m => (
               <button
                 key={m}
@@ -356,52 +353,188 @@ function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highli
             ))}
           </div>
 
-          {/* Race bars container — flex fills screen width */}
+          {/* Podium cards */}
           <div
             style={{
               display: "flex",
               justifyContent: "center",
               alignItems: "flex-end",
-              gap: spacing[2],
-              overflowX: "auto",
-              paddingBottom: spacing[4],
-              paddingTop: spacing[4],
-              width: "100%",
+              gap: 0,
             }}
           >
-            {sorted.map((agent, i) => {
-              const stat = stats[agent];
-              const premium = stat?.premium ?? 0;
-              const count = stat?.count ?? 0;
-              const fillPercent = maxPremium > 0 ? Math.max((premium / maxPremium) * 100, count > 0 ? 10 : 0) : 0;
-              const hasMedal = showMedals && count > 0;
+            {top3.map((a, i) => (
+              <PodiumCard
+                key={a.name}
+                rank={i as 0 | 1 | 2}
+                name={a.name}
+                count={a.count}
+                premium={a.premium}
+              />
+            ))}
+          </div>
 
+          {/* Platform base */}
+          <PodiumPlatform />
+        </div>
+      )}
+
+      {/* Remaining agents grid */}
+      {rest.length > 0 && (
+        <>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: colors.textMuted,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: spacing[4],
+            }}
+          >
+            All Agents
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: spacing[4],
+            }}
+          >
+            {rest.map((agent, i) => {
+              const todayStat = todayStats[agent];
+              const weekStat = weeklyTotals[agent];
+              const staggerClass = `stagger-${Math.min(i + 1, 10)}` as string;
               return (
-                <RaceBar
+                <div
                   key={agent}
-                  rank={i}
-                  name={agent}
-                  count={count}
-                  premium={premium}
-                  fillPercent={fillPercent}
-                  order={orders[i]}
-                  hasMedal={hasMedal}
-                  highlighted={highlightedAgentNames.has(agent)}
-                />
+                  className={`animate-fade-in-up hover-lift ${staggerClass}`}
+                  style={{
+                    ...baseCardStyle,
+                    padding: `${spacing[5]}px ${spacing[6]}px`,
+                    position: "relative",
+                  }}
+                >
+                  {/* Rank badge */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: spacing[4],
+                      right: spacing[4],
+                      width: 28,
+                      height: 28,
+                      borderRadius: radius.full,
+                      background: colors.bgSurfaceOverlay,
+                      border: `1px solid ${colors.borderDefault}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: colors.textMuted,
+                    }}
+                  >
+                    {i + 4}
+                  </div>
+
+                  {/* Agent name */}
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: colors.textPrimary,
+                      marginBottom: spacing[4],
+                      paddingRight: spacing[10],
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {agent}
+                  </div>
+
+                  {/* Stats grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[3] }}>
+                    {/* Today */}
+                    <div
+                      style={{
+                        padding: `${spacing[3]}px`,
+                        background: colors.successBg,
+                        borderRadius: radius.lg,
+                        border: `1px solid rgba(52,211,153,0.12)`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: colors.success,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Today
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: todayStat?.count ? colors.success : colors.borderStrong,
+                          lineHeight: 1,
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        <AnimatedNumber value={todayStat?.count ?? 0} />
+                      </div>
+                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
+                        <AnimatedNumber value={todayStat?.premium ?? 0} prefix="$" decimals={2} />
+                      </div>
+                    </div>
+
+                    {/* Week */}
+                    <div
+                      style={{
+                        padding: `${spacing[3]}px`,
+                        background: colors.infoBg,
+                        borderRadius: radius.lg,
+                        border: `1px solid rgba(45,212,191,0.12)`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: colors.info,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Week
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: weekStat?.count ? colors.info : colors.borderStrong,
+                          lineHeight: 1,
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        <AnimatedNumber value={weekStat?.count ?? 0} />
+                      </div>
+                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
+                        <AnimatedNumber value={weekStat?.premium ?? 0} prefix="$" decimals={2} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
-
-          {/* Base line */}
-          <div
-            style={{
-              height: 2,
-              background: `linear-gradient(90deg, transparent, ${colors.borderDefault}, transparent)`,
-              marginTop: -1,
-            }}
-          />
         </>
-      ) : (
+      )}
+
+      {/* Empty state if no agents at all */}
+      {top3.length === 0 && rest.length === 0 && (
         <EmptyState
           icon={<Users size={32} />}
           title="No Agents Yet"
@@ -414,14 +547,19 @@ function DailyView({ data, highlightedAgentNames }: { data: DetailedData; highli
 
 /* ── WeeklyView ───────────────────────────────────────────────── */
 
-function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highlightedAgentNames: Set<string> }) {
+function WeeklyView({ data }: { data: DetailedData }) {
   const { agents, weeklyDays, weeklyTotals, grandTotalSales, grandTotalPremium } = data;
   const dayMap: Record<string, DayRow> = {};
   for (const d of weeklyDays) dayMap[d.label] = d;
 
-  const sorted = [...agents].sort(
-    (a, b) => (weeklyTotals[b]?.count ?? 0) - (weeklyTotals[a]?.count ?? 0)
-  );
+  const sorted = [...agents].sort((a, b) => {
+    const aPrem = weeklyTotals[a]?.premium ?? 0;
+    const bPrem = weeklyTotals[b]?.premium ?? 0;
+    if (aPrem > 0 && bPrem > 0) return bPrem - aPrem;
+    if (aPrem > 0) return -1;
+    if (bPrem > 0) return 1;
+    return a.localeCompare(b);
+  });
 
   const TH: React.CSSProperties = {
     padding: "14px 16px",
@@ -439,16 +577,6 @@ function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highl
     zIndex: 2,
     whiteSpace: "nowrap" as const,
   };
-
-  if (sorted.length === 0) {
-    return (
-      <EmptyState
-        icon={<Users size={32} />}
-        title="No Agents Yet"
-        description="Add agents in the Manager Dashboard to start tracking the leaderboard."
-      />
-    );
-  }
 
   return (
     <div
@@ -492,8 +620,6 @@ function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highl
                     : i % 2 === 0
                     ? `rgba(12,16,33,0.4)`
                     : "transparent",
-                  transition: "box-shadow 1.5s ease-out",
-                  ...(highlightedAgentNames.has(agent) ? HIGHLIGHT_GLOW : {}),
                 }}
               >
                 {/* Agent name cell */}
@@ -564,7 +690,7 @@ function WeeklyView({ data, highlightedAgentNames }: { data: DetailedData; highl
                             <AnimatedNumber value={stat.count} />
                           </div>
                           <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>
-                            {formatDollar(stat.premium)}
+                            {fmt$(stat.premium)}
                           </div>
                         </>
                       ) : (
@@ -730,102 +856,25 @@ export default function SalesBoard() {
   const [view, setView] = useState<"daily" | "weekly">("daily");
   const [data, setData] = useState<DetailedData | null>(null);
   const [lastUpdated, setLastUpdated] = useState("\u2014");
-  const [highlightedAgentNames, setHighlightedAgentNames] = useState<Set<string>>(new Set());
-
-  const highlightAgent = useCallback((name: string) => {
-    setHighlightedAgentNames(prev => new Set(prev).add(name));
-    setTimeout(() => {
-      setHighlightedAgentNames(prev => { const next = new Set(prev); next.delete(name); return next; });
-    }, 100);
-  }, []);
+  const [tick, setTick] = useState(INTERVAL / 1000);
 
   async function refresh() {
-    try {
-      const res = await fetch(`${API}/api/sales-board/detailed`);
-      if (res?.ok) {
-        const json: DetailedData = await res.json();
-        // Merge in any agent names that appear in sales data but are not in the
-        // active-agents list (e.g. inactive agents who still have sales this week).
-        const salesAgents = new Set<string>([
-          ...Object.keys(json.weeklyTotals),
-          ...Object.keys(json.todayStats),
-        ]);
-        for (const name of salesAgents) {
-          if (!json.agents.includes(name)) {
-            json.agents.push(name);
-          }
-        }
-        setData(json);
-        setLastUpdated(new Date().toLocaleTimeString());
-      } else {
-        console.error("[SalesBoard] fetch failed:", res?.status, res?.statusText);
-      }
-    } catch (err) {
-      console.error("[SalesBoard] fetch error:", err);
+    const res = await fetch(`${API}/api/sales-board/detailed`).catch(() => null);
+    if (res?.ok) {
+      setData(await res.json());
+      setLastUpdated(new Date().toLocaleTimeString());
     }
+    setTick(INTERVAL / 1000);
   }
-
-  /* ── Real-time sale:changed handler -- incremental state patching ── */
-  const handleSaleChanged = useCallback((payload: SaleChangedPayload) => {
-    // Only RAN sales appear on the board
-    if (payload.sale.status !== "RAN") return;
-    // Only cascade on created / status_changed (per CONTEXT.md scope)
-    if (payload.type !== "created" && payload.type !== "status_changed") return;
-
-    const agentName = payload.sale.agent.name;
-    highlightAgent(agentName);
-    setLastUpdated(new Date().toLocaleTimeString());
-
-    // Patch leaderboard state directly from payload -- NO API refetch
-    setData(prev => {
-      if (!prev) return prev;
-
-      const premium = payload.sale.premium + (payload.sale.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
-
-      // Patch todayStats
-      const todayStats = { ...prev.todayStats };
-      const existing = todayStats[agentName] ?? { count: 0, premium: 0 };
-      todayStats[agentName] = { count: existing.count + 1, premium: existing.premium + premium };
-
-      // Patch weeklyTotals
-      const weeklyTotals = { ...prev.weeklyTotals };
-      const wt = weeklyTotals[agentName] ?? { count: 0, premium: 0 };
-      weeklyTotals[agentName] = { count: wt.count + 1, premium: wt.premium + premium };
-
-      // Patch weeklyDays: find today's day label and increment
-      const saleDate = new Date(payload.sale.saleDate + "T12:00:00");
-      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      const todayLabel = dayNames[saleDate.getDay()];
-      const weeklyDays = prev.weeklyDays.map(day => {
-        if (day.label !== todayLabel) return day;
-        const agents = { ...day.agents };
-        const ds = agents[agentName] ?? { count: 0, premium: 0 };
-        agents[agentName] = { count: ds.count + 1, premium: ds.premium + premium };
-        return { ...day, agents, totalSales: day.totalSales + 1, totalPremium: day.totalPremium + premium };
-      });
-
-      // Add agent to list if not present
-      const agents = prev.agents.includes(agentName) ? prev.agents : [...prev.agents, agentName];
-
-      // Re-sort agents by weekly premium descending
-      agents.sort((a, b) => (weeklyTotals[b]?.premium ?? 0) - (weeklyTotals[a]?.premium ?? 0));
-
-      return {
-        ...prev,
-        agents,
-        todayStats,
-        weeklyTotals,
-        weeklyDays,
-        grandTotalSales: prev.grandTotalSales + 1,
-        grandTotalPremium: prev.grandTotalPremium + premium,
-      };
-    });
-  }, [highlightAgent]);
-
-  const { disconnected } = useSocket(API, handleSaleChanged, refresh);
 
   useEffect(() => {
     refresh();
+    const poll = setInterval(refresh, INTERVAL);
+    const cd = setInterval(() => setTick((t) => Math.max(0, t - 1)), 1000);
+    return () => {
+      clearInterval(poll);
+      clearInterval(cd);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -836,6 +885,9 @@ export default function SalesBoard() {
   const totalPremToday = data
     ? Object.values(data.todayStats).reduce((s, v) => s + v.premium, 0)
     : 0;
+
+  /* Progress ring: tick out of 30s */
+  const ringProgress = (tick / (INTERVAL / 1000)) * 100;
 
   return (
     <main
@@ -856,15 +908,14 @@ export default function SalesBoard() {
           marginBottom: 0,
         }}
       />
-      {disconnected && <div style={DISCONNECT_BANNER}>Connection lost. Reconnecting...</div>}
 
       {/* ── Hero Header ─────────────────────────────────────────── */}
       <div
         className="animate-fade-in-down"
         style={{
-          padding: `${spacing[8]}px 0 ${spacing[6]}px`,
+          padding: `${spacing[4]}px 0 ${spacing[3]}px`,
           borderBottom: `1px solid ${colors.borderSubtle}`,
-          marginBottom: spacing[6],
+          marginBottom: spacing[3],
         }}
       >
         <div
@@ -877,18 +928,6 @@ export default function SalesBoard() {
         >
           {/* Title block */}
           <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: colors.primary400,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                marginBottom: spacing[2],
-              }}
-            >
-              Live Leaderboard
-            </div>
             <h1
               style={{
                 margin: 0,
@@ -899,7 +938,7 @@ export default function SalesBoard() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Sales Arena
+              Sales Board
             </h1>
           </div>
 
@@ -931,10 +970,34 @@ export default function SalesBoard() {
               </Badge>
             </div>
 
-            {/* Real-time status */}
-            <span style={{ fontSize: 11, color: colors.textMuted }}>
-              Updated {lastUpdated}
-            </span>
+            {/* Countdown ring */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: spacing[2],
+              }}
+            >
+              <ProgressRing
+                progress={ringProgress}
+                size={28}
+                strokeWidth={2.5}
+                color="#22c55e"
+              />
+              <span
+                style={{
+                  fontSize: 11,
+                  color: colors.textMuted,
+                  fontWeight: 600,
+                  minWidth: 48,
+                }}
+              >
+                {tick}s
+              </span>
+              <span style={{ fontSize: 11, color: colors.textMuted }}>
+                Updated {lastUpdated}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -944,8 +1007,8 @@ export default function SalesBoard() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
-            gap: spacing[4],
-            marginTop: spacing[6],
+            gap: spacing[3],
+            marginTop: spacing[3],
           }}
         >
           {/* Today's Sales */}
@@ -1155,7 +1218,7 @@ export default function SalesBoard() {
       </div>
 
       {/* ── View Toggle ──────────────────────────────────────────── */}
-      <div className="animate-fade-in stagger-3" style={{ marginBottom: spacing[6] }}>
+      <div className="animate-fade-in stagger-3" style={{ marginBottom: spacing[3] }}>
         <TabNav
           tabs={[
             { key: "daily", label: "Leaderboard", icon: <Users size={14} /> },
@@ -1169,10 +1232,23 @@ export default function SalesBoard() {
       {/* ── Content area ─────────────────────────────────────────── */}
       {!data ? (
         <LoadingSkeleton />
+      ) : data.agents.length === 0 ? (
+        <div
+          style={{
+            ...baseCardStyle,
+            padding: `${spacing[16]}px ${spacing[8]}px`,
+          }}
+        >
+          <EmptyState
+            icon={<Users size={32} />}
+            title="No Agents Yet"
+            description="Add agents in the Manager Dashboard to start tracking the leaderboard."
+          />
+        </div>
       ) : view === "weekly" ? (
-        <WeeklyView key="weekly" data={data} highlightedAgentNames={highlightedAgentNames} />
+        <WeeklyView key="weekly" data={data} />
       ) : (
-        <DailyView key="daily" data={data} highlightedAgentNames={highlightedAgentNames} />
+        <DailyView key="daily" data={data} />
       )}
     </main>
   );
