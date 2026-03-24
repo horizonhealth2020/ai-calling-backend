@@ -14,7 +14,6 @@ const makeProduct = (overrides: Partial<Product> = {}): Product => ({
   commissionAbove: new Decimal(50),
   bundledCommission: null,
   standaloneCommission: null,
-  isBundleQualifier: false,
   enrollFeeThreshold: null,
   requiredBundleAddonId: null,
   fallbackBundleAddonId: null,
@@ -75,8 +74,9 @@ const makeSale = (overrides: Partial<SaleWithProduct> = {}): SaleWithProduct => 
 } as SaleWithProduct);
 
 // --- Commission Engine Tests ---
-// Note: isBundleQualifier addons (Compass VAB) fold into bundlePremium per commit 3e3e6bc.
-// bundlePremium = core premium + addon premiums where (bundledCommission === null || isBundleQualifier).
+// Addons with bundledCommission === null fold into bundlePremium and earn the core rate.
+// Addons with bundledCommission set earn their own rate separately.
+// Bundle halving is controlled by BundleRequirement config (state-aware), not a legacy flag.
 
 describe('calculateCommission', () => {
 
@@ -94,7 +94,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 100 + 10 = 110, rate = 50% (110 >= 50), commission = 55.00
@@ -103,10 +103,10 @@ describe('calculateCommission', () => {
   });
 
   // =============================================
-  // COMM-02: Core without Compass VAB = half rate
+  // COMM-02: Core without addon — no halving unless bundleCtx says to
   // =============================================
-  describe('COMM-02: Core without Compass VAB earns half commission rate', () => {
-    it('core (premium=100, commissionAbove=50%, threshold=50) alone = 25.00 (halved)', () => {
+  describe('COMM-02: Core without addon — halving controlled by bundle requirement config', () => {
+    it('core alone with no bundle requirement configured = full commission (no halving)', () => {
       const sale = makeSale({
         premium: new Decimal(100),
         product: makeProduct({
@@ -117,24 +117,53 @@ describe('calculateCommission', () => {
         }),
         addons: [],
       });
-      // 100 * 50% = 50, halved = 25
-      expect(calculateCommission(sale).commission).toBe(25.00);
+      // 100 * 50% = 50, no bundleCtx = no halving
+      expect(calculateCommission(sale).commission).toBe(50.00);
     });
 
-    it('commissionApproved=true bypasses halving, commission = 50.00', () => {
+    it('core alone with bundleCtx indicating missing addon = halved', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        memberState: 'TX',
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+          requiredBundleAddonId: 'addon-vab',
+        }),
+        addons: [],
+      });
+      const bundleCtx = {
+        requiredAddonAvailable: false,
+        fallbackAddonAvailable: false,
+        halvingReason: 'Half commission - Compass VAB not bundled (TX)',
+      };
+      // 100 * 50% = 50, halved = 25
+      expect(calculateCommission(sale, bundleCtx).commission).toBe(25.00);
+    });
+
+    it('commissionApproved=true bypasses halving even with bundleCtx', () => {
       const sale = makeSale({
         premium: new Decimal(100),
         commissionApproved: true,
+        memberState: 'TX',
         product: makeProduct({
           type: 'CORE',
           commissionAbove: new Decimal(50),
           commissionBelow: new Decimal(25),
           premiumThreshold: new Decimal(50),
+          requiredBundleAddonId: 'addon-vab',
         }),
         addons: [],
       });
+      const bundleCtx = {
+        requiredAddonAvailable: false,
+        fallbackAddonAvailable: false,
+        halvingReason: 'Half commission - Compass VAB not bundled (TX)',
+      };
       // 100 * 50% = 50, no halving because commissionApproved=true
-      expect(calculateCommission(sale).commission).toBe(50.00);
+      expect(calculateCommission(sale, bundleCtx).commission).toBe(50.00);
     });
   });
 
@@ -153,7 +182,7 @@ describe('calculateCommission', () => {
         }),
         addons: [
           makeAddon({ type: 'ADDON', name: 'Regular Addon', standaloneCommission: new Decimal(30) }, 60),
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 100 + 60 + 10 = 170 (VAB included), rate = 50% (170 >= 150)
@@ -172,7 +201,7 @@ describe('calculateCommission', () => {
         }),
         addons: [
           makeAddon({ type: 'ADDON', name: 'Regular Addon', standaloneCommission: new Decimal(30) }, 60),
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 100 + 60 + 10 = 170 (VAB included), rate = 25% (170 < 200)
@@ -272,7 +301,7 @@ describe('calculateCommission', () => {
         }),
         addons: [
           makeAddon({ type: 'AD_D', name: 'AD&D Product', bundledCommission: new Decimal(70), standaloneCommission: new Decimal(35) }, 50),
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 100 + 10 = 110, rate = 50% -> 55
@@ -281,7 +310,7 @@ describe('calculateCommission', () => {
       expect(calculateCommission(sale).commission).toBe(90.00);
     });
 
-    it('core + AD&D without Compass VAB -> entire sale halved', () => {
+    it('core + AD&D without bundle requirement configured -> no halving', () => {
       const sale = makeSale({
         premium: new Decimal(100),
         product: makeProduct({
@@ -296,8 +325,32 @@ describe('calculateCommission', () => {
       });
       // core bundle: 100 * 50% = 50
       // AD&D: 50 * 70% = 35
-      // total = 85, halved (no qualifier) = 42.50
-      expect(calculateCommission(sale).commission).toBe(42.50);
+      // total = 85, no bundle requirement configured = no halving
+      expect(calculateCommission(sale).commission).toBe(85.00);
+    });
+
+    it('core + AD&D with bundleCtx missing addon -> entire sale halved', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        memberState: 'TX',
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+          requiredBundleAddonId: 'addon-vab',
+        }),
+        addons: [
+          makeAddon({ type: 'AD_D', name: 'AD&D Product', bundledCommission: new Decimal(70), standaloneCommission: new Decimal(35) }, 50),
+        ],
+      });
+      const bundleCtx = {
+        requiredAddonAvailable: false,
+        fallbackAddonAvailable: false,
+        halvingReason: 'Half commission - Compass VAB not bundled (TX)',
+      };
+      // core bundle: 100 * 50% = 50, AD&D: 50 * 70% = 35, total = 85, halved = 42.50
+      expect(calculateCommission(sale, bundleCtx).commission).toBe(42.50);
     });
   });
 
@@ -315,7 +368,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(0),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 33.33 + 10 = 43.33, rate = 50% -> 21.665 -> rounded to 21.67
@@ -338,7 +391,7 @@ describe('calculateCommission', () => {
         }),
         addons: [
           makeAddon({ type: 'ADDON', name: 'Addon A', standaloneCommission: new Decimal(30) }, 20),
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 100 (core) + 20 (addon A) + 10 (VAB) = 130
@@ -352,7 +405,7 @@ describe('calculateCommission', () => {
   // Compass VAB premium inclusion in bundle total
   // =============================================
   describe('Compass VAB premium in bundle', () => {
-    it('VAB addon premium=15 folds into bundle total (isBundleQualifier)', () => {
+    it('VAB addon premium=15 folds into bundle total (bundledCommission=null)', () => {
       const sale = makeSale({
         premium: new Decimal(100),
         product: makeProduct({
@@ -362,20 +415,42 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 15),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 15),
         ],
       });
-      // bundlePremium = 100 + 15 = 115 (VAB included per 3e3e6bc)
+      // bundlePremium = 100 + 15 = 115 (VAB folds in because bundledCommission=null)
       // commission = 115 * 0.50 = 57.50
       expect(calculateCommission(sale).commission).toBe(57.50);
     });
   });
 
   // =============================================
-  // FL exemption removed
+  // No special state exemptions — halving controlled by bundle requirement config
   // =============================================
-  describe('FL exemption removed', () => {
-    it('memberState=FL with no Compass VAB still gets halved', () => {
+  describe('No state exemptions', () => {
+    it('memberState=FL with bundle requirement and missing addon gets halved', () => {
+      const sale = makeSale({
+        premium: new Decimal(100),
+        memberState: 'FL',
+        product: makeProduct({
+          type: 'CORE',
+          commissionAbove: new Decimal(50),
+          commissionBelow: new Decimal(25),
+          premiumThreshold: new Decimal(50),
+          requiredBundleAddonId: 'addon-vab',
+        }),
+        addons: [],
+      });
+      const bundleCtx = {
+        requiredAddonAvailable: false,
+        fallbackAddonAvailable: false,
+        halvingReason: 'Half commission - Compass VAB not bundled (FL)',
+      };
+      // 100 * 50% = 50, halved = 25
+      expect(calculateCommission(sale, bundleCtx).commission).toBe(25.00);
+    });
+
+    it('memberState=FL with no bundle requirement configured = no halving', () => {
       const sale = makeSale({
         premium: new Decimal(100),
         memberState: 'FL',
@@ -387,8 +462,8 @@ describe('calculateCommission', () => {
         }),
         addons: [],
       });
-      // 100 * 50% = 50, halved = 25 (FL is NOT exempt)
-      expect(calculateCommission(sale).commission).toBe(25.00);
+      // No bundleCtx = no halving
+      expect(calculateCommission(sale).commission).toBe(50.00);
     });
   });
 
@@ -407,7 +482,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, enrollmentFee 80 < 99 threshold -> halved = 27.50
@@ -425,7 +500,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, enrollmentFee 99 >= 99 threshold -> NOT halved = 55
@@ -444,7 +519,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, enrollmentFee 50 < 99 but commissionApproved -> NOT halved = 55
@@ -518,7 +593,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, null enrollmentFee -> no fee effect = 55
@@ -543,7 +618,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, fee 125 >= 125 -> +$10 bonus, fee >= 99 -> no halving
@@ -562,7 +637,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, fee 150 >= 125 -> +$10 bonus, fee >= 99 -> no halving
@@ -581,7 +656,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, fee 124 < 125 -> no bonus, fee >= 99 -> no halving
@@ -600,7 +675,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110, rate = 50% -> 55, fee 80 < 99 -> halved = 27.50, fee < 125 -> no bonus
@@ -642,7 +717,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 110 >= 50 threshold, commissionAbove is null -> rate=0 -> commission=0
@@ -659,7 +734,7 @@ describe('calculateCommission', () => {
         }),
         addons: [
           makeAddon({ type: 'AD_D', name: 'AD&D', bundledCommission: null, standaloneCommission: new Decimal(35) }, 50),
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       // bundlePremium = 100 + 10 = 110, rate = 50% -> 55, AD&D: null bundledCommission -> 0
@@ -681,7 +756,7 @@ describe('calculateCommission', () => {
           premiumThreshold: new Decimal(50),
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB',  }, 10),
         ],
       });
       const result = calculateCommission(sale);
@@ -708,7 +783,7 @@ describe('calculateCommission', () => {
           requiredBundleAddonId: 'addon-vab',
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Compass VAB', id: 'addon-vab', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Compass VAB', id: 'addon-vab',  }, 10),
         ],
       });
       // bundleCtx says required addon is available, bundlePremium = 110, rate = 50% -> 55
@@ -756,7 +831,7 @@ describe('calculateCommission', () => {
           fallbackBundleAddonId: 'addon-better',
         }),
         addons: [
-          makeAddon({ type: 'ADDON', name: 'Better Addon', id: 'addon-better', isBundleQualifier: true }, 10),
+          makeAddon({ type: 'ADDON', name: 'Better Addon', id: 'addon-better',  }, 10),
         ],
       });
       // bundleCtx says fallback is available, bundlePremium = 110, rate = 50% -> 55
@@ -793,8 +868,7 @@ describe('calculateCommission', () => {
       expect(result.halvingReason).toBeNull();
     });
 
-    it('null bundleCtx uses legacy qualifierExists path', () => {
-      // This is exactly the legacy behavior - no bundleCtx means legacy path
+    it('null bundleCtx means no bundle requirement — no halving', () => {
       const sale = makeSale({
         premium: new Decimal(100),
         product: makeProduct({
@@ -805,9 +879,9 @@ describe('calculateCommission', () => {
         }),
         addons: [],
       });
-      // No bundleCtx (undefined) -> legacy path, no qualifier -> halved
+      // No bundleCtx (undefined) -> no bundle requirement configured -> no halving
       const result = calculateCommission(sale);
-      expect(result.commission).toBe(25.00);
+      expect(result.commission).toBe(50.00);
       expect(result.halvingReason).toBeNull();
     });
   });

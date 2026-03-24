@@ -16,7 +16,6 @@ const makeProduct = (overrides: Partial<Product> = {}): Product => ({
   commissionAbove: new Decimal(50),
   bundledCommission: null,
   standaloneCommission: null,
-  isBundleQualifier: false,
   enrollFeeThreshold: null,
   requiredBundleAddonId: null,
   fallbackBundleAddonId: null,
@@ -108,7 +107,7 @@ describe('Status-based commission gating', () => {
         status: 'DECLINED' as any,
         premium: new Decimal(200),
         product: makeProduct({ commissionAbove: new Decimal(100) }),
-        addons: [makeAddon({ isBundleQualifier: true, name: 'Compass VAB' })],
+        addons: [makeAddon({ name: 'Compass VAB' })],
       });
       expect(calculateCommission(sale).commission).toBeGreaterThan(0); // proves calc would give commission
       expect(gatedCommission(sale)).toBe(0); // but gating blocks it
@@ -119,7 +118,7 @@ describe('Status-based commission gating', () => {
         status: 'RAN' as any,
         premium: new Decimal(200),
         product: makeProduct({ commissionAbove: new Decimal(100) }),
-        addons: [makeAddon({ isBundleQualifier: true, name: 'Compass VAB' })],
+        addons: [makeAddon({ name: 'Compass VAB' })],
       });
       expect(gatedCommission(sale)).toBeGreaterThan(0);
     });
@@ -129,7 +128,7 @@ describe('Status-based commission gating', () => {
         status: 'DEAD' as any,
         premium: new Decimal(500),
         product: makeProduct({ commissionAbove: new Decimal(200) }),
-        addons: [makeAddon({ isBundleQualifier: true, name: 'Compass VAB' })],
+        addons: [makeAddon({ name: 'Compass VAB' })],
       });
       expect(gatedCommission(sale)).toBe(0);
     });

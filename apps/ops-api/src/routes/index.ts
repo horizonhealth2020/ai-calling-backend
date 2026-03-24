@@ -535,7 +535,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     })),
   } as any;
 
-  // Resolve state-aware bundle context if applicable
+  // Resolve bundle context if core product has a bundle requirement configured
   const addonProductIds = addonProducts.map(p => p.id);
   const bundleCtx = memberState && product.requiredBundleAddonId
     ? await resolveBundleRequirement(product, memberState, addonProductIds)
@@ -547,8 +547,8 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
   const shiftWeeks = parsed.data.paymentType === "ACH" ? 1 : 0;
   const { weekStart, weekEnd } = getSundayWeekRange(saleDate, shiftWeeks);
 
-  const hasBundleQualifier = [product, ...addonProducts].some(p => p.isBundleQualifier);
   const hasCore = product.type === "CORE" || addonProducts.some(p => p.type === "CORE");
+  const hasBundleRequirement = !!product.requiredBundleAddonId;
 
   res.json({
     commission: result.commission,
@@ -556,7 +556,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     periodStart: weekStart,
     periodEnd: weekEnd,
     breakdown: {
-      hasBundleQualifier,
+      hasBundleRequirement,
       hasCore,
       enrollmentFee: parsed.data.enrollmentFee ?? null,
       paymentType: parsed.data.paymentType,

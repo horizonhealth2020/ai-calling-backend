@@ -38,7 +38,7 @@ type SaleWithProduct = Sale & { product: Product; addons: (SaleAddon & { product
 
 /**
  * Bundle requirement context resolved from ProductStateAvailability data.
- * null means no bundle requirement configured OR memberState is null (use legacy path).
+ * null means no bundle requirement configured on the core product.
  */
 export type BundleRequirementContext = {
   requiredAddonAvailable: boolean;
@@ -88,12 +88,11 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  *
  * When a core product exists:
  *   1. ADDONs with bundledCommission = null: fold premium into bundlePremium, earn core rate.
- *      bundlePremium = core premium + those addon premiums (isBundleQualifier ADDONs excluded).
+ *      bundlePremium = core premium + those addon premiums.
  *      Core rate = commissionAbove if bundlePremium >= premiumThreshold, else commissionBelow.
  *   2. ADDONs with bundledCommission set: calculated separately at their own bundledCommission rate.
- *      isBundleQualifier ADDONs (e.g. AD&D) always use their own bundledCommission rate.
  *   3. AD&D products always use their own bundledCommission rate (separate calculation).
- *   4. Bundle qualifier halving: state-aware path (if bundleCtx provided) or legacy isBundleQualifier path.
+ *   4. Bundle qualifier halving: if bundleCtx says required/fallback addon missing, commission is halved.
  *
  * When no core (standalone addons only):
  *   - Each ADDON/AD&D uses its standaloneCommission rate x its own premium.
@@ -114,19 +113,17 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
   // Classify products
   const coreEntry = allEntries.find(e => e.product.type === "CORE");
   const hasCoreInSale = !!coreEntry;
-  const qualifierExists = allEntries.some(e => e.product.isBundleQualifier);
 
   let totalCommission = 0;
 
   if (hasCoreInSale) {
     // --- CORE + ADDON BUNDLE ---
-    // ADDONs with bundledCommission = null OR isBundleQualifier: fold into bundlePremium and earn the core rate.
-    // ADDONs with bundledCommission set AND NOT isBundleQualifier: excluded from bundlePremium; earn their own rate.
-    // isBundleQualifier ADDONs always fold into bundle premium (their flag only prevents halving penalty).
+    // ADDONs with bundledCommission = null: fold into bundlePremium and earn the core rate.
+    // ADDONs with bundledCommission set: excluded from bundlePremium; earn their own rate.
     const bundlePremium = allEntries
       .filter(e =>
         (e.product.type === "CORE" || e.product.type === "ADDON") &&
-        (e.product.bundledCommission === null || e.product.isBundleQualifier)
+        e.product.bundledCommission === null
       )
       .reduce((sum, e) => sum + e.premium, 0);
 
@@ -150,10 +147,8 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     }
 
     // --- ADDONs with their own bundledCommission rate (separate calculation) ---
-    // Only ADDONs with bundledCommission set AND NOT isBundleQualifier.
-    // isBundleQualifier ADDONs were folded into bundlePremium above.
     for (const entry of allEntries.filter(
-      e => e.product.type === "ADDON" && e.product.bundledCommission !== null && !e.product.isBundleQualifier
+      e => e.product.type === "ADDON" && e.product.bundledCommission !== null
     )) {
       const addonRate = Number(entry.product.bundledCommission ?? 0);
       totalCommission += entry.premium * (addonRate / 100);
@@ -169,17 +164,9 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     }
 
     // --- BUNDLE QUALIFIER HALVING ---
-    if (bundleCtx !== undefined && bundleCtx !== null) {
-      // State-aware path: bundle requirement configured AND memberState non-null
-      if (!bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable && !sale.commissionApproved) {
-        totalCommission /= 2;
-        halvingReason = bundleCtx.halvingReason;
-      }
-    } else {
-      // Legacy path: no bundle requirement configured OR memberState is null
-      if (!qualifierExists && !sale.commissionApproved) {
-        totalCommission /= 2;
-      }
+    if (bundleCtx && !bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable && !sale.commissionApproved) {
+      totalCommission /= 2;
+      halvingReason = bundleCtx.halvingReason;
     }
   } else {
     // --- STANDALONE (no core product) ---
@@ -211,15 +198,14 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
 
 /**
  * Resolve bundle requirement context for a core product + member state combination.
- * Returns null if no bundle requirement is configured or memberState is null (triggers legacy path).
+ * Returns null if no bundle requirement is configured on the core product.
  */
 export async function resolveBundleRequirement(
   coreProduct: { requiredBundleAddonId: string | null; fallbackBundleAddonId: string | null; requiredBundleAddon?: { name: string } | null; fallbackBundleAddon?: { name: string } | null },
-  memberState: string | null,
+  memberState: string,
   saleAddonProductIds: string[]
 ): Promise<BundleRequirementContext> {
   if (!coreProduct.requiredBundleAddonId) return null;
-  if (!memberState) return null;
 
   const requiredAvail = await prisma.productStateAvailability.findUnique({
     where: { productId_stateCode: { productId: coreProduct.requiredBundleAddonId, stateCode: memberState } }
@@ -295,7 +281,9 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   if (!sale) throw new Error("Sale not found");
 
   const addonProductIds = (sale.addons ?? []).map(a => a.productId);
-  const bundleCtx = await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds);
+  const bundleCtx = sale.memberState
+    ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds)
+    : null;
   const result = calculateCommission(sale as any, bundleCtx);
   const payoutAmount = sale.status === 'RAN' ? result.commission : 0;
   const halvingReason = sale.status === 'RAN' ? result.halvingReason : null;

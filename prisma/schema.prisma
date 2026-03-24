@@ -134,7 +134,6 @@ model Product {
   commissionAbove      Decimal?    @map("commission_above") @db.Decimal(5, 2)
   bundledCommission    Decimal?    @map("bundled_commission") @db.Decimal(5, 2)
   standaloneCommission Decimal?    @map("standalone_commission") @db.Decimal(5, 2)
-  isBundleQualifier    Boolean     @default(false) @map("is_bundle_qualifier")
   enrollFeeThreshold   Decimal?    @map("enroll_fee_threshold") @db.Decimal(10, 2)
   notes                String?
 

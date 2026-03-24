@@ -263,7 +263,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
     commission: number;
     periodStart: string;
     periodEnd: string;
-    breakdown: { hasBundleQualifier: boolean; hasCore: boolean; enrollmentFee: number | null; paymentType: string };
+    halvingReason: string | null;
+    breakdown: { hasBundleRequirement: boolean; hasCore: boolean; enrollmentFee: number | null; paymentType: string };
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(false);
@@ -634,11 +635,13 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                   <div style={{ marginTop: spacing[3], display: "flex", flexDirection: "column", gap: spacing[1] }}>
                     <div style={PREVIEW_LINE}>
                       <span>Bundle</span>
-                      <span>{previewData.breakdown.hasBundleQualifier
-                            ? "Compass VAB included"
-                            : previewData.breakdown.hasCore
-                              ? "No qualifier — half rate applied"
-                              : "Standalone"}</span>
+                      <span>{!previewData.breakdown.hasCore
+                            ? "Standalone"
+                            : previewData.halvingReason
+                              ? previewData.halvingReason
+                              : previewData.breakdown.hasBundleRequirement
+                                ? "Bundle requirement met"
+                                : "No bundle requirement"}</span>
                     </div>
 
                     {previewData.breakdown.enrollmentFee !== null && previewData.breakdown.enrollmentFee >= 125 && (
