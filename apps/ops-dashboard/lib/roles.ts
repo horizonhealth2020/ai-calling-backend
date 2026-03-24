@@ -16,7 +16,7 @@ export const TAB_ROLES: Record<string, AppRole[]> = {
   "/manager": ["MANAGER", "SUPER_ADMIN"],
   "/payroll": ["PAYROLL", "SUPER_ADMIN"],
   "/owner": ["OWNER_VIEW", "SUPER_ADMIN"],
-  "/cs": ["CUSTOMER_SERVICE", "SUPER_ADMIN"],
+  "/cs": ["CUSTOMER_SERVICE", "OWNER_VIEW", "SUPER_ADMIN"],
 };
 
 export function getTabsForRoles(roles: AppRole[]): TabConfig[] {
