@@ -126,7 +126,12 @@ Plans:
   7. Archived rows are physically removed from main tables (not soft-deleted), reducing query scan size
   8. Admin can select archived batches and restore them back to main tables with original data intact
   9. Owner dashboard has a data management section showing archive statistics (row counts, date ranges, last archive date)
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 24-01-PLAN.md — Prisma schema changes (matching fields) + archive table migration + socket emitter
+- [ ] 24-02-PLAN.md — Chargeback auto-matching on submission + approveAlert bug fix + dedupe guard
+- [ ] 24-03-PLAN.md — Archive service with batch operations + archive/restore/stats routes
+- [ ] 24-04-PLAN.md — CSTracking match status badges + OwnerConfig data archive section
 
 ## Progress
 
@@ -155,7 +160,7 @@ Plans:
 | 21. Route File Splitting | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 22. Owner & Payroll Enhancements | v1.5 | 2/2 | Complete | 2026-03-24 |
 | 23. AI Scoring Dashboard | v1.5 | 0/1 | Complete    | 2026-03-24 |
-| 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
+| 24. Chargeback Automation & Data Archival | v1.5 | 0/4 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
