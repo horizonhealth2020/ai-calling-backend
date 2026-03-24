@@ -378,7 +378,7 @@ function DailyView({ data }: { data: DetailedData }) {
         </div>
       )}
 
-      {/* Remaining agents grid */}
+      {/* Remaining agents — individual columns */}
       {rest.length > 0 && (
         <>
           <div
@@ -388,148 +388,115 @@ function DailyView({ data }: { data: DetailedData }) {
               color: colors.textMuted,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              marginBottom: spacing[4],
+              textAlign: "center",
+              marginBottom: spacing[3],
             }}
           >
             All Agents
           </div>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: spacing[4],
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-end",
+              gap: spacing[3],
+              flexWrap: "wrap",
             }}
           >
             {rest.map((agent, i) => {
-              const todayStat = todayStats[agent];
-              const weekStat = weeklyTotals[agent];
+              const agentStat = stats[agent];
+              const count = agentStat?.count ?? 0;
+              const premium = agentStat?.premium ?? 0;
               const staggerClass = `stagger-${Math.min(i + 1, 10)}` as string;
               return (
                 <div
                   key={agent}
-                  className={`animate-fade-in-up hover-lift ${staggerClass}`}
+                  className={`animate-fade-in-up ${staggerClass}`}
                   style={{
-                    ...baseCardStyle,
-                    padding: `${spacing[5]}px ${spacing[6]}px`,
-                    position: "relative",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    width: 120,
+                    flexShrink: 0,
                   }}
                 >
-                  {/* Rank badge */}
+                  {/* Rank */}
                   <div
                     style={{
-                      position: "absolute",
-                      top: spacing[4],
-                      right: spacing[4],
-                      width: 28,
-                      height: 28,
+                      width: 24,
+                      height: 24,
                       borderRadius: radius.full,
                       background: colors.bgSurfaceOverlay,
                       border: `1px solid ${colors.borderDefault}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: 700,
                       color: colors.textMuted,
+                      marginBottom: 6,
                     }}
                   >
                     {i + 4}
                   </div>
-
-                  {/* Agent name */}
+                  {/* Column */}
                   <div
                     style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: colors.textPrimary,
-                      marginBottom: spacing[4],
-                      paddingRight: spacing[10],
-                      letterSpacing: "-0.01em",
+                      width: "100%",
+                      minHeight: 100,
+                      borderRadius: `${radius.xl}px ${radius.xl}px 0 0`,
+                      background: "linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(100,116,139,0.02) 100%)",
+                      border: `1.5px solid ${count > 0 ? "rgba(20,184,166,0.3)" : colors.borderSubtle}`,
+                      borderBottom: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: `${spacing[3]}px ${spacing[2]}px ${spacing[4]}px`,
+                      textAlign: "center",
                     }}
                   >
-                    {agent}
-                  </div>
-
-                  {/* Stats grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[3] }}>
-                    {/* Today */}
                     <div
                       style={{
-                        padding: `${spacing[3]}px`,
-                        background: colors.successBg,
-                        borderRadius: radius.lg,
-                        border: `1px solid rgba(52,211,153,0.12)`,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: count > 0 ? colors.textPrimary : colors.textMuted,
+                        lineHeight: 1.2,
+                        marginBottom: spacing[1],
+                        wordBreak: "break-word",
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: colors.success,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                          marginBottom: 4,
-                        }}
-                      >
-                        Today
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 26,
-                          fontWeight: 800,
-                          color: todayStat?.count ? colors.success : colors.borderStrong,
-                          lineHeight: 1,
-                          letterSpacing: "-0.02em",
-                        }}
-                      >
-                        <AnimatedNumber value={todayStat?.count ?? 0} />
-                      </div>
-                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
-                        <AnimatedNumber value={todayStat?.premium ?? 0} prefix="$" decimals={2} />
-                      </div>
+                      {agent}
                     </div>
-
-                    {/* Week */}
                     <div
                       style={{
-                        padding: `${spacing[3]}px`,
-                        background: colors.infoBg,
-                        borderRadius: radius.lg,
-                        border: `1px solid rgba(45,212,191,0.12)`,
+                        fontSize: 22,
+                        fontWeight: 800,
+                        color: count > 0 ? colors.textPrimary : colors.textMuted,
+                        lineHeight: 1,
+                        letterSpacing: "-0.03em",
+                        marginBottom: 2,
+                        opacity: count > 0 ? 1 : 0.4,
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: colors.info,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                          marginBottom: 4,
-                        }}
-                      >
-                        Week
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 26,
-                          fontWeight: 800,
-                          color: weekStat?.count ? colors.info : colors.borderStrong,
-                          lineHeight: 1,
-                          letterSpacing: "-0.02em",
-                        }}
-                      >
-                        <AnimatedNumber value={weekStat?.count ?? 0} />
-                      </div>
-                      <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 3 }}>
-                        <AnimatedNumber value={weekStat?.premium ?? 0} prefix="$" decimals={2} />
-                      </div>
+                      <AnimatedNumber value={count} />
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: colors.textTertiary, opacity: count > 0 ? 1 : 0.4 }}>
+                      <AnimatedNumber value={premium} prefix="$" decimals={2} />
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
+          {/* Base line */}
+          <div
+            style={{
+              height: 2,
+              background: `linear-gradient(90deg, transparent, ${colors.borderDefault}, transparent)`,
+              marginTop: -1,
+            }}
+          />
         </>
       )}
 

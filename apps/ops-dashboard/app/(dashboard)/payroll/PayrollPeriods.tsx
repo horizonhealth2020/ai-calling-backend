@@ -533,19 +533,9 @@ function AgentPayCard({
   const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
   const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
 
-  // Group entries by product type: CORE first, then ADDON, then AD_D
-  const TYPE_ORDER: Record<string, number> = { CORE: 0, ADDON: 1, AD_D: 2 };
-  const sortedEntries = [...entries].sort((a, b) => {
-    const aType = a.sale?.product?.type ?? "CORE";
-    const bType = b.sale?.product?.type ?? "CORE";
-    const typeComp = (TYPE_ORDER[aType] ?? 9) - (TYPE_ORDER[bType] ?? 9);
-    if (typeComp !== 0) return typeComp;
-    return (a.sale?.product?.name ?? "").localeCompare(b.sale?.product?.name ?? "");
-  });
-
   const [showAllEntries, setShowAllEntries] = useState(false);
   const COLLAPSED_LIMIT = 5;
-  const visibleEntries = showAllEntries ? sortedEntries : sortedEntries.slice(0, COLLAPSED_LIMIT);
+  const visibleEntries = showAllEntries ? entries : entries.slice(0, COLLAPSED_LIMIT);
   const hiddenCount = entries.length - COLLAPSED_LIMIT;
 
   const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED");

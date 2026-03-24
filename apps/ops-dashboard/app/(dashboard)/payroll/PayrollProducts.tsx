@@ -584,12 +584,29 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
           />
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[4] }} className="grid-mobile-1">
-          {products.map((p, i) => (
-            <div key={p.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 10)}`}>
-              <ProductCard product={p} onSave={saveProduct} onDelete={deleteProduct} onReactivate={reactivateProduct} allProducts={products} />
-            </div>
-          ))}
+        <div style={{ display: "grid", gap: S[6] }}>
+          {(["CORE", "ADDON", "AD_D"] as ProductType[]).map(type => {
+            const group = products.filter(p => p.type === type);
+            if (group.length === 0) return null;
+            return (
+              <div key={type}>
+                <div style={{ display: "flex", alignItems: "center", gap: S[2], marginBottom: S[3] }}>
+                  <div style={{ height: 2, width: 16, background: TYPE_COLORS[type], borderRadius: 1 }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: TYPE_COLORS[type], textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    {TYPE_LABELS[type]} Products
+                  </span>
+                  <Badge color={TYPE_COLORS[type]} size="sm">{group.length}</Badge>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[4] }} className="grid-mobile-1">
+                  {group.map((p, i) => (
+                    <div key={p.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 10)}`}>
+                      <ProductCard product={p} onSave={saveProduct} onDelete={deleteProduct} onReactivate={reactivateProduct} allProducts={products} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
