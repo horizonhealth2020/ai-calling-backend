@@ -1,87 +1,92 @@
-# Requirements: Ops Platform — State-Aware Bundle Requirements
+# Requirements: v1.5 Platform Cleanup & Remaining Features
 
-**Defined:** 2026-03-23
+**Defined:** 2026-03-24
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations — agents get paid right, managers can track performance, owners see real KPIs.
 
-## v1.4 Requirements
+## v1.5 Requirements
 
-Requirements for milestone v1.4. Each maps to roadmap phases.
+### Tech Debt
 
-### Bundle Commission
+- [ ] **SPLIT-01**: Route file split into domain modules with shared helpers extracted
+- [ ] **SPLIT-02**: All existing endpoints function identically after split (zero behavior change)
 
-- [ ] **BUNDLE-01**: Admin can designate a primary required addon for full commission on a CORE product
-- [ ] **BUNDLE-02**: Admin can set state availability for addon products (which US states they can be sold in)
-- [ ] **BUNDLE-03**: Admin can set fallback addon(s) for states where primary addon is unavailable
-- [ ] **BUNDLE-04**: Admin can configure multiple fallback tiers per state
-- [x] **BUNDLE-05**: Commission engine resolves required addon by client state (primary → fallback → legacy isBundleQualifier)
-- [x] **BUNDLE-06**: Half commission applied when required addon missing, with reason stored
-- [x] **BUNDLE-07**: Payroll entry displays halving reason when commission was reduced
-- [x] **BUNDLE-08**: Existing sales without memberState continue working via legacy fallback
+### Owner Dashboard
 
-### Config UI
+- [ ] **OWNER-01**: Owner period summary shows CS payroll total next to commission total
+- [ ] **OWNER-02**: CS payroll total updates via Socket.IO when service entries change
 
-- [ ] **CFG-01**: CORE product cards show bundle requirement section (required addon selector, fallback selector)
-- [ ] **CFG-02**: ADDON product cards show state availability multi-select
-- [ ] **CFG-03**: Completeness indicator shows states without bundle coverage
+### Payroll Export
 
-### Sales Entry
+- [ ] **EXPORT-01**: Detailed CSV export produces agent-grouped sections matching print card layout
+- [ ] **EXPORT-02**: Each agent section includes header row, sale rows, and subtotal row
+- [ ] **EXPORT-03**: Export handles large datasets without browser memory issues
 
-- [x] **SALE-01**: Sales entry form includes client state dropdown (US states)
+### AI Scoring
 
-### Housekeeping
+- [ ] **SCORE-01**: Owner dashboard has Scoring tab showing aggregate KPIs (avg score, total audits, score distribution)
+- [ ] **SCORE-02**: Per-agent score breakdown table with sortable columns
+- [ ] **SCORE-03**: Weekly trend data showing score changes over time
+- [ ] **SCORE-04**: DateRangeFilter integration on scoring tab
 
-- [x] **FIX-01**: Role dashboard selector has configurable delay before collapsing
-- [x] **FIX-02**: Seed agents (Amy, Bob, Cara, David, Elena) removed from database seed
+### Chargeback Automation
 
-## Future Requirements
+- [ ] **CLAWBACK-01**: Fix approveAlert() to use correct sale reference (not memberId as saleId)
+- [ ] **CLAWBACK-02**: Auto-match chargebacks to sales by memberId/memberName on submission
+- [ ] **CLAWBACK-03**: Auto-create clawback record when chargeback is approved and sale is matched
+- [ ] **CLAWBACK-04**: Unmatched chargebacks flagged for manual review
+- [ ] **CLAWBACK-05**: Socket.IO event when clawback is auto-created
 
-Deferred to future release. Tracked but not in current roadmap.
+### Data Archival
 
-### Bundle Commission (Deferred)
+- [ ] **ARCHIVE-01**: Admin can archive old call logs, audit logs, and KPI snapshots by date range
+- [ ] **ARCHIVE-02**: Archived data moved to parallel archive tables (not soft-delete)
+- [ ] **ARCHIVE-03**: Admin can restore archived data back to main tables
+- [ ] **ARCHIVE-04**: Data management section in owner dashboard showing archive stats
 
-- **BUNDLE-F01**: Retroactive recalculation of existing sales when bundle config changes
-- **BUNDLE-F02**: Admin "recalculate" button for bulk commission updates
-- **BUNDLE-F03**: Config change audit logging to app_audit_log
+## Future Requirements (Deferred)
 
-### Sales Entry (Deferred)
-
-- **SALE-F01**: Commission preview shows bundle qualification status by state
-- **SALE-F02**: Addon suggestion based on selected client state
+- Bulk sale import from CSV
+- Retroactive commission recalculation when bundle config changes
+- Admin "recalculate" button for bulk commission updates
+- Config change audit logging
+- Commission preview shows bundle qualification status by state
+- Addon suggestion based on selected client state
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| State-specific commission rates (different rate per state) | Only bundle requirement varies by state, not the rate itself |
-| Product licensing/compliance validation | Beyond commission logic — regulatory concern |
-| Automatic state detection from client address | Manual entry sufficient for now |
+| Archival of core business tables (sales, payroll entries, products) | Core data must remain accessible; only high-volume logs archived |
+| Mobile app | Web-first, desktop is primary use case |
+| Custom report builder | Predefined reports + date range covers the use case |
+| Bulk sale import from CSV | Deferred to future milestone |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| SPLIT-01 | | pending |
+| SPLIT-02 | | pending |
+| OWNER-01 | | pending |
+| OWNER-02 | | pending |
+| EXPORT-01 | | pending |
+| EXPORT-02 | | pending |
+| EXPORT-03 | | pending |
+| SCORE-01 | | pending |
+| SCORE-02 | | pending |
+| SCORE-03 | | pending |
+| SCORE-04 | | pending |
+| CLAWBACK-01 | | pending |
+| CLAWBACK-02 | | pending |
+| CLAWBACK-03 | | pending |
+| CLAWBACK-04 | | pending |
+| CLAWBACK-05 | | pending |
+| ARCHIVE-01 | | pending |
+| ARCHIVE-02 | | pending |
+| ARCHIVE-03 | | pending |
+| ARCHIVE-04 | | pending |
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| BUNDLE-01 | Phase 20 | Pending |
-| BUNDLE-02 | Phase 20 | Pending |
-| BUNDLE-03 | Phase 20 | Pending |
-| BUNDLE-04 | Phase 20 | Pending |
-| BUNDLE-05 | Phase 20 | Complete |
-| BUNDLE-06 | Phase 20 | Complete |
-| BUNDLE-07 | Phase 20 | Complete |
-| BUNDLE-08 | Phase 20 | Complete |
-| CFG-01 | Phase 20 | Pending |
-| CFG-02 | Phase 20 | Pending |
-| CFG-03 | Phase 20 | Pending |
-| SALE-01 | Phase 20 | Complete |
-| FIX-01 | Phase 20 | Complete |
-| FIX-02 | Phase 20 | Complete |
-
-**Coverage:**
-- v1.4 requirements: 14 total
-- Mapped to phases: 14
-- Unmapped: 0
+**Coverage:** 20 requirements, 0 mapped
 
 ---
-*Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after roadmap creation*
+*Created: 2026-03-24*
