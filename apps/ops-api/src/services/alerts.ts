@@ -1,5 +1,5 @@
 import { prisma } from "@ops/db";
-import { emitAlertCreated, emitAlertResolved } from "../socket";
+import { emitAlertCreated, emitAlertResolved, emitClawbackCreated } from "../socket";
 import { logAudit } from "./audit";
 
 export async function createAlertFromChargeback(
@@ -31,7 +31,18 @@ export async function getPendingAlerts() {
 export async function approveAlert(alertId: string, periodId: string, userId: string) {
   const alert = await prisma.payrollAlert.findUnique({
     where: { id: alertId },
-    include: { chargeback: true },
+    include: {
+      chargeback: {
+        include: {
+          matchedSale: {
+            include: {
+              payrollEntries: true,
+              agent: true,
+            },
+          },
+        },
+      },
+    },
   });
   if (!alert) throw new Error("Alert not found");
   if (alert.status !== "PENDING") throw new Error("Alert already resolved");
@@ -40,17 +51,38 @@ export async function approveAlert(alertId: string, periodId: string, userId: st
   const period = await prisma.payrollPeriod.findUnique({ where: { id: periodId } });
   if (!period || period.status !== "OPEN") throw new Error("Selected period is not OPEN");
 
-  // Create clawback in the selected period
-  const clawback = await prisma.clawback.create({
-    data: {
-      saleId: alert.chargeback.memberId || "",
-      agentId: alert.agentId || "",
+  // CLAWBACK-01 fix: Use matchedSaleId, NOT memberId
+  const saleId = alert.chargeback?.matchedSaleId;
+  if (!saleId) throw new Error("Chargeback has no matched sale. Match manually before approving.");
+
+  // D-03: Dedupe guard -- prevent double clawbacks for same chargeback/sale combo
+  const existingClawback = await prisma.clawback.findFirst({
+    where: {
+      saleId,
       matchedBy: "chargeback_alert",
       matchedValue: alert.chargebackSubmissionId,
-      amount: alert.amount || 0,
+    },
+  });
+  if (existingClawback) {
+    throw new Error("Clawback already exists for this chargeback/sale combination");
+  }
+
+  // D-04: Clawback amount = agent's commission portion from PayrollEntry, NOT chargeback amount
+  const sale = alert.chargeback.matchedSale;
+  const payrollEntry = sale?.payrollEntries?.[0];
+  const clawbackAmount = payrollEntry ? Number(payrollEntry.payoutAmount) : Number(alert.amount ?? 0);
+
+  // Create clawback with correct sale reference
+  const clawback = await prisma.clawback.create({
+    data: {
+      saleId,
+      agentId: sale?.agentId || alert.agentId || "",
+      matchedBy: "chargeback_alert",
+      matchedValue: alert.chargebackSubmissionId,
+      amount: clawbackAmount,
       status: "MATCHED",
       appliedPayrollPeriodId: periodId,
-      notes: `Created from chargeback alert. Customer: ${alert.customerName || "unknown"}`,
+      notes: `Auto-created from chargeback. Commission clawback: $${clawbackAmount.toFixed(2)}`,
     },
   });
 
@@ -62,6 +94,14 @@ export async function approveAlert(alertId: string, periodId: string, userId: st
       approvedBy: userId,
       approvedAt: new Date(),
     },
+  });
+
+  // CLAWBACK-05: Emit socket event for real-time payroll dashboard notification
+  emitClawbackCreated({
+    clawbackId: clawback.id,
+    saleId,
+    agentName: sale?.agent?.name,
+    amount: clawbackAmount,
   });
 
   emitAlertResolved({ alertId, status: "APPROVED" });
