@@ -1228,7 +1228,8 @@ export default function PayrollPeriods({
             const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
             const flags: string[] = [];
             if (e.halvingReason) flags.push(`<div class="flag flag-warn">${e.halvingReason}</div>`);
-            if (Number(e.bonusAmount) > 0) flags.push(`<div class="flag flag-bonus">+$${Number(e.bonusAmount).toFixed(2)} enrollment bonus</div>`);
+            const enrollFee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee) : 0;
+            if (enrollFee >= 125) flags.push(`<div class="flag flag-bonus">+$10 enrollment bonus</div>`);
             const flagHtml = flags.length > 0 ? flags.join("") : "";
             return `<tr>
         <td>${e.sale?.memberId ?? "\u2014"}</td>

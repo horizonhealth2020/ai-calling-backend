@@ -77,7 +77,7 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
   }
 
   if (fee < halfThreshold && !commissionApproved) {
-    return { finalCommission: commission / 2, enrollmentBonus, feeHalvingReason: `Half commission - enrollment fee $${fee.toFixed(2)} below $${halfThreshold} threshold` };
+    return { finalCommission: commission / 2, enrollmentBonus, feeHalvingReason: `Half commission - waived enrollment fee` };
   }
 
   return { finalCommission: commission, enrollmentBonus, feeHalvingReason: null };
@@ -235,7 +235,7 @@ export async function resolveBundleRequirement(
   return {
     requiredAddonAvailable: false,
     fallbackAddonAvailable: false,
-    halvingReason: `Half commission - ${addonName} not bundled (${memberState})`,
+    halvingReason: `Half commission - missing ${addonName}`,
   };
 }
 

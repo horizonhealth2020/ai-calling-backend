@@ -137,7 +137,7 @@ describe('calculateCommission', () => {
       const bundleCtx = {
         requiredAddonAvailable: false,
         fallbackAddonAvailable: false,
-        halvingReason: 'Half commission - Compass VAB not bundled (TX)',
+        halvingReason: 'Half commission - missing Compass VAB',
       };
       // 100 * 50% = 50, halved = 25
       expect(calculateCommission(sale, bundleCtx).commission).toBe(25.00);
@@ -160,7 +160,7 @@ describe('calculateCommission', () => {
       const bundleCtx = {
         requiredAddonAvailable: false,
         fallbackAddonAvailable: false,
-        halvingReason: 'Half commission - Compass VAB not bundled (TX)',
+        halvingReason: 'Half commission - missing Compass VAB',
       };
       // 100 * 50% = 50, no halving because commissionApproved=true
       expect(calculateCommission(sale, bundleCtx).commission).toBe(50.00);
@@ -347,7 +347,7 @@ describe('calculateCommission', () => {
       const bundleCtx = {
         requiredAddonAvailable: false,
         fallbackAddonAvailable: false,
-        halvingReason: 'Half commission - Compass VAB not bundled (TX)',
+        halvingReason: 'Half commission - missing Compass VAB',
       };
       // core bundle: 100 * 50% = 50, AD&D: 50 * 70% = 35, total = 85, halved = 42.50
       expect(calculateCommission(sale, bundleCtx).commission).toBe(42.50);
@@ -444,7 +444,7 @@ describe('calculateCommission', () => {
       const bundleCtx = {
         requiredAddonAvailable: false,
         fallbackAddonAvailable: false,
-        halvingReason: 'Half commission - Compass VAB not bundled (FL)',
+        halvingReason: 'Half commission - missing Compass VAB',
       };
       // 100 * 50% = 50, halved = 25
       expect(calculateCommission(sale, bundleCtx).commission).toBe(25.00);
@@ -811,11 +811,11 @@ describe('calculateCommission', () => {
       const bundleCtx = {
         requiredAddonAvailable: false,
         fallbackAddonAvailable: false,
-        halvingReason: 'Half commission - Compass VAB not bundled (FL)',
+        halvingReason: 'Half commission - missing Compass VAB',
       };
       const result = calculateCommission(sale, bundleCtx);
       expect(result.commission).toBe(25.00);
-      expect(result.halvingReason).toBe('Half commission - Compass VAB not bundled (FL)');
+      expect(result.halvingReason).toBe('Half commission - missing Compass VAB');
     });
 
     it('full commission when fallback addon present', () => {
@@ -860,7 +860,7 @@ describe('calculateCommission', () => {
       const bundleCtx = {
         requiredAddonAvailable: false,
         fallbackAddonAvailable: false,
-        halvingReason: 'Half commission - Compass VAB not bundled (FL)',
+        halvingReason: 'Half commission - missing Compass VAB',
       };
       const result = calculateCommission(sale, bundleCtx);
       expect(result.commission).toBe(50.00);
