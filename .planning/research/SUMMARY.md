@@ -1,178 +1,130 @@
-# Project Research Summary
+# Research Summary: v1.5 Platform Cleanup & Remaining Features
 
-**Project:** State-Aware Bundle Commission Requirements (v1.4)
-**Domain:** Commission engine enhancement for insurance/health sales operations platform
-**Researched:** 2026-03-23
-**Confidence:** HIGH
+**Domain:** Insurance sales operations platform -- AI scoring, chargeback automation, data archival, route splitting, payroll enhancements
+**Researched:** 2026-03-24
+**Overall confidence:** HIGH
 
 ## Executive Summary
 
-This milestone adds state-aware bundle commission logic to a working Ops Platform commission engine. The system already captures `memberState` on the `Sale` model and has bundle qualifier halving logic in `calculateCommission` — the required foundations exist. The core work is: (1) two new tables (`BundleRequirement` and `ProductStateAvailability`) to make addon requirements configurable per state, (2) a modified commission engine that resolves which addon qualifies for a given core product and client state before calculating payout, and (3) config UI in the existing `PayrollProducts` tab plus enhanced commission preview in `ManagerEntry`. No new dependencies are needed — the entire feature is implementable with Prisma, Zod, Express, React, and Socket.IO already in the stack.
+v1.5 adds six features to an existing Express/Prisma/Next.js 15 ops platform that has shipped 4 milestones in 10 days (~124,000 LOC). The existing architecture is sound but has one clear bottleneck: a 2750-line single route file that every feature touches. All six features are implementable with the existing dependency tree -- no new npm packages required (recharts is already installed but unused).
 
-The recommended implementation follows the existing architecture principle of keeping `calculateCommission` pure: DB lookups are resolved by the caller (`upsertPayrollEntryForSale` and the preview endpoint), and a resolved `BundleRequirementContext` object is passed into the function. A three-level fallback chain — state-specific rule, default rule, legacy `isBundleQualifier` boolean — ensures zero breaking changes to existing sales and graceful degradation before any config rows are entered. This is a configuration-driven approach: state-to-product mappings live in the database, not in code conditionals.
+The most architecturally significant finding is that the chargeback-to-clawback flow has a known bug: `approveAlert()` uses `memberId` (a string identifier) as `saleId` (a cuid), creating clawback records that point to nonexistent sales. This must be fixed as part of the automation work, not as a separate patch. The automation service adds an auto-match step after alert creation that attempts exact matches on memberId/memberName, falling back to manual review when no match is found.
 
-The primary risks are financial correctness risks, not engineering complexity. The commission preview must be updated in lockstep with the engine or agents will see different amounts than they receive. Existing sales with null `memberState` must explicitly fall through to legacy logic or every recalculation event halves their commission. The new state-based halving path must replace — not stack on top of — the existing `isBundleQualifier` path for products that have a `BundleRequirement` configured. All three of these are design decisions that must be locked before any code is written.
+For data archival, the research files contain two competing approaches: STACK.md recommends soft-delete with `archivedAt` columns on core tables, while ARCHITECTURE.md recommends parallel archive tables accessed via `prisma.$queryRaw`. The archive table approach is the better fit because: (1) it avoids the query contamination risk where every existing Prisma query must be updated to exclude archived records (PITFALLS P8), (2) it genuinely reduces main table sizes for faster queries, and (3) it only applies to high-volume non-core tables (call logs, audit logs) rather than core business tables (sales, payroll entries) which should never be archived. The roadmapper should use ARCHITECTURE.md's approach.
+
+The AI scoring dashboard is the highest-UI-complexity feature but has zero schema changes -- all data already exists in `CallAudit` records. Three new aggregate API endpoints feed a new owner dashboard tab. STACK.md discovered that recharts 3.8.0 is already installed in root `package.json` but never used; however, ARCHITECTURE.md recommends against using it (table-based display matching existing patterns). This is a UX judgment call for the implementer -- both approaches work.
 
 ## Key Findings
 
-### Recommended Stack
+**Stack:** No new dependencies needed. Recharts already installed (unused). Express Router composition for route splitting. Prisma `$queryRaw` for archive tables.
 
-No new dependencies are required. Every technology needed is already present in the monorepo workspace. See [STACK.md](.planning/research/STACK.md) for the full component-by-component analysis.
+**Architecture:** 16-file route split from single 2750-line file. New `services/clawbackAutomation.ts` for auto-matching. New `services/archival.ts` with parallel archive tables. Three new API endpoints for AI scoring aggregation. Client-side print card CSV export.
 
-**Core technologies (changes only):**
-- **Prisma 5.20**: New `BundleRequirement` and `ProductStateAvailability` models — per-row state records with `@@unique([coreProductId, state])`, named relations to handle three Product foreign keys in one table
-- **Zod 3.23**: Validation schemas for new bundle requirement and state availability endpoints — same `zodErr()` pattern used throughout ops-api; add 2-letter uppercase regex to existing `memberState` validation
-- **Express 4.19**: CRUD routes for bundle requirements, state availability bulk PUT — same `asyncHandler` + `requireRole(PAYROLL, SUPER_ADMIN)` pattern as existing product routes
-- **React / Next.js 15**: Config UI added to existing `PayrollProducts.tsx` — inline CSSProperties, `authFetch`, `@ops/ui` tokens matching existing card patterns
-- **Socket.IO 4.8**: `config-changed` event emitted when bundle requirements or state availability is updated so connected clients can refresh product data
-- **`US_STATES` constant in `@ops/types`**: 50 states + DC as a hardcoded array — avoids an external library for static fixed data; shared between API Zod validation and dashboard dropdowns
-
-**What NOT to add:** Any state/province library, form library, UI component library, separate rules engine service, Redis, multi-select library, or geography library. Each is overkill for the problem size.
-
-### Expected Features
-
-See [FEATURES.md](.planning/research/FEATURES.md) for full feature table with complexity ratings and dependency mapping.
-
-**Must have (table stakes):**
-- Client state field wired into commission logic — `memberState` exists on `Sale`, parser extracts it, form has a free-text input; needs to feed into `calculateCommission`
-- State availability per addon product — `ProductStateAvailability` join table, toggle UI per product per state
-- Primary bundle requirement per core product — `BundleRequirement` model defining which addon is required for full commission in a given state
-- Fallback bundle requirement for unavailable states — fallback addon field so agents in restricted states are not unfairly penalized with a half-rate when the primary simply cannot be sold there
-- Commission engine state-aware qualification — `calculateCommission` checks primary then fallback addon given client state
-- Commission preview reflects state logic — preview endpoint accepts `memberState` and shows state-aware messaging (which addon qualifies, or why half-rate applies)
-- Products tab config UI — bundle requirement and state availability sections in existing `PayrollProducts` product cards
-- Validation on sale submission — warn or reject if required addon is unavailable in the client's state
-
-**Should have (differentiators):**
-- Auto-suggest qualifying addons by state in the sales entry form — highlight or filter addons that apply for the selected client state; reduces agent errors at entry time
-- Commission audit trail with state reasoning — store "Full: Better addon (FL fallback for Compass VAB)" reasoning for dispute resolution
-
-**Defer to v2+:**
-- State availability bulk matrix editor (all products x all states in one grid) — nice for initial data entry but not blocking
-- Effective-dated state availability — tracking when products became available per state adds major complexity; current need is present state only
-- Multi-fallback chains — single primary + single fallback covers stated business requirements
-- Per-agent state licensing management — a different concern from product availability; out of scope
-
-### Architecture Approach
-
-The architecture is a minimal additive extension of the existing pattern with two new database tables and targeted modifications to three existing files. A new `resolveBundleRequirement()` service function handles all DB lookups and returns a simple context object. `calculateCommission` receives that context as an optional second parameter and remains a pure synchronous function. Config UI is embedded inline as collapsible sections on existing `ProductCard` components (CORE products get a bundle requirement section; ADDON products get a state availability section) rather than a new tab or page. Preview endpoint mirrors engine changes in lockstep. See [ARCHITECTURE.md](.planning/research/ARCHITECTURE.md) for the full data flow diagrams, migration SQL, and build order.
-
-**Major components:**
-1. `BundleRequirement` table — maps a core product to required primary addon, optional fallback, and the client state the mapping applies to (`state = null` = default rule for all other states)
-2. `ProductStateAvailability` table — maps addon products to states where they are available; drives `resolveBundleRequirement` decision to route to primary or fallback
-3. `resolveBundleRequirement()` service function — three-level resolution: state-specific rule -> default rule -> null (triggers legacy `isBundleQualifier` fallback)
-4. Modified `calculateCommission(sale, bundleReq?)` — when context provided, checks primary then fallback addon; when null, uses existing `qualifierExists` logic unchanged; backward compatible for all legacy sales
-5. Config UI in `PayrollProducts.tsx` — collapsible sections on product cards, checkbox grid for state availability, primary/fallback addon dropdowns for bundle requirements
-6. CRUD API routes — `GET/POST/PATCH/DELETE /api/bundle-requirements`, `GET/PUT /api/products/:id/state-availability`
-
-**What does NOT change:** `Sale` model, `Product.isBundleQualifier` flag (stays as fallback), `SaleAddon` model, `PayrollEntry` model, Socket.IO event payloads, auth/RBAC middleware, export/CSV logic.
-
-### Critical Pitfalls
-
-See [PITFALLS.md](.planning/research/PITFALLS.md) for all 14 pitfalls with phase assignments, specific line references, and detection strategies.
-
-1. **Commission preview diverges from engine (P1)** — The `/sales/preview` endpoint builds `mockSale as any` without `memberState`. When state-aware logic is added, preview and actual payout will differ. Fix: add `memberState` to the preview Zod schema, pass it through to the mock, and change both the engine and preview in the same PR. Write a test asserting preview output equals engine output for the same inputs across multiple states.
-
-2. **Legacy sales with null memberState get wrong commission on recalculation (P2)** — `memberState` is nullable; existing sales have it as null. If new logic treats null as "no addon available in this state," every recalculation halves legacy payout. Fix: `memberState === null` must explicitly skip state-aware logic and fall through to the existing `qualifierExists` boolean. Run all 20+ existing commission tests unchanged as a gate before any engine change ships.
-
-3. **Double halving when old and new conditions both fire (P3)** — Two independent halving `if` blocks produce 25% commission instead of 50%. Fix: the state-aware path must replace the `isBundleQualifier` path when a `BundleRequirement` is configured for the core product. One halving check fires per sale. Resolve as a business rule in design, not during coding.
-
-4. **Empty config table in production (P4)** — Deploying the engine before any `BundleRequirement` rows exist causes unpredictable commission behavior. Fix: the fallback chain ensures existing `isBundleQualifier` logic applies when no rows exist, making empty config safe. Config UI and initial data entry must be in place before enabling state-aware logic in production for active products.
-
-5. **Sale edit flow incorrect clawback when memberState changes (P5)** — `handleSaleEditApproval()` recalculates commission after field updates. If `memberState` is read before being written to the DB, the clawback delta is computed against the old state. Fix: confirm field-update-before-recalculate ordering handles `memberState`; audit log must capture state changes; test A->B and B->A state transitions against clawback amounts.
+**Critical pitfall:** `approveAlert()` in `services/alerts.ts` creates clawbacks with invalid saleId (memberId string instead of sale cuid). Automating this broken flow would systematically create corrupt clawback records. Must be rewritten before automation.
 
 ## Implications for Roadmap
 
-The dependency graph is clear and the phase order is not negotiable: business rules locked before schema, schema before engine, engine before API, API before UI, UI before end-to-end validation. The fallback chain design enables safe production deployment at any intermediate phase because unconfigured products continue to use existing `isBundleQualifier` logic.
+Based on research, the suggested phase structure accounts for dependencies, risk ordering, and the need to eliminate the route file bottleneck before all other work.
 
-### Phase 1: Business Rule Decisions and Schema Foundation
+### Phase 1: Route File Splitting (Tech Debt)
 
-**Rationale:** Three decisions must be locked before any code: (1) `commissionApproved = true` bypasses state-based halving (consistent with current bypass of all other halving), (2) state-aware path replaces `isBundleQualifier` path for products with a `BundleRequirement` row — no double halving, (3) `memberState === null` falls through to legacy logic unchanged. Wrong answers to any of these produce incorrect payroll numbers at scale. Schema migration and the `resolveBundleRequirement` service function follow immediately after.
-**Delivers:** Locked business rules documented in plan; Prisma schema with `BundleRequirement` and `ProductStateAvailability`; migration; `resolveBundleRequirement()` in `services/payroll.ts`; modified `calculateCommission()` with `BundleRequirementContext` parameter; all 20+ existing commission tests passing unchanged; new tests for state-aware scenarios (primary present, fallback used, neither present, null state)
-**Addresses:** Primary bundle requirement model, fallback bundle requirement model, state availability model, backward compatibility for all legacy data
-**Avoids:** P2 (null state regression), P3 (double halving), P4 (empty config safety via fallback chain), P14 (FL exemption re-introduction — existing test kept as canary)
+**Rationale:** The 2750-line route file is touched by every subsequent feature. Splitting it first means features 2-6 target clean, small files with no merge conflicts. Pure refactor -- zero behavior changes.
 
-### Phase 2: API Routes and Preview Enhancement
+**Delivers:** 16 domain route files averaging 100-300 lines each. Shared `helpers.ts` with zodErr, asyncHandler, dateRange. Barrel `index.ts` mounting all sub-routers.
 
-**Rationale:** The UI cannot function without the API, and commission preview accuracy is a user trust issue that cannot lag behind the engine. Both belong in the same phase.
-**Delivers:** `GET/POST/PATCH/DELETE /api/bundle-requirements` routes; `GET/PUT /api/products/:id/state-availability` routes; `memberState` added to preview Zod schema; `resolveBundleRequirement` called in preview endpoint; bundle requirement breakdown added to preview response; `US_STATES` constant in `@ops/types`
-**Uses:** Existing `asyncHandler`, `zodErr()`, `requireRole(PAYROLL, SUPER_ADMIN)` patterns; bulk PUT for state availability saves 50 individual calls
-**Avoids:** P1 (preview divergence — must update preview in same phase as engine change), P6 (preview performance — extend product query via Prisma `include` to avoid extra round-trips), P11 (invalid state codes — add 2-letter uppercase regex validation)
+**Addresses:** Route splitting feature (FEATURES.md), P3 and P10 pitfalls (PITFALLS.md)
 
-### Phase 3: Config UI in PayrollProducts
+### Phase 2: CS Payroll on Owner Dashboard
 
-**Rationale:** Payroll admins must be able to configure bundle requirements before any end-to-end commission flow can be tested or verified. This is the operational setup phase.
-**Delivers:** Collapsible "Bundle Requirements" section on CORE product cards (default rule + per-state overrides); collapsible "State Availability" section on ADDON/AD_D product cards (50-state checkbox grid); config completeness indicator ("X of Y states configured"); `config-changed` Socket.IO event emitted on save
-**Implements:** Config UI architecture component, inline per-product sections, bulk state PUT integration
-**Avoids:** P4 (completeness indicator surfaces gaps), P8 (fallback confusion — UI shows which addon qualifies per state), P9 (stale client config — Socket.IO event triggers refresh on connected dashboards)
+**Rationale:** Smallest scope feature. No schema changes. Adds ServicePayrollEntry aggregate to existing owner summary endpoint and a KPI card to OwnerOverview.tsx. Quick win that gives owners a complete financial picture.
 
-### Phase 4: Sales Entry Integration and End-to-End Validation
+**Delivers:** Modified `GET /owner/summary` and `GET /reporting/periods` with servicePayrollTotal. New KPI card in OwnerOverview.
 
-**Rationale:** With schema, engine, API, and config UI in place, this phase closes the agent-facing loop and validates the complete data flow. It is intentionally last because all upstream pieces must be solid before UX polish is meaningful.
-**Delivers:** Enhanced commission preview panel with state-aware messaging ("Required addon unavailable in FL — fallback (Dental Plus) included" / "No required addon present — half rate applied"); addon checklist auto-highlights qualifying addons for the entered client state; `memberState` field made prominent with dropdown (using `US_STATES`); `memberState` added to CSV export columns; validation warning when required addon not selected for the client's state; full clawback flow tested for state A -> B and B -> A transitions
-**Avoids:** P1 (final verification that preview matches engine across states), P5 (edit flow clawback with state change validated), P8 (agents see which addon qualifies and why), P10 (CSV export missing state context), P12 (paste parser state extraction validated with multi-address samples)
+**Addresses:** CS payroll feature (FEATURES.md), P7 pitfall (PITFALLS.md)
 
-### Parallel: Housekeeping (No Dependencies)
+### Phase 3: Payroll CSV Print Card Format
 
-Role dashboard selector delay fix and removal of seed agents have zero dependency on bundle commission work. Can be completed alongside any phase.
+**Rationale:** Client-side only change. No API or schema changes. Adds a third export option to PayrollExports.tsx that matches the existing print card HTML layout.
 
-### Phase Ordering Rationale
+**Delivers:** `exportPrintCardCSV()` function with agent-grouped sections, summary headers, and subtotals matching printAgentCards layout.
 
-- Phase 1 before Phase 2: `resolveBundleRequirement()` must exist before the API can call it; all existing tests must pass before any code ships to confirm backward compatibility
-- Phase 2 before Phase 3: API must exist before config UI can save data; preview must be correct before agent-facing polish can be built
-- Phase 3 before Phase 4: Config must be populated before end-to-end flows can be verified and before addon suggestion UI is meaningful
-- The fallback chain enables deploying Phase 1 and Phase 2 to production before Phase 3 config is fully populated — unconfigured products degrade to current behavior with no incorrect payouts, giving a safe incremental rollout path
+**Addresses:** CSV export feature (FEATURES.md), P11 pitfall (PITFALLS.md -- get print card sample first)
 
-### Research Flags
+### Phase 4: AI Scoring Dashboard
 
-Phases with standard patterns (skip `/gsd:research-phase`):
-- **Phase 2:** CRUD route patterns are identical to existing product routes — no novel API integration needed
-- **Phase 3:** UI patterns follow existing `PayrollProducts` CRUD card structure exactly; 50-state checkbox grid is a simple `Array.map` over `US_STATES`
-- **Phase 4:** Preview endpoint extension follows existing breakdown pattern; CSV export follows existing export query patterns
+**Rationale:** No schema changes needed. All data exists in CallAudit. Adds 3 new aggregate endpoints (scoring-summary, scoring-trends, agent-scores) and a new OwnerScoring.tsx component. Moderate UI complexity.
 
-Phases that need a design decision before planning begins (not research — stakeholder input):
-- **Phase 1:** P3 (double halving business rule) and P7 (`commissionApproved` scope for state-based halving) are product decisions, not engineering unknowns. Both must be answered before Phase 1 is planned.
+**Delivers:** New "Scoring" tab on owner dashboard with KPI cards, weekly trend table, and per-agent score breakdown. DateRangeFilter integration.
+
+**Addresses:** AI scoring dashboard feature (FEATURES.md), P5 and P15 pitfalls (PITFALLS.md)
+
+### Phase 5: Chargeback-to-Clawback Automation
+
+**Rationale:** Schema migration required (2 new columns). Fixes the existing approveAlert bug. Adds auto-matching service that runs after alert creation. Higher risk than phases 2-4 because it modifies the chargeback submission flow and creates financial records.
+
+**Delivers:** New `services/clawbackAutomation.ts`. Modified chargeback submission handler. Fixed `approveAlert()`. Schema migration adding `source_alert_id` to clawbacks, `auto_matched` + `matched_sale_id` to payroll_alerts.
+
+**Addresses:** Chargeback automation feature (FEATURES.md), P1 and P6 pitfalls (PITFALLS.md)
+
+### Phase 6: Data Archival with Restore
+
+**Rationale:** Highest risk feature. Involves raw SQL, data deletion, FK handling, and new archive tables. Benefits from all other features being stable. Ship last.
+
+**Delivers:** 6 archive tables (convoso_call_logs, call_audits, ai_usage_logs, app_audit_log, processed_convoso_calls, agent_call_kpis). New `services/archival.ts` with batched archive/restore. Admin endpoints. Data management section in OwnerConfig.
+
+**Addresses:** Data archival feature (FEATURES.md), P2, P8, P13, P14 pitfalls (PITFALLS.md)
+
+**Phase ordering rationale:**
+- Route splitting first eliminates merge conflict bottleneck for all subsequent work
+- Phases 2-3 are lowest risk, no migrations, quick wins
+- Phase 4 adds endpoints but no migrations, moderate complexity
+- Phase 5 has a migration and modifies an existing flow -- needs stable route structure
+- Phase 6 is highest risk with raw SQL and data deletion -- needs everything else stable
+
+**Research flags for phases:**
+- Phase 1: Standard Express pattern, unlikely to need research
+- Phase 2: Standard Prisma aggregate, unlikely to need research
+- Phase 3: Needs print card sample from business before implementation
+- Phase 4: Standard aggregate queries, may need research if recharts is chosen over tables
+- Phase 5: May need deeper research on matching strategies if exact match rate is too low
+- Phase 6: May need phase-specific research on FK cascade ordering and Railway PostgreSQL VACUUM behavior
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All decisions verified by direct inspection of package.json, schema.prisma, and payroll.ts. No new packages required. |
-| Features | HIGH | Derived from direct codebase reading of existing commission logic, form fields, and schema. Feature inventory cross-referenced against PROJECT.md v1.4 requirements. |
-| Architecture | HIGH | All recommendations based on direct codebase analysis with specific line references. Fallback chain design is provably backward-compatible. Pure function constraint verified against current design. |
-| Pitfalls | HIGH | All 14 pitfalls derived from direct code inspection with specific line numbers. Five critical pitfalls trace to concrete code paths that will produce incorrect payroll numbers without mitigation. |
+| Stack | HIGH | All packages verified in package.json. No new dependencies needed. |
+| Features | HIGH | All features derived from PROJECT.md scope + direct codebase analysis. |
+| Architecture | HIGH | All recommendations based on direct code analysis with specific file/line references. |
+| Pitfalls | HIGH | 15 pitfalls identified from code inspection. P1 (broken saleId) confirmed by reading alerts.ts. |
 
-**Overall confidence:** HIGH
+## Conflicts Between Research Files
 
-### Gaps to Address
+| Conflict | STACK.md Says | ARCHITECTURE.md Says | Resolution |
+|----------|---------------|---------------------|------------|
+| Archival approach | Soft-delete with `archivedAt` column on core models | Parallel archive tables via raw SQL for non-core tables only | Use ARCHITECTURE.md approach -- avoids P8 query contamination, only archives high-volume non-core tables |
+| AI dashboard charts | Use recharts (already installed) | Use table-based display (no chart library) | Implementer's judgment call. Both work. Tables are simpler and match existing patterns. |
+| Route file naming | `owner.ts`, `callAudit.ts`, `salesBoard.ts`, `config.ts`, `alerts.ts` | `reporting.ts`, `call-audit.ts`, `admin.ts`, `settings.ts`, `webhooks.ts` | Use ARCHITECTURE.md naming -- more granular split with kebab-case consistency |
 
-- **Schema approach divergence between research files**: STACK.md recommends `String[]` on `BundleRequirement` (one row per core product with an array of states), while ARCHITECTURE.md recommends `state VARCHAR(2)` per row (one row per core product + state, `@@unique([coreProductId, state])`). ARCHITECTURE.md's per-row approach is more queryable, auditable, and consistent with PostgreSQL relational patterns. Roadmapper should resolve this in requirements before Phase 1 is planned. Recommendation: use ARCHITECTURE.md's per-row approach.
+## Gaps to Address
 
-- **Business rule: double halving (P3)**: Does configuring a `BundleRequirement` for a product retire the `isBundleQualifier` check for that product, or can both fire independently? Requires stakeholder answer before Phase 1. Research recommendation: state-aware path replaces legacy path for products with a configured `BundleRequirement` row.
-
-- **Business rule: commissionApproved scope (P7)**: Does `commissionApproved = true` bypass the new state-based halving check? Research recommendation: yes, consistent with current behavior where it bypasses all other halving. Confirm with stakeholders before Phase 1.
-
-- **Initial config data scope**: Which states are currently active in the business? Seed data for `BundleRequirement` and `ProductStateAvailability` should be scoped to active states, not all 50. This is a data gathering task for payroll staff, not an engineering task.
+- Print card sample needed from business before Phase 3 CSV work
+- Matching strategy for chargebacks needs real-world data analysis (what % of chargebacks have exact memberId matches?)
+- Railway PostgreSQL VACUUM behavior after bulk deletes needs validation before Phase 6
 
 ## Sources
 
-### Primary (HIGH confidence — direct codebase inspection)
-
-- `prisma/schema.prisma` — Product model, Sale.memberState field (line 176), ProductType enum, existing relations
-- `apps/ops-api/src/services/payroll.ts` — `calculateCommission` bundle qualifier halving (line 162), `upsertPayrollEntryForSale`, `handleSaleEditApproval`
-- `apps/ops-api/src/routes/index.ts` — preview endpoint (lines 440-496), sale creation (lines 320-437), memberState validation (lines 335, 562)
-- `apps/ops-api/src/services/__tests__/commission.test.ts` — 20+ test cases including FL exemption removed test (lines 372-388), test helper defaults (lines 44-73)
-- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` — CRUD card pattern, authFetch usage, inline styles
-- `apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx` — paste parser (lines 195-199), addon checklist, preview trigger
-- `apps/ops-api/package.json` — Prisma ^5.20.0, Zod ^3.23.8, Express ^4.19.2, Socket.IO ^4.8.3
-- `.planning/PROJECT.md` — v1.4 requirements, design decisions, constraints
-
-### Secondary (MEDIUM confidence)
-
-- [KFF: Regulation of Private Health Insurance](https://www.kff.org/patient-consumer-protections/health-policy-101-the-regulation-of-private-health-insurance/) — state-by-state product approval requirements in insurance domain
-- [AgencyBloc: Agency Management for Health & Life Insurance](https://www.agencybloc.com/) — commission tracking patterns in insurance platforms
-- [EvolveNXT: Health Insurance Commission Software](https://evolvenxt.com/solutions-2020/health-insurance-carriers/) — commission management platform patterns
+### Primary (HIGH confidence -- direct codebase inspection)
+- `apps/ops-api/src/routes/index.ts` -- 2750 lines, 95 handlers
+- `apps/ops-api/src/services/alerts.ts` -- broken saleId in approveAlert (line 46)
+- `apps/ops-api/src/services/callAudit.ts` -- structured audit pipeline
+- `apps/ops-api/src/services/payroll.ts` -- commission engine
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` -- print card format
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollExports.tsx` -- existing CSV exports
+- `apps/ops-dashboard/app/(dashboard)/owner/page.tsx` -- tab structure
+- `prisma/schema.prisma` -- all 28 models
+- `.planning/PROJECT.md` -- v1.5 scope
 
 ---
-*Research completed: 2026-03-23*
+*Research completed: 2026-03-24*
 *Ready for roadmap: yes*

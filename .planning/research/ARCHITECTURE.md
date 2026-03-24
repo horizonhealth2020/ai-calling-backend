@@ -1,582 +1,759 @@
-# Architecture Patterns: State-Aware Bundle Commission
+# Architecture Patterns: v1.5 Feature Integration
 
-**Domain:** State-aware commission engine enhancement for existing Ops Platform
-**Researched:** 2026-03-23
+**Domain:** v1.5 Platform Cleanup and Remaining Features for Ops Platform
+**Researched:** 2026-03-24
 **Confidence:** HIGH (all recommendations based on direct codebase analysis)
 
-## Current Architecture (Relevant Components)
+## Current Architecture Snapshot
 
-### Commission Data Flow Today
+The ops-api is a single Express app (`apps/ops-api/src/index.ts`) mounting all routes from one 2750-line flat file (`apps/ops-api/src/routes/index.ts`). Business logic lives in 9 service files under `apps/ops-api/src/services/`. The frontend is a unified Next.js 15 app (`apps/ops-dashboard`) with 4 tab directories (`manager`, `payroll`, `owner`, `cs`), each containing sub-components rendered by a `page.tsx` that switches on active tab state.
 
 ```
-Sales Entry Form (ManagerEntry.tsx)
-  |
-  | POST /api/sales  { productId, addonProductIds, addonPremiums, memberState, ... }
-  |
-  v
-routes/index.ts  -- validates with Zod, creates Sale + SaleAddon rows
-  |
-  | upsertPayrollEntryForSale(saleId)
-  |
-  v
-services/payroll.ts
-  |-- calculateCommission(sale)  <-- PURE function, no DB access
-  |     |-- classifies products (CORE, ADDON, AD_D)
-  |     |-- checks isBundleQualifier flag on products
-  |     |-- if no qualifier && !commissionApproved: halves commission
-  |     |-- applies enrollment fee rules
-  |
-  |-- upsertPayrollEntryForSale()  <-- creates/updates PayrollEntry
-  v
-PayrollEntry row with payoutAmount = commission result
+ops-api/src/
+  index.ts              # Express + Socket.IO setup, mounts /api
+  routes/index.ts       # 2750 lines, ~95 route handlers, single Router
+  services/             # 9 service files (payroll, alerts, audit, etc.)
+  middleware/auth.ts    # requireAuth, requireRole
+  socket.ts             # Socket.IO emit helpers
+  workers/              # Convoso KPI poller
+
+ops-dashboard/app/(dashboard)/
+  layout.tsx            # Tab bar, Socket.IO provider, role-gated tabs
+  manager/              # ManagerEntry, page.tsx
+  payroll/              # PayrollPeriods, PayrollProducts, PayrollExports, etc.
+  owner/                # OwnerOverview, OwnerKPIs, OwnerConfig, OwnerUsers
+  cs/                   # CSSubmissions, CSTracking
 ```
 
-### Key Observations
-
-1. **`calculateCommission` is pure.** It receives a `SaleWithProduct` object (sale + product + addons with products) and returns a number. No DB queries inside. This is by design (see PROJECT.md: "Commission gate in upsert, not calc").
-
-2. **`memberState` already exists on Sale model** as `String? @map("member_state") @db.VarChar(2)`. The field is already captured in the sales entry form and saved to the database. It is NOT currently passed to `calculateCommission`.
-
-3. **`isBundleQualifier` is a boolean on Product.** Currently, the commission engine checks if ANY product in the sale has `isBundleQualifier = true`. If none do and sale has a core product, commission is halved (unless `commissionApproved`).
-
-4. **The preview endpoint mirrors the calc logic** in `POST /sales/preview`. It constructs a mock sale object and calls `calculateCommission`. Any changes to the calc must also flow through preview.
-
-5. **Product CRUD is simple PATCH/POST** on `/api/products`. The Product model has commission-related fields but NO state-awareness fields today.
+Key data models relevant to v1.5: `CallAudit` (AI scoring), `ChargebackSubmission` + `PayrollAlert` + `Clawback` (chargeback-to-clawback chain), `PayrollEntry` + `ServicePayrollEntry` (payroll), `ConvosoCallLog` + `AiUsageLog` (AI pipeline).
 
 ---
 
-## Recommended Architecture for State-Aware Bundles
+## 1. Route File Splitting
 
-### Design Principle: Configuration-Driven, Not Code-Driven
+### Problem
 
-The business rule is: "In state X, the required bundle addon is product Y. If Y is unavailable in that state, fall back to product Z. If neither is present, half commission."
+`routes/index.ts` is 2750 lines with 95 route handlers. Every feature touches this file, creating merge conflicts and cognitive overload.
 
-This should be **data in the database**, not conditionals in code. The commission engine should read configuration rows, not hardcode state-to-product mappings.
+### Recommended Pattern: Domain Router Modules
 
-### New Component: BundleRequirement Model
+Split into domain-scoped router files, each exporting a `Router` instance mounted by a barrel `index.ts`. This is the standard Express pattern and requires zero library changes.
 
-```
-BundleRequirement (NEW TABLE)
-
-  id            String   @id @default(cuid())
-  coreProductId String   -- which core product this rule is for
-  state         String?  @db.VarChar(2)  -- null = default rule
-  primaryAddonId   String  -- required addon in this state
-  fallbackAddonId  String? -- if primary unavailable
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([coreProductId, state])  -- one rule per core+state
-  @@map("bundle_requirements")
-
-Relations:
-  coreProduct    Product  @relation("BundleReqCore", ...)
-  primaryAddon   Product  @relation("BundleReqPrimary", ...)
-  fallbackAddon  Product? @relation("BundleReqFallback", ...)
-```
-
-### New Component: ProductStateAvailability Model
+**Target structure:**
 
 ```
-ProductStateAvailability (NEW TABLE)
-
-  id         String   @id @default(cuid())
-  productId  String
-  state      String   @db.VarChar(2)
-  available  Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([productId, state])
-  @@map("product_state_availability")
+routes/
+  helpers.ts        # zodErr, asyncHandler, dateRange -- shared utilities
+  index.ts          # Barrel: imports + mounts sub-routers
+  auth.ts           # /auth/* + /session/* (login, logout, change-password, refresh, me) ~50 lines
+  users.ts          # /users/* CRUD ~50 lines
+  agents.ts         # /agents/* CRUD + reactivate ~80 lines
+  sales.ts          # /sales/* CRUD, preview, status, approve/unapprove ~450 lines
+  payroll.ts        # /payroll/* periods, entries, mark-paid/unpaid, service-entries ~350 lines
+  clawbacks.ts      # /clawbacks + /alerts/* ~120 lines
+  products.ts       # /products/* CRUD + state-availability ~200 lines
+  lead-sources.ts   # /lead-sources/* CRUD ~50 lines
+  reporting.ts      # /owner/summary, /reporting/periods, /sales-board/*, /tracker ~250 lines
+  cs.ts             # /chargebacks/*, /pending-terms/*, /reps/*, /cs-rep-roster/* ~350 lines
+  call-audit.ts     # /call-audits/*, /call-recordings, /call-counts, /call-logs/* ~200 lines
+  ai.ts             # /ai/* usage-stats, auto-score, budget ~50 lines
+  settings.ts       # /settings/* ai-audit-prompt, audit-duration, service-bonus-categories ~80 lines
+  admin.ts          # /permissions/*, /storage-stats, /agent-kpis ~120 lines
+  webhooks.ts       # /webhooks/convoso ~80 lines
 ```
 
-**Why two tables instead of JSON on Product?** Three reasons:
-1. Queryable -- "which products are available in FL?" is a single indexed query.
-2. Auditable -- changes tracked via updatedAt, compatible with audit logging pattern.
-3. Relational integrity -- foreign keys ensure referenced products exist.
+**Shared utilities extraction -- `routes/helpers.ts`:**
 
-### Modified Component: calculateCommission
-
-The current function signature is:
+Three functions currently defined at the top of `routes/index.ts` must be extracted to avoid circular imports:
 
 ```typescript
-export const calculateCommission = (sale: SaleWithProduct): number
-```
+// routes/helpers.ts
+import { z } from "zod";
+import { Request, Response, NextFunction } from "express";
 
-The new signature adds bundle requirement context:
+/** Format Zod errors so the response always includes an `error` key */
+export function zodErr(ze: z.ZodError) { /* ... exact current impl ... */ }
 
-```typescript
-type BundleRequirementContext = {
-  primaryAddonId: string | null;
-  fallbackAddonId: string | null;
-} | null;
+/** Wrap async route handlers so errors are forwarded to Express error handler */
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-export const calculateCommission = (
-  sale: SaleWithProduct,
-  bundleReq?: BundleRequirementContext
-): number
-```
-
-**Critical: Keep it pure.** The function does NOT query the database. The caller (upsertPayrollEntryForSale or preview endpoint) resolves the bundle requirement and passes it in. This preserves the existing design principle.
-
-### Modified Logic Flow
-
-The existing halving logic (lines 160-164 of payroll.ts):
-
-```typescript
-// CURRENT: Binary check -- any isBundleQualifier product present?
-if (!qualifierExists && !sale.commissionApproved) {
-  totalCommission /= 2;
+/** Compute date-range boundaries from a `range` query param or custom from/to dates */
+export function dateRange(range?: string, from?: string, to?: string): { gte: Date; lt: Date } | undefined {
+  /* ... exact current impl (~50 lines) ... */
 }
 ```
 
-Becomes:
+**Barrel file pattern:**
 
 ```typescript
-// NEW: State-aware check
-if (hasCoreInSale && !sale.commissionApproved) {
-  if (bundleReq) {
-    // A bundle requirement exists for this core+state combination
-    const addonIds = allEntries.map(e => e.product.id);
-    const hasPrimary = bundleReq.primaryAddonId
-      && addonIds.includes(bundleReq.primaryAddonId);
-    const hasFallback = bundleReq.fallbackAddonId
-      && addonIds.includes(bundleReq.fallbackAddonId);
-    if (!hasPrimary && !hasFallback) {
-      totalCommission /= 2;
-    }
-  } else {
-    // No bundle requirement configured -- fall back to existing isBundleQualifier logic
-    if (!qualifierExists) {
-      totalCommission /= 2;
-    }
-  }
+// routes/index.ts
+import { Router } from "express";
+import auth from "./auth";
+import users from "./users";
+import agents from "./agents";
+import sales from "./sales";
+import payroll from "./payroll";
+import clawbacks from "./clawbacks";
+import products from "./products";
+import leadSources from "./lead-sources";
+import reporting from "./reporting";
+import cs from "./cs";
+import callAudit from "./call-audit";
+import ai from "./ai";
+import settings from "./settings";
+import admin from "./admin";
+import webhooks from "./webhooks";
+
+const router = Router();
+router.use(auth);
+router.use(users);
+router.use(agents);
+router.use(sales);
+router.use(payroll);
+router.use(clawbacks);
+router.use(products);
+router.use(leadSources);
+router.use(reporting);
+router.use(cs);
+router.use(callAudit);
+router.use(ai);
+router.use(settings);
+router.use(admin);
+router.use(webhooks);
+
+export default router;
+```
+
+**Each domain file pattern:**
+
+```typescript
+// routes/sales.ts
+import { Router } from "express";
+import { z } from "zod";
+import { prisma } from "@ops/db";
+import { requireAuth, requireRole } from "../middleware/auth";
+import { asyncHandler, zodErr, dateRange } from "./helpers";
+import { upsertPayrollEntryForSale, /* ... */ } from "../services/payroll";
+import { emitSaleChanged } from "../socket";
+
+const router = Router();
+
+router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  // ... handler body unchanged
+}));
+
+// ... all /sales/* handlers moved here verbatim
+
+export default router;
+```
+
+### Route-to-File Mapping
+
+| Route Prefix | Target File | Line Count (approx) | Handlers |
+|-------------|-------------|---------------------|----------|
+| `/auth/*`, `/session/*` | `auth.ts` | 50 | 5 |
+| `/users/*` | `users.ts` | 50 | 4 |
+| `/agents/*` | `agents.ts` | 80 | 5 |
+| `/lead-sources/*` | `lead-sources.ts` | 50 | 4 |
+| `/products/*` | `products.ts` | 200 | 6 |
+| `/sales/*` | `sales.ts` | 450 | 10 |
+| `/tracker/*` | `reporting.ts` | 250 | 5 |
+| `/payroll/*` | `payroll.ts` | 350 | 8 |
+| `/clawbacks`, `/alerts/*` | `clawbacks.ts` | 120 | 5 |
+| `/service-agents/*` | `payroll.ts` | (included above) | 3 |
+| `/owner/*`, `/reporting/*`, `/sales-board/*` | `reporting.ts` | (included above) | 5 |
+| `/webhooks/*` | `webhooks.ts` | 80 | 1 |
+| `/call-recordings`, `/call-audits/*`, `/call-counts`, `/call-logs/*` | `call-audit.ts` | 200 | 7 |
+| `/settings/*` | `settings.ts` | 80 | 5 |
+| `/status-change-requests/*`, `/sale-edit-requests/*` | `sales.ts` | (included above) | 6 |
+| `/chargebacks/*`, `/pending-terms/*`, `/reps/*`, `/cs-rep-roster/*` | `cs.ts` | 350 | 14 |
+| `/ai/*` | `ai.ts` | 50 | 3 |
+| `/permissions/*`, `/storage-stats`, `/agent-kpis` | `admin.ts` | 120 | 4 |
+
+### What Changes vs What Stays
+
+- **Changes:** File boundaries only. Every handler body stays identical.
+- **Stays:** Route paths, middleware, service imports, Socket.IO emitters, Zod schemas.
+- **Risk:** LOW. Pure refactor, no behavior change. Verify by hitting every endpoint before and after.
+
+---
+
+## 2. AI Scoring Dashboard
+
+### Current State
+
+AI scoring infrastructure already exists:
+- `CallAudit` model stores structured audit data (issues, wins, missed_opportunities, suggested_coaching, scores)
+- `AiUsageLog` tracks token usage and cost
+- `callAudit.ts` service processes recordings through Claude/OpenAI
+- `auditQueue.ts` manages batch auto-scoring
+- API endpoints: `GET /call-audits`, `GET /ai/usage-stats`, `POST /ai/auto-score`, `PUT /ai/budget`
+
+### What Needs to Be Built
+
+**New dashboard section** on the Owner page. Currently Owner has 4 sections: `overview`, `kpis`, `config`, `users`. Add a 5th: `scoring`.
+
+**New component:** `OwnerScoring.tsx` in `apps/ops-dashboard/app/(dashboard)/owner/`
+
+**New API endpoints (go in `routes/ai.ts` after route splitting):**
+
+| Endpoint | Purpose | Data Source |
+|----------|---------|-------------|
+| `GET /ai/scoring-summary` | Aggregate stats: avg score, total audits, score distribution buckets | `CallAudit` aggregate queries |
+| `GET /ai/scoring-trends` | Score trends over time (weekly averages for last 8 weeks) | `CallAudit` grouped by week |
+| `GET /ai/agent-scores` | Per-agent score breakdown with delta vs prior period | `CallAudit` grouped by agent + period |
+
+**Data flow:**
+
+```
+CallAudit table (existing data)
+  |
+  +--> GET /ai/scoring-summary --> OwnerScoring (KPI cards at top)
+  |      Returns: { totalAudits, avgScore, distribution: { low: n, mid: n, high: n, excellent: n } }
+  |
+  +--> GET /ai/scoring-trends  --> OwnerScoring (weekly trend table)
+  |      Returns: [{ week: "2026-03-16", avgScore: 72, auditCount: 15 }, ...]
+  |
+  +--> GET /ai/agent-scores    --> OwnerScoring (agent breakdown table)
+         Returns: [{ agentId, agentName, totalAudits, avgScore, lastScore, priorAvg }, ...]
+```
+
+### Component Structure
+
+```typescript
+// OwnerScoring.tsx
+// Props: { API: string }
+// State: scoringSummary, trends, agentScores, dateRange
+//
+// Layout:
+//   DateRangeFilter (reuse from @ops/ui)
+//   KPI row: Total Audits | Avg Score | Distribution breakdown (4 buckets: 0-40, 41-60, 61-80, 81-100)
+//   Trend table: Week | Audits | Avg Score | Delta from prior week
+//   Agent table: Agent | Total Audits | Avg Score | Last Score | Trend (up/down/flat arrow)
+```
+
+### Architecture Decision: No Chart Library
+
+Use table-based trend display (week-over-week with delta arrows) rather than adding a chart library. This matches the existing pattern -- owner overview uses `AnimatedNumber` KPI cards and tables, not charts. Adding recharts/chart.js would add ~200KB to the bundle for one component.
+
+### Integration Points
+
+- **Existing reuse:** `DateRangeFilter` from `@ops/ui`, `authFetch` from `@ops/auth/client`, `AnimatedNumber` from `@ops/ui`
+- **New route file:** `routes/ai.ts` gets the 3 new endpoints
+- **Modified file:** `owner/page.tsx` adds the `scoring` tab to navItems and renders `OwnerScoring`
+- **No schema changes needed** -- all data already exists in `CallAudit` and `AiUsageLog`
+
+---
+
+## 3. Chargeback to Clawback Auto-Creation
+
+### Current Data Flow (Manual, 3-Step)
+
+```
+Step 1: CS submits chargeback batch (POST /chargebacks)
+  --> Creates ChargebackSubmission rows
+  --> For each: createAlertFromChargeback() --> PayrollAlert (PENDING)
+  --> Socket.IO: alert:created
+
+Step 2: Payroll user views alerts (GET /alerts)
+  --> Sees pending alerts with chargeback details
+  --> Must manually identify which agent/sale is affected
+
+Step 3: Payroll user approves (POST /alerts/:id/approve)
+  --> Must select a payroll period
+  --> Creates Clawback record
+  --> Updates PayrollAlert to APPROVED
+  --> Socket.IO: alert:resolved
+```
+
+### Known Bug in Current approveAlert
+
+In `services/alerts.ts` line 46, `approveAlert` creates a clawback with `saleId: alert.chargeback.memberId`. This is wrong -- `memberId` is a member identifier string (like "ABC12345"), not a Prisma Sale ID (cuid). The auto-creation flow must fix this by looking up the Sale by memberId.
+
+### Proposed Auto-Creation Flow
+
+Add an automated path that runs after alert creation, attempting to match the chargeback to an existing sale:
+
+```
+POST /chargebacks (batch submission)
+  |
+  For each chargeback in batch:
+  |
+  +--> createAlertFromChargeback() [existing, unchanged]
+  |
+  +--> autoMatchAndClawback(chargebackSubmission, alertId) [NEW]
+       |
+       +--> Match by memberId to Sale.memberId (exact match)
+       |    OR match by payeeName to Sale.memberName (normalized exact)
+       |
+       +--> [MATCH FOUND]
+       |    +--> Find Sale's most recent PayrollEntry
+       |    +--> If entry not PAID: Create Clawback(ZEROED), zero out entry
+       |    +--> If entry PAID: Create Clawback(DEDUCTED), adjust current open period
+       |    +--> Update PayrollAlert to APPROVED (auto_matched: true)
+       |    +--> Socket.IO: alert:resolved + sale:changed
+       |    +--> Audit log: clawback_auto_created
+       |
+       +--> [NO MATCH]
+            +--> PayrollAlert stays PENDING
+            +--> Payroll user reviews manually (existing flow, unchanged)
+```
+
+### New Service: `services/clawbackAutomation.ts`
+
+```typescript
+export interface AutoMatchResult {
+  matched: boolean;
+  clawbackId?: string;
+  saleId?: string;
+  reason?: string;  // "matched_by_member_id" | "matched_by_member_name" | "no_sale_match" | "no_open_period"
+}
+
+export async function autoMatchAndClawback(
+  chargebackSubmission: ChargebackSubmission,
+  alertId: string
+): Promise<AutoMatchResult>
+```
+
+Internal steps:
+1. Load ChargebackSubmission fields: `memberId`, `payeeName`, `chargebackAmount`
+2. Find Sale by `memberId` (exact match on `Sale.memberId`). If not found, try normalized `payeeName` match on `Sale.memberName` (lowercase, trimmed).
+3. If no sale found: return `{ matched: false, reason: "no_sale_match" }`
+4. Check if Clawback already exists for this chargebackSubmissionId (idempotency guard)
+5. Find Sale's most recent PayrollEntry (ordered by createdAt desc)
+6. Create Clawback record (reuse logic from existing `POST /clawbacks` handler)
+7. Update PayrollAlert: `{ status: "APPROVED", autoMatched: true, matchedSaleId: sale.id }`
+8. Emit socket events
+9. Return `{ matched: true, clawbackId, saleId }`
+
+### Key Design Decisions
+
+**Match strategy:** Exact match on `memberId` first, then normalized name match (lowercase, trim whitespace). Do NOT use fuzzy/Levenshtein matching. False positives on clawbacks are far worse than false negatives. Unmatched chargebacks stay as manual alerts -- this is the safe default.
+
+**Period selection for auto-clawbacks:** Use the current open payroll period (most recent by weekStart). If no open period exists, leave as manual alert with reason `no_open_period`.
+
+**Idempotency:** Before creating a clawback, check if one already exists where `matchedValue = chargebackSubmissionId`. This prevents duplicate clawbacks if the automation runs twice.
+
+### Schema Changes
+
+**Migration: `add_clawback_automation_fields`**
+
+```prisma
+model Clawback {
+  // ... existing fields unchanged
+  sourceAlertId String? @map("source_alert_id")  // Links back to PayrollAlert if auto-created
+}
+
+model PayrollAlert {
+  // ... existing fields unchanged
+  autoMatched   Boolean  @default(false) @map("auto_matched")
+  matchedSaleId String?  @map("matched_sale_id")
 }
 ```
 
-**Backward compatibility:** When no `BundleRequirement` row exists for a core product + state, the old `isBundleQualifier` logic applies. This means existing products work without any migration changes.
+Two nullable columns added. No existing data affected. No foreign key constraints on these (simple audit trail fields).
 
-### Modified Component: upsertPayrollEntryForSale
+### Integration Points
 
-Currently fetches sale with product and addons. Must now also resolve the bundle requirement:
+- **Modified:** `POST /chargebacks` handler in `routes/cs.ts` -- calls `autoMatchAndClawback` after `createAlertFromChargeback` for each submission
+- **Modified:** `services/alerts.ts` `approveAlert` function -- fix the saleId bug (lookup sale by memberId instead of using memberId as saleId)
+- **New file:** `services/clawbackAutomation.ts`
+- **New migration:** Add `source_alert_id` to `clawbacks`, `auto_matched` + `matched_sale_id` to `payroll_alerts`
+- **Socket.IO:** Emits existing `alert:resolved` and `sale:changed` events -- no new event types needed
+
+---
+
+## 4. Data Archival with Restore
+
+### What to Archive
+
+Tables that grow unboundedly and are not core business data:
+
+| Table | Row Estimate/Month | Archive After | Rationale |
+|-------|-------------------|---------------|-----------|
+| `convoso_call_logs` | Highest | 90 days | Raw call data, audited copies preserved in call_audits |
+| `processed_convoso_calls` | High | 90 days | Dedup tracking only, no business value after processing |
+| `call_audits` | Medium-High | 90 days | Scored calls, trends computed at query time |
+| `ai_usage_logs` | Medium | 180 days | Cost tracking, monthly summaries sufficient |
+| `app_audit_log` | Medium | 180 days | Compliance trail, older entries rarely queried |
+| `agent_call_kpis` | Medium | 180 days | Daily snapshots, aggregated in queries |
+
+**Tables NOT to archive:** `sales`, `payroll_entries`, `payroll_periods`, `clawbacks`, `chargeback_submissions`, `pending_terms`, `users`, `agents`, `products` -- these are core business data that must remain queryable indefinitely.
+
+### Recommended Architecture: Parallel Archive Tables
+
+Use `*_archive` tables in the same database. This keeps restore trivial (SQL INSERT...SELECT) and avoids external storage dependencies.
+
+**Why not external storage (S3, separate DB)?**
+- Railway PostgreSQL is the only infra. Adding S3 or a second DB increases deployment complexity.
+- Archive tables use the same Prisma `$queryRaw` interface already used for reporting queries.
+- The storage savings come from reducing the main table sizes for faster queries and smaller indexes, not from moving data off-disk entirely.
+
+### Implementation
+
+**New migration: `create_archive_tables`**
+
+Archive tables mirror source structure but drop foreign key constraints (archived data is frozen):
+
+```sql
+-- For each archivable table:
+CREATE TABLE convoso_call_logs_archive AS SELECT * FROM convoso_call_logs WHERE false;
+ALTER TABLE convoso_call_logs_archive ADD COLUMN archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+-- No foreign keys on archive tables -- data is frozen
+
+CREATE TABLE call_audits_archive AS SELECT * FROM call_audits WHERE false;
+ALTER TABLE call_audits_archive ADD COLUMN archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ... repeat for each table
+```
+
+Archive tables are NOT added to `schema.prisma`. They are accessed exclusively via `prisma.$queryRaw`. This avoids polluting the Prisma client with duplicate models.
+
+**New service: `services/archival.ts`**
 
 ```typescript
-export const upsertPayrollEntryForSale = async (saleId: string) => {
-  const sale = await prisma.sale.findUnique({
-    where: { id: saleId },
-    include: { product: true, addons: { include: { product: true } } },
-  });
-  if (!sale) throw new Error("Sale not found");
+export interface ArchivalConfig {
+  table: string;
+  archiveTable: string;
+  dateColumn: string;
+  retentionDays: number;
+}
 
-  // NEW: Resolve bundle requirement for this sale's core product + member state
-  const bundleReq = await resolveBundleRequirement(
-    sale.product.type === 'CORE' ? sale.product.id : null,
-    sale.memberState
-  );
+export const ARCHIVAL_CONFIGS: ArchivalConfig[] = [
+  { table: "convoso_call_logs", archiveTable: "convoso_call_logs_archive", dateColumn: "created_at", retentionDays: 90 },
+  { table: "call_audits", archiveTable: "call_audits_archive", dateColumn: "created_at", retentionDays: 90 },
+  { table: "ai_usage_logs", archiveTable: "ai_usage_logs_archive", dateColumn: "created_at", retentionDays: 180 },
+  { table: "app_audit_log", archiveTable: "app_audit_log_archive", dateColumn: "created_at", retentionDays: 180 },
+  { table: "processed_convoso_calls", archiveTable: "processed_convoso_calls_archive", dateColumn: "processed_at", retentionDays: 90 },
+  { table: "agent_call_kpis", archiveTable: "agent_call_kpis_archive", dateColumn: "created_at", retentionDays: 180 },
+];
 
-  const payoutAmount = sale.status === 'RAN'
-    ? calculateCommission(sale, bundleReq)
-    : 0;
-  // ... rest unchanged
+// Archive old records from main table to archive table
+export async function archiveTable(config: ArchivalConfig): Promise<{ archived: number }>
+
+// Restore specific records by ID from archive back to main table
+export async function restoreFromArchive(config: ArchivalConfig, ids: string[]): Promise<{ restored: number }>
+
+// Get row counts for main + archive tables
+export async function getArchivalStats(): Promise<Array<{
+  table: string;
+  mainCount: number;
+  archiveCount: number;
+  oldestMainDate: string | null;
+}>>
+```
+
+The archive operation runs in a transaction: INSERT into archive, DELETE from main. Uses `prisma.$executeRaw` with parameterized queries.
+
+**New API endpoints (go in `routes/admin.ts`):**
+
+| Endpoint | Method | Purpose | Role |
+|----------|--------|---------|------|
+| `/admin/archive/stats` | GET | Row counts and oldest dates per table | OWNER_VIEW, SUPER_ADMIN |
+| `/admin/archive/run` | POST | Trigger archival for all configured tables | SUPER_ADMIN |
+| `/admin/archive/run/:table` | POST | Trigger archival for one specific table | SUPER_ADMIN |
+| `/admin/archive/restore` | POST | Restore specific record IDs | SUPER_ADMIN |
+
+**UI location:** Owner dashboard > Config tab (existing `OwnerConfig.tsx`). Add a "Data Management" section below the existing AI config sections. Shows:
+- Table-by-table stats (main count, archive count, oldest record)
+- "Archive Now" button per table (or "Archive All")
+- Storage usage from existing `/storage-stats` endpoint displayed alongside
+
+### Restore Flow
+
+Restore is by record ID. The flow:
+1. Admin views archive stats, sees archived record counts
+2. POST `/admin/archive/restore` with `{ table: "call_audits", ids: ["abc", "def"] }`
+3. Service validates IDs exist in archive table
+4. INSERT from archive back to main (transaction)
+5. DELETE from archive
+6. Return `{ restored: 2 }`
+
+Note: Restore may fail if foreign key targets no longer exist (e.g., agent was deleted). The service should catch FK violations and return a clear error listing which records could not be restored and why.
+
+### Foreign Key Handling During Archive
+
+Before deleting from `convoso_call_logs`, must handle the `call_audit_id` FK:
+- `ConvosoCallLog.callAuditId` references `CallAudit.id` (one-to-one)
+- If archiving call_audits first, the convoso_call_log FK becomes dangling
+- **Solution:** Archive `convoso_call_logs` first (it references call_audits), then archive `call_audits`. Or null out the `callAuditId` before archiving.
+- Better: archive both in the same transaction when their dates overlap.
+
+---
+
+## 5. CS Payroll on Owner Dashboard Period Summary
+
+### Current State
+
+`GET /owner/summary` returns: `salesCount`, `premiumTotal`, `clawbacks`, `openPayrollPeriods`, and trend comparisons. It does NOT include service payroll data.
+
+`GET /reporting/periods` returns weekly/monthly period summaries with sales commission but no service payroll totals.
+
+### Changes Required
+
+**Modified endpoint: `GET /owner/summary`**
+
+Add `ServicePayrollEntry` aggregate to `fetchSummaryData`:
+
+```typescript
+// Add to the Promise.all in fetchSummaryData:
+const servicePayroll = await prisma.servicePayrollEntry.aggregate({
+  where: range ? { payrollPeriod: { weekStart: { gte: range.gte, lt: range.lt } } } : {},
+  _sum: { totalPay: true },
+  _count: true,
+});
+
+// Add to return:
+return {
+  ...existing,
+  servicePayrollTotal: Number(servicePayroll._sum.totalPay ?? 0),
+  serviceStaffCount: servicePayroll._count,
 };
 ```
 
-### New Service Function: resolveBundleRequirement
+**Modified endpoint: `GET /reporting/periods` (weekly view)**
+
+Add `serviceEntries` include and compute `servicePayrollTotal` per period:
 
 ```typescript
-export async function resolveBundleRequirement(
-  coreProductId: string | null,
-  memberState: string | null | undefined
-): Promise<BundleRequirementContext | null> {
-  if (!coreProductId) return null;
+// Add to include:
+serviceEntries: { select: { totalPay: true, status: true } }
 
-  // Try state-specific rule first, then default (state=null)
-  const req = await prisma.bundleRequirement.findFirst({
-    where: {
-      coreProductId,
-      active: true,
-      state: memberState ?? null,
-    },
-  });
-
-  // Fall back to default rule if no state-specific one
-  const rule = req ?? await prisma.bundleRequirement.findFirst({
-    where: { coreProductId, active: true, state: null },
-  });
-
-  if (!rule) return null;
-
-  // Check state availability of primary addon
-  let primaryAvailable = true;
-  if (memberState && rule.primaryAddonId) {
-    const avail = await prisma.productStateAvailability.findUnique({
-      where: {
-        productId_state: {
-          productId: rule.primaryAddonId,
-          state: memberState,
-        },
-      },
-    });
-    if (avail && !avail.available) primaryAvailable = false;
-  }
-
-  return {
-    primaryAddonId: primaryAvailable ? rule.primaryAddonId : null,
-    fallbackAddonId: rule.fallbackAddonId,
-  };
-}
+// Add to result mapping:
+servicePayrollTotal: p.serviceEntries.reduce((s, se) => s + Number(se.totalPay), 0),
 ```
+
+**Modified component: `OwnerOverview.tsx`**
+
+Add a new KPI card after the existing "Clawbacks" card:
+
+```typescript
+// New card in the KPI row:
+{ label: "CS Payroll", value: summary.servicePayrollTotal, format: "dollar", trend: trends?.servicePayrollTotal }
+```
+
+This follows the existing KPI card pattern already used for Sales, Premium, and Clawbacks in `OwnerOverview.tsx`.
+
+### Integration Points
+
+- **Modified:** `GET /owner/summary` handler (in `routes/reporting.ts` after split) -- add ServicePayrollEntry aggregate
+- **Modified:** `GET /reporting/periods` handler -- add serviceEntries include + total
+- **Modified:** `OwnerOverview.tsx` -- add KPI card for CS payroll
+- **No schema changes**
+- **No new components** -- reuses existing KPI card pattern
 
 ---
 
-## Component Boundaries
+## 6. Payroll CSV Export Matching Print Card Format
 
-| Component | Responsibility | Changes Required |
-|-----------|---------------|-----------------|
-| `prisma/schema.prisma` | Data model | ADD BundleRequirement + ProductStateAvailability models, ADD relations to Product |
-| `services/payroll.ts` | Commission calculation | MODIFY calculateCommission signature + halving logic, ADD resolveBundleRequirement function |
-| `routes/index.ts` | API endpoints | ADD CRUD routes for bundle requirements + state availability, MODIFY preview endpoint to pass bundleReq |
-| `PayrollProducts.tsx` | Product config UI | ADD bundle requirement config section (per-product), ADD state availability toggles |
-| `ManagerEntry.tsx` | Sales entry form | MODIFY preview call to include memberState, MODIFY commission preview display to show bundle status |
+### Current Export Formats
+
+Two CSV formats exist in `PayrollExports.tsx`:
+- **Summary CSV:** Period-level rows (week start/end, quarter, status, entry count, gross, net)
+- **Detailed CSV:** Entry-level rows with agent subtotals (agent, member ID/name, core/addon/AD&D, enroll fee, commission, bonus, fronted, hold, net)
+
+### Print Card Format (what CSV should match)
+
+The `printAgentCards` function in `PayrollPeriods.tsx` generates per-agent printable cards with:
+- **Agent header:** name, week range, quarter, sale count
+- **Summary row:** Commission total, Bonuses, Fronted, Hold, Net Payout
+- **Entry table:** Member ID | Member Name | Core | Add-on | AD&D | Enroll Fee | Commission | Net
+- **Subtotal row** at bottom
+
+### Gap Analysis
+
+The detailed CSV is close but structured differently. It interleaves agent subtotals between entry rows. The print card format groups everything under clear agent headers with summary data. The CSV version does not include the agent-level summary (commission/bonus/fronted/hold/net) as a header row -- it only has subtotal rows after entries.
+
+### New Format: "Print Card CSV"
+
+Add a third export option that matches the print card layout exactly:
+
+```csv
+Agent: John Smith
+Week: 03-16-2026 to 03-22-2026 | Q1 2026 | 5 sales
+Commission: $450.00 | Bonuses: +$20.00 | Fronted: -$50.00 | Hold: -$0.00 | Net: $420.00
+Member ID,Member Name,Core,Add-on,AD&D,Enroll Fee,Commission,Net
+ABC123,"Jane Doe","Globe Life","$15.00 Monthly","--",$125.00,$90.00,$90.00
+DEF456,"Bob Smith","Globe Life","--","--",$99.00,$45.00,$45.00
+SUBTOTAL,,,,,,,$450.00,$420.00
+
+Agent: Sarah Jones
+Week: 03-16-2026 to 03-22-2026 | Q1 2026 | 3 sales
+Commission: $270.00 | Bonuses: +$10.00 | Fronted: -$0.00 | Hold: -$0.00 | Net: $280.00
+Member ID,Member Name,Core,Add-on,AD&D,Enroll Fee,Commission,Net
+...
+```
+
+### Implementation
+
+**Client-side only.** Add `exportPrintCardCSV()` function to `PayrollExports.tsx`:
+
+1. Filter periods by date range (reuse existing `filterPeriodsByDateRange`)
+2. For each period, group entries by agent (reuse existing grouping logic)
+3. For each agent group:
+   - Emit agent header row (name)
+   - Emit summary metadata row (week, quarter, sale count)
+   - Emit summary values row (commission, bonus, fronted, hold, net)
+   - Emit column header row
+   - Emit entry rows matching print card columns
+   - Emit subtotal row
+   - Emit blank separator line
+
+Add a third export button in the exports UI labeled "Print Card CSV" with description: "Per-agent cards matching the print layout -- agent header, summary, entries, subtotals."
+
+### Integration Points
+
+- **Modified:** `PayrollExports.tsx` -- add `exportPrintCardCSV()` function and third export button
+- **No API changes** -- all data already available in the `periods` prop
+- **No schema changes**
+
+---
+
+## Component Boundaries (All Features)
+
+| Component | Responsibility | New/Modified | Communicates With |
+|-----------|---------------|-------------|-------------------|
+| `routes/helpers.ts` | Shared zodErr, asyncHandler, dateRange | NEW | All route files import from it |
+| `routes/*.ts` (16 files) | Domain-scoped route handlers | NEW (split from index.ts) | Services, middleware, socket |
+| `routes/ai.ts` | AI scoring + dashboard endpoints | NEW | `services/callAudit.ts`, `services/auditQueue.ts` |
+| `routes/admin.ts` | Permissions, storage, archival endpoints | NEW | `services/archival.ts` |
+| `services/clawbackAutomation.ts` | Auto-match chargeback to sale, create clawback | NEW | Prisma, `services/alerts.ts`, `socket.ts` |
+| `services/archival.ts` | Archive/restore data across tables | NEW | Prisma raw queries |
+| `OwnerScoring.tsx` | AI scoring dashboard UI | NEW | `GET /ai/scoring-*` endpoints |
+| `owner/page.tsx` | Owner tab management | MODIFIED (add scoring tab) | Renders OwnerScoring |
+| `OwnerOverview.tsx` | Owner KPI cards | MODIFIED (add CS payroll card) | `GET /owner/summary` |
+| `OwnerConfig.tsx` | AI config + data management UI | MODIFIED (add archival section) | `GET/POST /admin/archive/*` |
+| `PayrollExports.tsx` | CSV export options | MODIFIED (add print card CSV) | Local period data |
+| `routes/cs.ts` (chargebacks handler) | Chargeback submission | MODIFIED (call autoMatch) | `services/clawbackAutomation.ts` |
+| `services/alerts.ts` | Alert CRUD | MODIFIED (fix approveAlert bug) | Prisma |
 
 ### What Does NOT Change
 
 | Component | Why Unchanged |
 |-----------|--------------|
-| `Sale` model | `memberState` field already exists |
-| `Product` model | `isBundleQualifier` stays as fallback; no schema change needed |
-| `SaleAddon` model | Unchanged -- addons still recorded the same way |
-| `PayrollEntry` model | Commission result stored the same way |
-| Socket.IO events | Same `sale:changed` payload -- commission is just a different number |
-| Auth/RBAC middleware | Same role gates (PAYROLL/SUPER_ADMIN for config, MANAGER for entry) |
-| Export/CSV logic | Reads payoutAmount from PayrollEntry -- unchanged |
+| `prisma/schema.prisma` core models | Sale, PayrollEntry, Product etc. stay identical |
+| `socket.ts` | Existing events sufficient, no new event types |
+| `middleware/auth.ts` | Same RBAC roles, no new permissions |
+| `@ops/ui` package | Reuses existing components (DateRangeFilter, Card, AnimatedNumber, Button) |
+| `@ops/auth` package | No auth changes |
+| Manager dashboard | No changes to sales entry flow |
+| CS dashboard | No UI changes (backend auto-match is invisible to CS users) |
+| Sales board | No changes |
 
 ---
 
-## Data Flow: New State-Aware Commission Path
+## Data Flow: Complete Chargeback to Clawback Pipeline
 
 ```
-1. Manager enters sale with memberState = "FL"
-   |
-2. POST /api/sales -- saves Sale with memberState="FL"
-   |
-3. upsertPayrollEntryForSale(saleId)
-   |
-   |-- Fetches sale (with product, addons)
-   |-- sale.product.type === "CORE" && sale.memberState === "FL"
-   |
-   |-- resolveBundleRequirement("core-product-id", "FL")
-   |     |-- Query: BundleRequirement WHERE coreProductId=X AND state="FL"
-   |     |-- Found? Check if primaryAddon is available in FL
-   |     |     |-- ProductStateAvailability WHERE productId=primaryAddon AND state="FL"
-   |     |     |-- Available: return { primaryAddonId: Y, fallbackAddonId: Z }
-   |     |     |-- Unavailable: return { primaryAddonId: null, fallbackAddonId: Z }
-   |     |-- Not found? Try state=null (default rule)
-   |     |-- No rule at all? return null (old isBundleQualifier logic applies)
-   |
-   |-- calculateCommission(sale, bundleReq)
-   |     |-- Checks if sale addons include primaryAddonId or fallbackAddonId
-   |     |-- Present: full commission
-   |     |-- Neither present && !commissionApproved: half commission
-   |
-4. PayrollEntry created with calculated payoutAmount
+CS User pastes chargeback data
+  |
+  v
+POST /chargebacks (batch create, in routes/cs.ts)
+  |
+  +--> For each row: Create ChargebackSubmission
+  |
+  +--> For each: createAlertFromChargeback()
+  |    --> PayrollAlert (status: PENDING)
+  |    --> Socket.IO: alert:created
+  |
+  +--> For each: autoMatchAndClawback() [NEW]
+       |
+       +--> Find Sale by memberId (exact) or memberName (normalized)
+       |
+       +--> [MATCH FOUND]
+       |    |
+       |    +--> Find Sale's most recent PayrollEntry
+       |    |
+       |    +--> [Entry NOT PAID]
+       |    |    +--> Create Clawback (status: ZEROED)
+       |    |    +--> Zero out PayrollEntry (payoutAmount: 0, netAmount: 0, status: ZEROED_OUT)
+       |    |
+       |    +--> [Entry PAID]
+       |    |    +--> Find current OPEN PayrollPeriod
+       |    |    +--> Create Clawback (status: DEDUCTED, appliedPayrollPeriodId)
+       |    |    +--> Adjust entry: adjustmentAmount -= netAmount
+       |    |
+       |    +--> Update PayrollAlert (status: APPROVED, autoMatched: true, matchedSaleId)
+       |    +--> Socket.IO: alert:resolved, sale:changed
+       |    +--> Audit log: clawback_auto_created
+       |
+       +--> [NO MATCH]
+            |
+            +--> PayrollAlert stays PENDING
+            +--> Payroll user reviews manually (unchanged flow)
+            |
+            +--> [Manual approve: POST /alerts/:id/approve]
+                 +--> Select period, create Clawback (existing flow, but with saleId bug fixed)
 ```
-
----
-
-## API Routes (New)
-
-### Bundle Requirements CRUD
-
-```
-GET    /api/bundle-requirements              -- list all (filterable by coreProductId)
-GET    /api/bundle-requirements/:id          -- single
-POST   /api/bundle-requirements              -- create
-PATCH  /api/bundle-requirements/:id          -- update
-DELETE /api/bundle-requirements/:id          -- soft-delete (set active=false)
-```
-
-Access: `requireRole("PAYROLL", "SUPER_ADMIN")` -- same as product CRUD.
-
-### State Availability CRUD
-
-```
-GET    /api/products/:id/state-availability  -- list states for a product
-PUT    /api/products/:id/state-availability  -- bulk upsert states
-```
-
-Access: `requireRole("PAYROLL", "SUPER_ADMIN")`.
-
-**Why PUT for bulk upsert?** State availability is toggle-based (50 states). Individual POST/DELETE per state would be 50 API calls. A single PUT with `{ states: { FL: true, CA: false, NY: true } }` is one call.
-
-### Preview Endpoint Enhancement
-
-The existing `POST /api/sales/preview` must also resolve bundle requirements to show accurate commission:
-
-```typescript
-// ADD to preview endpoint:
-const bundleReq = await resolveBundleRequirement(
-  product.type === 'CORE' ? product.id : null,
-  parsed.data.memberState  // NEW field in preview schema
-);
-const commission = calculateCommission(mockSale, bundleReq);
-
-// ADD to response breakdown:
-bundleRequirement: bundleReq ? {
-  primaryAddonId: bundleReq.primaryAddonId,
-  fallbackAddonId: bundleReq.fallbackAddonId,
-  satisfied: /* check if addon present */,
-} : null,
-```
-
----
-
-## UI Architecture: Config in PayrollProducts
-
-### Approach: Expandable Section Per Product
-
-Do NOT create a separate tab or page. Bundle requirements are per-product configuration. Add a collapsible "Bundle Requirements" section inside each `ProductCard` component when the product type is CORE.
-
-```
-+-----------------------------------------------------+
-| Health Insurance Core                    [Core] Active |
-| Below $250: 30%  Above $250: 40%                      |
-|                                                        |
-| v Bundle Requirements                                  |
-| +----------------------------------------------------+ |
-| | Default Rule:                                      | |
-| |   Primary Addon: [Compass VAB v]                   | |
-| |   Fallback Addon: [None v]                         | |
-| |                                                    | |
-| | State Overrides:            [+ Add State Override] | |
-| |   FL: Primary = Compass VAB, Fallback = Dental Plus| |
-| |   CA: Primary = Dental Plus, Fallback = None       | |
-| +----------------------------------------------------+ |
-|                                                        |
-| v State Availability (for this addon product)          |
-| +----------------------------------------------------+ |
-| | Available in all states except:                    | |
-| |   [ ] FL  [ ] CA  [x] NY  [ ] TX  ...             | |
-| | (Only shown for ADDON/AD_D products)               | |
-| +----------------------------------------------------+ |
-+--------------------------------------------------------+
-```
-
-**Bundle Requirements section** appears only on CORE products.
-**State Availability section** appears only on ADDON/AD_D products.
-
-This separation makes logical sense: core products define "what addon is required," addon products define "where I am available."
-
-### Commission Preview Enhancement
-
-In `ManagerEntry.tsx`, the preview panel currently shows:
-
-```
-Bundle: Compass VAB included / No qualifier -- half rate applied / Standalone
-```
-
-Enhance to show state-aware info:
-
-```
-Bundle: Required addon (Compass VAB) included -- full rate
-Bundle: Required addon unavailable in FL -- fallback (Dental Plus) included
-Bundle: No required addon present -- half rate applied
-```
-
-The preview response already returns a `breakdown` object. Extend it with `bundleRequirement` details.
-
----
-
-## Patterns to Follow
-
-### Pattern 1: Configuration Resolution with Fallback Chain
-
-**What:** State-specific rule -> default rule -> legacy isBundleQualifier flag.
-**When:** Any time bundle requirement is checked.
-**Why:** Zero-migration deployment. Existing products work without bundle requirement rows because the `isBundleQualifier` fallback is preserved.
-
-```typescript
-// Resolution priority:
-// 1. BundleRequirement WHERE coreProductId=X AND state="FL"
-// 2. BundleRequirement WHERE coreProductId=X AND state IS NULL
-// 3. Fall back to isBundleQualifier boolean (existing behavior)
-```
-
-### Pattern 2: Pure Calc + Resolved Context
-
-**What:** Keep `calculateCommission` pure. Resolve all DB-dependent context in the caller.
-**When:** Any commission calculation path (sale creation, sale edit, preview, commission recalc).
-**Why:** Matches existing architecture decision. Makes testing straightforward -- pass different context objects to test different scenarios.
-
-### Pattern 3: Bulk State Operations
-
-**What:** PUT endpoint that accepts all 50 states at once rather than individual toggle endpoints.
-**When:** State availability configuration.
-**Why:** The UI will render a grid of 50 state checkboxes. On save, send the entire map. Server upserts all rows in a transaction.
-
----
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Hardcoding State-Product Mappings
-
-**What:** `if (state === 'FL') requiredAddon = 'compass-vab'`
-**Why bad:** Every new state or product change requires a code deploy. The whole point of this feature is configurability.
-**Instead:** Database-driven BundleRequirement rows.
-
-### Anti-Pattern 2: Making calculateCommission Async
-
-**What:** Adding `await prisma.bundleRequirement.findFirst(...)` inside calculateCommission.
-**Why bad:** Breaks the pure-function design. The function is called from both the upsert flow and the preview endpoint. Making it async changes all callers and makes testing harder.
-**Instead:** Resolve bundle requirement context before calling calculateCommission.
-
-### Anti-Pattern 3: Separate Config Page for Bundle Rules
-
-**What:** Creating a new "Bundle Rules" tab or standalone config page.
-**Why bad:** Bundle requirements are per-product configuration. A separate page creates navigation overhead and disconnects the rule from its product context.
-**Instead:** Inline collapsible section within the existing ProductCard component.
-
-### Anti-Pattern 4: Storing State Availability as JSON on Product
-
-**What:** `stateAvailability Json? @map("state_availability")` on the Product model.
-**Why bad:** Not queryable ("which products are available in FL?"), no relational integrity, harder to audit changes.
-**Instead:** Separate ProductStateAvailability table with proper indices.
-
----
-
-## Migration Strategy
-
-### Database Migration
-
-Single Prisma migration adding two tables. No existing table modifications required.
-
-```sql
-CREATE TABLE "bundle_requirements" (
-  "id" TEXT NOT NULL PRIMARY KEY DEFAULT cuid(),
-  "core_product_id" TEXT NOT NULL REFERENCES "products"("id"),
-  "state" VARCHAR(2),
-  "primary_addon_id" TEXT NOT NULL REFERENCES "products"("id"),
-  "fallback_addon_id" TEXT REFERENCES "products"("id"),
-  "active" BOOLEAN NOT NULL DEFAULT true,
-  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at" TIMESTAMPTZ NOT NULL,
-  CONSTRAINT "bundle_requirements_core_product_id_state_key"
-    UNIQUE("core_product_id", "state")
-);
-
-CREATE TABLE "product_state_availability" (
-  "id" TEXT NOT NULL PRIMARY KEY DEFAULT cuid(),
-  "product_id" TEXT NOT NULL REFERENCES "products"("id"),
-  "state" VARCHAR(2) NOT NULL,
-  "available" BOOLEAN NOT NULL DEFAULT true,
-  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at" TIMESTAMPTZ NOT NULL,
-  CONSTRAINT "product_state_availability_product_id_state_key"
-    UNIQUE("product_id", "state")
-);
-```
-
-**Zero-downtime:** Adding new tables does not affect existing queries. The fallback chain ensures existing sales calculate correctly before any BundleRequirement rows are created.
-
-### Seed Data
-
-No seed data required. Bundle requirements are configured by payroll staff through the UI. The system works without any rows (falls back to isBundleQualifier).
 
 ---
 
 ## Suggested Build Order
 
-Build order follows the dependency graph -- each phase builds on the previous.
+Build order based on dependency analysis. Each phase is independently deployable.
 
-### Phase 1: Data Model + Service Layer (Backend Foundation)
+| Order | Feature | Scope | Schema Migration | Depends On |
+|-------|---------|-------|-----------------|------------|
+| 1 | Route splitting | Backend refactor | None | Nothing |
+| 2 | CS payroll on owner dashboard | Backend + frontend | None | Route splitting (cleaner diff) |
+| 3 | Payroll CSV print card format | Frontend only | None | Nothing |
+| 4 | AI scoring dashboard | Backend + frontend | None | Route splitting (new endpoints go in ai.ts) |
+| 5 | Chargeback-to-clawback automation | Backend + migration | Yes (2 columns) | Route splitting (modifies cs.ts) |
+| 6 | Data archival | Backend + frontend + migration | Yes (6 tables) | Route splitting (new admin.ts endpoints) |
 
-**What:** Prisma schema changes, migration, `resolveBundleRequirement` function, modify `calculateCommission`.
-
-**Deliverables:**
-- Add BundleRequirement and ProductStateAvailability to schema.prisma
-- Create and run migration
-- Add `resolveBundleRequirement()` to services/payroll.ts
-- Modify `calculateCommission()` to accept optional `BundleRequirementContext`
-- Modify `upsertPayrollEntryForSale()` to call resolveBundleRequirement
-- Unit tests for calculateCommission with various bundleReq contexts
-
-**Why first:** Everything else depends on the data model and calc logic being correct. This is the foundation.
-
-**Risk:** LOW -- additive schema change, backward-compatible calc modification.
-
-### Phase 2: API Routes + Preview Enhancement (Backend Complete)
-
-**What:** CRUD endpoints for bundle requirements and state availability, preview endpoint enhancement.
-
-**Deliverables:**
-- GET/POST/PATCH/DELETE /api/bundle-requirements routes
-- GET/PUT /api/products/:id/state-availability routes
-- Add memberState to preview schema, resolve bundleReq in preview
-- Add bundleRequirement info to preview response breakdown
-- Zod validation schemas for all new endpoints
-
-**Why second:** API must exist before UI can call it. Preview enhancement enables accurate commission display during entry.
-
-**Risk:** LOW -- follows existing route patterns exactly.
-
-### Phase 3: Config UI in PayrollProducts (Admin Interface)
-
-**What:** Bundle requirement config in ProductCard, state availability toggles.
-
-**Deliverables:**
-- Collapsible "Bundle Requirements" section on CORE product cards
-- Default rule + state override management
-- Collapsible "State Availability" section on ADDON/AD_D product cards
-- State grid with checkboxes (default: available everywhere)
-
-**Why third:** Config UI must work before testing end-to-end flow. Payroll staff need to set up rules before commission calc can be verified.
-
-**Risk:** MEDIUM -- UI complexity with state grid (50 states). Keep it simple: checkbox grid, not a fancy map.
-
-### Phase 4: Sales Entry Integration + Polish (End-to-End)
-
-**What:** Commission preview enhancement in ManagerEntry, memberState-aware preview display.
-
-**Deliverables:**
-- Enhanced commission preview panel showing bundle requirement status
-- memberState field included in preview API call
-- Preview breakdown shows which addon satisfies requirement (or explains half-rate reason)
-- Validation: warn if required addon not selected for the member's state
-
-**Why last:** This is the user-facing polish. The backend and config must be solid first.
-
-**Risk:** LOW -- mostly display changes to existing preview panel.
-
-### Parallel: Housekeeping (No Dependencies)
-
-- Role dashboard selector delay fix
-- Remove seed agents from database seed
-
-These have no dependency on the bundle commission work and can be done in any phase.
+**Rationale:**
+- Route splitting FIRST eliminates the 2750-line file every other feature would touch. All subsequent work targets clean, small files.
+- Features 2 and 3 are smallest scope with no schema changes -- quick wins to ship early.
+- Feature 4 (AI scoring) adds new endpoints but no schema migration, moderate complexity.
+- Feature 5 (clawback automation) modifies existing chargeback submission flow and adds a migration. Done after route splitting so the change is isolated to `routes/cs.ts` + `services/clawbackAutomation.ts`.
+- Feature 6 (archival) is the riskiest work (raw SQL, data deletion, FK handling). Benefits from all other features being stable. Ship last.
 
 ---
 
-## Scalability Considerations
+## Anti-Patterns to Avoid
 
-| Concern | Current Scale | At Growth |
-|---------|--------------|-----------|
-| BundleRequirement rows | ~5-10 (few core products x few state overrides) | Still small -- max ~250 (5 cores x 50 states) |
-| ProductStateAvailability rows | ~50-250 (few addons x 50 states) | Still small -- max ~500 |
-| Commission calc latency | 0ms (pure function) | +1-2ms for resolveBundleRequirement DB query |
-| Config UI load | Single product list fetch | +2 queries (bundle reqs + state avail) -- consider eager loading with products |
+### Anti-Pattern 1: Prisma Models for Archive Tables
+**What:** Adding archive table models to `schema.prisma`
+**Why bad:** Duplicates every model, pollutes generated client, archive tables have no FK constraints. Prisma would try to manage their migrations.
+**Instead:** Use `prisma.$queryRaw` / `$executeRaw` for all archive operations. Keep archive tables as raw SQL in migrations only.
 
-**Verdict:** Scale is not a concern. This is configuration data with a hard ceiling of a few hundred rows.
+### Anti-Pattern 2: Fuzzy Matching for Auto-Clawbacks
+**What:** Using Levenshtein distance, soundex, or partial string matching to match chargebacks to sales.
+**Why bad:** False positive clawbacks directly reduce agent pay incorrectly. One bad match destroys trust in the system and creates accounting problems.
+**Instead:** Exact match on memberId, normalized exact match on memberName. Everything else stays as a manual alert.
+
+### Anti-Pattern 3: Moving HTTP Logic into Service Files During Route Split
+**What:** During route splitting, moving req/res handling, status codes, and Zod parsing into services.
+**Why bad:** Services should be pure business logic callable from anywhere (API routes, tests, workers). Mixing HTTP concerns makes them untestable and coupled to Express.
+**Instead:** Route files handle HTTP (parse request, validate with Zod, set response status). Services handle business logic (query, calculate, write).
+
+### Anti-Pattern 4: Adding a Chart Library for AI Scoring Dashboard
+**What:** Installing recharts, chart.js, or nivo for trend visualization.
+**Why bad:** Adds ~150-200KB to the client bundle for one component. Every other dashboard in the app uses table-based KPIs with `AnimatedNumber` and delta arrows.
+**Instead:** Table-based trend display with week-over-week comparison and up/down/flat indicators. Matches existing UX patterns.
+
+### Anti-Pattern 5: Archiving in a Background Cron Without User Trigger
+**What:** Automatically archiving data on a schedule without user awareness.
+**Why bad:** Silent data deletion is dangerous. If archival has a bug (e.g., wrong date column), data disappears without anyone noticing.
+**Instead:** Manual trigger from Owner dashboard with confirmation. Show what will be archived (counts) before executing. Log the operation in audit log.
 
 ---
 
 ## Sources
 
-- Direct codebase analysis of:
-  - `prisma/schema.prisma` -- existing Product, Sale, SaleAddon models
-  - `apps/ops-api/src/services/payroll.ts` -- calculateCommission, upsertPayrollEntryForSale
-  - `apps/ops-api/src/routes/index.ts` -- sale creation, preview, product CRUD routes
-  - `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` -- product config UI
-  - `apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx` -- sales entry form
-  - `.planning/PROJECT.md` -- project context, design decisions, constraints
+- Direct codebase analysis:
+  - `apps/ops-api/src/routes/index.ts` -- 2750 lines, 95 handlers, all route definitions
+  - `apps/ops-api/src/services/alerts.ts` -- existing alert creation/approval flow, identified saleId bug
+  - `apps/ops-api/src/services/callAudit.ts` -- AI scoring pipeline, CallAudit model usage
+  - `apps/ops-api/src/services/payroll.ts` -- commission calculation, payroll entry management
+  - `apps/ops-api/src/index.ts` -- Express app setup, Socket.IO, route mounting
+  - `apps/ops-api/src/socket.ts` -- all Socket.IO event types
+  - `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` -- print card HTML format
+  - `apps/ops-dashboard/app/(dashboard)/payroll/PayrollExports.tsx` -- existing CSV export formats
+  - `apps/ops-dashboard/app/(dashboard)/owner/page.tsx` -- owner tab structure pattern
+  - `apps/ops-dashboard/app/(dashboard)/owner/OwnerOverview.tsx` -- KPI card pattern
+  - `apps/ops-dashboard/app/(dashboard)/layout.tsx` -- dashboard tab navigation
+  - `prisma/schema.prisma` -- all 28 models, 645 lines
+  - `.planning/PROJECT.md` -- project context, v1.5 scope, architecture decisions
+- Confidence: HIGH -- all recommendations derived from direct code analysis with no external dependencies

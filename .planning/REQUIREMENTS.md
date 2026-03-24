@@ -23,10 +23,10 @@
 
 ### AI Scoring
 
-- [ ] **SCORE-01**: Owner dashboard has Scoring tab showing aggregate KPIs (avg score, total audits, score distribution)
-- [ ] **SCORE-02**: Per-agent score breakdown table with sortable columns
-- [ ] **SCORE-03**: Weekly trend data showing score changes over time
-- [ ] **SCORE-04**: DateRangeFilter integration on scoring tab
+- [x] **SCORE-01**: Owner dashboard has Scoring tab showing aggregate KPIs (avg score, total audits, score distribution)
+- [x] **SCORE-02**: Per-agent score breakdown table with sortable columns
+- [x] **SCORE-03**: Weekly trend data showing score changes over time
+- [x] **SCORE-04**: DateRangeFilter integration on scoring tab
 
 ### Chargeback Automation
 
@@ -72,10 +72,10 @@
 | EXPORT-01 | Phase 22 | pending |
 | EXPORT-02 | Phase 22 | pending |
 | EXPORT-03 | Phase 22 | pending |
-| SCORE-01 | Phase 23 | pending |
-| SCORE-02 | Phase 23 | pending |
-| SCORE-03 | Phase 23 | pending |
-| SCORE-04 | Phase 23 | pending |
+| SCORE-01 | Phase 23 | Complete |
+| SCORE-02 | Phase 23 | Complete |
+| SCORE-03 | Phase 23 | Complete |
+| SCORE-04 | Phase 23 | Complete |
 | CLAWBACK-01 | Phase 24 | pending |
 | CLAWBACK-02 | Phase 24 | pending |
 | CLAWBACK-03 | Phase 24 | pending |
