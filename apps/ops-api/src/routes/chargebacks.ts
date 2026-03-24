@@ -57,11 +57,46 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     })),
   });
 
-  // Create payroll alerts for chargebacks with amounts
+  // Retrieve created chargebacks for matching and alert creation
   const createdChargebacks = await prisma.chargebackSubmission.findMany({
     where: { batchId },
     orderBy: { createdAt: "desc" },
   });
+
+  // Auto-match chargebacks to sales by memberId (D-01: exact match only)
+  for (const cb of createdChargebacks) {
+    if (cb.memberId) {
+      const matchingSales = await prisma.sale.findMany({
+        where: { memberId: cb.memberId },
+        select: { id: true },
+      });
+
+      if (matchingSales.length === 1) {
+        await prisma.chargebackSubmission.update({
+          where: { id: cb.id },
+          data: { matchedSaleId: matchingSales[0].id, matchStatus: "MATCHED" },
+        });
+      } else if (matchingSales.length > 1) {
+        // D-02: Multiple matches -- flag for manual review, do NOT auto-select
+        await prisma.chargebackSubmission.update({
+          where: { id: cb.id },
+          data: { matchStatus: "MULTIPLE" },
+        });
+      } else {
+        await prisma.chargebackSubmission.update({
+          where: { id: cb.id },
+          data: { matchStatus: "UNMATCHED" },
+        });
+      }
+    } else {
+      await prisma.chargebackSubmission.update({
+        where: { id: cb.id },
+        data: { matchStatus: "UNMATCHED" },
+      });
+    }
+  }
+
+  // Create payroll alerts for chargebacks with amounts
   for (const cb of createdChargebacks) {
     if (cb.chargebackAmount) {
       await createAlertFromChargeback(
@@ -126,7 +161,11 @@ router.get("/chargebacks", requireAuth, asyncHandler(async (req, res) => {
     orderBy: { submittedAt: "desc" },
     take: 200,
     where: dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : undefined,
-    include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
+    include: {
+      submitter: { select: { name: true } },
+      resolver: { select: { name: true } },
+      matchedSale: { select: { id: true, memberName: true, agentId: true } },
+    },
   });
   return res.json(records);
 }));
