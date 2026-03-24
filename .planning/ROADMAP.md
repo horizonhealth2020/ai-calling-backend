@@ -7,7 +7,7 @@
 - ✅ **v1.2 Platform Polish & Integration** — Phase 18 (shipped 2026-03-19)
 - ✅ **v1.3 Dashboard Consolidation & Uniform Date Ranges** — Phase 19 (shipped 2026-03-23)
 - ✅ **v1.4 State-Aware Bundle Requirements** — Phase 20 (shipped 2026-03-23)
-- [ ] **v1.5 Platform Cleanup & Remaining Features** — Phases 21-26
+- [ ] **v1.5 Platform Cleanup & Remaining Features** — Phases 21-24
 
 ## Phases
 
@@ -61,14 +61,12 @@
 
 </details>
 
-### v1.5 Platform Cleanup & Remaining Features (Phases 21-26)
+### v1.5 Platform Cleanup & Remaining Features (Phases 21-24)
 
 - [x] **Phase 21: Route File Splitting** - Split 2750-line monolith route file into domain modules with zero behavior change
-- [ ] **Phase 22: CS Payroll on Owner Dashboard** - Surface service payroll totals in owner period summary with real-time updates
-- [ ] **Phase 23: Payroll CSV Print Card Export** - Agent-grouped CSV export matching print card layout with header/subtotal rows
-- [ ] **Phase 24: AI Scoring Dashboard** - Owner dashboard scoring tab with aggregate KPIs, per-agent breakdown, and weekly trends
-- [ ] **Phase 25: Chargeback-to-Clawback Automation** - Fix approveAlert bug, auto-match chargebacks to sales, auto-create clawbacks
-- [ ] **Phase 26: Data Archival with Restore** - Archive high-volume log tables by date range with admin restore capability
+- [ ] **Phase 22: Owner & Payroll Enhancements** - CS payroll totals on owner dashboard + agent-grouped CSV print card export
+- [ ] **Phase 23: AI Scoring Dashboard** - Owner dashboard scoring tab with aggregate KPIs, per-agent breakdown, and weekly trends
+- [ ] **Phase 24: Chargeback Automation & Data Archival** - Auto-match chargebacks to sales, auto-create clawbacks, archive high-volume logs with restore
 
 ## Phase Details
 
@@ -85,27 +83,20 @@
 Plans:
 - [x] 21-01-PLAN.md — Extract helpers, split 17 domain modules, create barrel index
 
-### Phase 22: CS Payroll on Owner Dashboard
-**Goal**: Owners see complete financial picture including service staff payroll alongside commission totals
-**Depends on**: Phase 21 (routes are split, owner endpoints in clean file)
-**Requirements**: OWNER-01, OWNER-02
+### Phase 22: Owner & Payroll Enhancements
+**Goal**: Owners see complete financial picture including CS payroll totals, and payroll staff can export agent-grouped CSV matching print card layout
+**Depends on**: Phase 21 (routes are split into clean domain files)
+**Requirements**: OWNER-01, OWNER-02, EXPORT-01, EXPORT-02, EXPORT-03
 **Success Criteria** (what must be TRUE):
   1. Owner period summary endpoint returns a CS payroll total (sum of ServicePayrollEntry amounts) alongside the existing commission total
   2. Owner dashboard displays the CS payroll total as a KPI card in the period summary section
   3. When a service payroll entry is created or updated, the owner dashboard CS payroll total updates in real-time via Socket.IO without page refresh
+  4. A new export option produces a CSV with rows grouped by agent, matching the print card visual layout
+  5. Each agent section has a header row (agent name, totals), individual sale rows, and a subtotal row
+  6. Export completes without browser hang or memory error for periods with 100+ agents and 1000+ sales
 **Plans**: TBD
 
-### Phase 23: Payroll CSV Print Card Export
-**Goal**: Payroll staff can export a CSV that mirrors the on-screen print card layout for agent pay verification
-**Depends on**: Phase 21 (routes are split, export logic in clean file)
-**Requirements**: EXPORT-01, EXPORT-02, EXPORT-03
-**Success Criteria** (what must be TRUE):
-  1. A new export option produces a CSV with rows grouped by agent, matching the print card visual layout
-  2. Each agent section has a header row (agent name, totals), individual sale rows, and a subtotal row
-  3. Export completes without browser hang or memory error for periods with 100+ agents and 1000+ sales
-**Plans**: TBD
-
-### Phase 24: AI Scoring Dashboard
+### Phase 23: AI Scoring Dashboard
 **Goal**: Owners can monitor call audit quality trends and identify agents needing coaching from a dedicated scoring tab
 **Depends on**: Phase 21 (routes are split, scoring endpoints in clean file)
 **Requirements**: SCORE-01, SCORE-02, SCORE-03, SCORE-04
@@ -116,27 +107,20 @@ Plans:
   4. DateRangeFilter on the scoring tab filters all KPIs and tables to the selected range
 **Plans**: TBD
 
-### Phase 25: Chargeback-to-Clawback Automation
-**Goal**: Approved chargebacks automatically create clawback records against the correct sale, eliminating manual clawback entry
-**Depends on**: Phase 21 (routes are split, alert/clawback logic in clean files)
-**Requirements**: CLAWBACK-01, CLAWBACK-02, CLAWBACK-03, CLAWBACK-04, CLAWBACK-05
+### Phase 24: Chargeback Automation & Data Archival
+**Goal**: Approved chargebacks automatically create clawback records against the correct sale, and admins can archive high-volume logs with restore capability
+**Depends on**: Phase 22 (owner dashboard enhancements stable)
+**Requirements**: CLAWBACK-01, CLAWBACK-02, CLAWBACK-03, CLAWBACK-04, CLAWBACK-05, ARCHIVE-01, ARCHIVE-02, ARCHIVE-03, ARCHIVE-04
 **Success Criteria** (what must be TRUE):
   1. approveAlert() creates clawback records referencing the correct sale (not using memberId as saleId)
   2. When a chargeback is submitted, the system auto-matches it to a sale by memberId or memberName and stores the match
   3. When a matched chargeback is approved, a clawback record is auto-created against the matched sale with correct amounts
   4. Chargebacks that cannot be auto-matched are visually flagged for manual review in the tracking table
   5. When a clawback is auto-created, a Socket.IO event notifies the payroll dashboard in real-time
-**Plans**: TBD
-
-### Phase 26: Data Archival with Restore
-**Goal**: Admins can reduce database size by archiving old high-volume logs while retaining the ability to restore them
-**Depends on**: Phase 25 (all features stable before data operations)
-**Requirements**: ARCHIVE-01, ARCHIVE-02, ARCHIVE-03, ARCHIVE-04
-**Success Criteria** (what must be TRUE):
-  1. Admin can select a date range and archive call logs, audit logs, and KPI snapshots -- rows move from main tables to parallel archive tables
-  2. Archived rows are physically removed from main tables (not soft-deleted), reducing query scan size
-  3. Admin can select archived batches and restore them back to main tables with original data intact
-  4. Owner dashboard has a data management section showing archive statistics (row counts, date ranges, last archive date)
+  6. Admin can select a date range and archive call logs, audit logs, and KPI snapshots -- rows move from main tables to parallel archive tables
+  7. Archived rows are physically removed from main tables (not soft-deleted), reducing query scan size
+  8. Admin can select archived batches and restore them back to main tables with original data intact
+  9. Owner dashboard has a data management section showing archive statistics (row counts, date ranges, last archive date)
 **Plans**: TBD
 
 ## Progress
@@ -164,11 +148,9 @@ Plans:
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
 | 21. Route File Splitting | v1.5 | 1/1 | Complete    | 2026-03-24 |
-| 22. CS Payroll on Owner Dashboard | v1.5 | 0/? | Not started | - |
-| 23. Payroll CSV Print Card Export | v1.5 | 0/? | Not started | - |
-| 24. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
-| 25. Chargeback-to-Clawback Automation | v1.5 | 0/? | Not started | - |
-| 26. Data Archival with Restore | v1.5 | 0/? | Not started | - |
+| 22. Owner & Payroll Enhancements | v1.5 | 0/? | Not started | - |
+| 23. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
+| 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*

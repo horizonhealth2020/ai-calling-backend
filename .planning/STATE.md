@@ -6,7 +6,7 @@ status: Ready to plan
 last_updated: "2026-03-24T16:34:24.417Z"
 last_activity: 2026-03-24
 progress:
-  total_phases: 6
+  total_phases: 4
   completed_phases: 1
   total_plans: 1
   completed_plans: 1
