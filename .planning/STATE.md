@@ -19,14 +19,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.4 State-Aware Bundle Requirements -- executing Phase 20
+**Current focus:** v1.5 Platform Cleanup -- Phase 21 complete
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: All plans complete
-Last activity: 2026-03-23
+Phase: 21 (route-file-splitting) -- COMPLETE
+Plan: 1 of 1 (complete)
+Last activity: 2026-03-24
 
 ```
 [====================] v1.0 (10/10 phases)
