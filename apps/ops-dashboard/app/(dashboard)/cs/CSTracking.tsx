@@ -495,7 +495,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     const exportPts = filterByDateRange(filteredPending, "holdDate", exportDateFilter);
 
     rows.push(["--- CHARGEBACKS ---"]);
-    rows.push(["Date Posted", "Member", "Member ID", "Product", "Type", "Total", "Assigned To", "Submitted"]);
+    rows.push(["Date Posted", "Member", "Member ID", "Product", "Type", "Total", "Assigned To", "Match Status", "Submitted"]);
     exportCbs.forEach((cb: any) => {
       rows.push([
         esc(formatDate(cb.postedDate)),
@@ -505,6 +505,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
         esc(cb.type || "--"),
         esc(cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"),
         esc(cb.assignedTo || "Unassigned"),
+        esc(cb.matchStatus || "--"),
         esc(formatDate(cb.submittedAt)),
       ]);
     });
@@ -763,13 +764,14 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                   <SortHeader label="Type" sortKey="type" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Total" sortKey="chargebackAmount" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Assigned To" sortKey="assignedTo" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
+                  <SortHeader label="Match" sortKey="matchStatus" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <SortHeader label="Submitted" sortKey="submittedAt" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
                   <th style={{ ...baseThStyle, width: 160 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredChargebacks.map((cb: any) => {
-                  const cbColCount = 9;
+                  const cbColCount = 10;
                   return (
                     <React.Fragment key={cb.id}>
                       <tr style={{ opacity: cb.resolvedAt ? 0.5 : 1 }}>
@@ -780,6 +782,23 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         <td style={baseTdStyle}>{cb.type || "--"}</td>
                         <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
                         <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
+                        <td style={baseTdStyle}>
+                          {cb.matchStatus === "MATCHED" ? (
+                            <span style={{ color: colors.success, fontSize: typography.sizes.xs.fontSize, fontWeight: typography.weights.bold }}>
+                              Matched
+                            </span>
+                          ) : cb.matchStatus === "MULTIPLE" ? (
+                            <span style={{ color: colors.warning, fontSize: typography.sizes.xs.fontSize, fontWeight: typography.weights.bold }}>
+                              Review
+                            </span>
+                          ) : cb.matchStatus === "UNMATCHED" ? (
+                            <span style={{ color: colors.danger, fontSize: typography.sizes.xs.fontSize, fontWeight: typography.weights.bold }}>
+                              No Match
+                            </span>
+                          ) : (
+                            <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize }}>--</span>
+                          )}
+                        </td>
                         <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
                         <td style={baseTdStyle}>
                           {!cb.resolvedAt ? (
