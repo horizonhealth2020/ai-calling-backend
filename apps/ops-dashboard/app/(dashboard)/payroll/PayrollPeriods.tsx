@@ -1189,6 +1189,9 @@ export default function PayrollPeriods({
   .addon { color: #0d9488; font-weight: 600; }
   .add { color: #d97706; font-weight: 600; }
   .subtotal td { border-top: 2px solid #cbd5e1; font-weight: 700; border-bottom: none; }
+  .flag { font-size: 10px; font-style: italic; margin-top: 2px; }
+  .flag-warn { color: #d97706; }
+  .flag-bonus { color: #059669; }
   @media print { body { padding: 0; } .agent-card { padding: 16px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
@@ -1212,7 +1215,7 @@ export default function PayrollPeriods({
   <table>
     <thead><tr>
       <th>Member ID</th><th>Member Name</th><th class="center">Core</th><th class="center">Add-on</th><th class="center">AD&D</th>
-      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Net</th>
+      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Net</th>
     </tr></thead>
     <tbody>` +
           entries.map(e => {
@@ -1223,22 +1226,24 @@ export default function PayrollPeriods({
               ? items.map(p => p.name + (p.premium != null ? `<br><span style="font-size:10px;color:#64748b">$${p.premium.toFixed(2)}</span>` : "")).join(", ")
               : "\u2014";
             const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
+            const flags: string[] = [];
+            if (e.halvingReason) flags.push(`<div class="flag flag-warn">${e.halvingReason}</div>`);
+            if (Number(e.bonusAmount) > 0) flags.push(`<div class="flag flag-bonus">+$${Number(e.bonusAmount).toFixed(2)} enrollment bonus</div>`);
+            const flagHtml = flags.length > 0 ? flags.join("") : "";
             return `<tr>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
-        <td>${e.sale?.memberName ?? "\u2014"}</td>
+        <td>${e.sale?.memberName ?? "\u2014"}${flagHtml}</td>
         <td class="center core">${printProd(byType.CORE)}</td>
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}</td>
         <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
-        <td class="right green">${Number(e.bonusAmount) > 0 ? "$" + Number(e.bonusAmount).toFixed(2) : "$0.00"}</td>
         <td class="right green" style="font-weight:700">$${Number(e.netAmount).toFixed(2)}</td>
       </tr>`;
           }).join("") +
           `<tr class="subtotal">
         <td colspan="6" class="right">SUBTOTAL</td>
         <td class="right">$${agentGross.toFixed(2)}</td>
-        <td class="right green">$${agentBonus.toFixed(2)}</td>
         <td class="right green">$${agentNet.toFixed(2)}</td>
       </tr>
     </tbody></table></div>`;

@@ -52,9 +52,9 @@ export type BundleRequirementContext = {
  *   $99  -> $0
  *   <$99 (or <$50 for standalone addon) -> halve commission, unless approved
  */
-function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean, product: Product): { finalCommission: number; enrollmentBonus: number } {
+function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean, product: Product): { finalCommission: number; enrollmentBonus: number; feeHalvingReason: string | null } {
   if (enrollmentFee === null || enrollmentFee === undefined) {
-    return { finalCommission: commission, enrollmentBonus: 0 };
+    return { finalCommission: commission, enrollmentBonus: 0, feeHalvingReason: null };
   }
 
   const fee = Number(enrollmentFee);
@@ -77,10 +77,10 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
   }
 
   if (fee < halfThreshold && !commissionApproved) {
-    return { finalCommission: commission / 2, enrollmentBonus };
+    return { finalCommission: commission / 2, enrollmentBonus, feeHalvingReason: `Half commission - enrollment fee $${fee.toFixed(2)} below $${halfThreshold} threshold` };
   }
 
-  return { finalCommission: commission, enrollmentBonus };
+  return { finalCommission: commission, enrollmentBonus, feeHalvingReason: null };
 }
 
 /**
@@ -181,8 +181,8 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     }
   }
 
-  // Apply enrollment fee rules (Phase 3 scope -- do not modify applyEnrollmentFee)
-  const { finalCommission, enrollmentBonus } = applyEnrollmentFee(
+  // Apply enrollment fee rules
+  const { finalCommission, enrollmentBonus, feeHalvingReason } = applyEnrollmentFee(
     totalCommission,
     sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
     sale.commissionApproved,
@@ -190,9 +190,13 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     sale.product,
   );
 
+  // Combine halving reasons (bundle + enrollment fee)
+  const reasons = [halvingReason, feeHalvingReason].filter(Boolean);
+  const combinedReason = reasons.length > 0 ? reasons.join("; ") : null;
+
   return {
     commission: Math.round((finalCommission + enrollmentBonus) * 100) / 100,
-    halvingReason,
+    halvingReason: combinedReason,
   };
 };
 
