@@ -438,7 +438,7 @@ function DataArchiveSection({ API }: { API: string }) {
 
   const fetchArchiveStats = async () => {
     try {
-      const res = await authFetch(`${API}/archive/stats`);
+      const res = await authFetch(`${API}/api/archive/stats`);
       if (res.ok) setArchiveStats(await res.json());
     } catch {}
   };
@@ -446,7 +446,7 @@ function DataArchiveSection({ API }: { API: string }) {
   const fetchArchivePreview = async (days: number) => {
     setArchivePreviewLoading(true);
     try {
-      const res = await authFetch(`${API}/archive/preview?cutoffDays=${days}`);
+      const res = await authFetch(`${API}/api/archive/preview?cutoffDays=${days}`);
       if (res.ok) setArchivePreviewCounts(await res.json());
     } catch {}
     setArchivePreviewLoading(false);
@@ -459,7 +459,7 @@ function DataArchiveSection({ API }: { API: string }) {
   const handleArchive = async () => {
     setArchiveLoading(true);
     try {
-      const res = await authFetch(`${API}/archive`, {
+      const res = await authFetch(`${API}/api/archive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cutoffDays: archiveDays, tables: ["call_audits", "convoso_call_logs", "app_audit_log"] }),
@@ -482,7 +482,7 @@ function DataArchiveSection({ API }: { API: string }) {
   const handleRestore = async (batchId: string) => {
     setRestoring(batchId);
     try {
-      const res = await authFetch(`${API}/archive/restore`, {
+      const res = await authFetch(`${API}/api/archive/restore`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ batchId }),
