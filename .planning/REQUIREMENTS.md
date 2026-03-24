@@ -12,8 +12,8 @@
 
 ### Owner Dashboard
 
-- [ ] **OWNER-01**: Owner period summary shows CS payroll total next to commission total
-- [ ] **OWNER-02**: CS payroll total updates via Socket.IO when service entries change
+- [x] **OWNER-01**: Owner period summary shows CS payroll total next to commission total
+- [x] **OWNER-02**: CS payroll total updates via Socket.IO when service entries change
 
 ### Payroll Export
 
@@ -67,8 +67,8 @@
 |--------|-------|--------|
 | SPLIT-01 | Phase 21 | pending |
 | SPLIT-02 | Phase 21 | pending |
-| OWNER-01 | Phase 22 | pending |
-| OWNER-02 | Phase 22 | pending |
+| OWNER-01 | Phase 22 | complete |
+| OWNER-02 | Phase 22 | complete |
 | EXPORT-01 | Phase 22 | pending |
 | EXPORT-02 | Phase 22 | pending |
 | EXPORT-03 | Phase 22 | pending |

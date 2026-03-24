@@ -96,7 +96,7 @@ Plans:
   6. Export completes without browser hang or memory error for periods with 100+ agents and 1000+ sales
 **Plans**: 2 plans
 Plans:
-- [ ] 22-01-PLAN.md — Add csPayrollTotal to reporting API, Socket.IO emitter, owner dashboard column
+- [x] 22-01-PLAN.md — Add csPayrollTotal to reporting API, Socket.IO emitter, owner dashboard column
 - [ ] 22-02-PLAN.md — Refactor detailed CSV export to agent-first print card layout with service staff section
 
 ### Phase 23: AI Scoring Dashboard
@@ -151,7 +151,7 @@ Plans:
 | 19. Dashboard Consolidation & Uniform Date Ranges | v1.3 | 10/10 | Complete | 2026-03-23 |
 | 20. State-Aware Bundle Requirements | v1.4 | 5/5 | Complete | 2026-03-23 |
 | 21. Route File Splitting | v1.5 | 1/1 | Complete    | 2026-03-24 |
-| 22. Owner & Payroll Enhancements | v1.5 | 0/2 | Not started | - |
+| 22. Owner & Payroll Enhancements | v1.5 | 1/2 | In progress | - |
 | 23. AI Scoring Dashboard | v1.5 | 0/? | Not started | - |
 | 24. Chargeback Automation & Data Archival | v1.5 | 0/? | Not started | - |
 

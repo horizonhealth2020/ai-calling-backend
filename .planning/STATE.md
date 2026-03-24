@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Platform Cleanup & Remaining Features
-status: Ready to plan
-last_updated: "2026-03-24T16:34:24.417Z"
+status: executing
+last_updated: "2026-03-24T17:18:46Z"
 last_activity: 2026-03-24
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_plans: 4
+  completed_plans: 2
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.5 Platform Cleanup -- Phase 21 complete
+**Current focus:** v1.5 Platform Cleanup -- Phase 22 executing
 
 ## Current Position
 
 Phase: 22
-Plan: Not started
+Plan: 01 complete
 Last activity: 2026-03-24
 
 ```
@@ -76,6 +76,14 @@ Last activity: 2026-03-24
 | C.warning color for halving reason | Amber tone, consistent with other payroll warnings |
 | 400ms role selector delay | Prevents premature collapse on mouse leave |
 
+### Key Decisions (v1.5)
+
+| Decision | Rationale |
+|----------|-----------|
+| Separate monthly CS payroll query | Avoids modifying complex raw SQL join in reporting/periods |
+| Full refetch on service-payroll socket event | csPayrollTotal is a server-computed aggregate; no client-side optimistic patching |
+| Amber/warning color for Service Payroll column | Visual distinction from teal commission column |
+
 ### Open Questions
 
 - (none currently -- business rules locked per research recommendations)
@@ -86,4 +94,4 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-24*
