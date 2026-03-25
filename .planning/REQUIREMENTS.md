@@ -23,16 +23,16 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 
 ### Error Handling & Robustness
 
-- [ ] **EH-01**: All async route handlers have proper error boundaries (no unhandled rejections)
+- [x] **EH-01**: All async route handlers have proper error boundaries (no unhandled rejections)
 - [x] **EH-02**: API endpoints validate all required inputs with Zod (no raw `req.body` access)
 - [x] **EH-03**: Database queries handle connection/timeout errors gracefully
 - [x] **EH-04**: Socket.IO event handlers have try/catch wrappers
 
 ### Type Safety
 
-- [ ] **TS-01**: No `any` types in application code (excluding third-party type gaps)
+- [x] **TS-01**: No `any` types in application code (excluding third-party type gaps)
 - [x] **TS-02**: API response types match actual response shapes
-- [ ] **TS-03**: Shared package exports have explicit type annotations
+- [x] **TS-03**: Shared package exports have explicit type annotations
 
 ## Future Requirements
 
@@ -61,13 +61,13 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 | DC-02 | Phase 26 | Complete |
 | DC-03 | Phase 26 | Complete |
 | DC-04 | Phase 26 | Complete |
-| EH-01 | Phase 27 | Pending |
+| EH-01 | Phase 27 | Complete |
 | EH-02 | Phase 27 | Complete |
 | EH-03 | Phase 27 | Complete |
 | EH-04 | Phase 27 | Complete |
-| TS-01 | Phase 28 | Pending |
+| TS-01 | Phase 28 | Complete |
 | TS-02 | Phase 28 | Complete |
-| TS-03 | Phase 28 | Pending |
+| TS-03 | Phase 28 | Complete |
 
 **Coverage:**
 - v1.6 requirements: 15 total
