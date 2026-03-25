@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -69,18 +69,22 @@ router.post("/cs-rep-roster", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPE
 const csRepToggleSchema = z.object({ active: z.boolean() });
 
 router.patch("/cs-rep-roster/:id", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const parsed = csRepToggleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   const rep = await prisma.csRepRoster.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { active: parsed.data.active },
   });
   return res.json(rep);
 }));
 
 router.delete("/cs-rep-roster/:id", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
-  await prisma.csRepRoster.delete({ where: { id: req.params.id } });
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  await prisma.csRepRoster.delete({ where: { id: pp.data.id } });
   return res.status(204).end();
 }));
 

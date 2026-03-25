@@ -4,13 +4,15 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { reAuditCall } from "../services/callAudit";
 import { logAudit } from "../services/audit";
-import { zodErr, asyncHandler, dateRange } from "./helpers";
+import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 
 const router = Router();
 
 // ── Call Recordings (sales with attached recording data) ─────────
 router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const where: any = { recordingUrl: { not: null } };
   if (dr) where.callDateTime = { gte: dr.gte, lt: dr.lt };
   const recordings = await prisma.sale.findMany({
@@ -29,10 +31,12 @@ router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"
 
 // ── Call Audits ─────────────────────────────────────────────────
 router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
+  const qp = dateRangeQuerySchema.extend({ agentId: z.string().optional() }).safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const where: any = {};
   if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
-  if (req.query.agentId) where.agentId = req.query.agentId;
+  if (qp.data.agentId) where.agentId = qp.data.agentId;
 
   const audits = await prisma.callAudit.findMany({
     where,
@@ -43,8 +47,10 @@ router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
 }));
 
 router.get("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const audit = await prisma.callAudit.findUnique({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     include: {
       agent: { select: { id: true, name: true } },
       convosoCallLog: { select: { id: true, callDurationSeconds: true, agentUser: true, listId: true, callTimestamp: true, auditStatus: true } },
@@ -55,6 +61,8 @@ router.get("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"
 }));
 
 router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({
     score: z.number().min(0).max(100).optional(),
     status: z.string().min(1).optional(),
@@ -66,7 +74,7 @@ router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMI
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   const audit = await prisma.callAudit.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { ...parsed.data, reviewerUserId: req.user!.id },
     include: { agent: { select: { id: true, name: true } } },
   });
@@ -75,18 +83,22 @@ router.patch("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMI
 }));
 
 router.post("/call-audits/:id/re-audit", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await reAuditCall(req.params.id);
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  await reAuditCall(pp.data.id);
   const audit = await prisma.callAudit.findUnique({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     include: { agent: { select: { id: true, name: true } } },
   });
-  await logAudit(req.user!.id, "RE_AUDIT", "CallAudit", req.params.id, {});
+  await logAudit(req.user!.id, "RE_AUDIT", "CallAudit", pp.data.id, {});
   res.json(audit);
 }));
 
 // ── Call Counts (Convoso aggregation) ───────────────────────────
 router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const where: any = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) where.callTimestamp = { gte: dr.gte, lt: dr.lt };
 

@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { createAlertFromChargeback } from "../services/alerts";
 import { emitCSChanged } from "../socket";
 import { getSundayWeekRange } from "../services/payroll";
-import { zodErr, asyncHandler, dateRange } from "./helpers";
+import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -115,7 +115,9 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
 }));
 
 router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const id = pp.data.id;
   // Delete related alerts first (FK constraint)
   await prisma.payrollAlert.deleteMany({ where: { chargebackSubmissionId: id } });
   await prisma.chargebackSubmission.delete({ where: { id } });
@@ -130,10 +132,12 @@ const resolveChargebackSchema = z.object({
 });
 
 router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const parsed = resolveChargebackSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const record = await prisma.chargebackSubmission.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: {
       resolvedAt: new Date(),
       resolvedBy: (req as any).user!.id,
@@ -146,8 +150,10 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
 }));
 
 router.patch("/chargebacks/:id/unresolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const record = await prisma.chargebackSubmission.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: {
       resolvedAt: null,
       resolvedBy: null,
@@ -159,7 +165,9 @@ router.patch("/chargebacks/:id/unresolve", requireAuth, requireRole("CUSTOMER_SE
 }));
 
 router.get("/chargebacks", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const records = await prisma.chargebackSubmission.findMany({
     orderBy: { submittedAt: "desc" },
     take: 200,
@@ -174,7 +182,9 @@ router.get("/chargebacks", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   let gte: Date, lt: Date, wsIso: string, weIso: string;
   if (dr) {
     gte = dr.gte;
@@ -206,7 +216,9 @@ router.get("/chargebacks/weekly-total", requireAuth, asyncHandler(async (req, re
 }));
 
 router.get("/chargebacks/totals", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const dateFilter = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
   const [totalResult, recoveredResult] = await Promise.all([
     prisma.chargebackSubmission.aggregate({

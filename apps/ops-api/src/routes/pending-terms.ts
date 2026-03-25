@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
-import { zodErr, asyncHandler, dateRange } from "./helpers";
+import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -72,11 +72,13 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
 }));
 
 router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const qp = dateRangeQuerySchema.extend({ groupBy: z.enum(["holdDate", "saleDate"]).optional() }).safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const dateFilter = dr ? { createdAt: { gte: dr.gte, lt: dr.lt } } : {};
 
   // Support holdDate grouping for CS dashboard (CS-03)
-  if (req.query.groupBy === "holdDate") {
+  if (qp.data.groupBy === "holdDate") {
     const grouped = await prisma.pendingTerm.groupBy({
       by: ["holdDate"],
       where: { resolvedAt: null, ...dateFilter },
@@ -101,7 +103,9 @@ router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.delete("/pending-terms/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
-  await prisma.pendingTerm.delete({ where: { id: req.params.id } });
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  await prisma.pendingTerm.delete({ where: { id: pp.data.id } });
   return res.status(204).end();
 }));
 
@@ -113,10 +117,12 @@ const resolvePendingTermSchema = z.object({
 });
 
 router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const parsed = resolvePendingTermSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const record = await prisma.pendingTerm.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: {
       resolvedAt: new Date(),
       resolvedBy: (req as any).user!.id,
@@ -129,8 +135,10 @@ router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SE
 }));
 
 router.patch("/pending-terms/:id/unresolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const record = await prisma.pendingTerm.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: {
       resolvedAt: null,
       resolvedBy: null,

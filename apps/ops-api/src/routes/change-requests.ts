@@ -1,16 +1,21 @@
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale, handleSaleEditApproval } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
-import { asyncHandler } from "./helpers";
+import { asyncHandler, zodErr, idParamSchema } from "./helpers";
 
 const router = Router();
 
 // ── Status Change Requests (approval workflow) ─────────────────
+const statusQuerySchema = z.object({ status: z.string().optional().default("PENDING") });
+
 router.get("/status-change-requests", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const status = (req.query.status as string) || "PENDING";
+  const qp = statusQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const status = qp.data.status;
   const requests = await prisma.statusChangeRequest.findMany({
     where: { status: status as any },
     include: {
@@ -23,7 +28,9 @@ router.get("/status-change-requests", requireAuth, requireRole("PAYROLL", "SUPER
 }));
 
 router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const changeRequest = await prisma.statusChangeRequest.findUnique({ where: { id: req.params.id } });
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const changeRequest = await prisma.statusChangeRequest.findUnique({ where: { id: pp.data.id } });
   if (!changeRequest) return res.status(404).json({ error: "Change request not found" });
   if (changeRequest.status !== "PENDING") return res.status(400).json({ error: "Change request is not pending" });
 
@@ -103,7 +110,9 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
 }));
 
 router.post("/status-change-requests/:id/reject", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const changeRequest = await prisma.statusChangeRequest.findUnique({ where: { id: req.params.id } });
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const changeRequest = await prisma.statusChangeRequest.findUnique({ where: { id: pp.data.id } });
   if (!changeRequest) return res.status(404).json({ error: "Change request not found" });
   if (changeRequest.status !== "PENDING") return res.status(400).json({ error: "Change request is not pending" });
 
@@ -120,7 +129,9 @@ router.post("/status-change-requests/:id/reject", requireAuth, requireRole("PAYR
 
 // ── Sale Edit Requests (approval workflow) ──────────────────────
 router.get("/sale-edit-requests", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const status = (req.query.status as string) || "PENDING";
+  const qp = statusQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const status = qp.data.status;
   const requests = await prisma.saleEditRequest.findMany({
     where: { status: status as any },
     include: {
@@ -133,8 +144,10 @@ router.get("/sale-edit-requests", requireAuth, requireRole("PAYROLL", "SUPER_ADM
 }));
 
 router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const editRequest = await prisma.saleEditRequest.findUnique({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     include: { sale: true },
   });
   if (!editRequest) return res.status(404).json({ error: "Edit request not found" });
@@ -211,7 +224,9 @@ router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL
 }));
 
 router.post("/sale-edit-requests/:id/reject", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const editRequest = await prisma.saleEditRequest.findUnique({ where: { id: req.params.id } });
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const editRequest = await prisma.saleEditRequest.findUnique({ where: { id: pp.data.id } });
   if (!editRequest) return res.status(404).json({ error: "Edit request not found" });
   if (editRequest.status !== "PENDING") return res.status(400).json({ error: "Edit request is not pending" });
 

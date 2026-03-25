@@ -6,7 +6,7 @@ import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
 import { shiftRange } from "../services/reporting";
-import { zodErr, asyncHandler, dateRange } from "./helpers";
+import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -207,7 +207,9 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
 }));
 
 router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const where = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {};
   const sales = await prisma.sale.findMany({
     where,
@@ -232,8 +234,10 @@ router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get("/sales/:id", requireAuth, asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const sale = await prisma.sale.findUnique({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     include: {
       agent: true, product: true, leadSource: true,
       addons: { include: { product: true } },
@@ -256,6 +260,8 @@ router.get("/sales/:id", requireAuth, asyncHandler(async (req, res) => {
 
 // ── Sale Editing (role-aware) ─────────────────────────────────
 router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const editSchema = z.object({
     saleDate: z.string().optional(),
     agentId: z.string().optional(),
@@ -277,7 +283,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
   const parsed = editSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const saleId = req.params.id;
+  const saleId = pp.data.id;
   const userRoles: string[] = (req.user as any)?.roles ?? [];
   const isPrivileged = userRoles.includes("PAYROLL") || userRoles.includes("SUPER_ADMIN");
 
@@ -413,7 +419,9 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
 }));
 
 router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const saleId = req.params.id;
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const saleId = pp.data.id;
   const sale = await prisma.sale.findUnique({ where: { id: saleId }, select: { id: true, memberName: true, agentId: true, premium: true } });
   if (!sale) return res.status(404).json({ error: "Sale not found" });
   await prisma.$transaction([
@@ -430,11 +438,13 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
 
 // ── Sale Status Change ──────────────────────────────────────────
 router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({ status: z.enum(["RAN", "DECLINED", "DEAD"]) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const sale = await prisma.sale.findUnique({ where: { id: req.params.id } });
+  const sale = await prisma.sale.findUnique({ where: { id: pp.data.id } });
   if (!sale) return res.status(404).json({ error: "Sale not found" });
 
   const oldStatus = sale.status;
@@ -500,11 +510,13 @@ router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADM
 }));
 
 router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({ approved: z.boolean().default(true) });
   const parsed = schema.safeParse(req.body);
   const approved = parsed.success ? parsed.data.approved : true;
   const sale = await prisma.sale.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { commissionApproved: approved },
   });
   await upsertPayrollEntryForSale(sale.id);
@@ -513,8 +525,10 @@ router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL"
 }));
 
 router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const sale = await prisma.sale.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { commissionApproved: false },
   });
   await upsertPayrollEntryForSale(sale.id);
@@ -523,7 +537,9 @@ router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROL
 }));
 
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
   const callWhere: any = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
@@ -579,7 +595,9 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
 
   async function fetchSummaryData(range: { gte: Date; lt: Date } | undefined) {
     const saleWhere = range ? { status: 'RAN' as const, saleDate: { gte: range.gte, lt: range.lt } } : { status: 'RAN' as const };
@@ -613,7 +631,9 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
 }));
 
 router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const view = req.query.view === "monthly" ? "monthly" : "weekly";
+  const qp = z.object({ view: z.enum(["weekly", "monthly"]).optional().default("weekly") }).safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const view = qp.data.view;
 
   if (view === "weekly") {
     const periods = await prisma.payrollPeriod.findMany({

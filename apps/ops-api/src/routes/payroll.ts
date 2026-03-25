@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -28,29 +28,33 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
 
 // ── Toggle period status (OPEN ↔ LOCKED) ───────────────────────
 router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({ status: z.enum(["OPEN", "LOCKED"]) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const period = await prisma.payrollPeriod.findUnique({ where: { id: req.params.id } });
+  const period = await prisma.payrollPeriod.findUnique({ where: { id: pp.data.id } });
   if (!period) return res.status(404).json({ error: "Period not found" });
   if (period.status === "FINALIZED") return res.status(400).json({ error: "Finalized periods cannot be changed" });
-  const updated = await prisma.payrollPeriod.update({ where: { id: req.params.id }, data: { status: parsed.data.status } });
-  await logAudit(req.user!.id, "UPDATE", "PayrollPeriod", req.params.id, { status: parsed.data.status });
+  const updated = await prisma.payrollPeriod.update({ where: { id: pp.data.id }, data: { status: parsed.data.status } });
+  await logAudit(req.user!.id, "UPDATE", "PayrollPeriod", pp.data.id, { status: parsed.data.status });
   res.json(updated);
 }));
 
 router.delete("/payroll/periods/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const period = await prisma.payrollPeriod.findUnique({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     include: { _count: { select: { entries: true, serviceEntries: true } } },
   });
   if (!period) return res.status(404).json({ error: "Period not found" });
 
   // Delete entries first, then the period
-  await prisma.payrollEntry.deleteMany({ where: { payrollPeriodId: req.params.id } });
-  await prisma.servicePayrollEntry.deleteMany({ where: { payrollPeriodId: req.params.id } });
-  await prisma.payrollPeriod.delete({ where: { id: req.params.id } });
-  await logAudit(req.user!.id, "HARD_DELETE", "PayrollPeriod", req.params.id, {
+  await prisma.payrollEntry.deleteMany({ where: { payrollPeriodId: pp.data.id } });
+  await prisma.servicePayrollEntry.deleteMany({ where: { payrollPeriodId: pp.data.id } });
+  await prisma.payrollPeriod.delete({ where: { id: pp.data.id } });
+  await logAudit(req.user!.id, "HARD_DELETE", "PayrollPeriod", pp.data.id, {
     weekStart: period.weekStart, weekEnd: period.weekEnd,
     entriesDeleted: period._count.entries, serviceEntriesDeleted: period._count.serviceEntries,
   });
@@ -181,6 +185,8 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
 
 // ── Payroll Entry adjustments (bonus / fronted) ─────────────────
 router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({
     bonusAmount: z.number().min(0).optional(),
     frontedAmount: z.number().min(0).optional(),
@@ -188,7 +194,7 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const entry = await prisma.payrollEntry.findUnique({ where: { id: req.params.id } });
+  const entry = await prisma.payrollEntry.findUnique({ where: { id: pp.data.id } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
   // Guard: reject edits if this specific entry has already been paid
   if (entry.status === "PAID") {
@@ -199,11 +205,11 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   const hold = parsed.data.holdAmount ?? Number(entry.holdAmount);
   const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted - hold;
   const updated = await prisma.payrollEntry.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net },
     include: { sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } }, agent: { select: { name: true } } },
   });
-  await logAudit(req.user!.id, "UPDATE", "PayrollEntry", req.params.id, { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net });
+  await logAudit(req.user!.id, "UPDATE", "PayrollEntry", pp.data.id, { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net });
   res.json(updated);
 }));
 

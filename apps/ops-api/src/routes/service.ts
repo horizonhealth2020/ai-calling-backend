@@ -4,7 +4,7 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { createSyncedRep } from "../services/repSync";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 import { emitServicePayrollChanged } from "../socket";
 
 const router = Router();
@@ -24,10 +24,12 @@ router.post("/service-agents", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
 }));
 
 router.patch("/service-agents/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({ name: z.string().min(1).optional(), basePay: z.number().min(0).optional(), active: z.boolean().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const agent = await prisma.serviceAgent.update({ where: { id: req.params.id }, data: parsed.data });
+  const agent = await prisma.serviceAgent.update({ where: { id: pp.data.id }, data: parsed.data });
   await logAudit(req.user!.id, "UPDATE", "ServiceAgent", agent.id, parsed.data);
   res.json(agent);
 }));
@@ -123,6 +125,8 @@ router.post("/payroll/service-entries", requireAuth, requireRole("PAYROLL", "MAN
 }));
 
 router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({
     bonusAmount: z.number().min(0).optional(),
     deductionAmount: z.number().min(0).optional(),
@@ -132,7 +136,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: req.params.id }, include: { serviceAgent: true } });
+  const entry = await prisma.servicePayrollEntry.findUnique({ where: { id: pp.data.id }, include: { serviceAgent: true } });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
 
   const breakdown = parsed.data.bonusBreakdown;
@@ -156,7 +160,7 @@ router.patch("/payroll/service-entries/:id", requireAuth, requireRole("PAYROLL",
   }
 
   const updated = await prisma.servicePayrollEntry.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { bonusAmount: bonus, deductionAmount: deduction, frontedAmount: fronted, totalPay, bonusBreakdown: breakdown ?? undefined, notes: parsed.data.notes ?? entry.notes },
     include: { serviceAgent: true },
   });

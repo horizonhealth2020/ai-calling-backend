@@ -10,6 +10,9 @@ const router = Router();
 const callLogsQuerySchema = z.object({
   queue_id: z.string().min(1, "queue_id is required"),
   list_id: z.string().min(1, "list_id is required"),
+  min_call_length: z.coerce.number().optional(),
+  max_call_length: z.coerce.number().optional(),
+  tier: z.enum(["live", "short", "contacted", "engaged", "deep"]).optional(),
 });
 
 const CALL_LOG_PASS_THROUGH_PARAMS = [
@@ -54,10 +57,7 @@ router.get("/call-logs/kpi", requireAuth, asyncHandler(async (req, res) => {
   const parsed = callLogsQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const { queue_id, list_id } = parsed.data;
-  const minCallLength = req.query.min_call_length ? Number(req.query.min_call_length) : undefined;
-  const maxCallLength = req.query.max_call_length ? Number(req.query.max_call_length) : undefined;
-  const tierParam = req.query.tier as CallLengthTier | undefined;
+  const { queue_id, list_id, min_call_length: minCallLength, max_call_length: maxCallLength, tier: tierParam } = parsed.data;
 
   try {
     const params = buildConvosoParams(req.query);
@@ -106,10 +106,7 @@ router.get("/call-logs", requireAuth, asyncHandler(async (req, res) => {
   const parsed = callLogsQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const { queue_id, list_id } = parsed.data;
-  const minCallLength = req.query.min_call_length ? Number(req.query.min_call_length) : undefined;
-  const maxCallLength = req.query.max_call_length ? Number(req.query.max_call_length) : undefined;
-  const tierParam = req.query.tier as CallLengthTier | undefined;
+  const { queue_id, list_id, min_call_length: minCallLength, max_call_length: maxCallLength, tier: tierParam } = parsed.data;
 
   try {
     const params = buildConvosoParams(req.query);
