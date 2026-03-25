@@ -215,13 +215,6 @@ export function startAutoScorePolling(): void {
   pollPendingJobs().catch(() => {}); // Run immediately
 }
 
-export function stopAutoScorePolling(): void {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
-  }
-}
-
 // ── AI usage stats ───────────────────────────────────────────────
 
 export async function getAiUsageStats() {

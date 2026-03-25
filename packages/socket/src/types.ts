@@ -32,23 +32,6 @@ export interface SaleChangedPayload {
   }[];
 }
 
-export interface CSChangedPayload {
-  type: "chargeback" | "pending_term";
-  batchId: string;
-  count: number;
-}
-
-export interface AlertCreatedPayload {
-  alertId: string;
-  agentName?: string;
-  amount?: number;
-}
-
-export interface AlertResolvedPayload {
-  alertId: string;
-  status: "APPROVED" | "CLEARED";
-}
-
 export const DISCONNECT_BANNER: React.CSSProperties = {
   position: "fixed",
   top: 0,
