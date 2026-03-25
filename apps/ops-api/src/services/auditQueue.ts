@@ -72,6 +72,10 @@ async function checkDailyBudget(): Promise<boolean> {
 async function pollPendingJobs(): Promise<void> {
   if (activeJobs.size >= MAX_CONCURRENT) return;
 
+  // Check if AI scoring is enabled
+  const enabledSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled" } });
+  if (!enabledSetting || enabledSetting.value !== "true") return;
+
   const withinBudget = await checkDailyBudget();
   if (!withinBudget) return;
 

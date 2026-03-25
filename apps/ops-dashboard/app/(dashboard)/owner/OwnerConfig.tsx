@@ -89,6 +89,15 @@ function ConfigSection({
   const [budgetInput, setBudgetInput] = useState("");
   const [autoScoring, setAutoScoring] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
+  const [aiScoringEnabled, setAiScoringEnabled] = useState(false);
+  const [togglingAiScoring, setTogglingAiScoring] = useState(false);
+
+  // Convoso polling controls
+  const [convosoEnabled, setConvosoEnabled] = useState(false);
+  const [togglingConvoso, setTogglingConvoso] = useState(false);
+  const [bizStart, setBizStart] = useState("08:00");
+  const [bizEnd, setBizEnd] = useState("18:00");
+  const [savingBizHours, setSavingBizHours] = useState(false);
 
   useEffect(() => {
     authFetch(`${API}/api/ai/usage-stats`)
@@ -97,6 +106,20 @@ function ConfigSection({
         if (d) {
           setAiStats(d);
           setBudgetInput(String(d.dailyBudget));
+        }
+      })
+      .catch(() => {});
+    authFetch(`${API}/api/settings/ai-scoring-enabled`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setAiScoringEnabled(d.enabled); })
+      .catch(() => {});
+    authFetch(`${API}/api/settings/convoso-polling`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setConvosoEnabled(d.enabled);
+          setBizStart(d.businessHoursStart);
+          setBizEnd(d.businessHoursEnd);
         }
       })
       .catch(() => {});
@@ -146,6 +169,63 @@ function ConfigSection({
     } finally {
       setSavingBudget(false);
     }
+  }
+
+  async function toggleAiScoring() {
+    setTogglingAiScoring(true);
+    try {
+      const res = await authFetch(`${API}/api/settings/ai-scoring-enabled`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !aiScoringEnabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiScoringEnabled(data.enabled);
+        toast("success", `AI scoring ${data.enabled ? "enabled" : "disabled"}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error ?? `Request failed (${res.status})`);
+      }
+    } catch (e: unknown) {
+      toast("error", `Unable to reach API — ${e instanceof Error ? e.message : "network error"}`);
+    } finally { setTogglingAiScoring(false); }
+  }
+
+  async function toggleConvoso() {
+    setTogglingConvoso(true);
+    try {
+      const res = await authFetch(`${API}/api/settings/convoso-polling`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !convosoEnabled }),
+      });
+      if (res.ok) {
+        setConvosoEnabled(!convosoEnabled);
+        toast("success", `Convoso polling ${!convosoEnabled ? "enabled" : "disabled"}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error ?? `Request failed (${res.status})`);
+      }
+    } catch (e: unknown) {
+      toast("error", `Unable to reach API — ${e instanceof Error ? e.message : "network error"}`);
+    } finally { setTogglingConvoso(false); }
+  }
+
+  async function handleSaveBizHours() {
+    setSavingBizHours(true);
+    try {
+      const res = await authFetch(`${API}/api/settings/convoso-polling`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessHoursStart: bizStart, businessHoursEnd: bizEnd }),
+      });
+      if (res.ok) {
+        toast("success", `Business hours updated: ${bizStart} – ${bizEnd}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast("error", err.error ?? `Request failed (${res.status})`);
+      }
+    } catch (e: unknown) {
+      toast("error", `Unable to reach API — ${e instanceof Error ? e.message : "network error"}`);
+    } finally { setSavingBizHours(false); }
   }
 
   async function handleSavePrompt() {
@@ -348,11 +428,27 @@ function ConfigSection({
 
       {/* AI Scoring & Cost Controls */}
       <div className="animate-fade-in-up stagger-5" style={{ ...CARD, marginBottom: 20 }}>
-        <div style={{ marginBottom: 16 }}>
-          <h3 style={SECTION_TITLE}>AI Scoring & Cost Controls</h3>
-          <p style={{ ...SECTION_SUBTITLE, marginTop: 4 }}>
-            Monitor AI usage, set budget caps, and trigger batch scoring of eligible calls.
-          </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <h3 style={SECTION_TITLE}>AI Scoring & Cost Controls</h3>
+            <p style={{ ...SECTION_SUBTITLE, marginTop: 4 }}>
+              Monitor AI usage, set budget caps, and trigger batch scoring of eligible calls.
+            </p>
+          </div>
+          <button
+            onClick={toggleAiScoring}
+            disabled={togglingAiScoring}
+            style={{
+              padding: "6px 16px", borderRadius: radius.lg, border: "none", cursor: "pointer",
+              fontSize: 12, fontWeight: 700,
+              background: aiScoringEnabled ? colors.success : "rgba(239,68,68,0.15)",
+              color: aiScoringEnabled ? "#fff" : colors.danger,
+              opacity: togglingAiScoring ? 0.6 : 1,
+              transition: "all 150ms ease-out", flexShrink: 0,
+            }}
+          >
+            {togglingAiScoring ? "..." : aiScoringEnabled ? "Enabled" : "Disabled"}
+          </button>
         </div>
 
         {/* Usage Stats */}
@@ -416,6 +512,55 @@ function ConfigSection({
           <Button variant="primary" loading={autoScoring} onClick={handleAutoScore}>
             Score Eligible Calls
           </Button>
+        </div>
+      </div>
+
+      {/* Convoso Polling Controls */}
+      <div className="animate-fade-in-up stagger-6" style={{ ...CARD, marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <h3 style={SECTION_TITLE}>Convoso Call Log Polling</h3>
+            <p style={{ ...SECTION_SUBTITLE, marginTop: 4 }}>
+              Automatically pulls call logs from Convoso to track agent KPIs. Runs every 10 minutes during business hours.
+            </p>
+          </div>
+          <button
+            onClick={toggleConvoso}
+            disabled={togglingConvoso}
+            style={{
+              padding: "6px 16px", borderRadius: radius.lg, border: "none", cursor: "pointer",
+              fontSize: 12, fontWeight: 700,
+              background: convosoEnabled ? colors.success : "rgba(239,68,68,0.15)",
+              color: convosoEnabled ? "#fff" : colors.danger,
+              opacity: togglingConvoso ? 0.6 : 1,
+              transition: "all 150ms ease-out", flexShrink: 0,
+            }}
+          >
+            {togglingConvoso ? "..." : convosoEnabled ? "Enabled" : "Disabled"}
+          </button>
+        </div>
+
+        {/* Business Hours */}
+        <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 12 }}>
+            Business Hours
+          </div>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div>
+              <label style={LBL}>Start Time</label>
+              <input className="input-focus" style={{ ...INP, width: 120 }} type="time" value={bizStart} onChange={(e) => setBizStart(e.target.value)} />
+            </div>
+            <div>
+              <label style={LBL}>End Time</label>
+              <input className="input-focus" style={{ ...INP, width: 120 }} type="time" value={bizEnd} onChange={(e) => setBizEnd(e.target.value)} />
+            </div>
+            <Button variant="success" icon={<Save size={14} />} loading={savingBizHours} onClick={handleSaveBizHours}>
+              Save Hours
+            </Button>
+          </div>
+          <p style={{ ...SECTION_SUBTITLE, marginTop: 8 }}>
+            Polling only runs between these hours. Outside this window, the poller skips its cycle.
+          </p>
         </div>
       </div>
     </div>
@@ -514,7 +659,7 @@ function DataArchiveSection({ API }: { API: string }) {
       {archiveStats?.tables && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
           {archiveStats.tables.map((t: any) => (
-            <div key={t.name} style={{ background: colors.bgSecondary, borderRadius: radius.lg, padding: "12px 16px", flex: "1 1 200px", minWidth: 180, border: `1px solid ${colors.borderSubtle}` }}>
+            <div key={t.name} style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "12px 16px", flex: "1 1 200px", minWidth: 180, border: `1px solid ${colors.borderSubtle}` }}>
               <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>{t.name.replace(/_/g, " ")}</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{(t.rowCount ?? 0).toLocaleString()}</div>
               {(t.oldestRecord || t.newestRecord) && (

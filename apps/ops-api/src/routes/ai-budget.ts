@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { getAiUsageStats, enqueueAutoScore, startAutoScorePolling } from "../services/auditQueue";
-import { asyncHandler, dateRange } from "./helpers";
+import { asyncHandler, dateRange, zodErr } from "./helpers";
 
 const router = Router();
 
@@ -22,7 +22,9 @@ router.post("/ai/auto-score", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
 
 // PUT /ai/budget -- update daily budget cap
 router.put("/ai/budget", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const { dailyBudget } = z.object({ dailyBudget: z.number().min(0).max(1000) }).parse(req.body);
+  const parsed = z.object({ dailyBudget: z.number().min(0).max(1000) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const { dailyBudget } = parsed.data;
   await prisma.salesBoardSetting.upsert({
     where: { key: "ai_daily_budget_cap" },
     update: { value: String(dailyBudget) },

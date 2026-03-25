@@ -1,179 +1,235 @@
 # Architecture
 
-**Analysis Date:** 2026-03-23
+**Analysis Date:** 2026-03-24
 
 ## Pattern Overview
 
-**Overall:** Monorepo with two independent workloads — a legacy Node.js voice service at root and a multi-app Ops Platform under `apps/` and `packages/`.
+**Overall:** Monorepo with two independent workloads sharing a PostgreSQL database
 
 **Key Characteristics:**
-- The Ops Platform follows a layered REST + WebSocket architecture: Next.js frontends talk to a single Express API (`ops-api`) via `authFetch()`, and receive real-time updates via Socket.IO.
-- All business logic lives exclusively in `apps/ops-api/src/services/`. Routes in `apps/ops-api/src/routes/index.ts` are a single flat file that imports from services and calls them inside `asyncHandler()` wrappers.
-- Shared code (auth, db, types, UI, utils, socket) lives in `packages/` as `@ops/*` workspace packages, consumed by all apps via TypeScript path aliases.
-- The legacy Morgan voice service (`index.js`, `voiceGateway.js`) is fully isolated from the Ops Platform — it shares no code and has its own `package.json` dependencies at root.
+- npm workspaces monorepo with `apps/*` and `packages/*`
+- Two fully independent workloads: legacy Morgan voice service (root) and Ops Platform (apps/)
+- Express.js REST API backend with multiple Next.js 15 frontend apps
+- Shared packages provide auth, DB client, types, UI components, and utilities
+- Real-time updates via Socket.IO from API to dashboards
+- Role-based access control with JWT authentication
+
+## Workloads
+
+**Workload 1: Morgan Voice Service (Legacy)**
+- Purpose: AI outbound calling system using Vapi voice platform
+- Entry point: `index.js` (root)
+- Supporting files: `voiceGateway.js`, `morganToggle.js`, `timeUtils.js`, `rateLimitState.js`
+- Runtime: Node.js with CommonJS (`require()`)
+- Integrations: Convoso (lead source/webhooks), Vapi (voice AI calls)
+- Independently deployable, does not depend on Ops Platform packages
+- Manages a queue of outbound calls with 3 concurrent slots (one per Twilio number)
+
+**Workload 2: Ops Platform**
+- Purpose: Sales operations suite (sales tracking, payroll, commissions, audits, customer service)
+- Backend: `apps/ops-api/` (Express.js + TypeScript)
+- Frontends: `apps/ops-dashboard/` (unified Next.js 15 app with role-based tabs)
+- Additional frontends: `apps/sales-board/` (public leaderboard)
+- Shared code: `packages/` (auth, db, types, ui, utils, socket)
 
 ## Layers
 
-**Legacy Voice Service (root):**
-- Purpose: Convoso webhook receiver that triggers outbound AI calls via Vapi
-- Location: `index.js`, `voiceGateway.js`, `morganToggle.js`, `rateLimitState.js`, `timeUtils.js`
-- Contains: Express routes, Convoso/Vapi API calls, Morgan outbound queue logic, cron jobs
-- Depends on: nothing in `apps/` or `packages/`
-- Used by: Convoso webhooks (external)
-
-**API Layer (`ops-api`):**
-- Purpose: Single Express REST API serving all Ops Platform dashboards
+**API Layer (ops-api):**
+- Purpose: REST API serving all frontend apps
 - Location: `apps/ops-api/src/`
-- Contains: Entry point, routes, middleware, services, workers, socket emitters
-- Depends on: `@ops/auth`, `@ops/db`, `@ops/types`, `@ops/utils`
-- Used by: All frontend apps (`ops-dashboard`, `sales-board`)
+- Entry point: `apps/ops-api/src/index.ts`
+- Routes: `apps/ops-api/src/routes/` (modular route files imported by `index.ts`)
+- Route files: `auth.ts`, `users.ts`, `agents.ts`, `products.ts`, `sales.ts`, `payroll.ts`, `service.ts`, `webhooks.ts`, `call-audits.ts`, `change-requests.ts`, `call-logs.ts`, `chargebacks.ts`, `cs-reps.ts`, `pending-terms.ts`, `alerts.ts`, `ai-budget.ts`, `admin.ts`, `archive.ts`
+- Helpers: `apps/ops-api/src/routes/helpers.ts` (shared route utilities like `asyncHandler`, `zodErr`)
+- Depends on: `@ops/db`, `@ops/auth`, `@ops/types`, `@ops/utils`
+- Used by: All frontend apps via HTTP + Socket.IO
 
-**Frontend Apps:**
-- Purpose: Role-gated Next.js dashboards (Manager, Payroll, Owner, CS) and a public sales board
-- Location: `apps/ops-dashboard/`, `apps/sales-board/`
-- Contains: Next.js App Router pages, tab-based sub-views, Next.js API routes (login proxy), context providers
-- Depends on: `@ops/auth/client`, `@ops/ui`, `@ops/types`, `@ops/utils`, `@ops/socket`
-- Used by: End users via browser
+**Middleware Layer:**
+- Purpose: Authentication and authorization
+- Location: `apps/ops-api/src/middleware/auth.ts`
+- Contains: `requireAuth` (JWT validation from header or cookie) and `requireRole(...roles)` (RBAC check)
+- SUPER_ADMIN bypasses all role checks
 
-**Shared Packages:**
-- Purpose: Reusable logic and components shared across all apps
-- Location: `packages/auth/`, `packages/db/`, `packages/types/`, `packages/ui/`, `packages/utils/`, `packages/socket/`
-- Contains: JWT signing/verification, Prisma client singleton, role types, design system components, logging helpers, Socket.IO hook
-- Depends on: nothing in `apps/`
-- Used by: both `ops-api` and all frontends
+**Service Layer:**
+- Purpose: Business logic, separated from route handlers
+- Location: `apps/ops-api/src/services/`
+- Key services:
+  - `payroll.ts` - Commission calculation, payroll entry management, week range logic
+  - `audit.ts` - Audit log persistence to `app_audit_log` table
+  - `auditQueue.ts` - Queue management for audit processing
+  - `callAudit.ts` - Call audit processing logic
+  - `convosoCallLogs.ts` - Convoso API integration, KPI enrichment
+  - `alerts.ts` - Payroll alert management
+  - `archive.ts` - Data archival logic
+  - `reporting.ts` - Report generation
+  - `repSync.ts` - Rep synchronization
+  - `agentKpiAggregator.ts` - Agent KPI aggregation from call data
+- Depends on: `@ops/db` (Prisma client)
+
+**Worker Layer:**
+- Purpose: Background polling jobs
+- Location: `apps/ops-api/src/workers/`
+- Contains: `convosoKpiPoller.ts` - Polls Convoso API every 10 minutes per active lead source, builds per-agent KPI snapshots
+- Started on server boot from `index.ts`
+- Silently disabled when `CONVOSO_AUTH_TOKEN` is not set
+
+**Real-Time Layer (Socket.IO):**
+- Purpose: Push updates from API to connected dashboard clients
+- Location: `apps/ops-api/src/socket.ts`
+- Events emitted: `sale:changed`, `cs:changed`, `alert:created`, `alert:resolved`, `service-payroll:changed`, `clawback:created`, `new_audit`, `audit_status`, `processing_started`, `processing_failed`
+- Client hook: `packages/socket/src/useSocket.ts` (React hook for dashboards)
+
+**Frontend Layer (Unified Dashboard):**
+- Purpose: Role-based dashboard with tab navigation
+- Location: `apps/ops-dashboard/`
+- Uses Next.js 15 App Router with route groups: `app/(dashboard)/`
+- Tab sections by role:
+  - `app/(dashboard)/manager/` - Sales entry, agent tracker, call audits, config
+  - `app/(dashboard)/payroll/` - Periods, chargebacks, exports, products, service staff
+  - `app/(dashboard)/owner/` - KPIs, overview, config, scoring, user management
+  - `app/(dashboard)/cs/` - Customer service submissions and tracking
+- Auth: `app/api/login/`, `app/api/verify/`, `app/api/change-password/` (Next.js API routes)
+- Shared lib: `apps/ops-dashboard/lib/` (`auth.ts`, `roles.ts`, `DateRangeContext.tsx`, `SocketProvider.tsx`)
+- Depends on: `@ops/auth/client`, `@ops/ui`, `@ops/types`, `@ops/socket`
+
+**Frontend Layer (Sales Board):**
+- Purpose: Public-facing sales leaderboard (no auth required for board endpoints)
+- Location: `apps/sales-board/`
+- Minimal Next.js 15 app
+
+**Shared Packages Layer:**
+- Purpose: Code reuse across all apps
+- Location: `packages/`
+- Path aliases defined in `tsconfig.base.json`
+
+**Data Layer:**
+- Purpose: PostgreSQL database via Prisma ORM
+- Schema: `prisma/schema.prisma` (650 lines, 25+ models)
+- Migrations: `prisma/migrations/`
+- Seed: `prisma/seed.ts`
+- Client singleton: `packages/db/src/client.ts`
 
 ## Data Flow
 
+**Sale Entry Flow:**
+1. Manager enters sale via `apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx`
+2. `authFetch()` POSTs to `ops-api` `/api/sales` route
+3. Route handler validates with Zod, calls `payroll.ts` -> `upsertPayrollEntryForSale()`
+4. Commission calculated using product rules, enrollment fee logic, bundle requirements
+5. PayrollEntry created/updated, linked to auto-created PayrollPeriod (Sunday-Saturday week)
+6. `emitSaleChanged()` pushes real-time update via Socket.IO
+7. `logAudit()` writes to `app_audit_log`
+8. All connected dashboards receive update
+
 **Authentication Flow:**
+1. User logs in via `apps/ops-dashboard/app/api/login/` Next.js API route
+2. Server validates credentials, calls `signSessionToken()` from `@ops/auth`
+3. JWT (12h expiry) returned; client stores in localStorage as `ops_session_token`
+4. `captureTokenFromUrl()` handles redirect-based token passing between apps
+5. `authFetch()` injects Bearer header on every API call, auto-refreshes within 15min of expiry
+6. API middleware `requireAuth` validates token, `requireRole` checks RBAC
 
-1. User submits credentials on `ops-dashboard` login page (`apps/ops-dashboard/app/page.tsx`)
-2. Form POSTs to Next.js API route `/api/login` (`apps/ops-dashboard/app/api/login/route.ts`)
-3. Route proxies request to `ops-api` at `POST /api/auth/login`
-4. `ops-api` verifies password with bcrypt, calls `signSessionToken()` from `@ops/auth`, returns `{ token, roles }`
-5. Login route builds redirect URL with `?session_token=<jwt>` and returns it to the browser
-6. Browser navigates to dashboard path (e.g., `/manager?session_token=<jwt>`)
-7. Next.js middleware (`apps/ops-dashboard/middleware.ts`) intercepts, verifies token via `@ops/auth`, sets `ops_session` cookie, allows through
-8. Client-side `captureTokenFromUrl()` strips token from URL and stores it in `localStorage` as `ops_session_token`
+**Convoso KPI Flow:**
+1. `convosoKpiPoller.ts` worker runs on 10-minute cron
+2. Polls Convoso API for call logs per active lead source
+3. Enriches with tier-based metrics via `agentKpiAggregator.ts`
+4. Persists `AgentCallKpi` snapshots to database
+5. Dashboard reads KPIs via API endpoints
 
-**Sales API Request Flow:**
+**Chargeback/Pending Term Flow:**
+1. CS rep pastes raw data in `CSSubmissions.tsx`
+2. API parses, creates `ChargebackSubmission` or `PendingTerm` records with batch ID
+3. System auto-matches chargebacks to sales by member ID
+4. Creates `PayrollAlert` records for payroll review
+5. `emitCSChanged()` notifies connected clients
+6. Payroll team resolves alerts, optionally creating `Clawback` entries
 
-1. Dashboard component calls `authFetch(url, opts)` from `@ops/auth/client`
-2. `authFetch` injects `Authorization: Bearer <token>` header; checks token freshness and auto-refreshes if within 15 minutes of expiry
-3. Request hits `ops-api` at `apps/ops-api/src/routes/index.ts` handler
-4. `requireAuth` middleware (`apps/ops-api/src/middleware/auth.ts`) verifies Bearer token or cookie
-5. `requireRole(...roles)` checks role — SUPER_ADMIN bypasses all checks
-6. Route handler calls the relevant service function (e.g., `upsertPayrollEntryForSale()`)
-7. Service interacts with PostgreSQL via Prisma (`@ops/db`)
-8. Sensitive operations call `logAudit()` → writes to `app_audit_log` table
-9. After mutation, `emitSaleChanged()` (or related emit) broadcasts via Socket.IO to all connected dashboards
-
-**Real-time Update Flow:**
-
-1. `ops-api` mutates data and calls an emit helper in `apps/ops-api/src/socket.ts`
-2. Socket.IO server broadcasts the event (e.g., `sale:changed`, `cs:changed`, `alert:created`) to all clients
-3. `ops-dashboard` uses `SocketProvider` context (`apps/ops-dashboard/lib/SocketProvider.tsx`) — wraps the entire dashboard layout
-4. `sales-board` uses `useSocket` hook from `@ops/socket` (`packages/socket/src/useSocket.ts`)
-5. Dashboard components receive the event payload and update local React state directly — no full refetch
-
-**Background Polling Flow (Convoso KPI):**
-
-1. `startConvosoKpiPoller()` is called at server boot in `apps/ops-api/src/index.ts`
-2. Every 10 minutes, `runPollCycle()` fetches all active lead sources from Prisma
-3. For each lead source, calls Convoso API via `fetchConvosoCallLogs()` in `apps/ops-api/src/services/convosoCallLogs.ts`
-4. New call IDs are deduplicated against `ProcessedConvosoCall` table
-5. KPI summaries are computed via `buildKpiSummary()` and persisted to `AgentCallKpi` table
-6. Processed call IDs are recorded; records older than 30 days are pruned
-
-**State Management:**
-
-- Server state: All authoritative data in PostgreSQL accessed via Prisma
-- Real-time state: Socket.IO events push mutation payloads to clients; clients merge into local React `useState`
-- Date range state: `DateRangeProvider` context (`apps/ops-dashboard/lib/DateRangeContext.tsx`) provides a shared filter value across all tabs in a dashboard session
-- Auth token: Stored in `localStorage` under key `ops_session_token`; also mirrored as `ops_session` HttpOnly cookie for server-side middleware access
+**Commission Calculation (Net Amount):**
+- Formula: `payout + adjustment + bonus - fronted`
+- `adjustmentAmount` allows negative values (for chargebacks deducting from current week)
+- Enrollment fee logic: >= $125 adds $10 bonus; < $99 halves commission (unless approved)
+- Bundle requirements check state availability of required/fallback addon products
 
 ## Key Abstractions
 
-**`asyncHandler`:**
-- Purpose: Wraps every async Express route handler so promise rejections forward to the global error handler
-- Examples: `apps/ops-api/src/routes/index.ts` (defined inline, used on every route)
-- Pattern: `router.post("/path", asyncHandler(async (req, res) => { ... }))`
+**PayrollPeriod:**
+- Purpose: Weekly payroll bucket (Sunday-Saturday, Eastern time)
+- Auto-created when a sale falls in an untracked week
+- Statuses: OPEN -> LOCKED -> FINALIZED
+- Examples: `prisma/schema.prisma` (PayrollPeriod model), `apps/ops-api/src/services/payroll.ts`
 
-**`requireAuth` + `requireRole`:**
-- Purpose: Express middleware chain that validates JWT and enforces RBAC
-- Examples: `apps/ops-api/src/middleware/auth.ts`
-- Pattern: Applied as `requireAuth, requireRole("MANAGER", "PAYROLL")` before route handlers; SUPER_ADMIN bypasses `requireRole`
+**asyncHandler:**
+- Purpose: Wraps async Express route handlers to forward errors to global error handler
+- Location: `apps/ops-api/src/routes/helpers.ts`
+- Pattern: Every route handler uses `asyncHandler(async (req, res) => { ... })`
 
-**`authFetch`:**
-- Purpose: Browser-side fetch wrapper that auto-injects Bearer token, handles 30s timeout, and auto-refreshes tokens near expiry
-- Examples: `packages/auth/src/client.ts`
-- Pattern: All dashboard API calls use `authFetch(url, opts)` instead of raw `fetch`
+**authFetch:**
+- Purpose: Browser-side fetch wrapper with auth token injection, 30s timeout, auto-refresh
+- Location: `packages/auth/src/client.ts`
+- Pattern: All dashboard API calls use `authFetch(url, opts)` instead of `fetch()`
 
-**`zodErr`:**
-- Purpose: Normalizes Zod validation errors into `{ error: string, details: object }` so all dashboards can display `err.error`
-- Examples: `apps/ops-api/src/routes/index.ts` (defined inline)
-- Pattern: `const parsed = schema.safeParse(req.body); if (!parsed.success) return res.status(400).json(zodErr(parsed.error));`
-
-**`upsertPayrollEntryForSale`:**
-- Purpose: Core commission engine — auto-creates or updates a `PayrollEntry` record whenever a sale is created/edited
-- Examples: `apps/ops-api/src/services/payroll.ts`
-- Pattern: Called by route handlers after any sale mutation; handles week range, commission calculation, enrollment fees, and bonuses
-
-**`logAudit`:**
-- Purpose: Fire-and-forget audit trail — writes actor, action, entity, and metadata to `app_audit_log`; never throws
-- Examples: `apps/ops-api/src/services/audit.ts`
-- Pattern: `await logAudit(req.user.id, "CREATE", "Sale", sale.id, { ... })`
-
-**`@ops/ui` Design Tokens:**
-- Purpose: Single source of truth for colors, spacing, radius, typography, shadows — all CSS custom properties from `theme.css`
-- Examples: `packages/ui/src/tokens.ts`
-- Pattern: Import `{ colors, spacing, radius }` from `@ops/ui` and use in inline `React.CSSProperties` style objects
+**zodErr:**
+- Purpose: Wraps Zod validation errors into `{ error, details }` format dashboards expect
+- Location: `apps/ops-api/src/routes/helpers.ts`
+- Pattern: All request validation uses `zodErr(parsed.error)` on failure
 
 ## Entry Points
 
-**ops-api Server:**
-- Location: `apps/ops-api/src/index.ts`
-- Triggers: `npm run ops:dev` or `node dist/index.js` in production
-- Responsibilities: Creates Express app, attaches CORS/cookie middleware, mounts `/api` routes, creates HTTP server, attaches Socket.IO, starts Convoso KPI poller
-
-**ops-dashboard Next.js App:**
-- Location: `apps/ops-dashboard/app/layout.tsx` (root), `apps/ops-dashboard/app/page.tsx` (login)
-- Triggers: `npm run dashboard:dev` or `next start`
-- Responsibilities: Root layout wraps everything in theme; login page handles credential submission and token capture; `(dashboard)/layout.tsx` wraps authenticated views with `SocketProvider` and `DateRangeProvider`
-
-**Next.js Middleware (ops-dashboard):**
-- Location: `apps/ops-dashboard/middleware.ts`
-- Triggers: Every request matching `/manager/*`, `/payroll/*`, `/owner/*`, `/cs/*`
-- Responsibilities: Verifies JWT from cookie/header/URL param, enforces role-based route access, sets session cookie when token arrives via URL
-
-**sales-board Next.js App:**
-- Location: `apps/sales-board/app/page.tsx`
-- Triggers: `npm run salesboard:dev` or `next start`
-- Responsibilities: Public leaderboard, no auth required; connects to Socket.IO for live sale updates
-
 **Morgan Voice Service:**
 - Location: `index.js`
-- Triggers: `npm start` (root package)
-- Responsibilities: Receives Convoso webhooks, queues outbound Vapi calls, enforces concurrent call limits, runs cron-based cleanup
+- Triggers: Convoso webhook, cron schedule
+- Responsibilities: Queue management, outbound call dispatch via Vapi API
+
+**Ops API:**
+- Location: `apps/ops-api/src/index.ts`
+- Triggers: HTTP requests, Socket.IO connections
+- Responsibilities: REST API, real-time events, background KPI polling
+- Mounts routes at `/api`, health check at `/health`
+
+**Ops Dashboard:**
+- Location: `apps/ops-dashboard/app/layout.tsx`
+- Triggers: Browser navigation
+- Responsibilities: Role-based tab navigation, auth flow, date range context
+
+**Sales Board:**
+- Location: `apps/sales-board/app/page.tsx`
+- Triggers: Browser navigation
+- Responsibilities: Public leaderboard display
 
 ## Error Handling
 
-**Strategy:** Errors propagate upward to a central Express error handler in `ops-api`. Frontends always check `err.error` from the response body. Status codes are surfaced verbatim.
+**Strategy:** Layered error handling with global catch-all
 
 **Patterns:**
-- All async route handlers wrapped in `asyncHandler()` — no try/catch in routes
-- Global error handler in `apps/ops-api/src/index.ts` catches all forwarded errors, responds with `{ error: message }` and appropriate HTTP status
-- Zod validation errors go through `zodErr()` — always produce `{ error: string, details: {...} }`
-- `logAudit()` catches its own failures silently — audit logging never breaks a request
-- Frontend fallback: `` `Request failed (${res.status})` `` used as the catch-all error display string
+- Route handlers wrapped in `asyncHandler()` to catch unhandled promise rejections
+- Global Express error handler in `apps/ops-api/src/index.ts` returns `{ error: message }` JSON
+- Zod validation errors normalized via `zodErr()` helper
+- `logAudit()` silently catches its own errors (audit never breaks the request)
+- Client-side: `authFetch()` throws on timeout (30s AbortController), dashboards display `Request failed (${res.status})`
 
 ## Cross-Cutting Concerns
 
-**Logging:** Structured JSON via `logEvent` / `logError` from `@ops/utils` (`packages/utils/src/index.ts`). Workers use `console.log(JSON.stringify({event, ...}))` directly. All log records include `ts: new Date().toISOString()`.
+**Logging:**
+- API: `@ops/utils` provides `logEvent()` and `logError()` (structured JSON to stdout/stderr)
+- Morgan service: Custom logger with LOG_LEVEL support (error/warn/info/debug)
+- Audit trail: `logAudit()` writes sensitive operations to `app_audit_log` table
 
-**Validation:** Zod schemas defined inline in `apps/ops-api/src/routes/index.ts`. Financial amounts use `.min(0)` except `adjustmentAmount` which allows negatives. Percentages use `.min(0).max(100)`. All errors normalized via `zodErr()`.
+**Validation:**
+- Zod schemas in route handlers
+- `.min(0)` on financial amounts, `.min(0).max(100)` on percentages
+- Exception: `adjustmentAmount` allows negatives for chargebacks
 
-**Authentication:** JWT signed with `AUTH_JWT_SECRET` (12h expiry). Accepted via `Authorization: Bearer`, `ops_session` HttpOnly cookie, or `?session_token` URL param. Server package (`@ops/auth`) handles signing/verification. Client package (`@ops/auth/client`) handles storage, injection, and auto-refresh.
+**Authentication:**
+- JWT via `@ops/auth` package (server-side sign/verify)
+- `@ops/auth/client` for browser-side token management
+- Cookie-based session with `AUTH_COOKIE_DOMAIN` for cross-subdomain sharing
+- Middleware chain: `requireAuth` -> `requireRole(...roles)`
+
+**Real-Time Updates:**
+- Socket.IO server in `apps/ops-api/src/socket.ts`
+- Client hook in `packages/socket/src/useSocket.ts`
+- `SocketProvider` context in `apps/ops-dashboard/lib/SocketProvider.tsx`
 
 ---
 
-*Architecture analysis: 2026-03-23*
+*Architecture analysis: 2026-03-24*

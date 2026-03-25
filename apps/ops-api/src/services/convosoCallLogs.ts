@@ -75,16 +75,14 @@ export async function fetchConvosoCallLogs(params: Record<string, string>): Prom
   }
 
   const url = new URL("https://api.convoso.com/v1/log/retrieve");
+  url.searchParams.set("auth_token", token);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
   });
 
   if (!response.ok) {

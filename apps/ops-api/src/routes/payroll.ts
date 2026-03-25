@@ -58,10 +58,12 @@ router.delete("/payroll/periods/:id", requireAuth, requireRole("PAYROLL", "SUPER
 }));
 
 router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const { entryIds, serviceEntryIds } = z.object({
+  const parsed = z.object({
     entryIds: z.array(z.string()).optional().default([]),
     serviceEntryIds: z.array(z.string()).optional().default([]),
-  }).parse(req.body);
+  }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const { entryIds, serviceEntryIds } = parsed.data;
 
   if (entryIds.length === 0 && serviceEntryIds.length === 0) {
     return res.status(400).json({ error: "No entry IDs provided" });
@@ -87,10 +89,12 @@ router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADM
 }));
 
 router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const { entryIds, serviceEntryIds } = z.object({
+  const parsed2 = z.object({
     entryIds: z.array(z.string()).optional().default([]),
     serviceEntryIds: z.array(z.string()).optional().default([]),
-  }).parse(req.body);
+  }).safeParse(req.body);
+  if (!parsed2.success) return res.status(400).json(zodErr(parsed2.error));
+  const { entryIds, serviceEntryIds } = parsed2.data;
 
   if (entryIds.length === 0 && serviceEntryIds.length === 0) {
     return res.status(400).json({ error: "No entry IDs provided" });
@@ -142,7 +146,9 @@ router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_A
 }));
 
 router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const payload = z.object({ memberId: z.string().optional(), memberName: z.string().optional(), notes: z.string().optional() }).parse(req.body);
+  const parsed3 = z.object({ memberId: z.string().optional(), memberName: z.string().optional(), notes: z.string().optional() }).safeParse(req.body);
+  if (!parsed3.success) return res.status(400).json(zodErr(parsed3.error));
+  const payload = parsed3.data;
   const sale = payload.memberId
     ? await prisma.sale.findFirst({ where: { memberId: payload.memberId }, include: { payrollEntries: true } })
     : await prisma.sale.findFirst({ where: { memberName: payload.memberName }, include: { payrollEntries: true } });

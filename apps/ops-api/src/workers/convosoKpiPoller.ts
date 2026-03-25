@@ -33,20 +33,19 @@ interface LeadSourceRow {
   name: string;
   listId: string | null;
   costPerLead: { toNumber?: () => number } | number;
+  callBufferSeconds: number;
 }
 
 async function pollLeadSource(
   leadSource: LeadSourceRow,
   agentMap: Map<string, { id: string; name: string }>,
-  queueId: string,
 ): Promise<number> {
   try {
     const response = await fetchConvosoCallLogs({
-      queue_id: queueId,
       list_id: leadSource.listId!,
       call_type: "INBOUND",
       called_count: "0",
-      include_recordings: "0",
+      include_recordings: "1",
     });
 
     const raw = extractConvosoResults(response);
@@ -78,7 +77,18 @@ async function pollLeadSource(
 
     if (newRaw.length === 0) return 0;
 
-    const enriched = enrichWithTiers(newRaw);
+    // Filter: only calls with call_length >= lead source buffer count toward KPIs
+    const bufferSeconds = leadSource.callBufferSeconds ?? 0;
+    const filtered = bufferSeconds > 0
+      ? newRaw.filter((r: any) => {
+          const len = Number(r.call_length ?? 0);
+          return len >= bufferSeconds;
+        })
+      : newRaw;
+
+    if (filtered.length === 0) return 0;
+
+    const enriched = enrichWithTiers(filtered);
     const costPerLead =
       typeof leadSource.costPerLead === "number"
         ? leadSource.costPerLead
@@ -150,15 +160,24 @@ async function runPollCycle(): Promise<void> {
     return;
   }
 
-  const queueId = process.env.CONVOSO_DEFAULT_QUEUE_ID;
-  if (!queueId) {
-    console.log(
-      JSON.stringify({
-        event: "kpi_poll_cycle_skipped",
-        reason: "CONVOSO_DEFAULT_QUEUE_ID not set",
-        timestamp: new Date().toISOString(),
-      }),
-    );
+  // Check if polling is enabled
+  const enabledSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "convoso_polling_enabled" } });
+  if (!enabledSetting || enabledSetting.value !== "true") {
+    console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "polling disabled", timestamp: new Date().toISOString() }));
+    return;
+  }
+
+  // Check business hours
+  const [startSetting, endSetting] = await Promise.all([
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_business_hours_start" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_business_hours_end" } }),
+  ]);
+  const startHour = startSetting?.value ?? "08:00";
+  const endHour = endSetting?.value ?? "18:00";
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  if (currentTime < startHour || currentTime >= endHour) {
+    console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "outside business hours", currentTime, businessHours: `${startHour}-${endHour}`, timestamp: now.toISOString() }));
     return;
   }
 
@@ -171,6 +190,7 @@ async function runPollCycle(): Promise<void> {
     select: { id: true, name: true, email: true },
   });
 
+  // Agent map keyed by CRM user ID (stored in email field) → agent info
   const agentMap = new Map(
     agents
       .filter((a) => a.email)
@@ -181,7 +201,7 @@ async function runPollCycle(): Promise<void> {
 
   // Sequential to avoid Convoso rate limiting
   for (const ls of leadSources) {
-    const count = await pollLeadSource(ls, agentMap, queueId);
+    const count = await pollLeadSource(ls, agentMap);
     totalCount += count;
   }
 

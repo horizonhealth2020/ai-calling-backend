@@ -221,4 +221,72 @@ router.put("/settings/audit-duration", requireAuth, requireRole("MANAGER", "SUPE
   res.json(parsed.data);
 }));
 
+// GET /settings/ai-scoring-enabled
+router.get("/settings/ai-scoring-enabled", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const row = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled" } });
+  res.json({ enabled: row ? row.value === "true" : false });
+}));
+
+// PUT /settings/ai-scoring-enabled
+router.put("/settings/ai-scoring-enabled", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  await prisma.salesBoardSetting.upsert({
+    where: { key: "ai_scoring_enabled" },
+    update: { value: String(parsed.data.enabled) },
+    create: { key: "ai_scoring_enabled", value: String(parsed.data.enabled) },
+  });
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "ai_scoring_enabled", { enabled: parsed.data.enabled });
+  res.json({ enabled: parsed.data.enabled });
+}));
+
+// GET /settings/convoso-polling
+router.get("/settings/convoso-polling", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const [enabledRow, startRow, endRow] = await Promise.all([
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_polling_enabled" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_business_hours_start" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_business_hours_end" } }),
+  ]);
+  res.json({
+    enabled: enabledRow ? enabledRow.value === "true" : false,
+    businessHoursStart: startRow?.value ?? "08:00",
+    businessHoursEnd: endRow?.value ?? "18:00",
+  });
+}));
+
+// PUT /settings/convoso-polling
+router.put("/settings/convoso-polling", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const parsed = z.object({
+    enabled: z.boolean().optional(),
+    businessHoursStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    businessHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const updates: Promise<unknown>[] = [];
+  if (parsed.data.enabled !== undefined) {
+    updates.push(prisma.salesBoardSetting.upsert({
+      where: { key: "convoso_polling_enabled" },
+      update: { value: String(parsed.data.enabled) },
+      create: { key: "convoso_polling_enabled", value: String(parsed.data.enabled) },
+    }));
+  }
+  if (parsed.data.businessHoursStart) {
+    updates.push(prisma.salesBoardSetting.upsert({
+      where: { key: "convoso_business_hours_start" },
+      update: { value: parsed.data.businessHoursStart },
+      create: { key: "convoso_business_hours_start", value: parsed.data.businessHoursStart },
+    }));
+  }
+  if (parsed.data.businessHoursEnd) {
+    updates.push(prisma.salesBoardSetting.upsert({
+      where: { key: "convoso_business_hours_end" },
+      update: { value: parsed.data.businessHoursEnd },
+      create: { key: "convoso_business_hours_end", value: parsed.data.businessHoursEnd },
+    }));
+  }
+  await Promise.all(updates);
+  await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "convoso_polling", parsed.data);
+  res.json(parsed.data);
+}));
+
 export default router;

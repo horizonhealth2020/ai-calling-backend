@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { getPendingAlerts, approveAlert, clearAlert } from "../services/alerts";
-import { asyncHandler } from "./helpers";
+import { asyncHandler, zodErr } from "./helpers";
 
 const router = Router();
 
@@ -15,7 +15,9 @@ router.get("/alerts", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncH
 
 // POST /alerts/:id/approve -- approve alert, create clawback in selected period
 router.post("/alerts/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const { periodId } = z.object({ periodId: z.string().min(1) }).parse(req.body);
+  const parsed = z.object({ periodId: z.string().min(1) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const { periodId } = parsed.data;
   const alert = await approveAlert(req.params.id, periodId, (req as any).user.id);
   res.json(alert);
 }));

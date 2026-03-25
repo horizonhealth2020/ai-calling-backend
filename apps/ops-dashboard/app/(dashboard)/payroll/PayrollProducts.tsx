@@ -103,7 +103,7 @@ function ProductCard({
     }
     // Save state availability BEFORE product PATCH so the PATCH response reflects updated states
     if (d.type === "ADDON" || d.type === "AD_D") {
-      const OPS = process.env.NEXT_PUBLIC_OPS_API_URL ?? "http://localhost:8080";
+      const OPS = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
       await authFetch(`${OPS}/api/products/${product.id}/state-availability`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
