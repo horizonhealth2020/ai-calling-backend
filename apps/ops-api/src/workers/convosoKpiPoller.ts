@@ -17,10 +17,11 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function extractConvosoResults(response: any): any[] {
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.results)) return response.results;
-  if (Array.isArray(response)) return response;
+function extractConvosoResults(response: unknown): Record<string, unknown>[] {
+  const resp = response as Record<string, unknown> | undefined;
+  if (Array.isArray(resp?.data)) return resp.data as Record<string, unknown>[];
+  if (Array.isArray(resp?.results)) return resp.results as Record<string, unknown>[];
+  if (Array.isArray(response)) return response as Record<string, unknown>[];
   return [];
 }
 
@@ -52,7 +53,7 @@ async function pollLeadSource(
     if (raw.length === 0) return 0;
 
     // --- Deduplication: filter out already-processed call IDs ---
-    const callIds = raw.map((r: any) => String(r.id)).filter(Boolean);
+    const callIds = raw.map((r) => String(r.id)).filter(Boolean);
 
     const existing = await prisma.processedConvosoCall.findMany({
       where: { convosoCallId: { in: callIds } },
@@ -60,7 +61,7 @@ async function pollLeadSource(
     });
     const existingSet = new Set(existing.map((e) => e.convosoCallId));
 
-    const newRaw = raw.filter((r: any) => !existingSet.has(String(r.id)));
+    const newRaw = raw.filter((r) => !existingSet.has(String(r.id)));
 
     if (existingSet.size > 0) {
       console.log(
@@ -80,7 +81,7 @@ async function pollLeadSource(
     // Filter: only calls with call_length >= lead source buffer count toward KPIs
     const bufferSeconds = leadSource.callBufferSeconds ?? 0;
     const filtered = bufferSeconds > 0
-      ? newRaw.filter((r: any) => {
+      ? newRaw.filter((r) => {
           const len = Number(r.call_length ?? 0);
           return len >= bufferSeconds;
         })
@@ -92,8 +93,8 @@ async function pollLeadSource(
     const costPerLead =
       typeof leadSource.costPerLead === "number"
         ? leadSource.costPerLead
-        : typeof (leadSource.costPerLead as any)?.toNumber === "function"
-          ? (leadSource.costPerLead as any).toNumber()
+        : typeof (leadSource.costPerLead as { toNumber?: () => number })?.toNumber === "function"
+          ? (leadSource.costPerLead as { toNumber: () => number }).toNumber()
           : Number(leadSource.costPerLead);
 
     const kpiResponse = buildKpiSummary(enriched, { agentMap, costPerLead });
@@ -106,7 +107,7 @@ async function pollLeadSource(
         convosoUserId: a.user_id,
         totalCalls: a.total_calls,
         avgCallLength: a.avg_call_length,
-        callsByTier: a.calls_by_tier as any,
+        callsByTier: a.calls_by_tier as unknown as Record<string, number>,
         costPerSale: a.cost_per_sale,
         totalLeadCost: a.total_lead_cost,
         longestCall: a.longest_call,
@@ -118,7 +119,7 @@ async function pollLeadSource(
     await prisma.agentCallKpi.createMany({ data: records });
 
     // Track processed call IDs to prevent duplicate processing
-    const newCallIds = newRaw.map((r: any) => String(r.id)).filter(Boolean);
+    const newCallIds = newRaw.map((r) => String(r.id)).filter(Boolean);
     if (newCallIds.length > 0) {
       await prisma.processedConvosoCall.createMany({
         data: newCallIds.map((cid) => ({
@@ -130,13 +131,13 @@ async function pollLeadSource(
     }
 
     return records.length;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(
       JSON.stringify({
         event: "kpi_poll_lead_source_error",
         leadSourceId: leadSource.id,
         leadSourceName: leadSource.name,
-        error: err.message,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       }),
     );
@@ -221,11 +222,11 @@ async function runPollCycle(): Promise<void> {
         }),
       );
     }
-  } catch (cleanupErr: any) {
+  } catch (cleanupErr: unknown) {
     console.error(
       JSON.stringify({
         event: "kpi_poll_cleanup_error",
-        error: cleanupErr.message,
+        error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
         timestamp: new Date().toISOString(),
       }),
     );

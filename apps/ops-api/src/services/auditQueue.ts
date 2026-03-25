@@ -143,9 +143,9 @@ async function runJob(callLogId: string): Promise<void> {
         },
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(`[auditQueue] Job failed for ${callLogId}:`, err);
-    emitAuditFailed({ callLogId, error: err.message ?? "Unknown error" });
+    emitAuditFailed({ callLogId, error: err instanceof Error ? err.message : "Unknown error" });
     await prisma.convosoCallLog.update({
       where: { id: callLogId },
       data: { auditStatus: "failed" },
@@ -188,10 +188,12 @@ async function downloadRecordingWithRetry(callLogId: string, url: string): Promi
 
       console.log(`[auditQueue] Recording downloaded for ${callLogId} (${buffer.length} bytes, attempt ${attempt})`);
       return buffer;
-    } catch (err: any) {
-      if (err.message?.includes("fetch") || err.code === "ECONNREFUSED" || err.code === "ETIMEDOUT") {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errCode = (err as NodeJS.ErrnoException)?.code;
+      if (errMsg.includes("fetch") || errCode === "ECONNREFUSED" || errCode === "ETIMEDOUT") {
         if (attempt < RECORDING_MAX_RETRIES) {
-          console.log(`[auditQueue] Network error for ${callLogId}: ${err.message}, attempt ${attempt}/${RECORDING_MAX_RETRIES}, retrying in 60s...`);
+          console.log(`[auditQueue] Network error for ${callLogId}: ${errMsg}, attempt ${attempt}/${RECORDING_MAX_RETRIES}, retrying in 60s...`);
           await sleep(RECORDING_RETRY_DELAY_MS);
           continue;
         }

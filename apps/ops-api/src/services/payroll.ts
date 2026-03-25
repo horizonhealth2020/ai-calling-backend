@@ -288,7 +288,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   const bundleCtx = sale.memberState
     ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds)
     : null;
-  const result = calculateCommission(sale as any, bundleCtx);
+  const result = calculateCommission(sale as Parameters<typeof calculateCommission>[0], bundleCtx);
   const payoutAmount = sale.status === 'RAN' ? result.commission : 0;
   const halvingReason = sale.status === 'RAN' ? result.halvingReason : null;
 
@@ -342,7 +342,7 @@ export const isAgentPaidInPeriod = async (agentId: string, payrollPeriodId: stri
   return paidEntries.length > 0;
 };
 
-export const handleSaleEditApproval = async (saleId: string, changes: Record<string, { old: any; new: any }>, oldAgentId?: string) => {
+export const handleSaleEditApproval = async (saleId: string, changes: Record<string, { old: unknown; new: unknown }>, oldAgentId?: string) => {
   // If agent changed, delete old payroll entries under old agent
   if (oldAgentId && changes.agentId) {
     await prisma.payrollEntry.deleteMany({ where: { saleId, agentId: oldAgentId } });

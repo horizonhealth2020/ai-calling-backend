@@ -34,9 +34,9 @@ export function buildPeriodSummary(period: {
   weekEnd: Date;
   status: string;
   entries: Array<{
-    payoutAmount: any;
-    netAmount: any;
-    sale: { premium: any; status: string };
+    payoutAmount: number | string | { toNumber(): number };
+    netAmount: number | string | { toNumber(): number };
+    sale: { premium: number | string | { toNumber(): number }; status: string };
   }>;
 }): {
   period: string;

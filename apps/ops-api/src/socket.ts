@@ -14,7 +14,7 @@ export function emitAuditStatus(data: { callLogId: string; status: string; attem
   io?.emit("audit_status", data);
 }
 
-export function emitAuditComplete(audit: any) {
+export function emitAuditComplete(audit: Record<string, unknown>) {
   io?.emit("new_audit", audit);
 }
 
