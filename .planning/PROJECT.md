@@ -77,10 +77,10 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 <!-- Current scope: v1.6 Pre-Launch Stabilization -->
 
-- [ ] Move Morgan voice service into apps/morgan/ (zero behavior change)
-- [ ] Delete stale standalone dashboard apps (payroll-dashboard)
+- [x] Move Morgan voice service into apps/morgan/ (zero behavior change) — Phase 25
+- [x] Delete stale standalone dashboard apps (payroll-dashboard) — Phase 25
 - [ ] Remove dead code, unused imports, orphaned files
-- [ ] Consolidate stale docs into README, delete originals
+- [x] Consolidate stale docs into README, delete originals — Phase 25
 - [ ] Systematic audit: error handling, edge cases, type safety
 - [ ] Tighten API validation and robustness for production traffic
 
@@ -163,4 +163,4 @@ Shipped 6 milestones in 11 days (24 phases, 76 plans). Tech stack: Next.js 15, E
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 after v1.6 milestone started*
+*Last updated: 2026-03-25 after Phase 25 complete*
