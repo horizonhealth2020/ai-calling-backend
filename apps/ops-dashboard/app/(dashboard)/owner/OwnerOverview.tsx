@@ -192,6 +192,7 @@ function DashboardSection({
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Avg / Sale</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Lead Spend</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Cost / Sale</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
               </tr>
@@ -199,7 +200,7 @@ function DashboardSection({
             <tbody>
               {sortedTracker.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <EmptyState
                       icon={<BarChart3 size={32} />}
                       title="No agent data yet"
@@ -257,6 +258,13 @@ function DashboardSection({
                     </td>
                     <td style={{ ...baseTdStyle, textAlign: "right", color: colors.textTertiary }}>
                       {row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "\u2014"}
+                    </td>
+                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.semibold }}>
+                      {!convosoConfigured
+                        ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
+                        : row.totalLeadCost > 0
+                          ? <span style={{ color: colors.textPrimary }}>${Number(row.totalLeadCost).toFixed(2)}</span>
+                          : <span style={{ color: colors.textSecondary }}>$0.00</span>}
                     </td>
                     <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
                       {!convosoConfigured
