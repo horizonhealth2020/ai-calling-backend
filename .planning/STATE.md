@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Pre-Launch Stabilization
-status: Executing Phase 25
-last_updated: "2026-03-25T14:08:42Z"
+status: Phase 25 Complete
+last_updated: "2026-03-25T14:16:09Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -22,8 +22,8 @@ See: .planning/PROJECT.md (updated 2026-03-25)
 
 ## Current Position
 
-Phase: 25 (file-structure-cleanup) — EXECUTING
-Plan: 2 of 2
+Phase: 25 (file-structure-cleanup) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
@@ -45,6 +45,8 @@ Plan: 2 of 2
 | 4 phases matching 4 requirement categories | Natural clustering -- each category is a coherent delivery boundary |
 | Morgan relocation is zero-behavior-change | Voice service logic is out of scope; only file locations change |
 | payroll-dashboard deletion | Stale standalone app superseded by unified ops-dashboard in v1.3 |
+| Consolidated docs into README | FIXES.md, ISSUES.md, TESTING.md, docs/ content merged into README.md sections |
+| Updated CLAUDE.md to 4-app structure | Removed references to 5 deleted standalone apps, updated to ops-api/ops-dashboard/sales-board/morgan |
 
 ### Open Questions
 
@@ -56,5 +58,5 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed 25-01-PLAN.md (Morgan relocation)*
+*Last session: Completed 25-02-PLAN.md (stale files/docs cleanup)*
 *Last updated: 2026-03-25*
