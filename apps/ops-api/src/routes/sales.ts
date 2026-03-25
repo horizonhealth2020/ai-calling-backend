@@ -62,7 +62,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     });
     const payrollEntries = await prisma.payrollEntry.findMany({
       where: { saleId: sale.id },
-      include: { period: { select: { id: true, weekStart: true, weekEnd: true } } },
+      include: { payrollPeriod: { select: { id: true, weekStart: true, weekEnd: true } } },
     });
     if (fullSale) {
       emitSaleChanged({
@@ -89,9 +89,9 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
           holdAmount: Number(e.holdAmount),
           netAmount: Number(e.netAmount),
           status: e.status,
-          periodId: e.period.id,
-          periodWeekStart: e.period.weekStart.toISOString(),
-          periodWeekEnd: e.period.weekEnd.toISOString(),
+          periodId: e.payrollPeriod.id,
+          periodWeekStart: e.payrollPeriod.weekStart.toISOString(),
+          periodWeekEnd: e.payrollPeriod.weekEnd.toISOString(),
         })),
       });
     }
@@ -182,7 +182,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     ? await resolveBundleRequirement(product, memberState, addonProductIds)
     : undefined;
 
-  const result = calculateCommission(mockSale as Parameters<typeof calculateCommission>[0], bundleCtx ?? undefined);
+  const result = calculateCommission(mockSale as unknown as Parameters<typeof calculateCommission>[0], bundleCtx ?? undefined);
 
   const saleDate = parsed.data.saleDate ? new Date(parsed.data.saleDate + "T12:00:00") : new Date();
   const shiftWeeks = parsed.data.paymentType === "ACH" ? 1 : 0;
@@ -355,7 +355,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     const changes: Record<string, { old: unknown; new: unknown }> = {};
     const data = parsed.data;
 
-    const fieldMap: Record<string, (sale: typeof currentSale) => unknown> = {
+    const fieldMap: Record<string, (sale: NonNullable<typeof currentSale>) => unknown> = {
       saleDate: s => s.saleDate?.toISOString?.()?.split("T")[0] ?? null,
       agentId: s => s.agentId,
       memberName: s => s.memberName,
@@ -404,7 +404,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
       data: {
         saleId,
         requestedBy: req.user!.id,
-        changes,
+        changes: JSON.parse(JSON.stringify(changes)),
       },
     });
 

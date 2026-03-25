@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth } from "../middleware/auth";
-import { fetchConvosoCallLogs, enrichWithTiers, filterByCallLength, filterByTier, buildKpiSummary, CallLengthTier } from "../services/convosoCallLogs";
+import { fetchConvosoCallLogs, enrichWithTiers, filterByCallLength, filterByTier, buildKpiSummary, CallLengthTier, type ConvosoCallLog } from "../services/convosoCallLogs";
 import { zodErr, asyncHandler } from "./helpers";
 
 const router = Router();
@@ -23,8 +23,8 @@ const CALL_LOG_PASS_THROUGH_PARAMS = [
 
 function buildConvosoParams(query: Record<string, string | string[] | undefined>): Record<string, string> {
   const params: Record<string, string> = {
-    queue_id: query.queue_id,
-    list_id: query.list_id,
+    queue_id: String(query.queue_id),
+    list_id: String(query.list_id),
     call_type: (query.call_type as string) || "INBOUND",
     called_count: (query.called_count as string) || "0",
     include_recordings: (query.include_recordings as string) || "1",
@@ -61,11 +61,11 @@ router.get("/call-logs/kpi", requireAuth, asyncHandler(async (req, res) => {
   const { queue_id, list_id, min_call_length: minCallLength, max_call_length: maxCallLength, tier: tierParam } = parsed.data;
 
   try {
-    const params = buildConvosoParams(req.query);
+    const params = buildConvosoParams(req.query as Record<string, string | string[] | undefined>);
     const response = await fetchConvosoCallLogs(params);
     const raw = extractConvosoResults(response);
 
-    let enriched = enrichWithTiers(raw);
+    let enriched = enrichWithTiers(raw as ConvosoCallLog[]);
     if (minCallLength !== undefined || maxCallLength !== undefined) {
       enriched = filterByCallLength(enriched, minCallLength, maxCallLength);
     }
@@ -111,11 +111,11 @@ router.get("/call-logs", requireAuth, asyncHandler(async (req, res) => {
   const { queue_id, list_id, min_call_length: minCallLength, max_call_length: maxCallLength, tier: tierParam } = parsed.data;
 
   try {
-    const params = buildConvosoParams(req.query);
+    const params = buildConvosoParams(req.query as Record<string, string | string[] | undefined>);
     const response = await fetchConvosoCallLogs(params);
     const raw = extractConvosoResults(response);
 
-    let enriched = enrichWithTiers(raw);
+    let enriched = enrichWithTiers(raw as ConvosoCallLog[]);
     if (minCallLength !== undefined || maxCallLength !== undefined) {
       enriched = filterByCallLength(enriched, minCallLength, maxCallLength);
     }

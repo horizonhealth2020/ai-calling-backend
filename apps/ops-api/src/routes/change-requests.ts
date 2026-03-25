@@ -64,7 +64,7 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
       });
       const payrollEntries = await prisma.payrollEntry.findMany({
         where: { saleId: changeRequest.saleId },
-        include: { period: { select: { id: true, weekStart: true, weekEnd: true } } },
+        include: { payrollPeriod: { select: { id: true, weekStart: true, weekEnd: true } } },
       });
       if (fullSale) {
         emitSaleChanged({
@@ -91,9 +91,9 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
             holdAmount: Number(e.holdAmount),
             netAmount: Number(e.netAmount),
             status: e.status,
-            periodId: e.period.id,
-            periodWeekStart: e.period.weekStart.toISOString(),
-            periodWeekEnd: e.period.weekEnd.toISOString(),
+            periodId: e.payrollPeriod.id,
+            periodWeekStart: e.payrollPeriod.weekStart.toISOString(),
+            periodWeekEnd: e.payrollPeriod.weekEnd.toISOString(),
           })),
         });
       }
@@ -184,8 +184,8 @@ router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL
     // Handle addon changes
     if (changes.addonProductIds) {
       await tx.saleAddon.deleteMany({ where: { saleId } });
-      const newAddonIds: string[] = changes.addonProductIds.new;
-      const addonPremiums: Record<string, number> = changes.addonPremiums?.new ?? {};
+      const newAddonIds: string[] = changes.addonProductIds.new as string[];
+      const addonPremiums: Record<string, number> = (changes.addonPremiums?.new ?? {}) as Record<string, number>;
       const uniqueIds = [...new Set(newAddonIds)];
       if (uniqueIds.length > 0) {
         await tx.saleAddon.createMany({

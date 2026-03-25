@@ -11,6 +11,7 @@ import {
   enrichWithTiers,
   buildKpiSummary,
   type AgentKpi,
+  type ConvosoCallLog,
 } from "../services/convosoCallLogs";
 
 // ---------------------------------------------------------------------------
@@ -89,7 +90,7 @@ async function pollLeadSource(
 
     if (filtered.length === 0) return 0;
 
-    const enriched = enrichWithTiers(filtered);
+    const enriched = enrichWithTiers(filtered as ConvosoCallLog[]);
     const costPerLead =
       typeof leadSource.costPerLead === "number"
         ? leadSource.costPerLead
