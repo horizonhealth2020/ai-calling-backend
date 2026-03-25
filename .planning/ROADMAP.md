@@ -133,8 +133,8 @@ Plans:
   3. Every export from `@ops/auth`, `@ops/types`, `@ops/utils`, `@ops/ui`, and `@ops/db` has an explicit TypeScript type annotation on its signature
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md — [To be planned]
-- [ ] 28-02-PLAN.md — [To be planned]
+- [ ] 28-01-PLAN.md — Backend any elimination (ops-api routes/services) + package export type annotations
+- [ ] 28-02-PLAN.md — Frontend any elimination (ops-dashboard components) + API response shape verification
 
 ## Progress
 
@@ -167,7 +167,7 @@ Plans:
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 28. Type Safety Audit | v1.6 | 0/? | Not started | - |
+| 28. Type Safety Audit | v1.6 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
