@@ -14,7 +14,7 @@ const getSecret = () => {
   return s;
 };
 
-export const signSessionToken = (user: SessionUser) => {
+export const signSessionToken = (user: SessionUser): string => {
   return jwt.sign(user, getSecret(), { expiresIn: "12h" });
 };
 
@@ -27,7 +27,7 @@ export const verifySessionToken = (token?: string): SessionUser | null => {
   }
 };
 
-export const buildSessionCookie = (token: string) =>
+export const buildSessionCookie = (token: string): string =>
   serialize(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -37,7 +37,7 @@ export const buildSessionCookie = (token: string) =>
     maxAge: 60 * 60 * 12,
   });
 
-export const buildLogoutCookie = () =>
+export const buildLogoutCookie = (): string =>
   serialize(SESSION_COOKIE, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
