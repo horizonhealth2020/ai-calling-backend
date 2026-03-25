@@ -1,21 +1,17 @@
 # INS Internal Operations Platform (Railway Monorepo)
 
-This repository now supports **two independent workloads in one Railway project**:
-1. Existing Morgan voice service (unchanged, root `index.js`).
-2. New INS operations platform as isolated services under `/apps`.
+This repository contains **two independent workloads in one Railway project**:
 
-> ⚠️ **Railway safety rule:** Morgan is a standalone service and must stay deployable independently. Keep Morgan service settings and runtime env unchanged.
+1. **Morgan voice service** -- AI calling system at `apps/morgan/` (Convoso + Vapi integration).
+2. **Ops Platform** -- sales operations suite under `apps/` and `packages/`.
 
 ## System Architecture
 
 ```mermaid
 flowchart TB
     subgraph Browser["Browser"]
-        AP["Auth Portal\n:3011"]
-        MD["Manager Dashboard\n:3019"]
-        PD["Payroll Dashboard\n:3012"]
+        OD["Ops Dashboard\n:3000"]
         SB["Sales Board\n:3013"]
-        OD["Owner Dashboard\n:3026"]
     end
 
     subgraph API["Backend"]
@@ -39,18 +35,16 @@ flowchart TB
         CONVOSO["Convoso\nCall Logs + Recordings"]
     end
 
-    subgraph Legacy["Independent Workload"]
-        MORGAN["Morgan Voice Service\nroot index.js"]
+    subgraph Voice["Independent Workload"]
+        MORGAN["Morgan Voice Service\napps/morgan/"]
     end
 
     %% Auth flow
-    AP -- "1. Login credentials" --> OPS
-    OPS -- "2. JWT token via URL redirect" --> AP
-    AP -- "3. Role-based redirect\nwith session_token" --> MD & PD & OD
+    OD -- "1. Login credentials" --> OPS
+    OPS -- "2. JWT token via URL redirect" --> OD
+    OD -- "3. Role-based tab routing" --> OD
 
     %% Dashboard API calls
-    MD -- "authFetch()\nBearer token" --> OPS
-    PD -- "authFetch()\nBearer token" --> OPS
     OD -- "authFetch()\nBearer token" --> OPS
     SB -- "fetch()\nNo auth required" --> OPS
 
@@ -62,27 +56,25 @@ flowchart TB
     CONVOSO -- "Call logs sync" --> OPS
 
     %% Shared packages used by all apps
-    AUTH -.-> AP & MD & PD & OD & OPS
+    AUTH -.-> OD & OPS
     DB -.-> OPS
-    TYPES -.-> AP & MD & PD & OD & SB & OPS
-    UI -.-> AP & MD & PD & OD & SB
-
-    %% RBAC legend
-    OPS -. "RBAC Middleware\nrequireAuth → requireRole" .-> OPS
+    TYPES -.-> OD & SB & OPS
+    UI -.-> OD & SB
 ```
 
 ### Role-Based Access
 
-| Role | Dashboards | Capabilities |
-|------|-----------|--------------|
-| `SUPER_ADMIN` | All | Full access, bypasses all role checks |
-| `MANAGER` | Manager | Sales entry, agent tracking, call audits, config |
-| `PAYROLL` | Payroll | Payroll periods, commissions, clawbacks, exports |
-| `OWNER_VIEW` | Owner | Read-only KPI and operational overview |
-| `SERVICE` | — | Customer service operations |
-| `ADMIN` | — | Administrative functions |
+| Role | Dashboard View | Capabilities |
+|------|---------------|--------------|
+| `SUPER_ADMIN` | All tabs | Full access, bypasses all role checks |
+| `MANAGER` | Manager tab | Sales entry, agent tracking, call audits, config |
+| `PAYROLL` | Payroll tab | Payroll periods, commissions, clawbacks, exports |
+| `OWNER_VIEW` | Owner tab | Read-only KPI and operational overview |
+| `CUSTOMER_SERVICE` | CS tab | Chargeback and pending terms management |
+| `SERVICE` | -- | Customer service operations |
+| `ADMIN` | -- | Administrative functions |
 
-## Data Flow — Sale Lifecycle
+## Data Flow -- Sale Lifecycle
 
 ```mermaid
 flowchart LR
@@ -97,7 +89,7 @@ flowchart LR
     end
 
     subgraph Commission["Commission Calc"]
-        CALC["upsertPayrollEntryForSale()\nProduct rules → payout\nAddon/AD&D detection\nEnrollment fee check"]
+        CALC["upsertPayrollEntryForSale()\nProduct rules -> payout\nAddon/AD&D detection\nEnrollment fee check"]
     end
 
     subgraph Payroll["Payroll Period"]
@@ -169,41 +161,35 @@ erDiagram
     ConvosoCallLog |o--o| CallAudit : "linked audit"
 ```
 
-## Monorepo layout
+## Monorepo Layout
 
 ```text
 .
 ├── apps/
-│   ├── ops-api
-│   ├── auth-portal
-│   ├── manager-dashboard
-│   ├── payroll-dashboard
-│   ├── owner-dashboard
-│   └── sales-board
+│   ├── morgan/          # Voice service (Node.js/Express)
+│   ├── ops-api/         # REST API (Express + Prisma)
+│   ├── ops-dashboard/   # Unified dashboard (Next.js 15)
+│   └── sales-board/     # Public leaderboard (Next.js 15)
 ├── packages/
-│   ├── auth
-│   ├── db
-│   ├── types
-│   ├── ui
-│   └── utils
+│   ├── auth/     # JWT + sessions
+│   ├── db/       # Prisma client
+│   ├── types/    # Roles + shared types
+│   ├── ui/       # PageShell + theme
+│   └── utils/    # Structured logging
 ├── prisma/
 │   ├── schema.prisma
 │   └── seed.ts
-├── docs/
-├── index.js (Morgan service)
 └── package.json
 ```
 
-## Service responsibilities
+## Service Responsibilities
 
-- **ops-api**: auth, session endpoints, RBAC, business logic, payroll/clawbacks, exports API.
-- **auth-portal**: shared login UX + role redirect landing.
-- **manager-dashboard**: Sales Entry, Tracker, Call Audits, General Config.
-- **payroll-dashboard**: Payroll Weeks, Payout Config, Payroll Config, Clawbacks, Exports.
-- **owner-dashboard**: KPI and cross-domain operational view.
-- **sales-board**: read-only monitor view.
+- **ops-api**: Auth, session endpoints, RBAC middleware, business logic (sales, payroll, clawbacks, commissions), exports API, AI call scoring, Socket.IO real-time events.
+- **ops-dashboard**: Unified dashboard with role-based views -- Manager (sales entry, agent tracker, call audits, config), Payroll (periods, commissions, clawbacks, exports), Owner (KPI summary, agent KPIs, permissions, AI scoring), CS (chargeback/pending terms submission and tracking).
+- **sales-board**: Read-only public sales leaderboard with day/week toggle and real-time WebSocket updates.
+- **morgan**: AI voice calling service -- Convoso lead queue management, Vapi outbound call orchestration, multi-slot concurrent dialing, business hours enforcement.
 
-## Shared auth/session across subdomains
+## Shared Auth/Session
 
 - Cookie name: `ops_session`.
 - JWT issued by `ops-api` using `AUTH_JWT_SECRET`.
@@ -211,90 +197,133 @@ erDiagram
 - All protected apps must call `/api/session/me` and enforce role-level access.
 - Logout clears cookie with same domain/path.
 
-## Environment variables
+## Environment Variables
 
 ### ops-api
+
 - `DATABASE_URL`
 - `PORT`
 - `AUTH_JWT_SECRET`
 - `AUTH_COOKIE_DOMAIN`
 - `AUTH_PORTAL_URL`
+- `ALLOWED_ORIGINS`
 
-### auth-portal
+### ops-dashboard
+
 - `NEXT_PUBLIC_OPS_API_URL`
-- `MANAGER_DASHBOARD_URL`
-- `PAYROLL_DASHBOARD_URL`
-- `OWNER_DASHBOARD_URL`
 
-### manager/payroll/owner/sales-board
+### sales-board
+
 - `NEXT_PUBLIC_OPS_API_URL`
-- optional `AUTH_PORTAL_URL`
 
-## Local development
+### morgan
 
-Morgan (root service):
+- `CONVOSO_AUTH_TOKEN`
+- `VAPI_API_KEY`
+- `VAPI_MORGAN_ASSISTANT_ID`
+- `VAPI_PHONE_NUMBER_IDS`
+- `MORGAN_ENABLED`
+- `PORT`
+- `LOG_LEVEL`
+
+## Local Development
+
+Morgan voice service:
 ```bash
 npm ci
-npm start
+node apps/morgan/index.js
 ```
 
 Ops workspace services (install from monorepo root so workspace links resolve):
 ```bash
 npm install
-```
-
-Optional helper scripts from root (after root install):
-```bash
 npm run db:migrate
 npm run db:seed
-npm run ops:dev
-npm run auth:dev
-npm run manager:dev
-npm run payroll:dev
-npm run owner:dev
-npm run salesboard:dev
+npm run ops:dev          # ops-api on :8080
+npm run dashboard:dev    # ops-dashboard on :3000
+npm run salesboard:dev   # sales-board on :3013
 ```
 
-## Railway deployment plan (same project, separate services)
+## Morgan Tests
 
-Use **separate Railway services**. Because this is an npm workspaces monorepo, each workspace service should install from repo root and run commands for its workspace:
+```bash
+npm test                          # run all Morgan tests
+npm test -- helpers.test.js       # single file
+npm test -- -t "test name"        # by name
+npm run test:watch                # watch mode
+npm run test:coverage             # with coverage
+```
 
-- For workspace apps (`ops-api`, `auth-portal`, dashboards): set Railway **Root Directory to blank** (unset). This ensures Railway runs from monorepo root and npm can resolve `workspace:*` dependencies.
-- For Morgan (`ai-calling-backend`): keep existing service config unchanged.
+Test files live in `apps/morgan/__tests__/`.
+
+## Morgan Known Issues
+
+The Morgan voice service has 19 documented code-level issues from a Feb 2026 audit.
+The 3 highest-severity items (race condition, memory leak, single-lead bottleneck) were fixed.
+
+Remaining open issues by category:
+
+- **Error handling:** Inconsistent 429 handling, no retry for failed Convoso updates, silent webhook failures
+- **Data validation:** No webhook payload validation, unsafe string-to-number conversion
+- **Configuration:** Phone number count not enforced
+- **Performance:** Inefficient queue hydration, synchronous request processing
+- **Code quality:** Monolithic index.js (1500+ lines), mixed logging, global mutable state
+- **Security:** No rate limiting on webhook endpoints
+
+These are documented for awareness. Morgan is working in production and these issues are deferred to post-launch.
+
+## Railway Deployment
+
+Use **separate Railway services**. Because this is an npm workspaces monorepo, each workspace service should install from repo root and run commands for its workspace.
 
 | Service | Root directory | Build command | Start command |
 |---|---|---|---|
 | `ai-calling-backend` (Morgan) | `.` | `npm ci --workspaces=false` | `npm start` |
 | `ops-api` | *(blank / unset)* | `npm ci && npm run build -w @ops/ops-api` | `npm run start -w @ops/ops-api` |
-| `auth-portal` | *(blank / unset)* | `npm ci && npm run build -w @ops/auth-portal` | `npm run start -w @ops/auth-portal` |
-| `manager-dashboard` | *(blank / unset)* | `npm ci && npm run build -w @ops/manager-dashboard` | `npm run start -w @ops/manager-dashboard` |
-| `payroll-dashboard` | *(blank / unset)* | `npm ci && npm run build -w @ops/payroll-dashboard` | `npm run start -w @ops/payroll-dashboard` |
-| `owner-dashboard` | *(blank / unset)* | `npm ci && npm run build -w @ops/owner-dashboard` | `npm run start -w @ops/owner-dashboard` |
+| `ops-dashboard` | *(blank / unset)* | `npm ci && npm run build -w @ops/ops-dashboard` | `npm run start -w @ops/ops-dashboard` |
 | `sales-board` | *(blank / unset)* | `npm ci && npm run build -w @ops/sales-board` | `npm run start -w @ops/sales-board` |
 
-Avoid setting Railway Root Directory to `apps/<service>` for workspace apps, because npm will no longer evaluate the root workspace graph and `workspace:*` links can fail during install.
-
 Recommended watch paths:
-- Morgan: `/index.js`, `/voiceGateway.js`, `/morganToggle.js`, `/timeUtils.js`, `/rateLimitState.js`, `/package.json`, `/package-lock.json`
-- `ops-api`: `apps/ops-api/**`, `packages/**`, `prisma/**`
-- all dashboards + auth portal: corresponding `apps/<service>/**` + `packages/**`
 
-## Railway private networking notes
+- **Morgan:** `/apps/morgan/**`, `/package.json`, `/package-lock.json`
+- **ops-api:** `apps/ops-api/**`, `packages/**`, `prisma/**`
+- **ops-dashboard:** `apps/ops-dashboard/**`, `packages/**`
+- **sales-board:** `apps/sales-board/**`, `packages/**`
+
+> Morgan watch paths in Railway UI may need manual update from root paths to `apps/morgan/` paths.
+
+### Railway Private Networking Notes
 
 - Use Railway internal URL for `ops-api` between internal services.
 - Frontend public domains call public URL or proxied domain.
 - Keep inter-service auth on private network where feasible for admin actions.
 
-## Manual Railway + DNS follow-up
+### Manual Railway + DNS Follow-Up
 
 1. Create/add domains:
-   - `auth.<domain>`
-   - `manager.<domain>`
-   - `payroll.<domain>`
-   - `owner.<domain>`
-   - `salesboard.<domain>`
-2. Set `AUTH_COOKIE_DOMAIN=. <domain>` (without space) for all auth/session-aware services.
+   - `dashboard.<domain>` (ops-dashboard)
+   - `salesboard.<domain>` (sales-board)
+2. Set `AUTH_COOKIE_DOMAIN=.<domain>` for all auth/session-aware services.
 3. Provision Railway Postgres and share `DATABASE_URL` to `ops-api`.
 4. Run migrations + seed on `ops-api`.
 5. Configure role users and rotate seeded passwords immediately.
 6. Keep Morgan deploy settings untouched to avoid cross-impact.
+
+## Deployment Crash Prevention
+
+Key deployment pitfalls documented from past incidents:
+
+1. **Never hardcode `output: "standalone"` in next.config.js** -- use conditional
+   `process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined`.
+   Only Docker builds set this var. Railway uses `next start` which is incompatible.
+
+2. **Dockerfile CMD must use shell form** -- exec form `["node", "..."]` doesn't
+   expand `${APP_NAME}`. Use `CMD node apps/${APP_NAME}/server.js`.
+
+3. **Postgres `depends_on` needs `condition: service_healthy`** -- plain `depends_on`
+   doesn't wait for postgres to accept connections.
+
+4. **`NEXT_PUBLIC_*` vars are build-time only** -- set as build args, not runtime env.
+
+5. **`NEXT_PUBLIC_OPS_API_URL` must be browser-reachable** -- never use Docker
+   internal hostnames like `http://ops-api:8080`.
