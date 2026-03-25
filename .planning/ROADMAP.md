@@ -113,7 +113,7 @@ Plans:
 - [x] 29-01-PLAN.md — Bug fixes (premium display, lead source buffer) and products read-only conversion
 - [x] 29-02-PLAN.md — Convoso poller ConvosoCallLog writes and cost display logic fix
 - [x] 29-03-PLAN.md — CS Resolved Log audit tab (API endpoint, component, tab integration)
-- [ ] 29-04-PLAN.md — Gap closure: Add Lead Spend column to ManagerTracker and OwnerOverview (DATA-03/04/05)
+- [x] 29-04-PLAN.md — Gap closure: Add Lead Spend column to ManagerTracker and OwnerOverview (DATA-03/04/05)
 
 ## Progress
 
@@ -147,7 +147,7 @@ Plans:
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
-| 29. Dashboard Fixes & Cost Tracking | v1.7 | 3/4 | Gap Closure | - |
+| 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete | 2026-03-25 |
 
 ---
 *Roadmap created: 2026-03-14*
