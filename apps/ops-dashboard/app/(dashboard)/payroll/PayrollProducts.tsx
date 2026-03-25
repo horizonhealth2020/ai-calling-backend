@@ -433,8 +433,9 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -454,8 +455,9 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -470,8 +472,9 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -507,8 +510,9 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 

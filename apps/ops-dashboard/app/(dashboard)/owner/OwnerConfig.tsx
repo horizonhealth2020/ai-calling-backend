@@ -571,9 +571,14 @@ function ConfigSection({
 
 /* -- DataArchiveSection -- */
 
+type ArchiveTableStat = { name: string; rowCount: number; oldestRecord: string | null; newestRecord: string | null };
+type ArchiveBatch = { batchId: string; table: string; archivedAt: string; count: number };
+type ArchiveStats = { tables: ArchiveTableStat[]; batches: ArchiveBatch[] };
+type ArchiveResult = { count: number };
+
 function DataArchiveSection({ API }: { API: string }) {
   const { toast } = useToast();
-  const [archiveStats, setArchiveStats] = useState<any>(null);
+  const [archiveStats, setArchiveStats] = useState<ArchiveStats | null>(null);
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [archiveDays, setArchiveDays] = useState(90);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
@@ -611,7 +616,7 @@ function DataArchiveSection({ API }: { API: string }) {
       });
       if (res.ok) {
         const data = await res.json();
-        const total = data.results.reduce((s: number, r: any) => s + r.count, 0);
+        const total = data.results.reduce((s: number, r: ArchiveResult) => s + r.count, 0);
         toast("success", `Archived ${total.toLocaleString()} records`);
         setArchiveConfirm(false);
         setArchivePreviewCounts(null);
@@ -634,7 +639,7 @@ function DataArchiveSection({ API }: { API: string }) {
       });
       if (res.ok) {
         const data = await res.json();
-        const total = data.results.reduce((s: number, r: any) => s + r.count, 0);
+        const total = data.results.reduce((s: number, r: ArchiveResult) => s + r.count, 0);
         toast("success", `Restored ${total.toLocaleString()} records`);
         fetchArchiveStats();
       } else {
@@ -658,7 +663,7 @@ function DataArchiveSection({ API }: { API: string }) {
       {/* Stats Cards */}
       {archiveStats?.tables && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-          {archiveStats.tables.map((t: any) => (
+          {archiveStats.tables.map((t) => (
             <div key={t.name} style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "12px 16px", flex: "1 1 200px", minWidth: 180, border: `1px solid ${colors.borderSubtle}` }}>
               <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>{t.name.replace(/_/g, " ")}</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{(t.rowCount ?? 0).toLocaleString()}</div>
@@ -730,7 +735,7 @@ function DataArchiveSection({ API }: { API: string }) {
                 </tr>
               </thead>
               <tbody>
-                {archiveStats.batches.map((b: any) => (
+                {archiveStats.batches.map((b) => (
                   <tr key={b.batchId + b.table}>
                     <td style={{ padding: "8px 12px", fontSize: 13, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}`, fontFamily: typography.fontMono }}>{b.batchId.slice(0, 8)}</td>
                     <td style={{ padding: "8px 12px", fontSize: 13, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}` }}>{b.table.replace(/_/g, " ")}</td>

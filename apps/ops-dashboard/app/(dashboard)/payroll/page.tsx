@@ -66,11 +66,20 @@ type StatusChangeRequest = {
 type SaleEditRequest = {
   id: string;
   saleId: string;
-  changes: Record<string, { old: any; new: any }>;
+  changes: Record<string, { old: unknown; new: unknown }>;
   status: string;
   requestedAt: string;
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
+};
+
+type Alert = {
+  id: string;
+  agentId: string | null;
+  agentName: string | null;
+  customerName: string | null;
+  amount: number | null;
+  createdAt: string;
 };
 
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
@@ -109,7 +118,7 @@ function PayrollInner() {
   const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([]);
   const [pendingRequests, setPendingRequests] = useState<StatusChangeRequest[]>([]);
   const [pendingEditRequests, setPendingEditRequests] = useState<SaleEditRequest[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loading, setLoading] = useState(true);
   const [highlightedAlertIds, setHighlightedAlertIds] = useState<Set<string>>(new Set());
@@ -163,7 +172,7 @@ function PayrollInner() {
             commissionApproved: false,
             status: payload.sale.status,
             product: payload.sale.product,
-            addons: payload.sale.addons?.map((a: any) => ({ productId: a.product?.id ?? "", premium: a.premium ?? null, product: a.product })),
+            addons: payload.sale.addons?.map((a) => ({ productId: a.product?.id ?? "", premium: (a as { premium?: number | null }).premium ?? null, product: a.product })),
           },
           agent: { name: payload.sale.agent.name },
         };
@@ -183,7 +192,7 @@ function PayrollInner() {
 
     const onSaleChanged = (payload: SaleChangedPayload) => handleSaleChanged(payload);
     const onReconnect = () => { refreshPeriods(); fetchAlerts(); };
-    const onAlertCreated = (data: any) => {
+    const onAlertCreated = (data: { alertId?: string }) => {
       fetchAlerts();
       if (data?.alertId) {
         setHighlightedAlertIds(prev => new Set(prev).add(data.alertId));

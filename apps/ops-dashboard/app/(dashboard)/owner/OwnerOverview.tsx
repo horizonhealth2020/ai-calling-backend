@@ -384,7 +384,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     highlightCard("salesCount");
     highlightCard("premiumTotal");
 
-    const addonPrem = (payload.sale as any).addons?.reduce((s: number, a: any) => s + Number(a.premium ?? 0), 0) ?? 0;
+    const addonPrem = payload.sale.addons?.reduce((s: number, a) => s + Number((a as { premium?: number | null }).premium ?? 0), 0) ?? 0;
     const totalPrem = payload.sale.premium + addonPrem;
 
     setSummary(prev => prev ? {
