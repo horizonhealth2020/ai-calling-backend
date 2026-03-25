@@ -6,7 +6,8 @@ import { useSocketContext } from "@/lib/SocketProvider";
 import { authFetch } from "@ops/auth/client";
 import CSSubmissions from "./CSSubmissions";
 import CSTracking from "./CSTracking";
-import { ClipboardList, BarChart3 } from "lucide-react";
+import CSResolvedLog from "./CSResolvedLog";
+import { ClipboardList, BarChart3, FileCheck } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
@@ -34,6 +35,7 @@ export default function CSPage() {
     ? [
         { icon: <ClipboardList size={18} />, label: "Submissions", key: "submissions" },
         { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
+        { icon: <FileCheck size={18} />, label: "Resolved Log", key: "resolved-log" },
       ]
     : [{ icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" }];
 
@@ -50,6 +52,7 @@ export default function CSPage() {
     >
       {effectiveTab === "submissions" && <CSSubmissions socket={socket} API={API} />}
       {effectiveTab === "tracking" && <CSTracking socket={socket} API={API} userRoles={userRoles} canManageCS={canManageCS} />}
+      {effectiveTab === "resolved-log" && <CSResolvedLog API={API} />}
     </PageShell>
   );
 }
