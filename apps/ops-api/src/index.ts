@@ -37,7 +37,7 @@ app.get("/health", (_req, res) => res.json({ ok: true, service: "ops-api" }));
 app.use("/api", routes);
 
 // Global error handler for async route errors
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: Error & { statusCode?: number; status?: number; expose?: boolean }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled error:", err);
   if (res.headersSent) return;
 

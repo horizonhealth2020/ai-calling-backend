@@ -36,7 +36,7 @@ export function clearToken(): void {
 }
 
 /** Decode JWT payload without a library (base64url decode). */
-export function decodeTokenPayload(token: string): Record<string, any> | null {
+export function decodeTokenPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
@@ -71,7 +71,7 @@ async function ensureTokenFresh(): Promise<void> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     try {
-      const apiUrl = (typeof window !== "undefined" && (window as any).__NEXT_DATA__?.runtimeConfig?.NEXT_PUBLIC_OPS_API_URL)
+      const apiUrl = (typeof window !== "undefined" && (window as unknown as { __NEXT_DATA__?: { runtimeConfig?: { NEXT_PUBLIC_OPS_API_URL?: string } } }).__NEXT_DATA__?.runtimeConfig?.NEXT_PUBLIC_OPS_API_URL)
         || process.env.NEXT_PUBLIC_OPS_API_URL || "";
       const res = await fetch(`${apiUrl}/api/auth/refresh`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -106,8 +106,8 @@ export async function authFetch(url: string, opts: RequestInit = {}): Promise<Re
 
   try {
     return await fetch(url, { ...opts, headers, signal: opts.signal ?? controller.signal });
-  } catch (err: any) {
-    if (err.name === "AbortError") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
       throw new Error("Request timed out after 30 seconds");
     }
     throw err;

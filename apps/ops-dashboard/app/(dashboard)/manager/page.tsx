@@ -117,7 +117,7 @@ function ManagerPageInner() {
       highlightSale(payload.sale.id, payload.sale.agent.name);
 
       // Patch tracker state (include addon premiums)
-      const addonPrem = (payload.sale as any).addons?.reduce((s: number, a: any) => s + Number(a.premium ?? 0), 0) ?? 0;
+      const addonPrem = payload.sale.addons?.reduce((s: number, a) => s + Number((a as { premium?: number }).premium ?? 0), 0) ?? 0;
       const totalPrem = payload.sale.premium + addonPrem;
       setTracker(prev => {
         const agentName = payload.sale.agent.name;

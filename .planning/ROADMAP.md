@@ -167,7 +167,7 @@ Plans:
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 28. Type Safety Audit | v1.6 | 0/2 | Not started | - |
+| 28. Type Safety Audit | v1.6 | 0/2 | Planned    |  |
 
 ---
 *Roadmap created: 2026-03-14*

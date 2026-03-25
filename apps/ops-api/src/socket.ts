@@ -7,35 +7,19 @@ export function setIO(instance: Server) {
 }
 
 export function emitAuditStarted(data: { callLogId: string; agentName: string }) {
-  try {
-    io?.emit("processing_started", data);
-  } catch (err) {
-    console.error("Socket.IO emit error (processing_started):", err);
-  }
+  io?.emit("processing_started", data);
 }
 
 export function emitAuditStatus(data: { callLogId: string; status: string; attempt?: number }) {
-  try {
-    io?.emit("audit_status", data);
-  } catch (err) {
-    console.error("Socket.IO emit error (audit_status):", err);
-  }
+  io?.emit("audit_status", data);
 }
 
-export function emitAuditComplete(audit: any) {
-  try {
-    io?.emit("new_audit", audit);
-  } catch (err) {
-    console.error("Socket.IO emit error (new_audit):", err);
-  }
+export function emitAuditComplete(audit: Record<string, unknown>) {
+  io?.emit("new_audit", audit);
 }
 
 export function emitAuditFailed(data: { callLogId: string; error: string }) {
-  try {
-    io?.emit("processing_failed", data);
-  } catch (err) {
-    console.error("Socket.IO emit error (processing_failed):", err);
-  }
+  io?.emit("processing_failed", data);
 }
 
 export type SaleChangedType = "created" | "updated" | "status_changed" | "deleted";
@@ -71,11 +55,7 @@ export interface SaleChangedPayload {
 }
 
 export function emitSaleChanged(payload: SaleChangedPayload) {
-  try {
-    io?.emit("sale:changed", payload);
-  } catch (err) {
-    console.error("Socket.IO emit error (sale:changed):", err);
-  }
+  io?.emit("sale:changed", payload);
 }
 
 export interface CSChangedPayload {
@@ -85,11 +65,7 @@ export interface CSChangedPayload {
 }
 
 export function emitCSChanged(payload: CSChangedPayload) {
-  try {
-    io?.emit("cs:changed", payload);
-  } catch (err) {
-    console.error("Socket.IO emit error (cs:changed):", err);
-  }
+  io?.emit("cs:changed", payload);
 }
 
 export interface AlertCreatedPayload {
@@ -99,19 +75,11 @@ export interface AlertCreatedPayload {
 }
 
 export function emitAlertCreated(payload: AlertCreatedPayload) {
-  try {
-    io?.emit("alert:created", payload);
-  } catch (err) {
-    console.error("Socket.IO emit error (alert:created):", err);
-  }
+  io?.emit("alert:created", payload);
 }
 
 export function emitAlertResolved(data: { alertId: string; status: "APPROVED" | "CLEARED" }) {
-  try {
-    io?.emit("alert:resolved", data);
-  } catch (err) {
-    console.error("Socket.IO emit error (alert:resolved):", err);
-  }
+  io?.emit("alert:resolved", data);
 }
 
 export interface ServicePayrollChangedPayload {
@@ -122,11 +90,7 @@ export interface ServicePayrollChangedPayload {
 }
 
 export function emitServicePayrollChanged(payload: ServicePayrollChangedPayload) {
-  try {
-    io?.emit("service-payroll:changed", payload);
-  } catch (err) {
-    console.error("Socket.IO emit error (service-payroll:changed):", err);
-  }
+  io?.emit("service-payroll:changed", payload);
 }
 
 export interface ClawbackCreatedPayload {
@@ -137,9 +101,5 @@ export interface ClawbackCreatedPayload {
 }
 
 export function emitClawbackCreated(payload: ClawbackCreatedPayload) {
-  try {
-    io?.emit("clawback:created", payload);
-  } catch (err) {
-    console.error("Socket.IO emit error (clawback:created):", err);
-  }
+  io?.emit("clawback:created", payload);
 }

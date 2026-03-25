@@ -140,7 +140,7 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
     where: { id: pp.data.id },
     data: {
       resolvedAt: new Date(),
-      resolvedBy: (req as any).user!.id,
+      resolvedBy: req.user!.id,
       resolutionNote: parsed.data.resolutionNote,
       resolutionType: parsed.data.resolutionType,
     },

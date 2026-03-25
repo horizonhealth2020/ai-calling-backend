@@ -17,7 +17,7 @@ router.get("/status-change-requests", requireAuth, requireRole("PAYROLL", "SUPER
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
   const status = qp.data.status;
   const requests = await prisma.statusChangeRequest.findMany({
-    where: { status: status as any },
+    where: { status: status as "PENDING" | "APPROVED" | "REJECTED" },
     include: {
       sale: { include: { agent: true, product: true } },
       requester: { select: { name: true, email: true } },
@@ -80,9 +80,9 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
             status: fullSale.status,
             agent: { id: fullSale.agent.id, name: fullSale.agent.name },
             product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
-            addons: fullSale.addons?.map((a: any) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
+            addons: fullSale.addons?.map((a) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
           },
-          payrollEntries: payrollEntries.map((e: any) => ({
+          payrollEntries: payrollEntries.map((e) => ({
             id: e.id,
             payoutAmount: Number(e.payoutAmount),
             adjustmentAmount: Number(e.adjustmentAmount),
@@ -133,7 +133,7 @@ router.get("/sale-edit-requests", requireAuth, requireRole("PAYROLL", "SUPER_ADM
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
   const status = qp.data.status;
   const requests = await prisma.saleEditRequest.findMany({
-    where: { status: status as any },
+    where: { status: status as "PENDING" | "APPROVED" | "REJECTED" },
     include: {
       sale: { include: { agent: true, product: true } },
       requester: { select: { name: true, email: true } },
@@ -153,12 +153,12 @@ router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL
   if (!editRequest) return res.status(404).json({ error: "Edit request not found" });
   if (editRequest.status !== "PENDING") return res.status(400).json({ error: "Edit request is not pending" });
 
-  const changes = editRequest.changes as Record<string, { old: any; new: any }>;
+  const changes = editRequest.changes as Record<string, { old: unknown; new: unknown }>;
   const saleId = editRequest.saleId;
   const oldAgentId = editRequest.sale.agentId;
 
   // Build sale update data from changes
-  const saleUpdateData: any = {};
+  const saleUpdateData: Record<string, unknown> = {};
   const dateFields = ['saleDate', 'effectiveDate'];
   for (const [field, diff] of Object.entries(changes)) {
     if (field === 'addonProductIds' || field === 'addonPremiums') continue;

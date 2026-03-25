@@ -21,7 +21,7 @@ const CALL_LOG_PASS_THROUGH_PARAMS = [
   "limit", "offset", "order",
 ] as const;
 
-function buildConvosoParams(query: Record<string, any>): Record<string, string> {
+function buildConvosoParams(query: Record<string, string | string[] | undefined>): Record<string, string> {
   const params: Record<string, string> = {
     queue_id: query.queue_id,
     list_id: query.list_id,
@@ -37,10 +37,11 @@ function buildConvosoParams(query: Record<string, any>): Record<string, string> 
   return params;
 }
 
-function extractConvosoResults(response: any): any[] {
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.results)) return response.results;
-  if (Array.isArray(response)) return response;
+function extractConvosoResults(response: unknown): Record<string, unknown>[] {
+  const resp = response as Record<string, unknown> | undefined;
+  if (Array.isArray(resp?.data)) return resp.data as Record<string, unknown>[];
+  if (Array.isArray(resp?.results)) return resp.results as Record<string, unknown>[];
+  if (Array.isArray(response)) return response as Record<string, unknown>[];
   return [];
 }
 
@@ -94,11 +95,12 @@ router.get("/call-logs/kpi", requireAuth, asyncHandler(async (req, res) => {
     }));
 
     return res.json({ success: true, ...kpiResponse });
-  } catch (err: any) {
-    if (err.message?.includes("CONVOSO_AUTH_TOKEN")) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("CONVOSO_AUTH_TOKEN")) {
       return res.status(500).json({ error: "Convoso integration not configured" });
     }
-    return res.status(502).json({ error: "Failed to fetch from Convoso", details: err.message });
+    return res.status(502).json({ error: "Failed to fetch from Convoso", details: message });
   }
 }));
 
@@ -131,11 +133,12 @@ router.get("/call-logs", requireAuth, asyncHandler(async (req, res) => {
     }));
 
     return res.json({ success: true, count: enriched.length, data: enriched });
-  } catch (err: any) {
-    if (err.message?.includes("CONVOSO_AUTH_TOKEN")) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("CONVOSO_AUTH_TOKEN")) {
       return res.status(500).json({ error: "Convoso integration not configured" });
     }
-    return res.status(502).json({ error: "Failed to fetch from Convoso", details: err.message });
+    return res.status(502).json({ error: "Failed to fetch from Convoso", details: message });
   }
 }));
 

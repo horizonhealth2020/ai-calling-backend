@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { getAiUsageStats, enqueueAutoScore, startAutoScorePolling } from "../services/auditQueue";
-import { asyncHandler, dateRange, zodErr, dateRangeQuerySchema } from "./helpers";
+import { asyncHandler, dateRange, zodErr } from "./helpers";
 
 const router = Router();
 
@@ -35,10 +35,8 @@ router.put("/ai/budget", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), 
 
 // GET /ai/scoring-stats -- aggregate AI scoring KPIs, per-agent breakdown, weekly trends
 router.get("/ai/scoring-stats", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const qp = dateRangeQuerySchema.safeParse(req.query);
-  if (!qp.success) return res.status(400).json(zodErr(qp.error));
-  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
-  const where: any = { aiScore: { not: null } };
+  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const where: { aiScore: { not: null }; callDate?: { gte: Date; lt: Date } } = { aiScore: { not: null } };
   if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
 
   // Aggregate KPIs

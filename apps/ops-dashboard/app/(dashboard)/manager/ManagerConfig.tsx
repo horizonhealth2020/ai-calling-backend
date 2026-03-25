@@ -322,7 +322,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a)); setCfgMsg("Agent updated"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function deleteAgent(id: string, permanent: boolean) {
@@ -341,7 +341,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function addAgent(e: FormEvent) {
@@ -354,7 +354,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newAgent.name, email: newAgent.email || undefined, extension: newAgent.extension || undefined }) });
       if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgFieldErrors({}); setCfgMsg("Agent added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function saveProduct(id: string, data: Partial<Product>) {
@@ -362,7 +362,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { refreshProducts(); setCfgMsg("Product updated"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function saveLeadSource(id: string, data: Partial<LeadSource>) {
@@ -370,7 +370,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls)); setCfgMsg("Lead source updated"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function deleteLeadSource(id: string) {
@@ -378,7 +378,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) { setLeadSources(prev => prev.filter(x => x.id !== id)); setCfgMsg("Lead source deleted"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function addLeadSource(e: FormEvent) {
@@ -391,7 +391,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0 }) });
       if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgFieldErrors({}); setCfgMsg("Lead source added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   return (

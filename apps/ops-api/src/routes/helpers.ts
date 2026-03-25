@@ -12,8 +12,17 @@ export function zodErr(ze: z.ZodError) {
 }
 
 /** Wrap async route handlers so errors are forwarded to Express error handler */
-export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+
+/** Type guard for Prisma known-request errors (e.g. P2002 unique constraint). */
+export interface PrismaClientError {
+  code: string;
+  meta?: Record<string, unknown>;
+}
+export function isPrismaError(e: unknown): e is PrismaClientError {
+  return typeof e === "object" && e !== null && "code" in e && typeof (e as PrismaClientError).code === "string";
+}
 
 /** Compute date-range boundaries from a `range` query param or custom from/to dates. */
 export function dateRange(range?: string, from?: string, to?: string): { gte: Date; lt: Date } | undefined {
