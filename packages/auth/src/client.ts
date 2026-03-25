@@ -53,7 +53,7 @@ async function ensureTokenFresh(): Promise<void> {
   const token = getToken();
   if (!token) return;
   const payload = decodeTokenPayload(token);
-  if (!payload?.exp) return;
+  if (!payload?.exp || typeof payload.exp !== "number") return;
 
   const expiresAt = payload.exp * 1000;
   const now = Date.now();
