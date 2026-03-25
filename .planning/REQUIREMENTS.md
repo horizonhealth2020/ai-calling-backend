@@ -20,11 +20,11 @@ Requirements for milestone v1.7. Each maps to roadmap phases.
 
 ### Data Flow
 
-- [ ] **DATA-01**: Convoso KPI poller writes individual call records to ConvosoCallLog table (not just AgentCallKpi snapshots)
-- [ ] **DATA-02**: Poller deduplicates against existing ConvosoCallLog records to prevent duplicates across poll cycles
-- [ ] **DATA-03**: Cost per sale displays correctly in Manager Tracker tab when Convoso polling is enabled
-- [ ] **DATA-04**: Cost per sale displays correctly in Owner Dashboard agent leaderboard
-- [ ] **DATA-05**: Agent lead spend shows in tracker even when agent has zero sales
+- [x] **DATA-01**: Convoso KPI poller writes individual call records to ConvosoCallLog table (not just AgentCallKpi snapshots)
+- [x] **DATA-02**: Poller deduplicates against existing ConvosoCallLog records to prevent duplicates across poll cycles
+- [x] **DATA-03**: Cost per sale displays correctly in Manager Tracker tab when Convoso polling is enabled
+- [x] **DATA-04**: Cost per sale displays correctly in Owner Dashboard agent leaderboard
+- [x] **DATA-05**: Agent lead spend shows in tracker even when agent has zero sales
 
 ### CS Audit Trail
 
@@ -61,15 +61,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-03 | Phase 29 | Complete |
 | CFG-01 | Phase 29 | Complete |
 | CFG-02 | Phase 29 | Complete |
-| DATA-01 | Phase 29 | Pending |
-| DATA-02 | Phase 29 | Pending |
-| DATA-03 | Phase 29 | Pending |
-| DATA-04 | Phase 29 | Pending |
-| DATA-05 | Phase 29 | Pending |
-| CS-01 | Phase 29 | Pending |
-| CS-02 | Phase 29 | Pending |
-| CS-03 | Phase 29 | Pending |
-| CS-04 | Phase 29 | Pending |
+| DATA-01 | Phase 29 | Complete |
+| DATA-02 | Phase 29 | Complete |
+| DATA-03 | Phase 29 | Complete |
+| DATA-04 | Phase 29 | Complete |
+| DATA-05 | Phase 29 | Complete |
+| CS-01 | Phase 29 | Complete |
+| CS-02 | Phase 29 | Complete |
+| CS-03 | Phase 29 | Complete |
+| CS-04 | Phase 29 | Complete |
 
 **Coverage:**
 - v1.7 requirements: 14 total

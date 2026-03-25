@@ -108,10 +108,10 @@
   12. Resolved Log lists all resolved chargebacks showing resolution date, who resolved it, and any notes
   13. Resolved Log lists all resolved pending terms showing resolution date, who resolved it, and any notes
   14. User can filter the resolved log by type (chargeback vs pending term), date range, and agent
-**Plans:** 0/3 plans executed
+**Plans:** 3/3 plans executed
 Plans:
-- [ ] 29-01-PLAN.md — Bug fixes (premium display, lead source buffer) and products read-only conversion
-- [ ] 29-02-PLAN.md — Convoso poller ConvosoCallLog writes and cost display logic fix
+- [x] 29-01-PLAN.md — Bug fixes (premium display, lead source buffer) and products read-only conversion
+- [x] 29-02-PLAN.md — Convoso poller ConvosoCallLog writes and cost display logic fix
 - [x] 29-03-PLAN.md — CS Resolved Log audit tab (API endpoint, component, tab integration)
 
 ## Progress
