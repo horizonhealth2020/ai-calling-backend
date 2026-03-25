@@ -44,7 +44,7 @@ Declared values from `packages/ui/src/tokens.ts` `spacing` object:
 | 12 | 48px | Major section breaks |
 | 16 | 64px | Page-level spacing |
 
-Exceptions: The spacing scale includes non-power-of-2 multiples of 4 (12px, 20px, 40px). This is the established project convention and must be followed. Table cells use `padding: "12px 14px"` (baseTdStyle) and `padding: "10px 14px"` (baseThStyle) -- these are the standard table spacing values.
+Exceptions: The spacing scale includes non-power-of-2 multiples of 4 (12px, 20px, 40px). This is the established project convention and must be followed. Table cells use `padding: "12px 14px"` (baseTdStyle) and `padding: "10px 14px"` (baseThStyle) -- these are locked codebase values inherited from the existing design system that predate the 4px grid rule. They are used consistently across all dashboard tables in the project and MUST NOT be changed. New components outside of tables must use multiples of 4.
 
 ---
 
@@ -54,14 +54,12 @@ From `packages/ui/src/tokens.ts` `typography` object. Phase 29 uses these specif
 
 | Role | Size | Weight | Line Height | Usage in Phase 29 |
 |------|------|--------|-------------|--------------------|
-| Table header | 11px | 700 | 1.45 | baseThStyle -- column headers in Products read-only table, CS Resolved Log table |
-| Table label | 11px | 700 | 1.45 | baseLabelStyle -- form labels (Buffer field), filter labels |
-| Table body | 13px | 400 | 1.5 | baseTdStyle -- all table cell text, button text |
-| Body | 14px | 400 | 1.6 | baseInputStyle -- form inputs (Buffer field) |
+| Table header / Label | 11px | 700 | 1.45 | baseThStyle -- column headers; baseLabelStyle -- form labels (Buffer field), filter labels |
+| Body / Table cell | 13px | 400 | 1.5 | baseTdStyle -- all table cell text, button text, form inputs (baseInputStyle) |
 | Section heading | 15px | 700 | 1.4 | Card section titles ("Products", "Resolved Log") |
 | Card heading | 16px | 700 | 1.5 | Major section headings in config panels |
 
-Weights used in this phase: 400 (normal body/cell text), 600 (semibold emphasis, buttons), 700 (bold headings, table headers).
+Weights used in this phase: 400 (normal body/cell text, inputs), 700 (bold headings, table headers, labels, badge text, buttons).
 
 ---
 
@@ -104,7 +102,7 @@ Accent reserved for: Active tab underline in CS dashboard, focus ring on filter 
 | Element | Spec |
 |---------|------|
 | Label | "BUFFER (S)" -- 11px uppercase, weight 700, color `--text-tertiary` (baseLabelStyle) |
-| Input | `type="number"`, `min="0"`, baseInputStyle (14px, `--bg-surface-inset` background) |
+| Input | `type="number"`, `min="0"`, baseInputStyle (13px, `--bg-surface-inset` background) |
 | Default value | "0" |
 | Position | After costPerLead field, matching edit form layout |
 | Width | Same as adjacent fields in the form row |
@@ -117,7 +115,7 @@ Accent reserved for: Active tab underline in CS dashboard, focus ring on filter 
 | Section title | "Products" -- 15px, weight 700, color `--text-primary` |
 | Table headers | "Product" / "Type" / "Commission" / "Bundle Config" -- baseThStyle (11px uppercase, 700 weight) |
 | Table cells | baseTdStyle (13px, `--text-secondary`, 12px 14px padding) |
-| Type badge | Inline badge: 11px, weight 600, 4px 8px padding, 9999px radius. Colors: CORE = `--primary-500` text on `--info-bg`, ADDON = `--success` text on `--success-bg`, AD_D = `--warning` text on `--warning-bg` |
+| Type badge | Inline badge: 11px, weight 700, 4px 8px padding, 9999px radius. Colors: CORE = `--primary-500` text on `--info-bg`, ADDON = `--success` text on `--success-bg`, AD_D = `--warning` text on `--warning-bg` |
 | Commission rate | Percentage display: `{rate}%` |
 | Bundle config | For ADDON/AD_D: show parent product name. For CORE: show em-dash in `--text-muted` |
 | No edit/delete controls | Remove all action buttons, form modals, and onSave handlers |
@@ -174,7 +172,7 @@ The em-dash character is U+2014 ("\u2014"), not a hyphen. Font: 13px, displayed 
 | Chargeback | `--danger` (#f87171) | `--danger-bg` (rgba(248,113,113,0.08)) |
 | Pending Term | `--warning` (#fbbf24) | `--warning-bg` (rgba(251,191,36,0.08)) |
 
-Badge style: 11px, weight 600, padding 4px 10px, border-radius 9999px (pill shape).
+Badge style: 11px, weight 700, padding 4px 8px, border-radius 9999px (pill shape).
 
 **TruncatedNote Component:**
 
