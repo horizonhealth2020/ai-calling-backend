@@ -120,8 +120,8 @@ Plans:
   4. Every Socket.IO event handler has a try/catch wrapper so a single malformed event does not disconnect the client
 **Plans**: 2 plans
 Plans:
-- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
-- [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
+- [ ] 27-01-PLAN.md — Error handling infrastructure: Prisma handler, Socket.IO wrappers, archive.ts fix
+- [ ] 27-02-PLAN.md — Systematic Zod validation audit across all 17 route files
 
 ### Phase 28: Type Safety Audit
 **Goal**: The codebase has strict type safety with no implicit `any` leaking through application code
@@ -133,8 +133,8 @@ Plans:
   3. Every export from `@ops/auth`, `@ops/types`, `@ops/utils`, `@ops/ui`, and `@ops/db` has an explicit TypeScript type annotation on its signature
 **Plans**: 2 plans
 Plans:
-- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
-- [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
+- [ ] 28-01-PLAN.md — [To be planned]
+- [ ] 28-02-PLAN.md — [To be planned]
 
 ## Progress
 
@@ -166,7 +166,7 @@ Plans:
 | 24. Chargeback Automation & Data Archival | v1.5 | 4/4 | Complete | 2026-03-24 |
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 27. Error Handling & Robustness | v1.6 | 0/? | Not started | - |
+| 27. Error Handling & Robustness | v1.6 | 0/2 | Not started | - |
 | 28. Type Safety Audit | v1.6 | 0/? | Not started | - |
 
 ---
