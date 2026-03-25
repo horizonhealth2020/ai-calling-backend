@@ -141,7 +141,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Cost / Sale"].map((h, i) => (
+              {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
                 <th key={h} style={{ ...baseThStyle, textAlign: i >= 2 ? "right" : "left" }}>{h}</th>
               ))}
             </tr>
@@ -194,6 +194,13 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                       <AnimatedNumber value={Number(row.premiumTotal)} prefix="$" decimals={2} />
                     </span>
                   </td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600 }}>
+                    {!convosoConfigured
+                      ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
+                      : row.totalLeadCost > 0
+                        ? <span style={{ color: colors.textPrimary }}>${Number(row.totalLeadCost).toFixed(2)}</span>
+                        : <span style={{ color: colors.textSecondary }}>$0.00</span>}
+                  </td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: 600 }}>
                     {!convosoConfigured
                       ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
@@ -206,7 +213,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
             })}
             {tracker.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState icon={<BarChart3 size={32} />} title="No sales data yet" description="Sales will appear here once agents submit entries." />
                 </td>
               </tr>
