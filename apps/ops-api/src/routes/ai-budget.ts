@@ -36,7 +36,7 @@ router.put("/ai/budget", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), 
 // GET /ai/scoring-stats -- aggregate AI scoring KPIs, per-agent breakdown, weekly trends
 router.get("/ai/scoring-stats", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
-  const where: any = { aiScore: { not: null } };
+  const where: { aiScore: { not: null }; callDate?: { gte: Date; lt: Date } } = { aiScore: { not: null } };
   if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
 
   // Aggregate KPIs

@@ -11,7 +11,7 @@ const router = Router();
 // ── Call Recordings (sales with attached recording data) ─────────
 router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
-  const where: any = { recordingUrl: { not: null } };
+  const where: { recordingUrl: { not: null }; callDateTime?: { gte: Date; lt: Date } } = { recordingUrl: { not: null } };
   if (dr) where.callDateTime = { gte: dr.gte, lt: dr.lt };
   const recordings = await prisma.sale.findMany({
     where,
@@ -30,9 +30,9 @@ router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"
 // ── Call Audits ─────────────────────────────────────────────────
 router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
-  const where: any = {};
+  const where: { callDate?: { gte: Date; lt: Date }; agentId?: string } = {};
   if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
-  if (req.query.agentId) where.agentId = req.query.agentId;
+  if (req.query.agentId) where.agentId = req.query.agentId as string;
 
   const audits = await prisma.callAudit.findMany({
     where,
@@ -87,7 +87,7 @@ router.post("/call-audits/:id/re-audit", requireAuth, requireRole("MANAGER", "SU
 // ── Call Counts (Convoso aggregation) ───────────────────────────
 router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
-  const where: any = { agentId: { not: null }, leadSourceId: { not: null } };
+  const where: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) where.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
   // Get all lead sources to apply per-source buffer filtering

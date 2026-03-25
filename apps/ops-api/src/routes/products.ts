@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, isPrismaError } from "./helpers";
 
 const router = Router();
 
@@ -39,8 +39,8 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
     const product = await prisma.product.create({ data: parsed.data });
     await logAudit(req.user!.id, "CREATE", "Product", product.id, { name: product.name });
     res.status(201).json(product);
-  } catch (e: any) {
-    if (e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
+  } catch (e: unknown) {
+    if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
     throw e;
   }
 }));
@@ -73,8 +73,8 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
       },
     });
     res.json(product);
-  } catch (e: any) {
-    if (e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
+  } catch (e: unknown) {
+    if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "A product with this name already exists" });
     throw e;
   }
 }));

@@ -18,13 +18,13 @@ router.post("/alerts/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_AD
   const parsed = z.object({ periodId: z.string().min(1) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const { periodId } = parsed.data;
-  const alert = await approveAlert(req.params.id, periodId, (req as any).user.id);
+  const alert = await approveAlert(req.params.id, periodId, req.user!.id);
   res.json(alert);
 }));
 
 // POST /alerts/:id/clear -- clear/dismiss alert
 router.post("/alerts/:id/clear", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const alert = await clearAlert(req.params.id, (req as any).user.id);
+  const alert = await clearAlert(req.params.id, req.user!.id);
   res.json(alert);
 }));
 

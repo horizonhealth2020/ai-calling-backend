@@ -78,9 +78,9 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
           status: fullSale.status,
           agent: { id: fullSale.agent.id, name: fullSale.agent.name },
           product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
-          addons: fullSale.addons?.map((a: any) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
+          addons: fullSale.addons?.map((a) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
         },
-        payrollEntries: payrollEntries.map((e: any) => ({
+        payrollEntries: payrollEntries.map((e) => ({
           id: e.id,
           payoutAmount: Number(e.payoutAmount),
           adjustmentAmount: Number(e.adjustmentAmount),
@@ -174,7 +174,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
       product: p,
       premium: parsed.data.addonPremiums[p.id] ?? 0,
     })),
-  } as any;
+  };
 
   // Resolve bundle context if core product has a bundle requirement configured
   const addonProductIds = addonProducts.map(p => p.id);
@@ -182,7 +182,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     ? await resolveBundleRequirement(product, memberState, addonProductIds)
     : undefined;
 
-  const result = calculateCommission(mockSale, bundleCtx ?? undefined);
+  const result = calculateCommission(mockSale as Parameters<typeof calculateCommission>[0], bundleCtx ?? undefined);
 
   const saleDate = parsed.data.saleDate ? new Date(parsed.data.saleDate + "T12:00:00") : new Date();
   const shiftWeeks = parsed.data.paymentType === "ACH" ? 1 : 0;
@@ -278,13 +278,13 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   const saleId = req.params.id;
-  const userRoles: string[] = (req.user as any)?.roles ?? [];
+  const userRoles: string[] = req.user?.roles ?? [];
   const isPrivileged = userRoles.includes("PAYROLL") || userRoles.includes("SUPER_ADMIN");
 
   if (isPrivileged) {
     // ── PAYROLL / SUPER_ADMIN: apply directly ──
     const { addonProductIds, addonPremiums, ...saleFields } = parsed.data;
-    const updateData: any = { ...saleFields };
+    const updateData: Record<string, unknown> = { ...saleFields };
     if (updateData.saleDate) updateData.saleDate = new Date(updateData.saleDate + "T12:00:00");
     if (updateData.effectiveDate) updateData.effectiveDate = new Date(updateData.effectiveDate + "T12:00:00");
 
@@ -315,7 +315,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
 
     // Recalculate commission if any financial/product/agent/date/paymentType field changed
     const financialFields = ['premium', 'enrollmentFee', 'productId', 'agentId', 'saleDate', 'effectiveDate', 'paymentType', 'commissionApproved', 'addonProductIds'];
-    const needsRecalc = financialFields.some(f => (parsed.data as any)[f] !== undefined);
+    const needsRecalc = financialFields.some(f => (parsed.data as Record<string, unknown>)[f] !== undefined);
     if (needsRecalc) {
       await upsertPayrollEntryForSale(saleId);
     }
@@ -352,10 +352,10 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     if (!currentSale) return res.status(404).json({ error: "Sale not found" });
 
     // Build diff: { fieldName: { old: currentValue, new: newValue } }
-    const changes: Record<string, { old: any; new: any }> = {};
+    const changes: Record<string, { old: unknown; new: unknown }> = {};
     const data = parsed.data;
 
-    const fieldMap: Record<string, (sale: any) => any> = {
+    const fieldMap: Record<string, (sale: typeof currentSale) => unknown> = {
       saleDate: s => s.saleDate?.toISOString?.()?.split("T")[0] ?? null,
       agentId: s => s.agentId,
       memberName: s => s.memberName,
@@ -373,9 +373,9 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     };
 
     for (const [field, getter] of Object.entries(fieldMap)) {
-      if ((data as any)[field] !== undefined) {
+      if ((data as Record<string, unknown>)[field] !== undefined) {
         const oldVal = getter(currentSale);
-        const newVal = (data as any)[field];
+        const newVal = (data as Record<string, unknown>)[field];
         if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
           changes[field] = { old: oldVal, new: newVal };
         }
@@ -525,7 +525,7 @@ router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROL
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const dr = dateRange(req.query.range as string | undefined, req.query.from as string | undefined, req.query.to as string | undefined);
   const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
-  const callWhere: any = { agentId: { not: null }, leadSourceId: { not: null } };
+  const callWhere: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
   // Fetch agents with sales, call logs, and commission totals in parallel
@@ -564,7 +564,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
 
   const summary = data.map((agent) => {
     const salesCount = agent.sales.length;
-    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + ((s as any).addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     const totalLeadCost = agentLeadCost.get(agent.id) ?? 0;
     return {
       agent: agent.name,
@@ -590,7 +590,7 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
       prisma.clawback.count({ where: clawbackWhere }),
       prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
     ]);
-    const premiumTotal = salesForPremium.reduce((sum: number, s: any) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    const premiumTotal = salesForPremium.reduce((sum: number, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     return { salesCount, premiumTotal, clawbacks, openPayrollPeriods };
   }
 
@@ -631,12 +631,12 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
     const result = periods.map(p => {
       const ranEntries = p.entries.filter(e => e.sale?.status === 'RAN');
       const csPayrollTotal = p.serviceEntries.reduce(
-        (sum: number, se: any) => sum + Number(se.totalPay), 0
+        (sum: number, se) => sum + Number(se.totalPay), 0
       );
       return {
         period: `${p.weekStart.toISOString().slice(0, 10)} - ${p.weekEnd.toISOString().slice(0, 10)}`,
         salesCount: ranEntries.length,
-        premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0) + ((e.sale as any)?.addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0),
+        premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0) + (e.sale?.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0),
         commissionPaid: ranEntries.reduce((s, e) => s + Number(e.netAmount), 0),
         csPayrollTotal,
         periodStatus: p.status,
@@ -660,7 +660,7 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
     ORDER BY period DESC
     LIMIT 6
   `;
-  const monthlyCSPayroll: any[] = await prisma.$queryRaw`
+  const monthlyCSPayroll: { period: string; csPayrollTotal: number }[] = await prisma.$queryRaw`
     SELECT
       TO_CHAR(pp.week_start, 'YYYY-MM') as period,
       COALESCE(SUM(spe.total_pay), 0)::float as "csPayrollTotal"
@@ -668,8 +668,8 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
     JOIN payroll_periods pp ON pp.id = spe.payroll_period_id
     GROUP BY TO_CHAR(pp.week_start, 'YYYY-MM')
   `;
-  const csMap = new Map(monthlyCSPayroll.map((r: any) => [r.period, r.csPayrollTotal]));
-  const merged = (monthlySales as any[]).map(r => ({
+  const csMap = new Map(monthlyCSPayroll.map((r) => [r.period, r.csPayrollTotal]));
+  const merged = (monthlySales as { period: string; salesCount: number; premiumTotal: number; commissionPaid: number }[]).map(r => ({
     ...r,
     csPayrollTotal: csMap.get(r.period) ?? 0,
   }));
@@ -689,7 +689,7 @@ router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const weekly: Record<string, { count: number; premium: number }> = {};
   for (const s of allSales) {
     const name = agentMap.get(s.agentId) ?? s.agentId;
-    const totalPrem = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    const totalPrem = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
     if (!weekly[name]) weekly[name] = { count: 0, premium: 0 };
     weekly[name].count++;
     weekly[name].premium += totalPrem;
@@ -747,7 +747,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
         const name = agentMap.get(s.agentId) ?? s.agentId;
         if (!daySales[name]) daySales[name] = { count: 0, premium: 0 };
         daySales[name].count++;
-        const saleTotalPremium = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+        const saleTotalPremium = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
         daySales[name].premium += saleTotalPremium;
         totalSales++;
         totalPremium += saleTotalPremium;
@@ -765,9 +765,9 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
     const name = agentMap.get(s.agentId) ?? s.agentId;
     if (!weeklyTotals[name]) weeklyTotals[name] = { count: 0, premium: 0 };
     weeklyTotals[name].count++;
-    weeklyTotals[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    weeklyTotals[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
     grandTotalSales++;
-    grandTotalPremium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    grandTotalPremium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
   }
 
   // Daily view: today stats per agent
@@ -778,7 +778,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
       const name = agentMap.get(s.agentId) ?? s.agentId;
       if (!todayStats[name]) todayStats[name] = { count: 0, premium: 0 };
       todayStats[name].count++;
-      todayStats[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: any) => sum + Number(a.premium ?? 0), 0) ?? 0);
+      todayStats[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
     }
   }
 

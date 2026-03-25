@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, isPrismaError } from "./helpers";
 
 const router = Router();
 
@@ -20,8 +20,8 @@ router.post("/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), async
   try {
     const agent = await prisma.agent.create({ data: { ...parsed.data, displayOrder: count } });
     res.status(201).json(agent);
-  } catch (e: any) {
-    if (e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
+  } catch (e: unknown) {
+    if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
     throw e;
   }
 }));
@@ -32,8 +32,8 @@ router.delete("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
     try {
       await prisma.agent.delete({ where: { id: req.params.id } });
       await logAudit(req.user!.id, "HARD_DELETE", "Agent", req.params.id);
-    } catch (e: any) {
-      if (e.code === "P2003") return res.status(409).json({ error: "Cannot delete — agent has associated sales or payroll entries. Deactivate instead." });
+    } catch (e: unknown) {
+      if (isPrismaError(e) && e.code === "P2003") return res.status(409).json({ error: "Cannot delete — agent has associated sales or payroll entries. Deactivate instead." });
       throw e;
     }
   } else {
@@ -56,8 +56,8 @@ router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
   try {
     const agent = await prisma.agent.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(agent);
-  } catch (e: any) {
-    if (e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
+  } catch (e: unknown) {
+    if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });
     throw e;
   }
 }));
@@ -72,8 +72,8 @@ router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"),
     const ls = await prisma.leadSource.create({ data: { ...parsed.data, effectiveDate: new Date() } });
     await logAudit(req.user?.id ?? null, "CREATE", "LeadSource", ls.id, { name: ls.name });
     res.status(201).json(ls);
-  } catch (e: any) {
-    if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
+  } catch (e: unknown) {
+    if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
     throw e;
   }
 }));
@@ -85,8 +85,8 @@ router.patch("/lead-sources/:id", requireAuth, requireRole("MANAGER", "SUPER_ADM
   try {
     const ls = await prisma.leadSource.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(ls);
-  } catch (e: any) {
-    if (e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
+  } catch (e: unknown) {
+    if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "A lead source with this name already exists" });
     throw e;
   }
 }));

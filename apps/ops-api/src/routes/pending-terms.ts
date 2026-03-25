@@ -119,7 +119,7 @@ router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SE
     where: { id: req.params.id },
     data: {
       resolvedAt: new Date(),
-      resolvedBy: (req as any).user!.id,
+      resolvedBy: req.user!.id,
       resolutionNote: parsed.data.resolutionNote,
       resolutionType: parsed.data.resolutionType,
     },

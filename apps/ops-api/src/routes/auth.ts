@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@ops/db";
 import { buildLogoutCookie, buildSessionCookie, signSessionToken } from "@ops/auth";
+import type { AppRole } from "@ops/types";
 import { requireAuth } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler } from "./helpers";
@@ -18,7 +19,7 @@ router.post("/auth/login", asyncHandler(async (req, res) => {
   if (!user || !user.active || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
-  const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as any });
+  const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as AppRole[] });
   res.setHeader("Set-Cookie", buildSessionCookie(token));
   return res.json({ id: user.id, roles: user.roles, name: user.name, token });
 }));
@@ -44,7 +45,7 @@ router.post("/auth/change-password", asyncHandler(async (req, res) => {
 
 router.get("/auth/refresh", requireAuth, asyncHandler(async (req, res) => {
   const user = req.user!;
-  const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as any });
+  const token = signSessionToken({ id: user.id, email: user.email, name: user.name, roles: user.roles as AppRole[] });
   res.setHeader("Set-Cookie", buildSessionCookie(token));
   return res.json({ token });
 }));
