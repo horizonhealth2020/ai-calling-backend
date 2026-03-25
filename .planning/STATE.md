@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Dashboard Fixes & Cost Tracking
-status: Defining requirements
+status: Roadmap complete
 last_updated: "2026-03-25"
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,52 +18,43 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Defining requirements for v1.7
+**Current focus:** v1.7 Dashboard Fixes & Cost Tracking -- roadmap complete, ready for phase planning
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-25 — Milestone v1.7 started
+Phase: 29 (Dashboard Fixes & Cost Tracking) -- not started
+Plan: --
+Status: Roadmap complete, awaiting phase planning
+Last activity: 2026-03-25 -- v1.7 roadmap created (1 phase, 14 requirements)
+
+```
+v1.7 Progress: [____] 0/1 phases
+```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 6 (v1.0 through v1.5) |
-| Total phases | 24 complete + 4 planned |
-| Total plans | 83 complete |
-| Total requirements | 160 shipped + 15 v1.6 |
-| Timeline | 11 days shipped (2026-03-14 to 2026-03-24) |
+| Milestones shipped | 7 (v1.0 through v1.6) |
+| Total phases | 28 complete + 4 planned |
+| Total plans | 82 complete |
+| Total requirements | 175 shipped + 14 v1.7 |
+| Timeline | 12 days shipped (2026-03-14 to 2026-03-25) |
 
 ## Accumulated Context
 
-### Key Decisions (v1.6)
+### Key Decisions (v1.7)
 
 | Decision | Rationale |
 |----------|-----------|
-| File structure before code audit | Dead code removal should not flag files that will be deleted/moved |
-| 4 phases matching 4 requirement categories | Natural clustering -- each category is a coherent delivery boundary |
-| Morgan relocation is zero-behavior-change | Voice service logic is out of scope; only file locations change |
-| payroll-dashboard deletion | Stale standalone app superseded by unified ops-dashboard in v1.3 |
-| Consolidated docs into README | FIXES.md, ISSUES.md, TESTING.md, docs/ content merged into README.md sections |
-| Updated CLAUDE.md to 4-app structure | Removed references to 5 deleted standalone apps, updated to ops-api/ops-dashboard/sales-board/morgan |
-| Unused state getters use [, setter] pattern | Preserves setter call sites while eliminating tsc warnings |
-| No commented-out code found in codebase | Audit confirmed codebase was already clean |
-| Tooltip component removed from @ops/ui | Zero consumers after v1.3 dashboard consolidation |
-| logEvent/logError removed from @ops/utils | Zero consumers -- apps do inline logging |
-| recharts removed entirely from codebase | Not imported by any source file in any app |
-| lucide-react removed from root package.json | Already in ops-dashboard's own package.json |
-| Prisma error messages: P2025->404, P2002->409, P1xxx->503 | Locked messages per D-03 -- no raw DB errors leak to clients |
-| Socket.IO fire-and-forget try/catch | Emit errors logged but never re-thrown per D-10 |
-| CallLengthTier enum uses actual values | live/short/contacted/engaged/deep -- not plan-suggested short/medium/long |
-| Dynamic form state keeps justified Record<string, any> | Proper typing would require architectural changes to inline editing -- annotated with eslint-disable |
-| Dashboard types defined inline per component | No shared response types in @ops/types -- per D-05 decision |
+| Quick fixes before data flow | Independent low-risk changes ship first; reduces codebase noise before higher-risk poller work |
+| Convoso data flow before cost display | Hard dependency -- cost display queries ConvosoCallLog which must be populated first |
+| Manager products read-only (not removed) | Research confirmed managers use products for reference; read-only preserves visibility |
+| CS Resolved Log independent of data flow | No shared dependencies; sequential ordering is for simplicity, not necessity |
 
 ### Open Questions
 
-- (none currently)
+- Convoso API field names and units (seconds vs minutes for call_length) -- must be verified against live response during Phase 30
 
 ### Blockers
 
@@ -71,5 +62,5 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed 28-04-PLAN.md (Zod query/param validation restoration on 7 route files)*
+*Last session: v1.7 roadmap created*
 *Last updated: 2026-03-25*

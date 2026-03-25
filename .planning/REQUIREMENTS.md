@@ -56,26 +56,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | — | Pending |
-| FIX-02 | — | Pending |
-| FIX-03 | — | Pending |
-| CFG-01 | — | Pending |
-| CFG-02 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| CS-01 | — | Pending |
-| CS-02 | — | Pending |
-| CS-03 | — | Pending |
-| CS-04 | — | Pending |
+| FIX-01 | Phase 29 | Pending |
+| FIX-02 | Phase 29 | Pending |
+| FIX-03 | Phase 29 | Pending |
+| CFG-01 | Phase 29 | Pending |
+| CFG-02 | Phase 29 | Pending |
+| DATA-01 | Phase 29 | Pending |
+| DATA-02 | Phase 29 | Pending |
+| DATA-03 | Phase 29 | Pending |
+| DATA-04 | Phase 29 | Pending |
+| DATA-05 | Phase 29 | Pending |
+| CS-01 | Phase 29 | Pending |
+| CS-02 | Phase 29 | Pending |
+| CS-03 | Phase 29 | Pending |
+| CS-04 | Phase 29 | Pending |
 
 **Coverage:**
 - v1.7 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-25*
-*Last updated: 2026-03-25 after initial definition*
+*Last updated: 2026-03-25 after roadmap creation*

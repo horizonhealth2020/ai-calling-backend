@@ -9,6 +9,7 @@
 - ✅ **v1.4 State-Aware Bundle Requirements** — Phase 20 (shipped 2026-03-23)
 - ✅ **v1.5 Platform Cleanup & Remaining Features** — Phases 21-24 (shipped 2026-03-24)
 - ✅ **v1.6 Pre-Launch Stabilization** — Phases 25-28 (shipped 2026-03-25)
+- [ ] **v1.7 Dashboard Fixes & Cost Tracking** — Phase 29
 
 ## Phases
 
@@ -73,7 +74,7 @@
 </details>
 
 <details>
-<summary>v1.6 Pre-Launch Stabilization (Phases 25-28) — SHIPPED 2026-03-25</summary>
+<summary>✅ v1.6 Pre-Launch Stabilization (Phases 25-28) — SHIPPED 2026-03-25</summary>
 
 - [x] Phase 25: File Structure Cleanup (2/2 plans) — completed 2026-03-25
 - [x] Phase 26: Dead Code Removal (2/2 plans) — completed 2026-03-25
@@ -81,6 +82,33 @@
 - [x] Phase 28: Type Safety Audit (4/4 plans) — completed 2026-03-25
 
 </details>
+
+### v1.7 Dashboard Fixes & Cost Tracking
+
+- [ ] **Phase 29: Dashboard Fixes & Cost Tracking** - Bug fixes, Convoso data flow repair, cost tracking display, CS resolved log
+
+## Phase Details
+
+### Phase 29: Dashboard Fixes & Cost Tracking
+**Goal**: Fix premium display, lead source form, Convoso data flow, cost tracking visibility, manager config cleanup, and add CS resolved log audit trail
+**Depends on**: Nothing
+**Requirements**: FIX-01, FIX-02, FIX-03, CFG-01, CFG-02, DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, CS-01, CS-02, CS-03, CS-04
+**Success Criteria** (what must be TRUE):
+  1. Manager Agent Sales tab shows total premium (core + addon) per sale row, matching sales board and payroll totals
+  2. Lead source create form includes a Buffer (seconds) field that persists to the database on save
+  3. Lead source POST API accepts and validates callBufferSeconds via Zod schema
+  4. Manager Config Products section displays product name, type, commission rates, and bundle config as read-only (no add/edit/delete controls)
+  5. After a poll cycle completes, new call records appear in the ConvosoCallLog table with agent, timestamp, duration, and cost fields
+  6. Running the poller multiple times does not create duplicate ConvosoCallLog records for the same call
+  7. Manager Tracker tab shows cost per sale for each agent when Convoso polling is enabled
+  8. Owner Dashboard agent leaderboard shows cost per sale for each agent
+  9. Agents with calls but zero sales still appear in the tracker with their total lead spend displayed
+  10. When no Convoso data exists, the display shows an appropriate empty state (not broken/blank)
+  11. CS dashboard shows a Resolved Log tab visible only to OWNER_VIEW and SUPER_ADMIN roles (not CUSTOMER_SERVICE)
+  12. Resolved Log lists all resolved chargebacks showing resolution date, who resolved it, and any notes
+  13. Resolved Log lists all resolved pending terms showing resolution date, who resolved it, and any notes
+  14. User can filter the resolved log by type (chargeback vs pending term), date range, and agent
+**Plans**: TBD
 
 ## Progress
 
@@ -110,10 +138,11 @@
 | 22. Owner & Payroll Enhancements | v1.5 | 2/2 | Complete | 2026-03-24 |
 | 23. AI Scoring Dashboard | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 24. Chargeback Automation & Data Archival | v1.5 | 4/4 | Complete | 2026-03-24 |
-| 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
+| 25. File Structure Cleanup | v1.6 | 2/2 | Complete | 2026-03-25 |
+| 26. Dead Code Removal | v1.6 | 2/2 | Complete | 2026-03-25 |
+| 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
+| 29. Dashboard Fixes & Cost Tracking | v1.7 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
@@ -124,3 +153,4 @@
 *v1.4 shipped: 2026-03-23*
 *v1.5 shipped: 2026-03-24*
 *v1.6 shipped: 2026-03-25*
+*v1.7 roadmap created: 2026-03-25*
