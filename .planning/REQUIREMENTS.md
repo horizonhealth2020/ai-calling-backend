@@ -53,27 +53,27 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FS-01 | — | Pending |
-| FS-02 | — | Pending |
-| FS-03 | — | Pending |
-| FS-04 | — | Pending |
-| DC-01 | — | Pending |
-| DC-02 | — | Pending |
-| DC-03 | — | Pending |
-| DC-04 | — | Pending |
-| EH-01 | — | Pending |
-| EH-02 | — | Pending |
-| EH-03 | — | Pending |
-| EH-04 | — | Pending |
-| TS-01 | — | Pending |
-| TS-02 | — | Pending |
-| TS-03 | — | Pending |
+| FS-01 | Phase 25 | Pending |
+| FS-02 | Phase 25 | Pending |
+| FS-03 | Phase 25 | Pending |
+| FS-04 | Phase 25 | Pending |
+| DC-01 | Phase 26 | Pending |
+| DC-02 | Phase 26 | Pending |
+| DC-03 | Phase 26 | Pending |
+| DC-04 | Phase 26 | Pending |
+| EH-01 | Phase 27 | Pending |
+| EH-02 | Phase 27 | Pending |
+| EH-03 | Phase 27 | Pending |
+| EH-04 | Phase 27 | Pending |
+| TS-01 | Phase 28 | Pending |
+| TS-02 | Phase 28 | Pending |
+| TS-03 | Phase 28 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-25*
-*Last updated: 2026-03-25 after initial definition*
+*Last updated: 2026-03-25 after roadmap creation*
