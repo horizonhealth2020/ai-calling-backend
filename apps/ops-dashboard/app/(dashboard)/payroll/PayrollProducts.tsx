@@ -1,10 +1,10 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { Badge, Button, useToast, Card, EmptyState } from "@ops/ui";
+import { Badge, Button, Card, EmptyState } from "@ops/ui";
 import { colors, spacing, radius, motion, baseInputStyle, baseLabelStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { US_STATES } from "@ops/types";
-import { Package, Plus, Edit3, Trash2, Save, X, ChevronDown, ChevronUp, MapPin, Link2 } from "lucide-react";
+import { Package, Plus, Edit3, Trash2, Save, ChevronDown, ChevronUp, MapPin, Link2 } from "lucide-react";
 
 const C = colors;
 const S = spacing;

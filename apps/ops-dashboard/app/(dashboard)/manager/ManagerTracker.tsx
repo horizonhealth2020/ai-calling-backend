@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Badge,
   Card,
@@ -10,8 +10,6 @@ import {
   colors,
   spacing,
   radius,
-  typography,
-  motion,
   baseThStyle,
   baseTdStyle,
 } from "@ops/ui";
@@ -98,7 +96,7 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 export default function ManagerTracker({ API, tracker, setTracker, highlightedAgentNames }: ManagerTrackerProps) {
   const { value: dateRangeCtx, onChange: setDateRangeCtx } = useDateRange();
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
-  const [callCountsLoaded, setCallCountsLoaded] = useState(false);
+  const [, setCallCountsLoaded] = useState(false);
 
   useEffect(() => {
     const dp = buildDateParams(dateRangeCtx);

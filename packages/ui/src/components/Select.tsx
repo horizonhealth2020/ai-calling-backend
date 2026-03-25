@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { colors, radius, baseInputStyle, baseLabelStyle } from "../tokens";
+import { colors, baseInputStyle, baseLabelStyle } from "../tokens";
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;

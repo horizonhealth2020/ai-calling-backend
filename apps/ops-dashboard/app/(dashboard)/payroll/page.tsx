@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { PageShell, SkeletonCard, ToastProvider, useToast } from "@ops/ui";
+import { useState, useEffect, useCallback } from "react";
+import { PageShell, SkeletonCard, ToastProvider } from "@ops/ui";
 import type { NavItem } from "@ops/ui";
 import { spacing } from "@ops/ui";
-import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { authFetch } from "@ops/auth/client";
 import { useSocketContext } from "@/lib/SocketProvider";
 import type { SaleChangedPayload } from "@ops/socket";
 import { DISCONNECT_BANNER } from "@ops/socket";
@@ -98,7 +98,6 @@ function LoadingSkeleton() {
 /* ── Orchestrator inner (needs toast context) ───────────────── */
 
 function PayrollInner() {
-  const { toast } = useToast();
   const { socket, disconnected } = useSocketContext();
   const [tab, setTab] = useState<Tab>("periods");
 

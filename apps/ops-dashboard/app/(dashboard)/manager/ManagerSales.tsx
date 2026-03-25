@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Badge,
   Button,
@@ -9,7 +9,6 @@ import {
   colors,
   spacing,
   radius,
-  typography,
   motion,
   baseInputStyle,
   baseLabelStyle,
@@ -23,8 +22,6 @@ import { HIGHLIGHT_GLOW } from "@ops/socket";
 import {
   Edit3,
   Trash2,
-  Save,
-  X,
   BarChart3,
 } from "lucide-react";
 
@@ -129,7 +126,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [editOriginal, setEditOriginal] = useState<Record<string, any>>({});
   const [editPreview, setEditPreview] = useState<{ commission: number; periodStart: string; periodEnd: string } | null>(null);
-  const [editPreviewLoading, setEditPreviewLoading] = useState(false);
+  const [, setEditPreviewLoading] = useState(false);
   const editPreviewTimer = useRef<ReturnType<typeof setTimeout>>();
   const editPreviewAbort = useRef<AbortController>();
   const [editSaving, setEditSaving] = useState(false);

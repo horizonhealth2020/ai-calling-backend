@@ -1,6 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { Button, useToast, Card } from "@ops/ui";
+import { Button, Card } from "@ops/ui";
 import { colors, spacing, radius, baseInputStyle, baseLabelStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";

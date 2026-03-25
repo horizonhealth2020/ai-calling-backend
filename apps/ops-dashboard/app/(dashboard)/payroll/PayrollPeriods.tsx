@@ -1,16 +1,14 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
-import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, useToast, Card, EmptyState, DateRangeFilter } from "@ops/ui";
-import type { DateRangeFilterValue } from "@ops/ui";
-import { colors, spacing, radius, shadows, motion, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
+import { useState, useEffect } from "react";
+import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
+import { colors, spacing, radius, shadows, motion, baseInputStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
-import type { SaleChangedPayload } from "@ops/socket";
 import {
-  Calendar, AlertTriangle, FileDown, Package, Users,
-  ChevronDown, ChevronUp, Lock, Unlock, CheckCircle,
-  XCircle, Download, Printer, Plus, Edit3, Trash2,
-  Save, X, Check, RefreshCw, Clock,
+  Calendar, AlertTriangle, Users,
+  ChevronDown, CheckCircle,
+  XCircle, Printer, Plus, Edit3, Trash2,
+  Save, X, Check, Clock,
 } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -90,8 +88,6 @@ const SMALL_INP: React.CSSProperties = {
   textAlign: "right",
   boxSizing: "border-box",
 };
-
-const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 const thStyle: React.CSSProperties = {
   ...baseThStyle,
@@ -183,16 +179,12 @@ function EditableSaleRow({
   const [addonItems, setAddonItems] = useState<{ productId: string; premium: string }[]>(
     () => (entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") }))
   );
-  const [bonus, setBonus] = useState(String(entry.bonusAmount ?? 0));
-  const [fronted, setFronted] = useState(String(entry.frontedAmount ?? 0));
-  const [hold, setHold] = useState(String(entry.holdAmount ?? 0));
   const [saving, setSaving] = useState(false);
 
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
   const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
   const isApproved = entry.sale?.commissionApproved && fee !== null && fee < 99;
   const saleStatus = entry.sale?.status ?? "RAN";
-  const isZeroed = !isActiveEntry(entry);
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
   const rowBg: React.CSSProperties = entry.status === "CLAWBACK_APPLIED"
@@ -938,16 +930,9 @@ export default function PayrollPeriods({
   const [approvingEditId, setApprovingEditId] = useState<string | null>(null);
   const [rejectingEditId, setRejectingEditId] = useState<string | null>(null);
   const [printMenuPeriod, setPrintMenuPeriod] = useState<string | null>(null);
-  const [highlightedEntryIds, setHighlightedEntryIds] = useState<Set<string>>(new Set());
+  const [highlightedEntryIds] = useState<Set<string>>(new Set());
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
   const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
-
-  const highlightEntry = (id: string) => {
-    setHighlightedEntryIds(prev => new Set(prev).add(id));
-    setTimeout(() => {
-      setHighlightedEntryIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-    }, 100);
-  };
 
   async function fetchAgentPeriods(agentId: string, alertId: string) {
     if (!agentId) return;
@@ -1706,8 +1691,6 @@ export default function PayrollPeriods({
                     {p.serviceEntries.map((se, seIdx) => {
                       const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
                       const seFronted = Number(se.frontedAmount ?? 0);
-                      const bonusTotal = bonusCategories.filter(c => !c.isDeduction).reduce((s, c) => s + (bd[c.name] ?? 0), 0);
-                      const deductionTotal = bonusCategories.filter(c => c.isDeduction).reduce((s, c) => s + (bd[c.name] ?? 0), 0);
                       return (
                         <div
                           key={se.id}

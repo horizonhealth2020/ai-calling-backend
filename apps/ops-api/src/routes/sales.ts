@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, resolveBundleRequirement } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
-import { computeTrend, shiftRange } from "../services/reporting";
+import { shiftRange } from "../services/reporting";
 import { zodErr, asyncHandler, dateRange } from "./helpers";
 
 const router = Router();

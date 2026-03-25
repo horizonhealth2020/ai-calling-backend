@@ -32,7 +32,7 @@ export function useSocket(
       });
 
       if (handlersRef.current) {
-        for (const [event, handler] of Object.entries(handlersRef.current)) {
+        for (const [event] of Object.entries(handlersRef.current)) {
           socket.on(event, (data: any) => {
             handlersRef.current?.[event]?.(data);
           });

@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale, handleSaleEditApproval } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
-import { zodErr, asyncHandler } from "./helpers";
+import { asyncHandler } from "./helpers";
 
 const router = Router();
 

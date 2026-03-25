@@ -13,9 +13,6 @@ import {
   baseInputStyle,
   baseThStyle,
   baseTdStyle,
-  baseCardStyle,
-  baseLabelStyle,
-  radius,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";

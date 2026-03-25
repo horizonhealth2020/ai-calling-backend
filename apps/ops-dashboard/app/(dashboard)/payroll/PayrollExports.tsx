@@ -59,7 +59,7 @@ export interface PayrollExportsProps {
 
 export default function PayrollExports({ API, periods }: PayrollExportsProps) {
   const [exportDateFilter, setExportDateFilter] = useState<DateRangeFilterValue>({ preset: "week" });
-  const [exporting, setExporting] = useState(false);
+  const [, setExporting] = useState(false);
 
   function filterPeriodsByDateRange(filter: DateRangeFilterValue): Period[] {
     let from: Date | null = null;
