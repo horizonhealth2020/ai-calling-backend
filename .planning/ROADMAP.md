@@ -92,7 +92,7 @@
   4. FIXES.md, ISSUES.md, TESTING.md, and docs/ are gone -- any useful content lives in README.md
 **Plans**: 2 plans
 Plans:
-- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
+- [x] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
 - [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
 
 ### Phase 26: Dead Code Removal
@@ -164,7 +164,7 @@ Plans:
 | 22. Owner & Payroll Enhancements | v1.5 | 2/2 | Complete | 2026-03-24 |
 | 23. AI Scoring Dashboard | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 24. Chargeback Automation & Data Archival | v1.5 | 4/4 | Complete | 2026-03-24 |
-| 25. File Structure Cleanup | v1.6 | 0/2 | Not started | - |
+| 25. File Structure Cleanup | v1.6 | 1/2 | In progress | - |
 | 26. Dead Code Removal | v1.6 | 0/? | Not started | - |
 | 27. Error Handling & Robustness | v1.6 | 0/? | Not started | - |
 | 28. Type Safety Audit | v1.6 | 0/? | Not started | - |

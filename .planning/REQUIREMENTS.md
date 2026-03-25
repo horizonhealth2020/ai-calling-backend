@@ -9,7 +9,7 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 
 ### File Structure
 
-- [ ] **FS-01**: Morgan voice service files relocated to `apps/morgan/` with no behavior change
+- [x] **FS-01**: Morgan voice service files relocated to `apps/morgan/` with no behavior change
 - [ ] **FS-02**: Stale standalone `payroll-dashboard` app deleted from `apps/`
 - [ ] **FS-03**: Orphaned root files (beyond Morgan) identified and removed or relocated
 - [ ] **FS-04**: Stale docs (FIXES.md, ISSUES.md, TESTING.md, docs/) consolidated into README and deleted
@@ -53,7 +53,7 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FS-01 | Phase 25 | Pending |
+| FS-01 | Phase 25 | Complete |
 | FS-02 | Phase 25 | Pending |
 | FS-03 | Phase 25 | Pending |
 | FS-04 | Phase 25 | Pending |
