@@ -77,7 +77,7 @@
 - [x] **Phase 25: File Structure Cleanup** - Relocate Morgan, delete stale apps, clean orphaned files and docs
 - [x] **Phase 26: Dead Code Removal** - Eliminate unused imports, functions, commented code, and dependencies (completed 2026-03-25)
 - [x] **Phase 27: Error Handling & Robustness** - Harden async handlers, validation, DB errors, and Socket.IO (completed 2026-03-25)
-- [x] **Phase 28: Type Safety Audit** - Eliminate `any` types, align response types, annotate package exports (completed 2026-03-25)
+- [ ] **Phase 28: Type Safety Audit** - Eliminate `any` types, align response types, annotate package exports + gap closure for EH-02/EH-04/DC-02 regressions
 
 ## Phase Details
 
@@ -126,15 +126,17 @@ Plans:
 ### Phase 28: Type Safety Audit
 **Goal**: The codebase has strict type safety with no implicit `any` leaking through application code
 **Depends on**: Phase 27 (error handling changes may introduce new types)
-**Requirements**: TS-01, TS-02, TS-03
+**Requirements**: TS-01, TS-02, TS-03, EH-02, EH-04, DC-02
 **Success Criteria** (what must be TRUE):
   1. A search for explicit `any` type annotations in application code (excluding node_modules and third-party type stubs) returns zero results
   2. API response objects returned from route handlers match their documented/typed shapes -- no extra fields, no missing fields
   3. Every export from `@ops/auth`, `@ops/types`, `@ops/utils`, `@ops/ui`, and `@ops/db` has an explicit TypeScript type annotation on its signature
-**Plans**: 2 plans
+**Plans**: 4 plans
 Plans:
-- [ ] 28-01-PLAN.md — Backend any elimination (ops-api routes/services) + package export type annotations
+- [x] 28-01-PLAN.md — Backend any elimination (ops-api routes/services) + package export type annotations
 - [x] 28-02-PLAN.md — Frontend any elimination (ops-dashboard components) + API response shape verification
+- [ ] 28-03-PLAN.md — Gap closure: Restore Socket.IO try/catch wrappers (EH-04) + remove orphaned handlePrismaError (DC-02)
+- [ ] 28-04-PLAN.md — Gap closure: Restore Zod validation in 7 route files stripped by worktree merge (EH-02)
 
 ## Progress
 
@@ -167,7 +169,7 @@ Plans:
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 28. Type Safety Audit | v1.6 | 1/2 | Complete    | 2026-03-25 |
+| 28. Type Safety Audit | v1.6 | 2/4 | In Progress |  |
 
 ---
 *Roadmap created: 2026-03-14*
