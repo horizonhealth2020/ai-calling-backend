@@ -79,19 +79,16 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Error handling hardened: asyncHandler, Zod validation on all inputs, Prisma 503 responses, Socket.IO try/catch — v1.6
 - ✓ Type safety audit: zero `any` in application code, explicit return types on all package exports — v1.6
 
+- ✓ Manager Agent Sales premium column includes addon premiums per row — v1.7
+- ✓ Lead source create form includes Buffer (seconds) field with POST API support — v1.7
+- ✓ Manager Config Products section is read-only with commission rates and bundle config — v1.7
+- ✓ Convoso KPI poller writes individual call records to ConvosoCallLog table with dedup — v1.7
+- ✓ Cost per sale and lead spend display in Manager Tracker and Owner Dashboard with three-state logic — v1.7
+- ✓ CS Resolved Log audit tab for OWNER_VIEW/SUPER_ADMIN with type/date/agent filtering — v1.7
+
 ### Active
 
-## Current Milestone: v1.7 Dashboard Fixes & Cost Tracking
-
-**Goal:** Fix data flow bugs, clean up misplaced UI, and add CS audit trail
-
-**Target features:**
-- Remove Products section from Manager Config tab (belongs in Payroll only)
-- Add Buffer field to Lead Source create form (already exists in DB and edit form)
-- CS Resolved Log tab — OWNER_VIEW/SUPER_ADMIN audit trail for resolved chargebacks & pending terms with notes
-- Fix Convoso call log data flow so poller stores ConvosoCallLog records and cost per sale surfaces in tracker/owner dashboard
-- Show agent lead spend even with zero sales
-- Fix Manager Agent Sales premium column to include addon premiums per row
+<!-- No active milestone — ready for next -->
 
 ### Out of Scope
 
@@ -103,8 +100,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25)
-**Total:** 7 milestones, 28 phases, 82 plans, 175 requirements across 12 days
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-25)
+**Total:** 8 milestones, 29 phases, 86 plans, 189 requirements across 12 days
 **LOC:** ~128,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
@@ -177,4 +174,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-25 — v1.7 milestone started*
+*Last updated: 2026-03-25 after v1.7 milestone*
