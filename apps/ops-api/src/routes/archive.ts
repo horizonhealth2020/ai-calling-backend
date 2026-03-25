@@ -1,22 +1,10 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { archiveRecords, restoreBatch, getArchiveStats, previewArchive } from "../services/archive";
+import { asyncHandler, zodErr } from "./helpers";
 
 const router = Router();
-
-/** Format Zod errors so the response always includes an `error` key for dashboard display. */
-function zodErr(ze: z.ZodError) {
-  const flat = ze.flatten();
-  const msg = flat.formErrors[0]
-    || Object.values(flat.fieldErrors).flat()[0]
-    || "Validation failed";
-  return { error: msg, details: flat };
-}
-
-/** Wrap async route handlers so errors are forwarded to Express error handler */
-const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
-  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
 const archiveSchema = z.object({
   cutoffDays: z.number().int().min(1).default(90),

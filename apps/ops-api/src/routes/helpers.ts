@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 /** Format Zod errors so the response always includes an `error` key for dashboard display. */
 export function zodErr(ze: z.ZodError) {
@@ -74,3 +75,46 @@ export function dateRange(range?: string, from?: string, to?: string): { gte: Da
   }
   return undefined;
 }
+
+/** Map Prisma errors to HTTP responses. Never leaks raw DB error messages to clients. */
+export function handlePrismaError(err: unknown, res: Response): Response {
+  console.error("Database error:", err);
+
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Record already exists" });
+    }
+    // P1xxx = connection/server errors
+    if (err.code.startsWith("P1")) {
+      return res.status(503).json({ error: "Database temporarily unavailable" });
+    }
+  }
+
+  if (
+    err instanceof Prisma.PrismaClientInitializationError ||
+    err instanceof Prisma.PrismaClientRustPanicError
+  ) {
+    return res.status(503).json({ error: "Database temporarily unavailable" });
+  }
+
+  // Unknown database error -- don't leak details
+  return res.status(500).json({ error: "Internal server error" });
+}
+
+/** Zod schema for date range query params (range, from, to) used by many GET routes */
+export const dateRangeQuerySchema = z.object({
+  range: z.enum(["today", "week", "last_week", "7d", "30d", "month"]).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (expected YYYY-MM-DD)").optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (expected YYYY-MM-DD)").optional(),
+});
+
+/** Zod schema for id route param -- validates non-empty string */
+export const idParamSchema = z.object({
+  id: z.string().min(1, "ID is required"),
+});
+
+/** Zod schema for boolean-ish query params (e.g., ?all=true) */
+export const booleanQueryParam = z.enum(["true", "false"]).optional().transform(v => v === "true");
