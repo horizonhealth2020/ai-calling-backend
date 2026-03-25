@@ -76,7 +76,7 @@
 
 - [x] **Phase 25: File Structure Cleanup** - Relocate Morgan, delete stale apps, clean orphaned files and docs
 - [x] **Phase 26: Dead Code Removal** - Eliminate unused imports, functions, commented code, and dependencies (completed 2026-03-25)
-- [ ] **Phase 27: Error Handling & Robustness** - Harden async handlers, validation, DB errors, and Socket.IO
+- [x] **Phase 27: Error Handling & Robustness** - Harden async handlers, validation, DB errors, and Socket.IO (completed 2026-03-25)
 - [ ] **Phase 28: Type Safety Audit** - Eliminate `any` types, align response types, annotate package exports
 
 ## Phase Details
@@ -121,7 +121,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 27-01-PLAN.md — Error handling infrastructure: Prisma handler, Socket.IO wrappers, archive.ts fix
-- [ ] 27-02-PLAN.md — Systematic Zod validation audit across all 17 route files
+- [x] 27-02-PLAN.md — Systematic Zod validation audit across all 17 route files
 
 ### Phase 28: Type Safety Audit
 **Goal**: The codebase has strict type safety with no implicit `any` leaking through application code
@@ -166,7 +166,7 @@ Plans:
 | 24. Chargeback Automation & Data Archival | v1.5 | 4/4 | Complete | 2026-03-24 |
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 27. Error Handling & Robustness | v1.6 | 1/2 | In Progress | - |
+| 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 0/? | Not started | - |
 
 ---

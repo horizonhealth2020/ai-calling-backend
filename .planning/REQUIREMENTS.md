@@ -24,7 +24,7 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 ### Error Handling & Robustness
 
 - [ ] **EH-01**: All async route handlers have proper error boundaries (no unhandled rejections)
-- [ ] **EH-02**: API endpoints validate all required inputs with Zod (no raw `req.body` access)
+- [x] **EH-02**: API endpoints validate all required inputs with Zod (no raw `req.body` access)
 - [x] **EH-03**: Database queries handle connection/timeout errors gracefully
 - [x] **EH-04**: Socket.IO event handlers have try/catch wrappers
 
@@ -62,7 +62,7 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 | DC-03 | Phase 26 | Complete |
 | DC-04 | Phase 26 | Complete |
 | EH-01 | Phase 27 | Pending |
-| EH-02 | Phase 27 | Pending |
+| EH-02 | Phase 27 | Complete |
 | EH-03 | Phase 27 | Complete |
 | EH-04 | Phase 27 | Complete |
 | TS-01 | Phase 28 | Pending |
