@@ -90,7 +90,10 @@
   2. `apps/payroll-dashboard/` directory no longer exists and no references to it remain in workspace configs or Docker files
   3. No orphaned config files, scripts, or leftover artifacts from previous milestones exist at the repo root (beyond expected monorepo root files)
   4. FIXES.md, ISSUES.md, TESTING.md, and docs/ are gone -- any useful content lives in README.md
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
+- [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
 
 ### Phase 26: Dead Code Removal
 **Goal**: Every import, function, component, and dependency in the codebase is actively used
@@ -101,7 +104,10 @@
   2. Every exported function and component has at least one call site in the codebase
   3. No commented-out code blocks remain (comments explaining "why" are fine; disabled code is not)
   4. Every dependency in every package.json is imported somewhere in that package's source code
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
+- [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
 
 ### Phase 27: Error Handling & Robustness
 **Goal**: The API handles bad input, connection failures, and edge cases without crashing or leaking errors
@@ -112,7 +118,10 @@
   2. Every API endpoint that reads from `req.body`, `req.params`, or `req.query` validates input through a Zod schema before use -- no raw property access on unvalidated request data
   3. Database operations that could fail on connection loss or timeout return user-friendly error responses instead of raw Prisma errors
   4. Every Socket.IO event handler has a try/catch wrapper so a single malformed event does not disconnect the client
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
+- [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
 
 ### Phase 28: Type Safety Audit
 **Goal**: The codebase has strict type safety with no implicit `any` leaking through application code
@@ -122,7 +131,10 @@
   1. A search for explicit `any` type annotations in application code (excluding node_modules and third-party type stubs) returns zero results
   2. API response objects returned from route handlers match their documented/typed shapes -- no extra fields, no missing fields
   3. Every export from `@ops/auth`, `@ops/types`, `@ops/utils`, `@ops/ui`, and `@ops/db` has an explicit TypeScript type annotation on its signature
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 25-01-PLAN.md — Relocate Morgan voice service to apps/morgan/ and update package.json scripts
+- [ ] 25-02-PLAN.md — Delete stale apps/docs, consolidate into README, update CLAUDE.md
 
 ## Progress
 
@@ -152,7 +164,7 @@
 | 22. Owner & Payroll Enhancements | v1.5 | 2/2 | Complete | 2026-03-24 |
 | 23. AI Scoring Dashboard | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 24. Chargeback Automation & Data Archival | v1.5 | 4/4 | Complete | 2026-03-24 |
-| 25. File Structure Cleanup | v1.6 | 0/? | Not started | - |
+| 25. File Structure Cleanup | v1.6 | 0/2 | Not started | - |
 | 26. Dead Code Removal | v1.6 | 0/? | Not started | - |
 | 27. Error Handling & Robustness | v1.6 | 0/? | Not started | - |
 | 28. Type Safety Audit | v1.6 | 0/? | Not started | - |
