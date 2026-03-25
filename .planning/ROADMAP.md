@@ -135,7 +135,7 @@ Plans:
 Plans:
 - [x] 28-01-PLAN.md — Backend any elimination (ops-api routes/services) + package export type annotations
 - [x] 28-02-PLAN.md — Frontend any elimination (ops-dashboard components) + API response shape verification
-- [ ] 28-03-PLAN.md — Gap closure: Restore Socket.IO try/catch wrappers (EH-04) + remove orphaned handlePrismaError (DC-02)
+- [x] 28-03-PLAN.md — Gap closure: Restore Socket.IO try/catch wrappers (EH-04) + remove orphaned handlePrismaError (DC-02)
 - [ ] 28-04-PLAN.md — Gap closure: Restore Zod validation in 7 route files stripped by worktree merge (EH-02)
 
 ## Progress
@@ -169,7 +169,7 @@ Plans:
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 28. Type Safety Audit | v1.6 | 2/4 | In Progress |  |
+| 28. Type Safety Audit | v1.6 | 3/4 | In Progress |  |
 
 ---
 *Roadmap created: 2026-03-14*
