@@ -591,7 +591,8 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
       commissionTotal: commMap.get(agent.id) ?? 0,
     };
   });
-  res.json(summary);
+  const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;
+  res.json({ agents: summary, convosoConfigured });
 }));
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -627,7 +628,8 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
     clawbacks: { priorWeek: priorWeek.clawbacks, priorMonth: priorMonth.clawbacks },
   } : null;
 
-  res.json({ ...current, trends });
+  const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;
+  res.json({ ...current, trends, convosoConfigured });
 }));
 
 router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {

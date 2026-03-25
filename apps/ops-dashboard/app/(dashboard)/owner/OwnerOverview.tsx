@@ -103,6 +103,7 @@ function DashboardSection({
   periods,
   periodView,
   onPeriodViewChange,
+  convosoConfigured,
 }: {
   summary: Summary | null;
   tracker: TrackerEntry[];
@@ -112,6 +113,7 @@ function DashboardSection({
   periods: PeriodSummary[];
   periodView: "weekly" | "monthly";
   onPeriodViewChange: (v: "weekly" | "monthly") => void;
+  convosoConfigured: boolean;
 }) {
   const sortedTracker = [...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal);
 
@@ -257,7 +259,11 @@ function DashboardSection({
                       {row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "\u2014"}
                     </td>
                     <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
-                      {row.costPerSale > 0 ? fmt.format(row.costPerSale) : "\u2014"}
+                      {!convosoConfigured
+                        ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
+                        : row.salesCount > 0 && row.totalLeadCost > 0
+                          ? <span style={{ color: colors.textPrimary }}>${Number(row.costPerSale).toFixed(2)}</span>
+                          : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                     </td>
                     <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold, color: colors.accentTeal }}>
                       {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
@@ -341,6 +347,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
   const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
   const [periods, setPeriods] = useState<PeriodSummary[]>([]);
   const [highlightedCards, setHighlightedCards] = useState<Set<string>>(new Set());
+  const [convosoConfigured, setConvosoConfigured] = useState(false);
   const dateRangeRef = useRef(dateRange);
   dateRangeRef.current = dateRange;
 
@@ -357,11 +364,12 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     const qs = dp ? `?${dp}` : "";
     Promise.all([
       authFetch(`${API}/api/owner/summary${qs}`).then((res) => res.ok ? res.json() : null).catch(() => null),
-      authFetch(`${API}/api/tracker/summary${qs}`).then((res) => res.ok ? res.json() : []).catch(() => []),
+      authFetch(`${API}/api/tracker/summary${qs}`).then((res) => res.ok ? res.json() : { agents: [] }).catch(() => ({ agents: [] })),
       authFetch(`${API}/api/reporting/periods?view=${periodView}`).then(res => res.ok ? res.json() : { periods: [] }).catch(() => ({ periods: [] })),
     ]).then(([s, t, periodData]) => {
       setSummary(s);
-      setTracker(t);
+      setTracker(t?.agents ?? t ?? []);
+      setConvosoConfigured(!!t?.convosoConfigured);
       setPeriods(periodData.periods ?? []);
       setLoading(false);
     });
@@ -455,6 +463,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
           periods={periods}
           periodView={periodView}
           onPeriodViewChange={setPeriodView}
+          convosoConfigured={convosoConfigured}
         />
       )}
     </div>

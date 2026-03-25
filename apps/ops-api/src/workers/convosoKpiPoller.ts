@@ -79,6 +79,27 @@ async function pollLeadSource(
 
     if (newRaw.length === 0) return 0;
 
+    // Write individual call records to ConvosoCallLog (before buffer filtering)
+    const callLogRecords = newRaw
+      .map((r) => {
+        const userId = String(r.user_id ?? "");
+        const agentInfo = agentMap.get(userId);
+        return {
+          agentUser: userId,
+          listId: leadSource.listId!,
+          recordingUrl: r.recording_url ? String(r.recording_url) : null,
+          callDurationSeconds: r.call_length != null ? Number(r.call_length) : null,
+          callTimestamp: r.call_date ? new Date(String(r.call_date)) : r.start_time ? new Date(String(r.start_time)) : new Date(),
+          agentId: agentInfo?.id ?? null,
+          leadSourceId: leadSource.id,
+        };
+      })
+      .filter((r) => r.agentUser !== ""); // skip records without user_id
+
+    if (callLogRecords.length > 0) {
+      await prisma.convosoCallLog.createMany({ data: callLogRecords });
+    }
+
     // Filter: only calls with call_length >= lead source buffer count toward KPIs
     const bufferSeconds = leadSource.callBufferSeconds ?? 0;
     const filtered = bufferSeconds > 0

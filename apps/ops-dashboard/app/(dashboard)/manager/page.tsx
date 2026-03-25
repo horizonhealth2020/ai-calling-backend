@@ -89,7 +89,7 @@ function ManagerPageInner() {
   }, []);
 
   const loadTracker = useCallback(() => {
-    return authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+    return authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : { agents: [] }).then(data => setTracker(data.agents ?? [])).catch(() => {});
   }, []);
 
   const loadSales = useCallback(() => {

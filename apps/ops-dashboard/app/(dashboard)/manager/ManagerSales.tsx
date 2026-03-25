@@ -419,7 +419,12 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                       <td style={baseTdStyle}>{s.carrier}</td>
                       <td style={baseTdStyle}>{s.product.name}</td>
                       <td style={baseTdStyle}>{s.leadSource.name}</td>
-                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{formatDollar(Number(s.premium))}</td>
+                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{(() => {
+                        const saleWithAddons = s as Sale & { addons?: { premium?: number | null }[] };
+                        const addonTotal = saleWithAddons.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0;
+                        const rowTotal = Number(s.premium ?? 0) + addonTotal;
+                        return formatDollar(rowTotal);
+                      })()}</td>
                       <td style={{ ...baseTdStyle, textAlign: "center" }}>
                         {s.hasPendingStatusChange ? (
                           <StatusBadge status="PENDING_RAN" />

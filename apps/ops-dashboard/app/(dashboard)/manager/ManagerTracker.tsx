@@ -97,6 +97,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
   const { value: dateRangeCtx, onChange: setDateRangeCtx } = useDateRange();
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [, setCallCountsLoaded] = useState(false);
+  const [convosoConfigured, setConvosoConfigured] = useState(false);
 
   useEffect(() => {
     const dp = buildDateParams(dateRangeCtx);
@@ -108,7 +109,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
   useEffect(() => {
     const dp = buildDateParams(dateRangeCtx);
     const url = `${API}/api/tracker/summary${dp ? `?${dp}` : ""}`;
-    authFetch(url).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+    authFetch(url).then(r => r.ok ? r.json() : { agents: [] }).then(data => { setTracker(data.agents ?? []); setConvosoConfigured(!!data.convosoConfigured); }).catch(() => {});
   }, [API, dateRangeCtx, setTracker]);
 
   const callCountByAgent = new Map<string, number>();
@@ -194,9 +195,11 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                     </span>
                   </td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: 600 }}>
-                    {row.costPerSale > 0
-                      ? <AnimatedNumber value={Number(row.costPerSale)} prefix="$" decimals={2} />
-                      : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
+                    {!convosoConfigured
+                      ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
+                      : row.salesCount > 0 && row.totalLeadCost > 0
+                        ? <span style={{ color: colors.textPrimary }}>${Number(row.costPerSale).toFixed(2)}</span>
+                        : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                   </td>
                 </tr>
               );
