@@ -73,7 +73,7 @@ router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
 router.get("/lead-sources", requireAuth, asyncHandler(async (_req, res) => res.json(await prisma.leadSource.findMany({ where: { active: true } }))));
 
 router.post("/lead-sources", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().min(0).default(0) });
+  const schema = z.object({ name: z.string().min(1), listId: z.string().optional(), costPerLead: z.number().min(0).default(0), callBufferSeconds: z.number().int().min(0).optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
