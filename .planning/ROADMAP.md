@@ -112,7 +112,7 @@
 Plans:
 - [ ] 29-01-PLAN.md — Bug fixes (premium display, lead source buffer) and products read-only conversion
 - [ ] 29-02-PLAN.md — Convoso poller ConvosoCallLog writes and cost display logic fix
-- [ ] 29-03-PLAN.md — CS Resolved Log audit tab (API endpoint, component, tab integration)
+- [x] 29-03-PLAN.md — CS Resolved Log audit tab (API endpoint, component, tab integration)
 
 ## Progress
 
@@ -146,7 +146,7 @@ Plans:
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
-| 29. Dashboard Fixes & Cost Tracking | v1.7 | 0/3 | Planned    |  |
+| 29. Dashboard Fixes & Cost Tracking | v1.7 | 3/3 | Complete | 2026-03-25 |
 
 ---
 *Roadmap created: 2026-03-14*

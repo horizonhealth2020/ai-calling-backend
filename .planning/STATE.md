@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Dashboard Fixes & Cost Tracking
-status: Ready to execute
-last_updated: "2026-03-25T21:11:53.539Z"
+status: Executing
+last_updated: "2026-03-25T21:19:29Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 3
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-03-25)
 ## Current Position
 
 Phase: 29 (Dashboard Fixes & Cost Tracking) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3 (complete)
 
 ## Performance Metrics
 
@@ -35,6 +35,8 @@ Plan: 2 of 3
 | Total requirements | 175 shipped + 14 v1.7 |
 | Timeline | 12 days shipped (2026-03-14 to 2026-03-25) |
 | Phase 29 P01 | 4min | 2 tasks | 3 files |
+| Phase 29 P02 | 4min | 2 tasks | 5 files |
+| Phase 29 P03 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -46,6 +48,9 @@ Plan: 2 of 3
 | Convoso data flow before cost display | Hard dependency -- cost display queries ConvosoCallLog which must be populated first |
 | Manager products read-only (not removed) | Research confirmed managers use products for reference; read-only preserves visibility |
 | CS Resolved Log independent of data flow | No shared dependencies; sequential ordering is for simplicity, not necessity |
+| Used PendingTerm not PendingTermSubmission | Prisma schema model name is PendingTerm; accessor is prisma.pendingTerm |
+| ConvosoCallLog writes use newRaw before buffer | All calls logged regardless of duration; buffer only affects KPI aggregation |
+| tracker/summary wrapped as { agents, convosoConfigured } | Breaking API change handled by updating all 3 frontend consumers |
 
 ### Open Questions
 
@@ -57,5 +62,5 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: v1.7 roadmap created*
+*Last session: Completed 29-03-PLAN.md (CS Resolved Log)*
 *Last updated: 2026-03-25*

@@ -28,10 +28,10 @@ Requirements for milestone v1.7. Each maps to roadmap phases.
 
 ### CS Audit Trail
 
-- [ ] **CS-01**: CS dashboard has Resolved Log tab visible only to OWNER_VIEW and SUPER_ADMIN roles
-- [ ] **CS-02**: Resolved Log displays all resolved chargebacks with resolution date, resolved-by user, and notes
-- [ ] **CS-03**: Resolved Log displays all resolved pending terms with resolution date, resolved-by user, and notes
-- [ ] **CS-04**: Resolved Log supports filtering by type (chargeback/pending term), date range, and agent
+- [x] **CS-01**: CS dashboard has Resolved Log tab visible only to OWNER_VIEW and SUPER_ADMIN roles
+- [x] **CS-02**: Resolved Log displays all resolved chargebacks with resolution date, resolved-by user, and notes
+- [x] **CS-03**: Resolved Log displays all resolved pending terms with resolution date, resolved-by user, and notes
+- [x] **CS-04**: Resolved Log supports filtering by type (chargeback/pending term), date range, and agent
 
 ## Future Requirements
 
