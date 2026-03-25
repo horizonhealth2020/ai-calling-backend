@@ -31,7 +31,7 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 ### Type Safety
 
 - [ ] **TS-01**: No `any` types in application code (excluding third-party type gaps)
-- [ ] **TS-02**: API response types match actual response shapes
+- [x] **TS-02**: API response types match actual response shapes
 - [ ] **TS-03**: Shared package exports have explicit type annotations
 
 ## Future Requirements
@@ -66,7 +66,7 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 | EH-03 | Phase 27 | Complete |
 | EH-04 | Phase 27 | Complete |
 | TS-01 | Phase 28 | Pending |
-| TS-02 | Phase 28 | Pending |
+| TS-02 | Phase 28 | Complete |
 | TS-03 | Phase 28 | Pending |
 
 **Coverage:**

@@ -134,7 +134,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [ ] 28-01-PLAN.md — Backend any elimination (ops-api routes/services) + package export type annotations
-- [ ] 28-02-PLAN.md — Frontend any elimination (ops-dashboard components) + API response shape verification
+- [x] 28-02-PLAN.md — Frontend any elimination (ops-dashboard components) + API response shape verification
 
 ## Progress
 
@@ -167,7 +167,7 @@ Plans:
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 28. Type Safety Audit | v1.6 | 0/2 | Not started | - |
+| 28. Type Safety Audit | v1.6 | 1/2 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*
