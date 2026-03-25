@@ -77,7 +77,7 @@
 - [x] **Phase 25: File Structure Cleanup** - Relocate Morgan, delete stale apps, clean orphaned files and docs
 - [x] **Phase 26: Dead Code Removal** - Eliminate unused imports, functions, commented code, and dependencies (completed 2026-03-25)
 - [x] **Phase 27: Error Handling & Robustness** - Harden async handlers, validation, DB errors, and Socket.IO (completed 2026-03-25)
-- [ ] **Phase 28: Type Safety Audit** - Eliminate `any` types, align response types, annotate package exports + gap closure for EH-02/EH-04/DC-02 regressions
+- [x] **Phase 28: Type Safety Audit** - Eliminate `any` types, align response types, annotate package exports + gap closure for EH-02/EH-04/DC-02 regressions (completed 2026-03-25)
 
 ## Phase Details
 
@@ -136,7 +136,7 @@ Plans:
 - [x] 28-01-PLAN.md — Backend any elimination (ops-api routes/services) + package export type annotations
 - [x] 28-02-PLAN.md — Frontend any elimination (ops-dashboard components) + API response shape verification
 - [x] 28-03-PLAN.md — Gap closure: Restore Socket.IO try/catch wrappers (EH-04) + remove orphaned handlePrismaError (DC-02)
-- [ ] 28-04-PLAN.md — Gap closure: Restore Zod validation in 7 route files stripped by worktree merge (EH-02)
+- [x] 28-04-PLAN.md — Gap closure: Restore Zod validation in 7 route files stripped by worktree merge (EH-02)
 
 ## Progress
 
@@ -169,7 +169,7 @@ Plans:
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete    | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 28. Type Safety Audit | v1.6 | 3/4 | In Progress |  |
+| 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
 
 ---
 *Roadmap created: 2026-03-14*
