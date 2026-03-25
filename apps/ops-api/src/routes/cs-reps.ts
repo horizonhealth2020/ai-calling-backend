@@ -7,6 +7,88 @@ import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
 
+// ─── Resolved Log (Audit Trail) ──────────────────────────────────
+
+router.get("/reps/resolved-log", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    type: z.enum(["all", "chargeback", "pending_term"]).default("all"),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    agentName: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const { type, from, to, agentName } = parsed.data;
+
+  // Build date filter for resolvedAt
+  const dateFilter: Record<string, unknown> = { resolvedAt: { not: null } };
+  if (from && to) {
+    dateFilter.resolvedAt = { gte: new Date(from), lt: new Date(to) };
+  } else if (from) {
+    dateFilter.resolvedAt = { gte: new Date(from), not: null };
+  } else if (to) {
+    dateFilter.resolvedAt = { lt: new Date(to), not: null };
+  }
+
+  const results: Array<{
+    type: "chargeback" | "pending_term";
+    agentName: string;
+    memberName: string;
+    resolvedAt: Date | null;
+    resolvedByName: string;
+    resolutionNote: string | null;
+    resolutionType: string | null;
+    originalAmount: number;
+  }> = [];
+
+  if (type === "all" || type === "chargeback") {
+    const chargebacks = await prisma.chargebackSubmission.findMany({
+      where: {
+        ...dateFilter,
+        ...(agentName ? { payeeName: { contains: agentName, mode: "insensitive" as const } } : {}),
+      },
+      include: { resolver: { select: { name: true } } },
+      orderBy: { resolvedAt: "desc" },
+    });
+    results.push(...chargebacks.map((c) => ({
+      type: "chargeback" as const,
+      agentName: c.payeeName ?? "Unknown",
+      memberName: c.memberCompany ?? c.memberId ?? "Unknown",
+      resolvedAt: c.resolvedAt,
+      resolvedByName: c.resolver?.name ?? "Unknown",
+      resolutionNote: c.resolutionNote ?? null,
+      resolutionType: c.resolutionType ?? null,
+      originalAmount: Number(c.chargebackAmount ?? 0),
+    })));
+  }
+
+  if (type === "all" || type === "pending_term") {
+    const terms = await prisma.pendingTerm.findMany({
+      where: {
+        ...dateFilter,
+        ...(agentName ? { agentName: { contains: agentName, mode: "insensitive" as const } } : {}),
+      },
+      include: { resolver: { select: { name: true } } },
+      orderBy: { resolvedAt: "desc" },
+    });
+    results.push(...terms.map((t) => ({
+      type: "pending_term" as const,
+      agentName: t.agentName ?? "Unknown",
+      memberName: t.memberName ?? t.memberId ?? "Unknown",
+      resolvedAt: t.resolvedAt,
+      resolvedByName: t.resolver?.name ?? "Unknown",
+      resolutionNote: t.resolutionNote ?? null,
+      resolutionType: t.resolutionType ?? null,
+      originalAmount: Number(t.enrollAmount ?? 0),
+    })));
+  }
+
+  // Sort unified results by resolvedAt descending (most recent first)
+  results.sort((a, b) => new Date(b.resolvedAt!).getTime() - new Date(a.resolvedAt!).getTime());
+  res.json(results);
+}));
+
 // ─── Synced Rep Management ────────────────────────────────────────
 
 // POST /reps/create-synced -- create rep in both CsRepRoster + ServiceAgent
