@@ -75,11 +75,18 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-(No active requirements — all milestones shipped)
+<!-- Current scope: v1.6 Pre-Launch Stabilization -->
+
+- [ ] Move Morgan voice service into apps/morgan/ (zero behavior change)
+- [ ] Delete stale standalone dashboard apps (payroll-dashboard)
+- [ ] Remove dead code, unused imports, orphaned files
+- [ ] Consolidate stale docs into README, delete originals
+- [ ] Systematic audit: error handling, edge cases, type safety
+- [ ] Tighten API validation and robustness for production traffic
 
 ### Out of Scope
 
-- Morgan voice service changes — separate workload, not part of this initiative
+- Morgan voice service logic changes — relocating files is in scope, but no behavior changes to the voice service itself
 - Mobile app — web-first, desktop is primary use case for internal ops
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports + date range covers the use case
@@ -96,6 +103,18 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 - **Sales board** — standalone leaderboard with day/week toggle, real-time WebSocket updates
 - **ops-api** — Express REST API with auth, RBAC, sales, payroll, clawbacks, exports, AI scoring
 - **@ops/* packages** — shared auth, db, types, ui (PageShell, DateRangeFilter, design tokens), utils
+
+## Current Milestone: v1.6 Pre-Launch Stabilization
+
+**Goal:** Clean up the repo to production-grade quality — no dead code, professional file structure, and confidence that nothing breaks when real users hit it.
+
+**Target features:**
+- Move Morgan voice service files into apps/morgan/ (zero behavior change)
+- Delete stale standalone dashboard apps (payroll-dashboard)
+- Remove dead code, unused imports, orphaned files across the codebase
+- Consolidate stale docs (FIXES.md, ISSUES.md, TESTING.md) into README, then delete originals
+- Systematic audit: error handling gaps, unhandled edge cases, type safety issues
+- Tighten API input validation and robustness for production traffic
 
 **Known areas for future work:**
 - Bulk sale import from CSV
@@ -144,4 +163,4 @@ Shipped 6 milestones in 11 days (24 phases, 76 plans). Tech stack: Next.js 15, E
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 after v1.5 milestone complete*
+*Last updated: 2026-03-25 after v1.6 milestone started*
