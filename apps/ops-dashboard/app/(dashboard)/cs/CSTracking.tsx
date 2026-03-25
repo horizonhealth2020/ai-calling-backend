@@ -356,14 +356,14 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       const res = await authFetch(`${API}/api/chargebacks/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
         setChargebacks((prev) => prev.filter((cb) => cb.id !== id));
-        toast.success("Chargeback deleted");
+        toast("success", "Chargeback deleted");
         const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
         if (totalsRes.ok) setTotals(await totalsRes.json());
       } else {
         const err = await res.json().catch(() => ({}));
-        toast.error(err.error || `Delete failed (${res.status})`);
+        toast("error", err.error || `Delete failed (${res.status})`);
       }
-    } catch { toast.error("Delete request failed"); }
+    } catch { toast("error", "Delete request failed"); }
   };
 
   // Delete pending term handler
@@ -533,7 +533,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     }
     if (!from || !to) return data;
     return data.filter(item => {
-      const raw = item[dateField];
+      const raw = item[dateField] as string | null | undefined;
       if (!raw) return false;
       const d = new Date(raw);
       return d >= from! && d <= to!;

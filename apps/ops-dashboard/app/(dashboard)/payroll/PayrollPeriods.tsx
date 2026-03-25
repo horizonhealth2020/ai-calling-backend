@@ -1381,7 +1381,7 @@ export default function PayrollPeriods({
                                   fetchAgentPeriods(alert.agentId, alert.id);
                                 } else {
                                   authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).then(data => {
-                                    const openPeriods = (data || []).filter((p: AlertPeriod & { status?: string }) => p.status === "OPEN").map((p) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
+                                    const openPeriods = ((data || []) as (AlertPeriod & { status?: string })[]).filter((p) => p.status === "OPEN").map((p) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
                                     setAlertPeriods(prev => ({ ...prev, [alert.id]: openPeriods }));
                                   });
                                 }

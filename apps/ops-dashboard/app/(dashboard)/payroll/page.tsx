@@ -194,10 +194,11 @@ function PayrollInner() {
     const onReconnect = () => { refreshPeriods(); fetchAlerts(); };
     const onAlertCreated = (data: { alertId?: string }) => {
       fetchAlerts();
-      if (data?.alertId) {
-        setHighlightedAlertIds(prev => new Set(prev).add(data.alertId));
+      const aid = data?.alertId;
+      if (aid) {
+        setHighlightedAlertIds(prev => new Set(prev).add(aid));
         setTimeout(() => {
-          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(data.alertId); return next; });
+          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(aid); return next; });
         }, 100);
       }
     };

@@ -123,8 +123,10 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
 
   /* -- Inline sale editing state -- */
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Record<string, unknown>>({});
-  const [editOriginal, setEditOriginal] = useState<Record<string, unknown>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- form state with dynamic keys for inline sale editing
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- original values for diff comparison
+  const [editOriginal, setEditOriginal] = useState<Record<string, any>>({});
   const [editPreview, setEditPreview] = useState<{ commission: number; periodStart: string; periodEnd: string } | null>(null);
   const [, setEditPreviewLoading] = useState(false);
   const editPreviewTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -163,7 +165,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         return;
       }
 
-      const original: Record<string, unknown> = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic form original for diff comparison
+      const original: Record<string, any> = {
         productId: sale.productId,
         premium: Number(sale.premium),
         enrollmentFee: sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
@@ -226,7 +229,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
     if (!editingSaleId) return;
     setEditSaving(true);
 
-    const changes: Record<string, unknown> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic changes payload for PATCH
+    const changes: Record<string, any> = {};
     for (const key of Object.keys(editForm)) {
       if (JSON.stringify(editForm[key]) !== JSON.stringify(editOriginal[key])) {
         changes[key] = editForm[key];
