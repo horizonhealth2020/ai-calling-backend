@@ -123,7 +123,9 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
 
   /* -- Inline sale editing state -- */
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- form state with dynamic keys for inline sale editing
   const [editForm, setEditForm] = useState<Record<string, any>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- original values for diff comparison
   const [editOriginal, setEditOriginal] = useState<Record<string, any>>({});
   const [editPreview, setEditPreview] = useState<{ commission: number; periodStart: string; periodEnd: string } | null>(null);
   const [, setEditPreviewLoading] = useState(false);
@@ -163,14 +165,15 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         return;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic form original for diff comparison
       const original: Record<string, any> = {
         productId: sale.productId,
         premium: Number(sale.premium),
         enrollmentFee: sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
         paymentType: sale.paymentType,
         agentId: sale.agentId,
-        addonProductIds: sale.addons ? sale.addons.map((a: { product: { id: string } }) => a.product.id) : [],
-        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: { product: { id: string }; premium: number | null }) => [a.product.id, Number(a.premium ?? 0)])) : {},
+        addonProductIds: sale.addons ? sale.addons.map((a: { product: { id: string }; premium?: number | null }) => a.product.id) : [],
+        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: { product: { id: string }; premium?: number | null }) => [a.product.id, Number(a.premium ?? 0)])) : {},
         carrier: sale.carrier,
         memberName: sale.memberName,
         memberId: sale.memberId || "",
@@ -185,7 +188,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       setEditingSaleId(saleId);
       setEditPreview(null);
     } catch (e: unknown) {
-      toast("error", `Error: ${e instanceof Error ? e.message : "network error"}`);
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: ${message}`);
     }
   }
 
@@ -214,7 +218,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         });
         if (res.ok) setEditPreview(await res.json());
       } catch (e: unknown) {
-        if (!(e instanceof Error && e.name === "AbortError")) console.warn("Edit preview failed", e);
+        if (e instanceof Error && e.name !== "AbortError") console.warn("Edit preview failed", e);
       } finally {
         setEditPreviewLoading(false);
       }
@@ -225,6 +229,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
     if (!editingSaleId) return;
     setEditSaving(true);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic changes payload for PATCH
     const changes: Record<string, any> = {};
     for (const key of Object.keys(editForm)) {
       if (JSON.stringify(editForm[key]) !== JSON.stringify(editOriginal[key])) {
@@ -259,7 +264,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: unknown) {
-      toast("error", `Error: ${e instanceof Error ? e.message : "network error"}`);
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: ${message}`);
     } finally {
       setEditSaving(false);
     }
@@ -290,7 +296,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         setMsg({ text: `Failed to update status (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
     } catch (e: unknown) {
-      setMsg({ text: `Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`, type: "error" });
+      const message = e instanceof Error ? e.message : "network error";
+      setMsg({ text: `Unable to reach API \u2014 ${message}`, type: "error" });
     }
   }
 
@@ -308,7 +315,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to delete sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: unknown) { setMsg({ text: `Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`, type: "error" }); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setMsg({ text: `Unable to reach API \u2014 ${message}`, type: "error" }); }
   }
 
   const getDayOfWeek = (dateStr: string) => {
@@ -378,7 +385,11 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       )}
 
       {[...byAgent.entries()].map(([agentName, sales], agentIdx) => {
-        const premiumTotal = sales.reduce((s, x) => s + Number(x.premium ?? 0) + (x.addons?.reduce((aSum: number, a: { premium: number | null }) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+        const premiumTotal = sales.reduce((s, x) => {
+          const saleWithAddons = x as Sale & { addons?: { premium?: number | null }[] };
+          const addonTotal = saleWithAddons.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0;
+          return s + Number(x.premium ?? 0) + addonTotal;
+        }, 0);
         return (
           <Card key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${colors.borderSubtle}`, flexWrap: "wrap", gap: 8 }}>

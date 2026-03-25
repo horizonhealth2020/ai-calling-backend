@@ -52,8 +52,10 @@ type CallAudit = {
   agent: { id: string; name: string };
 };
 
+type SocketClient = import("socket.io-client").Socket;
+
 export interface ManagerAuditsProps {
-  socket: import("socket.io-client").Socket | null;
+  socket: SocketClient | null;
   API: string;
 }
 

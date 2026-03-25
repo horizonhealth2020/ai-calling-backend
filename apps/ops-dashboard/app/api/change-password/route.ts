@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-  } catch {
+  } catch (err: unknown) {
     return Response.json(
       { error: `Cannot reach API server. Check that ops-api is running at ${opsApiUrl}` },
       { status: 502 },

@@ -433,7 +433,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         setMsg({ text: `Failed to create sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
     } catch (e: unknown) {
-      setMsg({ text: `Unable to reach API server \u2014 ${e instanceof Error ? e.message : "network error"}`, type: "error" });
+      const message = e instanceof Error ? e.message : "network error";
+      setMsg({ text: `Unable to reach API server \u2014 ${message}`, type: "error" });
     } finally {
       setSubmitting(false);
     }

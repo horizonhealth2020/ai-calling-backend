@@ -158,7 +158,8 @@ export default function PayrollService({
         setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: unknown) {
-      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 
@@ -180,7 +181,8 @@ export default function PayrollService({
         setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: unknown) {
-      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 
@@ -209,7 +211,8 @@ export default function PayrollService({
         setSvcMsg(`Error: ${err.error ?? "Failed"}`);
       }
     } catch (e: unknown) {
-      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 
@@ -229,7 +232,8 @@ export default function PayrollService({
         setSvcMsg(`Error: ${err.error ?? "Failed"}`);
       }
     } catch (e: unknown) {
-      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 

@@ -73,14 +73,13 @@ type SaleEditRequest = {
   requester: { name: string; email: string };
 };
 
-type PayrollAlert = {
+type Alert = {
   id: string;
-  agentId: string;
-  agentName: string;
-  customerName: string;
-  amount: number;
+  agentId: string | null;
+  agentName: string | null;
+  customerName: string | null;
+  amount: number | null;
   createdAt: string;
-  status?: string;
 };
 
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
@@ -119,7 +118,7 @@ function PayrollInner() {
   const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([]);
   const [pendingRequests, setPendingRequests] = useState<StatusChangeRequest[]>([]);
   const [pendingEditRequests, setPendingEditRequests] = useState<SaleEditRequest[]>([]);
-  const [alerts, setAlerts] = useState<PayrollAlert[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loading, setLoading] = useState(true);
   const [highlightedAlertIds, setHighlightedAlertIds] = useState<Set<string>>(new Set());
@@ -195,10 +194,11 @@ function PayrollInner() {
     const onReconnect = () => { refreshPeriods(); fetchAlerts(); };
     const onAlertCreated = (data: { alertId?: string }) => {
       fetchAlerts();
-      if (data?.alertId) {
-        setHighlightedAlertIds(prev => new Set(prev).add(data.alertId));
+      const aid = data?.alertId;
+      if (aid) {
+        setHighlightedAlertIds(prev => new Set(prev).add(aid));
         setTimeout(() => {
-          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(data.alertId); return next; });
+          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(aid); return next; });
         }, 100);
       }
     };
