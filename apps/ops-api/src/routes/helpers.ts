@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 
 /** Format Zod errors so the response always includes an `error` key for dashboard display. */
 export function zodErr(ze: z.ZodError) {
@@ -85,33 +84,6 @@ export function dateRange(range?: string, from?: string, to?: string): { gte: Da
   return undefined;
 }
 
-/** Map Prisma errors to HTTP responses. Never leaks raw DB error messages to clients. */
-export function handlePrismaError(err: unknown, res: Response): Response {
-  console.error("Database error:", err);
-
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    if (err.code === "P2025") {
-      return res.status(404).json({ error: "Record not found" });
-    }
-    if (err.code === "P2002") {
-      return res.status(409).json({ error: "Record already exists" });
-    }
-    // P1xxx = connection/server errors
-    if (err.code.startsWith("P1")) {
-      return res.status(503).json({ error: "Database temporarily unavailable" });
-    }
-  }
-
-  if (
-    err instanceof Prisma.PrismaClientInitializationError ||
-    err instanceof Prisma.PrismaClientRustPanicError
-  ) {
-    return res.status(503).json({ error: "Database temporarily unavailable" });
-  }
-
-  // Unknown database error -- don't leak details
-  return res.status(500).json({ error: "Internal server error" });
-}
 
 /** Zod schema for date range query params (range, from, to) used by many GET routes */
 export const dateRangeQuerySchema = z.object({
