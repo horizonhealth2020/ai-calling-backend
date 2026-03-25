@@ -73,16 +73,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Data archival for 3 high-volume log tables with batch operations and restore — v1.5
 - ✓ Archive management UI in owner Config tab with preview counts and batch history — v1.5
 
+- ✓ Morgan voice service relocated to apps/morgan/ (zero behavior change) — v1.6
+- ✓ Stale standalone apps and docs deleted, consolidated into README — v1.6
+- ✓ Dead code removed: unused imports, exports, commented-out code, unused dependencies — v1.6
+- ✓ Error handling hardened: asyncHandler, Zod validation on all inputs, Prisma 503 responses, Socket.IO try/catch — v1.6
+- ✓ Type safety audit: zero `any` in application code, explicit return types on all package exports — v1.6
+
 ### Active
 
-<!-- Current scope: v1.6 Pre-Launch Stabilization -->
-
-- [x] Move Morgan voice service into apps/morgan/ (zero behavior change) — Phase 25
-- [x] Delete stale standalone dashboard apps (payroll-dashboard) — Phase 25
-- [x] Remove dead code, unused imports, orphaned files — Phase 26
-- [x] Consolidate stale docs into README, delete originals — Phase 25
-- [x] Error handling hardening: asyncHandler audit, Zod validation on all inputs, Prisma error handling, Socket.IO try/catch — Phase 27
-- [x] Type safety audit: eliminate `any` types, align response types, annotate exports — Phase 28
+<!-- No active milestone — ready for next -->
 
 ### Out of Scope
 
@@ -104,24 +103,12 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 - **ops-api** — Express REST API with auth, RBAC, sales, payroll, clawbacks, exports, AI scoring
 - **@ops/* packages** — shared auth, db, types, ui (PageShell, DateRangeFilter, design tokens), utils
 
-## Current Milestone: v1.6 Pre-Launch Stabilization
+## Context
 
-**Goal:** Clean up the repo to production-grade quality — no dead code, professional file structure, and confidence that nothing breaks when real users hit it.
-
-**Target features:**
-- Move Morgan voice service files into apps/morgan/ (zero behavior change)
-- Delete stale standalone dashboard apps (payroll-dashboard)
-- Remove dead code, unused imports, orphaned files across the codebase
-- Consolidate stale docs (FIXES.md, ISSUES.md, TESTING.md) into README, then delete originals
-- Systematic audit: error handling gaps, unhandled edge cases, type safety issues
-- Tighten API input validation and robustness for production traffic
+Shipped 7 milestones in 12 days (28 phases, 82 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety.
 
 **Known areas for future work:**
 - Bulk sale import from CSV
-
-## Context
-
-Shipped 6 milestones in 11 days (24 phases, 76 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages.
 
 ## Constraints
 
@@ -163,4 +150,4 @@ Shipped 6 milestones in 11 days (24 phases, 76 plans). Tech stack: Next.js 15, E
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 after Phase 26 complete*
+*Last updated: 2026-03-25 after v1.6 milestone*

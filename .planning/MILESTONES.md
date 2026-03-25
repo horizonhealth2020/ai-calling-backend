@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.6 Pre-Launch Stabilization (Shipped: 2026-03-25)
+
+**Phases completed:** 4 phases, 10 plans, 16 tasks
+**Timeline:** 2026-03-25 (1 day)
+**Requirements:** 15/15 satisfied
+**Stats:** 117 files changed, +6,632 / -2,154 lines, 47 commits
+
+**Key accomplishments:**
+
+- Relocated Morgan voice service to apps/morgan/ with zero behavior change — professional monorepo structure
+- Removed all dead code: unused imports, unreferenced exports, commented-out code blocks, unused dependencies across all apps and packages
+- Hardened API error handling: asyncHandler audit, full Zod validation on all req.body/params/query, Prisma error handling (503 for connection failures), Socket.IO try/catch on all 10 emit functions
+- Eliminated all explicit `any` types from application code (~183 occurrences), added explicit return types to all shared package exports
+- Verified API response shapes match dashboard inline types across 4 key endpoints
+
+---
+
 ## v1.5 Platform Cleanup & Remaining Features (Shipped: 2026-03-24)
 
 **Phases completed:** 4 phases, 8 plans, 15 tasks
