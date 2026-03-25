@@ -40,8 +40,8 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
         const err = await res.json().catch(() => ({}));
         setChargebackMsg(`Error: ${err.error ?? "No matching sale found"}`);
       }
-    } catch (e: any) {
-      setChargebackMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setChargebackMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 

@@ -433,8 +433,8 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -454,8 +454,8 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -470,8 +470,8 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -507,8 +507,8 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setCfgMsg(`Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 

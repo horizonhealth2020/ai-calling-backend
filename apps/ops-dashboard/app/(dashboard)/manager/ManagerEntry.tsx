@@ -307,8 +307,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         } else {
           setPreviewError(true);
         }
-      } catch (e: any) {
-        if (e.name !== "AbortError") setPreviewError(true);
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name !== "AbortError") setPreviewError(true);
       } finally {
         setPreviewLoading(false);
       }
@@ -432,8 +432,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to create sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) {
-      setMsg({ text: `Unable to reach API server \u2014 ${e.message ?? "network error"}`, type: "error" });
+    } catch (e: unknown) {
+      setMsg({ text: `Unable to reach API server \u2014 ${e instanceof Error ? e.message : "network error"}`, type: "error" });
     } finally {
       setSubmitting(false);
     }

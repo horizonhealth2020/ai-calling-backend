@@ -53,7 +53,7 @@ type CallAudit = {
 };
 
 export interface ManagerAuditsProps {
-  socket: any;
+  socket: import("socket.io-client").Socket | null;
   API: string;
 }
 

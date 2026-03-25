@@ -28,6 +28,45 @@ import { ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-reac
 
 type SocketClient = import("socket.io-client").Socket;
 
+interface ChargebackRecord {
+  id: string;
+  chargebackAmount: string | null;
+  postedDate: string | null;
+  product: string | null;
+  memberCompany: string | null;
+  memberAgentCompany: string | null;
+  memberId: string | null;
+  memberAgentId: string | null;
+  payeeName: string | null;
+  type: string | null;
+  assignedTo: string | null;
+  matchStatus: string | null;
+  submittedAt: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+  resolutionType: string | null;
+  resolver: { name: string } | null;
+}
+
+interface PendingTermRecord {
+  id: string;
+  agentName: string | null;
+  agentIdField: string | null;
+  state: string | null;
+  product: string | null;
+  holdReason: string | null;
+  holdDate: string | null;
+  memberId: string | null;
+  memberName: string | null;
+  phone: string | null;
+  nextBilling: string | null;
+  assignedTo: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+  resolutionType: string | null;
+  resolver: { name: string } | null;
+}
+
 /* -- Style Constants -- */
 
 const SECTION_HEADING: React.CSSProperties = {
@@ -117,8 +156,8 @@ export default function CSTracking({ socket, API, userRoles, canManageCS }: CSTr
 function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingProps) {
   const { value: dateRange, onChange: setDateRange } = useDateRange();
   // Data
-  const [chargebacks, setChargebacks] = useState<any[]>([]);
-  const [pendingTerms, setPendingTerms] = useState<any[]>([]);
+  const [chargebacks, setChargebacks] = useState<ChargebackRecord[]>([]);
+  const [pendingTerms, setPendingTerms] = useState<PendingTermRecord[]>([]);
   const [totals, setTotals] = useState<{ totalChargebacks: number; totalRecovered: number; recordCount: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -194,13 +233,13 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     let result = chargebacks;
 
     // Status filter (before other filters)
-    if (cbStatusFilter === "open") result = result.filter((cb: any) => !cb.resolvedAt);
-    else if (cbStatusFilter === "resolved") result = result.filter((cb: any) => !!cb.resolvedAt);
+    if (cbStatusFilter === "open") result = result.filter((cb: ChargebackRecord) => !cb.resolvedAt);
+    else if (cbStatusFilter === "resolved") result = result.filter((cb: ChargebackRecord) => !!cb.resolvedAt);
 
     // Search (case-insensitive partial match)
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
-      result = result.filter((cb: any) =>
+      result = result.filter((cb: ChargebackRecord) =>
         (cb.payeeName || "").toLowerCase().includes(q) ||
         (cb.memberAgentCompany || "").toLowerCase().includes(q) ||
         (cb.memberId || "").toLowerCase().includes(q) ||
@@ -209,17 +248,17 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     }
 
     // Filters
-    if (cbFilters.product) result = result.filter((cb: any) => (cb.product || "").toLowerCase().includes(cbFilters.product.toLowerCase()));
-    if (cbFilters.memberCompany) result = result.filter((cb: any) => (cb.memberCompany || "").toLowerCase().includes(cbFilters.memberCompany.toLowerCase()));
-    if (cbFilters.memberAgentCompany) result = result.filter((cb: any) => (cb.memberAgentCompany || "").toLowerCase().includes(cbFilters.memberAgentCompany.toLowerCase()));
-    if (cbFilters.dateFrom) result = result.filter((cb: any) => cb.postedDate && cb.postedDate.split("T")[0] >= cbFilters.dateFrom);
-    if (cbFilters.dateTo) result = result.filter((cb: any) => cb.postedDate && cb.postedDate.split("T")[0] <= cbFilters.dateTo);
-    if (cbFilters.amountMin) result = result.filter((cb: any) => Math.abs(parseFloat(cb.chargebackAmount || "0")) >= parseFloat(cbFilters.amountMin));
-    if (cbFilters.amountMax) result = result.filter((cb: any) => Math.abs(parseFloat(cb.chargebackAmount || "0")) <= parseFloat(cbFilters.amountMax));
+    if (cbFilters.product) result = result.filter((cb: ChargebackRecord) => (cb.product || "").toLowerCase().includes(cbFilters.product.toLowerCase()));
+    if (cbFilters.memberCompany) result = result.filter((cb: ChargebackRecord) => (cb.memberCompany || "").toLowerCase().includes(cbFilters.memberCompany.toLowerCase()));
+    if (cbFilters.memberAgentCompany) result = result.filter((cb: ChargebackRecord) => (cb.memberAgentCompany || "").toLowerCase().includes(cbFilters.memberAgentCompany.toLowerCase()));
+    if (cbFilters.dateFrom) result = result.filter((cb: ChargebackRecord) => cb.postedDate && cb.postedDate.split("T")[0] >= cbFilters.dateFrom);
+    if (cbFilters.dateTo) result = result.filter((cb: ChargebackRecord) => cb.postedDate && cb.postedDate.split("T")[0] <= cbFilters.dateTo);
+    if (cbFilters.amountMin) result = result.filter((cb: ChargebackRecord) => Math.abs(parseFloat(cb.chargebackAmount || "0")) >= parseFloat(cbFilters.amountMin));
+    if (cbFilters.amountMax) result = result.filter((cb: ChargebackRecord) => Math.abs(parseFloat(cb.chargebackAmount || "0")) <= parseFloat(cbFilters.amountMax));
 
     // Sort
     if (cbSortKey) {
-      result = [...result].sort((a: any, b: any) => {
+      result = [...result].sort((a: Record<string, string | null>, b: Record<string, string | null>) => {
         let aVal = a[cbSortKey] ?? "";
         let bVal = b[cbSortKey] ?? "";
         if (cbSortKey === "chargebackAmount" || cbSortKey === "totalAmount") {
@@ -239,13 +278,13 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     let result = pendingTerms;
 
     // Status filter (before other filters)
-    if (ptStatusFilter === "open") result = result.filter((pt: any) => !pt.resolvedAt);
-    else if (ptStatusFilter === "resolved") result = result.filter((pt: any) => !!pt.resolvedAt);
+    if (ptStatusFilter === "open") result = result.filter((pt: PendingTermRecord) => !pt.resolvedAt);
+    else if (ptStatusFilter === "resolved") result = result.filter((pt: PendingTermRecord) => !!pt.resolvedAt);
 
     // Shared search (case-insensitive partial match)
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
-      result = result.filter((pt: any) =>
+      result = result.filter((pt: PendingTermRecord) =>
         (pt.memberName || "").toLowerCase().includes(q) ||
         (pt.memberId || "").toLowerCase().includes(q) ||
         (pt.agentName || "").toLowerCase().includes(q) ||
@@ -255,18 +294,18 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     }
 
     // Pending terms filters
-    if (ptFilters.agent) result = result.filter((pt: any) => (pt.agentName || "").toLowerCase().includes(ptFilters.agent.toLowerCase()));
-    if (ptFilters.state) result = result.filter((pt: any) => (pt.state || "").toLowerCase().includes(ptFilters.state.toLowerCase()));
-    if (ptFilters.product) result = result.filter((pt: any) => (pt.product || "").toLowerCase().includes(ptFilters.product.toLowerCase()));
-    if (ptFilters.holdReason) result = result.filter((pt: any) => (pt.holdReason || "").toLowerCase().includes(ptFilters.holdReason.toLowerCase()));
+    if (ptFilters.agent) result = result.filter((pt: PendingTermRecord) => (pt.agentName || "").toLowerCase().includes(ptFilters.agent.toLowerCase()));
+    if (ptFilters.state) result = result.filter((pt: PendingTermRecord) => (pt.state || "").toLowerCase().includes(ptFilters.state.toLowerCase()));
+    if (ptFilters.product) result = result.filter((pt: PendingTermRecord) => (pt.product || "").toLowerCase().includes(ptFilters.product.toLowerCase()));
+    if (ptFilters.holdReason) result = result.filter((pt: PendingTermRecord) => (pt.holdReason || "").toLowerCase().includes(ptFilters.holdReason.toLowerCase()));
     if (ptFilters.dateFrom) {
-      result = result.filter((pt: any) =>
+      result = result.filter((pt: PendingTermRecord) =>
         (pt.holdDate && pt.holdDate.split("T")[0] >= ptFilters.dateFrom) ||
         (pt.nextBilling && pt.nextBilling.split("T")[0] >= ptFilters.dateFrom)
       );
     }
     if (ptFilters.dateTo) {
-      result = result.filter((pt: any) =>
+      result = result.filter((pt: PendingTermRecord) =>
         (pt.holdDate && pt.holdDate.split("T")[0] <= ptFilters.dateTo) ||
         (pt.nextBilling && pt.nextBilling.split("T")[0] <= ptFilters.dateTo)
       );
@@ -274,7 +313,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
 
     // Sort
     if (ptSortKey) {
-      result = [...result].sort((a: any, b: any) => {
+      result = [...result].sort((a: Record<string, string | null>, b: Record<string, string | null>) => {
         let aVal = a[ptSortKey] ?? "";
         let bVal = b[ptSortKey] ?? "";
         const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
@@ -289,7 +328,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
   const ptSummary = useMemo(() => {
     const total = pendingTerms.length;
     const reasonCounts = new Map<string, number>();
-    pendingTerms.forEach((pt: any) => {
+    pendingTerms.forEach((pt: PendingTermRecord) => {
       const reason = pt.holdReason || "No Reason";
       reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
     });
@@ -305,7 +344,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     try {
       const res = await authFetch(`${API}/api/chargebacks/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
-        setChargebacks((prev) => prev.filter((cb: any) => cb.id !== id));
+        setChargebacks((prev) => prev.filter((cb: ChargebackRecord) => cb.id !== id));
         toast.success("Chargeback deleted");
         const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
         if (totalsRes.ok) setTotals(await totalsRes.json());
@@ -321,7 +360,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     try {
       const res = await authFetch(`${API}/api/pending-terms/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
-        setPendingTerms((prev) => prev.filter((pt: any) => pt.id !== id));
+        setPendingTerms((prev) => prev.filter((pt: PendingTermRecord) => pt.id !== id));
       }
     } catch { /* ignore */ }
   };
@@ -329,8 +368,8 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
   // Resolve/Unresolve handlers
   const handleResolveCb = async (id: string) => {
     if (!resolveType || !resolveNote.trim()) return;
-    const prev = chargebacks.find((cb: any) => cb.id === id);
-    setChargebacks(cs => cs.map((cb: any) => cb.id === id ? {
+    const prev = chargebacks.find((cb: ChargebackRecord) => cb.id === id);
+    setChargebacks(cs => cs.map((cb: ChargebackRecord) => cb.id === id ? {
       ...cb,
       resolvedAt: new Date().toISOString(),
       resolvedBy: "you",
@@ -349,19 +388,19 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
-      setChargebacks(cs => cs.map((cb: any) => cb.id === id ? { ...cb, ...updated } : cb));
+      setChargebacks(cs => cs.map((cb: ChargebackRecord) => cb.id === id ? { ...cb, ...updated } : cb));
       const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
       if (totalsRes.ok) setTotals(await totalsRes.json());
       toast("success", `Chargeback marked as ${resolveType}`);
     } catch {
-      if (prev) setChargebacks(cs => cs.map((cb: any) => cb.id === id ? prev : cb));
+      if (prev) setChargebacks(cs => cs.map((cb: ChargebackRecord) => cb.id === id ? prev : cb));
       toast("error", "Failed to resolve -- try again");
     }
   };
 
   const handleUnresolveCb = async (id: string) => {
-    const prev = chargebacks.find((cb: any) => cb.id === id);
-    setChargebacks(cs => cs.map((cb: any) => cb.id === id ? {
+    const prev = chargebacks.find((cb: ChargebackRecord) => cb.id === id);
+    setChargebacks(cs => cs.map((cb: ChargebackRecord) => cb.id === id ? {
       ...cb, resolvedAt: null, resolvedBy: null, resolutionType: null, resolutionNote: null, resolver: null,
     } : cb));
     try {
@@ -371,15 +410,15 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       if (totalsRes.ok) setTotals(await totalsRes.json());
       toast("success", "Resolution cleared");
     } catch {
-      if (prev) setChargebacks(cs => cs.map((cb: any) => cb.id === id ? prev : cb));
+      if (prev) setChargebacks(cs => cs.map((cb: ChargebackRecord) => cb.id === id ? prev : cb));
       toast("error", "Failed to clear resolution -- try again");
     }
   };
 
   const handleResolvePt = async (id: string) => {
     if (!resolveType || !resolveNote.trim()) return;
-    const prev = pendingTerms.find((pt: any) => pt.id === id);
-    setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? {
+    const prev = pendingTerms.find((pt: PendingTermRecord) => pt.id === id);
+    setPendingTerms(pts => pts.map((pt: PendingTermRecord) => pt.id === id ? {
       ...pt,
       resolvedAt: new Date().toISOString(),
       resolvedBy: "you",
@@ -398,17 +437,17 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
-      setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? { ...pt, ...updated } : pt));
+      setPendingTerms(pts => pts.map((pt: PendingTermRecord) => pt.id === id ? { ...pt, ...updated } : pt));
       toast("success", `Pending term marked as ${resolveType}`);
     } catch {
-      if (prev) setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? prev : pt));
+      if (prev) setPendingTerms(pts => pts.map((pt: PendingTermRecord) => pt.id === id ? prev : pt));
       toast("error", "Failed to resolve -- try again");
     }
   };
 
   const handleUnresolvePt = async (id: string) => {
-    const prev = pendingTerms.find((pt: any) => pt.id === id);
-    setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? {
+    const prev = pendingTerms.find((pt: PendingTermRecord) => pt.id === id);
+    setPendingTerms(pts => pts.map((pt: PendingTermRecord) => pt.id === id ? {
       ...pt, resolvedAt: null, resolvedBy: null, resolutionType: null, resolutionNote: null, resolver: null,
     } : pt));
     try {
@@ -416,7 +455,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       if (!res.ok) throw new Error();
       toast("success", "Resolution cleared");
     } catch {
-      if (prev) setPendingTerms(pts => pts.map((pt: any) => pt.id === id ? prev : pt));
+      if (prev) setPendingTerms(pts => pts.map((pt: PendingTermRecord) => pt.id === id ? prev : pt));
       toast("error", "Failed to clear resolution -- try again");
     }
   };
@@ -500,7 +539,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
 
     rows.push(["--- CHARGEBACKS ---"]);
     rows.push(["Date Posted", "Member", "Member ID", "Product", "Type", "Total", "Assigned To", "Match Status", "Submitted"]);
-    exportCbs.forEach((cb: any) => {
+    exportCbs.forEach((cb: ChargebackRecord) => {
       rows.push([
         esc(formatDate(cb.postedDate)),
         esc(cb.memberCompany || "--"),
@@ -517,7 +556,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     rows.push([]);
     rows.push(["--- PENDING TERMS ---"]);
     rows.push(["Member Name", "Member ID", "Phone", "Product", "Hold Date", "Next Billing", "Assigned To"]);
-    exportPts.forEach((pt: any) => {
+    exportPts.forEach((pt: PendingTermRecord) => {
       rows.push([
         esc(pt.memberName || "--"),
         esc(pt.memberId || "--"),
@@ -774,7 +813,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                 </tr>
               </thead>
               <tbody>
-                {filteredChargebacks.map((cb: any) => {
+                {filteredChargebacks.map((cb: ChargebackRecord) => {
                   const cbColCount = 10;
                   return (
                     <React.Fragment key={cb.id}>
@@ -1010,7 +1049,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                 </tr>
               </thead>
               <tbody>
-                {filteredPending.map((pt: any) => {
+                {filteredPending.map((pt: PendingTermRecord) => {
                   const ptColCount = 8;
                   return (
                     <React.Fragment key={pt.id}>

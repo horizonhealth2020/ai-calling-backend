@@ -51,7 +51,7 @@ type ServiceEntry = {
 };
 type Period = {
   id: string; weekStart: string; weekEnd: string; quarterLabel: string;
-  status: string; entries: any[]; serviceEntries: ServiceEntry[];
+  status: string; entries: unknown[]; serviceEntries: ServiceEntry[];
 };
 
 function fmtDate(iso: string): string {
@@ -157,8 +157,8 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -179,8 +179,8 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -208,8 +208,8 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? "Failed"}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -228,8 +228,8 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? "Failed"}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      setSvcMsg(`Error: ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 

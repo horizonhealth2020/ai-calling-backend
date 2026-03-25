@@ -58,11 +58,21 @@ type StatusChangeRequest = {
 type SaleEditRequest = {
   id: string;
   saleId: string;
-  changes: Record<string, { old: any; new: any }>;
+  changes: Record<string, { old: unknown; new: unknown }>;
   status: string;
   requestedAt: string;
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
+};
+
+type PayrollAlert = {
+  id: string;
+  agentId: string;
+  agentName: string;
+  customerName: string;
+  amount: number;
+  createdAt: string;
+  status?: string;
 };
 
 type SocketClient = import("socket.io-client").Socket;
@@ -909,8 +919,8 @@ export interface PayrollPeriodsProps {
   setPendingRequests: React.Dispatch<React.SetStateAction<StatusChangeRequest[]>>;
   pendingEditRequests: SaleEditRequest[];
   setPendingEditRequests: React.Dispatch<React.SetStateAction<SaleEditRequest[]>>;
-  alerts: any[];
-  setAlerts: React.Dispatch<React.SetStateAction<any[]>>;
+  alerts: PayrollAlert[];
+  setAlerts: React.Dispatch<React.SetStateAction<PayrollAlert[]>>;
   loadingAlerts: boolean;
   highlightedAlertIds: Set<string>;
   refreshPeriods: () => Promise<void>;
@@ -990,8 +1000,8 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     } finally {
       setApprovingId(null);
     }
@@ -1007,8 +1017,8 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     } finally {
       setRejectingId(null);
     }
@@ -1031,8 +1041,8 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     } finally {
       setApprovingEditId(null);
     }
@@ -1049,8 +1059,8 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     } finally {
       setRejectingEditId(null);
     }
@@ -1075,8 +1085,8 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -1092,8 +1102,8 @@ export default function PayrollPeriods({
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
       await refreshPeriods();
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
       await refreshPeriods();
     }
   }
@@ -1130,8 +1140,8 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", err.error ?? `Request failed (${res.status})`);
       }
-    } catch (e: any) {
-      toast("error", `Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -1341,7 +1351,7 @@ export default function PayrollPeriods({
                               onChange={e => { if (e.target.value) handleApproveAlert(alert.id, e.target.value); }}
                             >
                               <option value="" disabled>Select period...</option>
-                              {(alertPeriods[alert.id] || []).map((p: any) => (
+                              {(alertPeriods[alert.id] || []).map((p: { id: string; weekStart: string; weekEnd: string }) => (
                                 <option key={p.id} value={p.id}>
                                   {fmtDate(p.weekStart)} {"\u2013"} {fmtDate(p.weekEnd)}
                                 </option>
@@ -1363,7 +1373,7 @@ export default function PayrollPeriods({
                                   fetchAgentPeriods(alert.agentId, alert.id);
                                 } else {
                                   authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).then(data => {
-                                    const openPeriods = (data || []).filter((p: any) => p.status === "OPEN").map((p: any) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
+                                    const openPeriods = (data || []).filter((p: { status: string }) => p.status === "OPEN").map((p: { id: string; weekStart: string; weekEnd: string }) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
                                     setAlertPeriods(prev => ({ ...prev, [alert.id]: openPeriods }));
                                   });
                                 }

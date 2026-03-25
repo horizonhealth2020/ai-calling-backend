@@ -27,10 +27,12 @@ export async function POST(req: Request) {
 
     clearTimeout(timeout);
     console.log("[login] Response status:", response.status);
-  } catch (err: any) {
-    console.error("[login] FETCH ERROR:", err.name, err.message);
+  } catch (err: unknown) {
+    const errName = err instanceof Error ? err.name : "Error";
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[login] FETCH ERROR:", errName, errMsg);
     return Response.json(
-      { error: `Cannot reach API server (${err.name}: ${err.message})` },
+      { error: `Cannot reach API server (${errName}: ${errMsg})` },
       { status: 502 },
     );
   }

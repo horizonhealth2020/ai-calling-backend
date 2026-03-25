@@ -169,8 +169,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         enrollmentFee: sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
         paymentType: sale.paymentType,
         agentId: sale.agentId,
-        addonProductIds: sale.addons ? sale.addons.map((a: any) => a.product.id) : [],
-        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: any) => [a.product.id, Number(a.premium ?? 0)])) : {},
+        addonProductIds: sale.addons ? sale.addons.map((a: { product: { id: string } }) => a.product.id) : [],
+        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: { product: { id: string }; premium: number | null }) => [a.product.id, Number(a.premium ?? 0)])) : {},
         carrier: sale.carrier,
         memberName: sale.memberName,
         memberId: sale.memberId || "",
@@ -184,8 +184,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       setEditForm({ ...original });
       setEditingSaleId(saleId);
       setEditPreview(null);
-    } catch (e: any) {
-      toast("error", `Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: ${e instanceof Error ? e.message : "network error"}`);
     }
   }
 
@@ -213,8 +213,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
           signal: editPreviewAbort.current.signal,
         });
         if (res.ok) setEditPreview(await res.json());
-      } catch (e: any) {
-        if (e.name !== "AbortError") console.warn("Edit preview failed", e);
+      } catch (e: unknown) {
+        if (!(e instanceof Error && e.name === "AbortError")) console.warn("Edit preview failed", e);
       } finally {
         setEditPreviewLoading(false);
       }
@@ -258,8 +258,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      toast("error", `Error: ${e instanceof Error ? e.message : "network error"}`);
     } finally {
       setEditSaving(false);
     }
@@ -289,8 +289,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to update status (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) {
-      setMsg({ text: `Unable to reach API \u2014 ${e.message ?? "network error"}`, type: "error" });
+    } catch (e: unknown) {
+      setMsg({ text: `Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`, type: "error" });
     }
   }
 
@@ -308,7 +308,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to delete sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) { setMsg({ text: `Unable to reach API \u2014 ${e.message ?? "network error"}`, type: "error" }); }
+    } catch (e: unknown) { setMsg({ text: `Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`, type: "error" }); }
   }
 
   const getDayOfWeek = (dateStr: string) => {
@@ -378,7 +378,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       )}
 
       {[...byAgent.entries()].map(([agentName, sales], agentIdx) => {
-        const premiumTotal = sales.reduce((s, x) => s + Number(x.premium ?? 0) + ((x as any).addons?.reduce((aSum: number, a: any) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+        const premiumTotal = sales.reduce((s, x) => s + Number(x.premium ?? 0) + (x.addons?.reduce((aSum: number, a: { premium: number | null }) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
         return (
           <Card key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${colors.borderSubtle}`, flexWrap: "wrap", gap: 8 }}>
