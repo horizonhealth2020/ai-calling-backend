@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { getPendingAlerts, approveAlert, clearAlert } from "../services/alerts";
-import { asyncHandler, zodErr } from "./helpers";
+import { asyncHandler, zodErr, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -15,25 +15,31 @@ router.get("/alerts", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncH
 
 // POST /alerts/:id/approve -- approve alert, create clawback in selected period
 router.post("/alerts/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const parsed = z.object({ periodId: z.string().min(1) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const { periodId } = parsed.data;
-  const alert = await approveAlert(req.params.id, periodId, (req as any).user.id);
+  const alert = await approveAlert(pp.data.id, periodId, (req as any).user.id);
   res.json(alert);
 }));
 
 // POST /alerts/:id/clear -- clear/dismiss alert
 router.post("/alerts/:id/clear", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const alert = await clearAlert(req.params.id, (req as any).user.id);
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const alert = await clearAlert(pp.data.id, (req as any).user.id);
   res.json(alert);
 }));
 
 // GET /alerts/agent-periods/:agentId -- get unpaid periods for an agent (for approve dropdown)
 router.get("/alerts/agent-periods/:agentId", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = z.object({ agentId: z.string().min(1) }).safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const periods = await prisma.payrollPeriod.findMany({
     where: {
       status: "OPEN",
-      entries: { some: { agentId: req.params.agentId, status: { not: "PAID" } } },
+      entries: { some: { agentId: pp.data.agentId, status: { not: "PAID" } } },
     },
     orderBy: { weekStart: "desc" },
     select: { id: true, weekStart: true, weekEnd: true, status: true },

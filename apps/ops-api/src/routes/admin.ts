@@ -4,14 +4,16 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { getAgentRetentionKpis } from "../services/agentKpiAggregator";
-import { zodErr, asyncHandler, dateRange } from "./helpers";
+import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema } from "./helpers";
 
 const router = Router();
 
 // ─── Agent KPI Aggregation ──────────────────────────────────────
 
 router.get("/agent-kpis", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const dr = dateRange(req.query.range as string, req.query.from as string, req.query.to as string);
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const kpis = await getAgentRetentionKpis(dr);
   res.json(kpis);
 }));

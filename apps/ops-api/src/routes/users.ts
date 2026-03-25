@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
 
@@ -37,6 +37,8 @@ router.post("/users", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(asyn
 }));
 
 router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({
     name: z.string().min(1).optional(),
     email: z.string().email().optional(),
@@ -49,14 +51,16 @@ router.patch("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler
   const { password, ...rest } = parsed.data;
   const data: any = { ...rest };
   if (password) data.passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.update({ where: { id: req.params.id }, data, select: USER_SELECT });
+  const user = await prisma.user.update({ where: { id: pp.data.id }, data, select: USER_SELECT });
   await logAudit(req.user!.id, "UPDATE", "User", user.id, { fields: Object.keys(rest) });
   return res.json(user);
 }));
 
 router.delete("/users/:id", requireAuth, requireRole("SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  await prisma.user.delete({ where: { id: req.params.id } });
-  await logAudit(req.user!.id, "DELETE", "User", req.params.id);
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  await prisma.user.delete({ where: { id: pp.data.id } });
+  await logAudit(req.user!.id, "DELETE", "User", pp.data.id);
   return res.status(204).end();
 }));
 

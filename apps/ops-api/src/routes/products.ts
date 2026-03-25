@@ -3,12 +3,14 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
-import { zodErr, asyncHandler } from "./helpers";
+import { zodErr, asyncHandler, idParamSchema, booleanQueryParam } from "./helpers";
 
 const router = Router();
 
 router.get("/products", requireAuth, asyncHandler(async (req, res) => {
-  const includeInactive = req.query.all === "true";
+  const qp = z.object({ all: booleanQueryParam }).safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const includeInactive = qp.data.all;
   res.json(await prisma.product.findMany({
     where: includeInactive ? {} : { active: true },
     include: {
@@ -46,6 +48,8 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
 }));
 
 router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({
     name: z.string().min(1).optional(),
     active: z.boolean().optional(),
@@ -64,7 +68,7 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
     const product = await prisma.product.update({
-      where: { id: req.params.id },
+      where: { id: pp.data.id },
       data: parsed.data,
       include: {
         requiredBundleAddon: { select: { id: true, name: true } },
@@ -80,32 +84,38 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
 }));
 
 router.delete("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const hard = req.query.permanent === "true";
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const qp = z.object({ permanent: booleanQueryParam }).safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const hard = qp.data.permanent;
   if (hard) {
     // Check for sales referencing this product (these are not safe to cascade)
-    const saleCount = await prisma.sale.count({ where: { productId: req.params.id } });
-    const addonCount = await prisma.saleAddon.count({ where: { productId: req.params.id } });
+    const saleCount = await prisma.sale.count({ where: { productId: pp.data.id } });
+    const addonCount = await prisma.saleAddon.count({ where: { productId: pp.data.id } });
     if (saleCount > 0 || addonCount > 0) {
       return res.status(409).json({ error: `Cannot delete — product has ${saleCount} sale(s) and ${addonCount} addon reference(s). Deactivate instead.` });
     }
     // Safe to cascade: clean up non-sale references then delete
-    await prisma.productStateAvailability.deleteMany({ where: { productId: req.params.id } });
-    await prisma.payoutRule.deleteMany({ where: { productId: req.params.id } });
+    await prisma.productStateAvailability.deleteMany({ where: { productId: pp.data.id } });
+    await prisma.payoutRule.deleteMany({ where: { productId: pp.data.id } });
     // Clear bundle FKs on other products pointing to this one
-    await prisma.product.updateMany({ where: { requiredBundleAddonId: req.params.id }, data: { requiredBundleAddonId: null } });
-    await prisma.product.updateMany({ where: { fallbackBundleAddonId: req.params.id }, data: { fallbackBundleAddonId: null } });
-    await prisma.product.delete({ where: { id: req.params.id } });
-    await logAudit(req.user!.id, "HARD_DELETE", "Product", req.params.id);
+    await prisma.product.updateMany({ where: { requiredBundleAddonId: pp.data.id }, data: { requiredBundleAddonId: null } });
+    await prisma.product.updateMany({ where: { fallbackBundleAddonId: pp.data.id }, data: { fallbackBundleAddonId: null } });
+    await prisma.product.delete({ where: { id: pp.data.id } });
+    await logAudit(req.user!.id, "HARD_DELETE", "Product", pp.data.id);
   } else {
-    await prisma.product.update({ where: { id: req.params.id }, data: { active: false } });
-    await logAudit(req.user!.id, "DEACTIVATE", "Product", req.params.id);
+    await prisma.product.update({ where: { id: pp.data.id }, data: { active: false } });
+    await logAudit(req.user!.id, "DEACTIVATE", "Product", pp.data.id);
   }
   return res.status(204).end();
 }));
 
 router.patch("/products/:id/reactivate", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const product = await prisma.product.update({
-    where: { id: req.params.id },
+    where: { id: pp.data.id },
     data: { active: true },
     include: {
       requiredBundleAddon: { select: { id: true, name: true } },
@@ -113,13 +123,15 @@ router.patch("/products/:id/reactivate", requireAuth, requireRole("PAYROLL", "SU
       stateAvailability: { select: { stateCode: true } },
     },
   });
-  await logAudit(req.user!.id, "REACTIVATE", "Product", req.params.id);
+  await logAudit(req.user!.id, "REACTIVATE", "Product", pp.data.id);
   res.json(product);
 }));
 
 router.get("/products/:id/state-availability", requireAuth, asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const entries = await prisma.productStateAvailability.findMany({
-    where: { productId: req.params.id },
+    where: { productId: pp.data.id },
     select: { stateCode: true },
     orderBy: { stateCode: "asc" },
   });
@@ -127,6 +139,8 @@ router.get("/products/:id/state-availability", requireAuth, asyncHandler(async (
 }));
 
 router.put("/products/:id/state-availability", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const schema = z.object({
     stateCodes: z.array(z.string().length(2).regex(/^[A-Z]{2}$/)).max(51),
   });
@@ -134,18 +148,18 @@ router.put("/products/:id/state-availability", requireAuth, requireRole("PAYROLL
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   // Verify product exists
-  const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+  const product = await prisma.product.findUnique({ where: { id: pp.data.id } });
   if (!product) return res.status(404).json({ error: "Product not found" });
 
   await prisma.$transaction([
-    prisma.productStateAvailability.deleteMany({ where: { productId: req.params.id } }),
+    prisma.productStateAvailability.deleteMany({ where: { productId: pp.data.id } }),
     prisma.productStateAvailability.createMany({
-      data: parsed.data.stateCodes.map(sc => ({ productId: req.params.id, stateCode: sc })),
+      data: parsed.data.stateCodes.map(sc => ({ productId: pp.data.id, stateCode: sc })),
     }),
   ]);
 
   const result = await prisma.productStateAvailability.findMany({
-    where: { productId: req.params.id },
+    where: { productId: pp.data.id },
     select: { stateCode: true },
     orderBy: { stateCode: "asc" },
   });

@@ -17,8 +17,9 @@ const restoreSchema = z.object({
 
 // GET /archive/preview -- return eligible row counts without archiving
 router.get("/archive/preview", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
-  const days = parseInt(String(req.query.cutoffDays ?? "90"), 10);
-  if (isNaN(days) || days < 1) return res.status(400).json({ error: "cutoffDays must be a positive integer" });
+  const qp = z.object({ cutoffDays: z.coerce.number().int().min(1).default(90) }).safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const days = qp.data.cutoffDays;
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);

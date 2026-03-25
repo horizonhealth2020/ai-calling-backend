@@ -7,10 +7,14 @@ import { zodErr, asyncHandler } from "./helpers";
 const router = Router();
 
 // ── Convoso Webhook ─────────────────────────────────────────────
+const webhookQuerySchema = z.object({ api_key: z.string().optional() });
+
 const requireWebhookSecret = (req: Request, res: Response, next: NextFunction) => {
   const secret = process.env.CONVOSO_WEBHOOK_SECRET;
   if (!secret) return res.status(500).json({ error: "Webhook secret not configured" });
-  const provided = req.headers["x-webhook-secret"] || req.query.api_key;
+  const qp = webhookQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const provided = req.headers["x-webhook-secret"] || qp.data.api_key;
   if (provided !== secret) return res.status(401).json({ error: "Invalid webhook secret" });
   return next();
 };
