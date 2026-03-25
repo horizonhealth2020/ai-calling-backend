@@ -85,7 +85,7 @@
 
 ### v1.7 Dashboard Fixes & Cost Tracking
 
-- [ ] **Phase 29: Dashboard Fixes & Cost Tracking** - Bug fixes, Convoso data flow repair, cost tracking display, CS resolved log
+- [x] **Phase 29: Dashboard Fixes & Cost Tracking** - Bug fixes, Convoso data flow repair, cost tracking display, CS resolved log (completed 2026-03-25)
 
 ## Phase Details
 
@@ -108,7 +108,7 @@
   12. Resolved Log lists all resolved chargebacks showing resolution date, who resolved it, and any notes
   13. Resolved Log lists all resolved pending terms showing resolution date, who resolved it, and any notes
   14. User can filter the resolved log by type (chargeback vs pending term), date range, and agent
-**Plans:** 4 plans (3 executed + 1 gap closure)
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 29-01-PLAN.md — Bug fixes (premium display, lead source buffer) and products read-only conversion
 - [x] 29-02-PLAN.md — Convoso poller ConvosoCallLog writes and cost display logic fix
@@ -147,7 +147,7 @@ Plans:
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
-| 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete | 2026-03-25 |
+| 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete    | 2026-03-25 |
 
 ---
 *Roadmap created: 2026-03-14*
