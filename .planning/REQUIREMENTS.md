@@ -16,9 +16,9 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 
 ### Dead Code Removal
 
-- [ ] **DC-01**: Unused imports removed across all apps and packages
+- [x] **DC-01**: Unused imports removed across all apps and packages
 - [ ] **DC-02**: Unreferenced functions, components, and exports removed
-- [ ] **DC-03**: Commented-out code blocks removed
+- [x] **DC-03**: Commented-out code blocks removed
 - [ ] **DC-04**: Unused dependencies removed from package.json files
 
 ### Error Handling & Robustness
@@ -57,9 +57,9 @@ Requirements for pre-launch stabilization. No new features — cleanup, audit, a
 | FS-02 | Phase 25 | Complete |
 | FS-03 | Phase 25 | Complete |
 | FS-04 | Phase 25 | Complete |
-| DC-01 | Phase 26 | Pending |
+| DC-01 | Phase 26 | Complete |
 | DC-02 | Phase 26 | Pending |
-| DC-03 | Phase 26 | Pending |
+| DC-03 | Phase 26 | Complete |
 | DC-04 | Phase 26 | Pending |
 | EH-01 | Phase 27 | Pending |
 | EH-02 | Phase 27 | Pending |

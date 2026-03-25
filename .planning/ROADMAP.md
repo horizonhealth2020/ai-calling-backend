@@ -106,7 +106,7 @@ Plans:
   4. Every dependency in every package.json is imported somewhere in that package's source code
 **Plans**: 2 plans
 Plans:
-- [ ] 26-01-PLAN.md — Remove unused imports and commented-out code blocks across all source files
+- [x] 26-01-PLAN.md — Remove unused imports and commented-out code blocks across all source files
 - [ ] 26-02-PLAN.md — Remove unreferenced exports/functions and unused dependencies from package.json files
 
 ### Phase 27: Error Handling & Robustness
@@ -165,7 +165,7 @@ Plans:
 | 23. AI Scoring Dashboard | v1.5 | 1/1 | Complete | 2026-03-24 |
 | 24. Chargeback Automation & Data Archival | v1.5 | 4/4 | Complete | 2026-03-24 |
 | 25. File Structure Cleanup | v1.6 | 2/2 | Complete    | 2026-03-25 |
-| 26. Dead Code Removal | v1.6 | 0/2 | Not started | - |
+| 26. Dead Code Removal | v1.6 | 1/2 | In progress | - |
 | 27. Error Handling & Robustness | v1.6 | 0/? | Not started | - |
 | 28. Type Safety Audit | v1.6 | 0/? | Not started | - |
 
