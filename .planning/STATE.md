@@ -51,6 +51,8 @@ Plan: 3 of 3 (complete)
 | Used PendingTerm not PendingTermSubmission | Prisma schema model name is PendingTerm; accessor is prisma.pendingTerm |
 | ConvosoCallLog writes use newRaw before buffer | All calls logged regardless of duration; buffer only affects KPI aggregation |
 | tracker/summary wrapped as { agents, convosoConfigured } | Breaking API change handled by updating all 3 frontend consumers |
+| Removed ProductRow component entirely | Cleaner than disabling buttons; dead code removal preferred |
+| Inline IIFE for addon total in table cell | Matches card-level summation pattern already in ManagerSales |
 
 ### Open Questions
 
@@ -62,5 +64,5 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed 29-03-PLAN.md (CS Resolved Log)*
+*Last session: Completed 29-02-PLAN.md (Convoso Data Flow & Cost Display)*
 *Last updated: 2026-03-25*
