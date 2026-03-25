@@ -82,7 +82,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Remove dead code, unused imports, orphaned files — Phase 26
 - [x] Consolidate stale docs into README, delete originals — Phase 25
 - [x] Error handling hardening: asyncHandler audit, Zod validation on all inputs, Prisma error handling, Socket.IO try/catch — Phase 27
-- [ ] Type safety audit: eliminate `any` types, align response types, annotate exports
+- [x] Type safety audit: eliminate `any` types, align response types, annotate exports — Phase 28
 
 ### Out of Scope
 
@@ -94,8 +94,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24)
-**Total:** 6 milestones, 25 phases, 78 plans, 160 requirements across 12 days
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25)
+**Total:** 7 milestones, 28 phases, 82 plans, 175 requirements across 12 days
 **LOC:** ~128,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
