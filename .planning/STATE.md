@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Pre-Launch Stabilization
-status: v1.6 milestone complete
-last_updated: "2026-03-25T18:13:39.854Z"
+milestone: v1.7
+milestone_name: Dashboard Fixes & Cost Tracking
+status: Defining requirements
+last_updated: "2026-03-25"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -18,12 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 28 — type-safety-audit
+**Current focus:** Defining requirements for v1.7
 
 ## Current Position
 
-Phase: 28 (type-safety-audit) — COMPLETE
-Plan: 4 of 4 (all complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-25 — Milestone v1.7 started
 
 ## Performance Metrics
 

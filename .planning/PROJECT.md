@@ -81,7 +81,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- No active milestone — ready for next -->
+## Current Milestone: v1.7 Dashboard Fixes & Cost Tracking
+
+**Goal:** Fix data flow bugs, clean up misplaced UI, and add CS audit trail
+
+**Target features:**
+- Remove Products section from Manager Config tab (belongs in Payroll only)
+- Add Buffer field to Lead Source create form (already exists in DB and edit form)
+- CS Resolved Log tab — OWNER_VIEW/SUPER_ADMIN audit trail for resolved chargebacks & pending terms with notes
+- Fix Convoso call log data flow so poller stores ConvosoCallLog records and cost per sale surfaces in tracker/owner dashboard
+- Show agent lead spend even with zero sales
+- Fix Manager Agent Sales premium column to include addon premiums per row
 
 ### Out of Scope
 
@@ -149,5 +159,22 @@ Shipped 7 milestones in 12 days (28 phases, 82 plans). Tech stack: Next.js 15, E
 | Sub-component extraction during migration | Each dashboard tab split into named components for debuggability | ✓ Good |
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-25 after v1.6 milestone*
+*Last updated: 2026-03-25 — v1.7 milestone started*
