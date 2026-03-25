@@ -9,14 +9,14 @@ Requirements for milestone v1.7. Each maps to roadmap phases.
 
 ### Bug Fixes
 
-- [ ] **FIX-01**: Manager Agent Sales tab displays total premium (core + addon) per row, not just core premium
-- [ ] **FIX-02**: Lead source create form includes Buffer (seconds) field matching edit form
-- [ ] **FIX-03**: Lead source POST API accepts callBufferSeconds in Zod schema
+- [x] **FIX-01**: Manager Agent Sales tab displays total premium (core + addon) per row, not just core premium
+- [x] **FIX-02**: Lead source create form includes Buffer (seconds) field matching edit form
+- [x] **FIX-03**: Lead source POST API accepts callBufferSeconds in Zod schema
 
 ### Config Cleanup
 
-- [ ] **CFG-01**: Manager Config Products section is read-only (no add/edit/delete buttons)
-- [ ] **CFG-02**: Read-only Products view shows product name, type, commission rates, and bundle config
+- [x] **CFG-01**: Manager Config Products section is read-only (no add/edit/delete buttons)
+- [x] **CFG-02**: Read-only Products view shows product name, type, commission rates, and bundle config
 
 ### Data Flow
 
@@ -56,11 +56,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | Phase 29 | Pending |
-| FIX-02 | Phase 29 | Pending |
-| FIX-03 | Phase 29 | Pending |
-| CFG-01 | Phase 29 | Pending |
-| CFG-02 | Phase 29 | Pending |
+| FIX-01 | Phase 29 | Complete |
+| FIX-02 | Phase 29 | Complete |
+| FIX-03 | Phase 29 | Complete |
+| CFG-01 | Phase 29 | Complete |
+| CFG-02 | Phase 29 | Complete |
 | DATA-01 | Phase 29 | Pending |
 | DATA-02 | Phase 29 | Pending |
 | DATA-03 | Phase 29 | Pending |
