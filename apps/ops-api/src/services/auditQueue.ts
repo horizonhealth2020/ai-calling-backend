@@ -25,9 +25,13 @@ export async function enqueueAuditJob(callLogId: string): Promise<void> {
 // ── Batch enqueue eligible calls for auto-scoring ────────────────
 
 export async function enqueueAutoScore(): Promise<number> {
-  // Only audit calls that arrived after scoring was enabled
+  // Only audit calls from the day scoring was enabled onward (midnight UTC)
   const enabledAtSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
-  const enabledAt = enabledAtSetting?.value ? new Date(enabledAtSetting.value) : null;
+  let enabledAt: Date | null = null;
+  if (enabledAtSetting?.value) {
+    enabledAt = new Date(enabledAtSetting.value);
+    enabledAt.setUTCHours(0, 0, 0, 0); // Start of the day it was enabled
+  }
 
   // Use configurable duration filter from Owner dashboard settings
   const [minSetting, maxSetting] = await Promise.all([
