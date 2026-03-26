@@ -24,9 +24,8 @@ type Product = {
   standaloneCommission?: number | null; enrollFeeThreshold?: number | null;
   notes?: string;
   requiredBundleAddonId?: string | null;
-  fallbackBundleAddonId?: string | null;
   requiredBundleAddon?: { id: string; name: string } | null;
-  fallbackBundleAddon?: { id: string; name: string } | null;
+  fallbackAddons?: { fallbackProduct: { id: string; name: string } }[];
   stateAvailability?: { stateCode: string }[];
 };
 
@@ -60,7 +59,7 @@ function ProductCard({
     standaloneCommission: String(product.standaloneCommission ?? ""),
     enrollFeeThreshold: String(product.enrollFeeThreshold ?? ""),
     requiredBundleAddonId: product.requiredBundleAddonId ?? null as string | null,
-    fallbackBundleAddonId: product.fallbackBundleAddonId ?? null as string | null,
+    fallbackAddonIds: (product.fallbackAddons ?? []).map(fa => fa.fallbackProduct.id),
   });
   const [saving, setSaving] = useState(false);
   const [bundleOpen, setBundleOpen] = useState(false);
@@ -99,7 +98,7 @@ function ProductCard({
     };
     if (d.type === "CORE") {
       saveData.requiredBundleAddonId = d.requiredBundleAddonId || null;
-      saveData.fallbackBundleAddonId = d.fallbackBundleAddonId || null;
+      saveData.fallbackAddonIds = d.fallbackAddonIds;
     }
     // Save state availability BEFORE product PATCH so the PATCH response reflects updated states
     if (d.type === "ADDON" || d.type === "AD_D") {
@@ -169,16 +168,19 @@ function ProductCard({
             {/* Completeness indicator for CORE products with bundle requirements */}
             {product.type === "CORE" && product.requiredBundleAddonId && (() => {
               const requiredAddon = allProducts.find(p => p.id === product.requiredBundleAddonId);
-              const fallbackAddon = product.fallbackBundleAddonId ? allProducts.find(p => p.id === product.fallbackBundleAddonId) : null;
+              const fallbackAddons = (product.fallbackAddons ?? []).map(fa => fa.fallbackProduct);
               const coveredStates = new Set<string>();
               if (requiredAddon?.stateAvailability) requiredAddon.stateAvailability.forEach(s => coveredStates.add(s.stateCode));
-              if (fallbackAddon?.stateAvailability) fallbackAddon.stateAvailability.forEach(s => coveredStates.add(s.stateCode));
+              for (const fb of fallbackAddons) {
+                const fbProduct = allProducts.find(p => p.id === fb.id);
+                if (fbProduct?.stateAvailability) fbProduct.stateAvailability.forEach(s => coveredStates.add(s.stateCode));
+              }
               const uncoveredCount = 51 - coveredStates.size;
               return (
                 <div style={{ marginTop: S[2], fontSize: 12 }}>
                   <span style={{ color: C.textMuted }}>
                     Bundle: {product.requiredBundleAddon?.name ?? "?"}
-                    {product.fallbackBundleAddon ? ` / fallback: ${product.fallbackBundleAddon.name}` : ""}
+                    {fallbackAddons.length > 0 ? ` / fallbacks: ${fallbackAddons.map(f => f.name).join(", ")}` : ""}
                   </span>
                   {uncoveredCount > 0 && (
                     <span style={{ background: C.warning, color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 11, marginLeft: 8 }}>
@@ -299,7 +301,7 @@ function ProductCard({
                   {bundleOpen ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
                 </div>
                 {bundleOpen && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[2] }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: S[2] }}>
                     <div>
                       <label style={LBL}>Required Addon for Full Commission</label>
                       <select className="input-focus" style={{ ...inputStyle, height: 42 }}
@@ -311,16 +313,23 @@ function ProductCard({
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label style={LBL}>Fallback Addon</label>
-                      <select className="input-focus" style={{ ...inputStyle, height: 42 }}
-                        value={d.fallbackBundleAddonId ?? ""}
-                        onChange={e => setD(x => ({ ...x, fallbackBundleAddonId: e.target.value || null }))}>
-                        <option value="">None</option>
+                    <div style={{ marginTop: S[2] }}>
+                      <label style={LBL}>Fallback Addons (any qualifies)</label>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, maxHeight: 150, overflowY: "auto", marginTop: 4 }}>
                         {allProducts.filter(p => (p.type === "ADDON" || p.type === "AD_D") && p.id !== product.id && p.active && p.id !== d.requiredBundleAddonId).map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                          <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.textSecondary, cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={d.fallbackAddonIds.includes(p.id)}
+                              onChange={e => {
+                                if (e.target.checked) setD(x => ({ ...x, fallbackAddonIds: [...x.fallbackAddonIds, p.id] }));
+                                else setD(x => ({ ...x, fallbackAddonIds: x.fallbackAddonIds.filter(id => id !== p.id) }));
+                              }}
+                            />
+                            {p.name}
+                          </label>
                         ))}
-                      </select>
+                      </div>
                     </div>
                   </div>
                 )}
