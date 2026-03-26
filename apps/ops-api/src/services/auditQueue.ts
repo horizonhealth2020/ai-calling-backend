@@ -29,11 +29,22 @@ export async function enqueueAutoScore(): Promise<number> {
   const enabledAtSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
   const enabledAt = enabledAtSetting?.value ? new Date(enabledAtSetting.value) : null;
 
+  // Use configurable duration filter from Owner dashboard settings
+  const [minSetting, maxSetting] = await Promise.all([
+    prisma.salesBoardSetting.findUnique({ where: { key: "audit_min_seconds" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "audit_max_seconds" } }),
+  ]);
+  const minDuration = minSetting?.value ? Number(minSetting.value) : MIN_CALL_DURATION;
+  const maxDuration = maxSetting?.value ? Number(maxSetting.value) : undefined;
+
   const eligible = await prisma.convosoCallLog.findMany({
     where: {
       auditStatus: "pending",
       recordingUrl: { not: null },
-      callDurationSeconds: { gte: MIN_CALL_DURATION },
+      callDurationSeconds: {
+        gte: minDuration,
+        ...(maxDuration ? { lte: maxDuration } : {}),
+      },
       ...(enabledAt ? { createdAt: { gte: enabledAt } } : {}),
     },
     select: { id: true },
