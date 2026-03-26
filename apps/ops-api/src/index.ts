@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import routes from "./routes";
 import { setIO } from "./socket";
 import { startConvosoKpiPoller } from "./workers/convosoKpiPoller";
+import { startAutoScorePolling } from "./services/auditQueue";
 
 // ── Validate required environment variables ─────────────────────
 const required = ["DATABASE_URL", "AUTH_JWT_SECRET"];
@@ -92,4 +93,5 @@ const port = Number(process.env.PORT || 8080);
 server.listen(port, () => {
   console.log(`ops-api listening on ${port}`);
   startConvosoKpiPoller();
+  startAutoScorePolling();
 });

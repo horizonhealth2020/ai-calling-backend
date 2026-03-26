@@ -214,12 +214,17 @@ async function downloadRecordingWithRetry(callLogId: string, url: string): Promi
 
 export function startAutoScorePolling(): void {
   if (pollingInterval) return;
-  pollingInterval = setInterval(() => {
-    pollPendingJobs().catch((err) => {
+  pollingInterval = setInterval(async () => {
+    try {
+      // Enqueue any new eligible calls before polling for queued jobs
+      await enqueueAutoScore();
+      await pollPendingJobs();
+    } catch (err) {
       console.error("[auditQueue] Polling error:", err);
-    });
+    }
   }, POLL_INTERVAL_MS);
-  pollPendingJobs().catch(() => {}); // Run immediately
+  // Run immediately on start
+  enqueueAutoScore().then(() => pollPendingJobs()).catch(() => {});
 }
 
 // ── AI usage stats ───────────────────────────────────────────────
