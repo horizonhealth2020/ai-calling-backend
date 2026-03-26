@@ -20,22 +20,22 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 
 ### Heatmap Visualization
 
-- [ ] **HEAT-01**: Manager can view a source x hour heatmap grid with diverging color scale (red-white-green) showing close rate per cell
-- [ ] **HEAT-02**: Manager can toggle heatmap between day-of-week view and week-of-month view
-- [ ] **HEAT-03**: Heatmap cells with low sample sizes (< 10 calls) are visually de-emphasized with reduced opacity
-- [ ] **HEAT-04**: Hovering a heatmap cell shows tooltip with exact close rate, call count, and sale count
-- [ ] **HEAT-05**: Heatmap has its own independent date range filter (Last Week / 30 Days / 60 Days / 90 Days / Custom)
+- [x] **HEAT-01**: Manager can view a source x hour heatmap grid with diverging color scale (red-white-green) showing close rate per cell
+- [x] **HEAT-02**: Manager can toggle heatmap between day-of-week view and week-of-month view
+- [x] **HEAT-03**: Heatmap cells with low sample sizes (< 10 calls) are visually de-emphasized with reduced opacity
+- [x] **HEAT-04**: Hovering a heatmap cell shows tooltip with exact close rate, call count, and sale count
+- [x] **HEAT-05**: Heatmap has its own independent date range filter (Last Week / 30 Days / 60 Days / 90 Days / Custom)
 
 ### Recommendation Card
 
-- [ ] **REC-01**: Manager can see a "Best Source Right Now" card showing the top lead source for the current hour based on historical close rate
-- [ ] **REC-02**: Card displays close rate, call count, and trend arrow (up/down/flat vs same hour last period)
-- [ ] **REC-03**: Card only shows recommendation when sufficient sample size exists; otherwise shows "Not enough data"
+- [x] **REC-01**: Manager can see a "Best Source Right Now" card showing the top lead source for the current hour based on historical close rate
+- [x] **REC-02**: Card displays close rate, call count, and trend arrow (up/down/flat vs same hour last period)
+- [x] **REC-03**: Card only shows recommendation when sufficient sample size exists; otherwise shows "Not enough data"
 
 ### Sparklines
 
-- [ ] **SPARK-01**: Manager can view a table of lead sources with inline SVG sparklines showing 7-day close rate trends per daypart (morning/afternoon/evening)
-- [ ] **SPARK-02**: Sparklines use no external charting library — rendered as inline SVG polylines with React.CSSProperties
+- [x] **SPARK-01**: Manager can view a table of lead sources with inline SVG sparklines showing 7-day close rate trends per daypart (morning/afternoon/evening)
+- [x] **SPARK-02**: Sparklines use no external charting library — rendered as inline SVG polylines with React.CSSProperties
 
 ### Dashboard Integration
 
@@ -81,16 +81,16 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 | DATA-06 | Phase 30 | Complete |
 | DATA-07 | Phase 30 | Complete |
 | DATA-08 | Phase 30 | Complete |
-| HEAT-01 | Phase 30 | Pending |
-| HEAT-02 | Phase 30 | Pending |
-| HEAT-03 | Phase 30 | Pending |
-| HEAT-04 | Phase 30 | Pending |
-| HEAT-05 | Phase 30 | Pending |
-| REC-01 | Phase 30 | Pending |
-| REC-02 | Phase 30 | Pending |
-| REC-03 | Phase 30 | Pending |
-| SPARK-01 | Phase 30 | Pending |
-| SPARK-02 | Phase 30 | Pending |
+| HEAT-01 | Phase 30 | Complete |
+| HEAT-02 | Phase 30 | Complete |
+| HEAT-03 | Phase 30 | Complete |
+| HEAT-04 | Phase 30 | Complete |
+| HEAT-05 | Phase 30 | Complete |
+| REC-01 | Phase 30 | Complete |
+| REC-02 | Phase 30 | Complete |
+| REC-03 | Phase 30 | Complete |
+| SPARK-01 | Phase 30 | Complete |
+| SPARK-02 | Phase 30 | Complete |
 | DASH-01 | Phase 30 | Pending |
 | DASH-02 | Phase 30 | Pending |
 | DASH-03 | Phase 30 | Pending |
