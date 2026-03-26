@@ -18,12 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 29 — Dashboard Fixes & Cost Tracking
+**Current focus:** Phase 30 — Lead Source Timing Analytics
 
 ## Current Position
 
-Phase: 29
-Plan: Not started
+Phase: 30
+Plan: 02 complete
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Plan: Not started
 | Phase 29 P02 | 4min | 2 tasks | 5 files |
 | Phase 29 P03 | 3min | 2 tasks | 3 files |
 | Phase 29 P04 | 1min | 2 tasks | 2 files |
+| Phase 30 P02 | 2min | 1 task | 3 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,6 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed quick/260326-lsx (Multi-Fallback Addons for Core Bundle Resolution)*
-Last activity: 2026-03-26 - Completed quick task 260326-maj: Increase role dashboard dropdown auto-minimize delay to 2 seconds
+*Last session: Completed 30-02 (Tab Rename and Today Column)*
+Last activity: 2026-03-26 - Completed phase 30 plan 02: Rename Agent Tracker to Performance Tracker, add Today column
 *Last updated: 2026-03-26*
