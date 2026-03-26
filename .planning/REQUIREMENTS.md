@@ -39,10 +39,10 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 
 ### Dashboard Integration
 
-- [ ] **DASH-01**: "Agent Tracker" tab renamed to "Performance Tracker" across Manager dashboard
-- [ ] **DASH-02**: Agent performance card includes a "Today" column alongside existing time range columns
-- [ ] **DASH-03**: Timing analytics section (heatmap + recommendation card + sparklines) renders below agent performance on Performance Tracker tab
-- [ ] **DASH-04**: Same timing analytics components visible on Owner dashboard
+- [x] **DASH-01**: "Agent Tracker" tab renamed to "Performance Tracker" across Manager dashboard
+- [x] **DASH-02**: Agent performance card includes a "Today" column alongside existing time range columns
+- [x] **DASH-03**: Timing analytics section (heatmap + recommendation card + sparklines) renders below agent performance on Performance Tracker tab
+- [x] **DASH-04**: Same timing analytics components visible on Owner dashboard
 - [x] **DASH-05**: Timing analytics section accessible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles
 
 ### Commission Fix
@@ -91,10 +91,10 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 | REC-03 | Phase 30 | Complete |
 | SPARK-01 | Phase 30 | Complete |
 | SPARK-02 | Phase 30 | Complete |
-| DASH-01 | Phase 30 | Pending |
-| DASH-02 | Phase 30 | Pending |
-| DASH-03 | Phase 30 | Pending |
-| DASH-04 | Phase 30 | Pending |
+| DASH-01 | Phase 30 | Complete |
+| DASH-02 | Phase 30 | Complete |
+| DASH-03 | Phase 30 | Complete |
+| DASH-04 | Phase 30 | Complete |
 | DASH-05 | Phase 30 | Complete |
 | COMM-01 | Phase 30 | Complete |
 | COMM-02 | Phase 30 | Complete |

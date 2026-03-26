@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-03-25)
 ## Current Position
 
 Phase: 30
-Plan: 04 complete (of 5)
+Plan: 05 complete (of 5) -- awaiting human verification
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Plan: 04 complete (of 5)
 | Phase 30 P02 | 2min | 1 task | 3 files |
 | Phase 30 P03 | 2min | 2 tasks | 2 files |
 | Phase 30 P04 | 3min | 2 tasks | 4 files |
+| Phase 30 P05 | 1min | 1 task | 2 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,8 @@ Plan: 04 complete (of 5)
 | Luxon for Convoso DST-correct parsing | IANA timezone database handles exact DST transitions, replacing month-based approximation |
 | Commission fallback guard before loop | Prevents fallback loop when primary addon IS available but missing from sale |
 | Manual migration for indexes | Shadow DB incompatible with existing migrations; hand-crafted SQL is equivalent |
+| Call count ticker between agent table and timing section | Logical visual hierarchy: agent stats -> call volume by source -> timing analytics |
+| Badge component pattern for ticker cards | Reuses existing @ops/ui Badge with subtle variant, consistent with design system |
 
 ### Open Questions
 
@@ -79,6 +82,6 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed 30-04 (Frontend Timing Analytics Components)*
-Last activity: 2026-03-26 - Completed phase 30 plan 04: heatmap grid, best source card, sparklines table, section wrapper
+*Last session: Completed 30-05 (Dashboard Integration)*
+Last activity: 2026-03-26 - Completed phase 30 plan 05: LeadTimingSection wired into Manager and Owner dashboards, call count ticker added
 *Last updated: 2026-03-26*
