@@ -3,70 +3,27 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
-import { zodErr, asyncHandler, idParamSchema } from "./helpers";
+import { zodErr, asyncHandler, idParamSchema, dateRange, dateRangeQuerySchema } from "./helpers";
 
 const router = Router();
 
 // ─── Resolved Log (Audit Trail) ──────────────────────────────────
 
 router.get("/reps/resolved-log", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const schema = z.object({
+  const schema = dateRangeQuerySchema.extend({
     type: z.enum(["all", "chargeback", "pending_term"]).default("all"),
-    range: z.enum(["week", "last_week", "7d", "30d", "month", "custom"]).optional(),
-    from: z.string().optional(),
-    to: z.string().optional(),
     agentName: z.string().optional(),
   });
   const parsed = schema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const { type, range, from, to, agentName } = parsed.data;
-
-  // Compute date range from preset or explicit from/to
-  let rangeFrom: Date | undefined;
-  let rangeTo: Date | undefined;
-
-  if (range && range !== "custom") {
-    const now = new Date();
-    rangeTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    if (range === "week") {
-      const day = now.getDay();
-      rangeFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
-    } else if (range === "last_week") {
-      const day = now.getDay();
-      const thisSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
-      rangeFrom = new Date(thisSunday);
-      rangeFrom.setDate(rangeFrom.getDate() - 7);
-      rangeTo = new Date(thisSunday);
-      rangeTo.setMilliseconds(-1);
-    } else if (range === "7d") {
-      rangeFrom = new Date(now);
-      rangeFrom.setDate(rangeFrom.getDate() - 7);
-      rangeFrom.setHours(0, 0, 0, 0);
-    } else if (range === "30d") {
-      rangeFrom = new Date(now);
-      rangeFrom.setDate(rangeFrom.getDate() - 30);
-      rangeFrom.setHours(0, 0, 0, 0);
-    } else if (range === "month") {
-      rangeFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-  } else if (from && to) {
-    rangeFrom = new Date(from);
-    rangeTo = new Date(to);
-  } else if (from) {
-    rangeFrom = new Date(from);
-  } else if (to) {
-    rangeTo = new Date(to);
-  }
+  const { type, agentName } = parsed.data;
+  const dr = dateRange(parsed.data.range, parsed.data.from, parsed.data.to);
 
   // Build date filter for resolvedAt
   const dateFilter: Record<string, unknown> = { resolvedAt: { not: null } };
-  if (rangeFrom && rangeTo) {
-    dateFilter.resolvedAt = { gte: rangeFrom, lt: rangeTo };
-  } else if (rangeFrom) {
-    dateFilter.resolvedAt = { gte: rangeFrom, not: null };
-  } else if (rangeTo) {
-    dateFilter.resolvedAt = { lt: rangeTo, not: null };
+  if (dr) {
+    dateFilter.resolvedAt = { gte: dr.gte, lt: dr.lt };
   }
 
   const results: Array<{
