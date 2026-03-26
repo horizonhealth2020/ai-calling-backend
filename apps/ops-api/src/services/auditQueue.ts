@@ -45,7 +45,7 @@ export async function enqueueAutoScore(): Promise<number> {
         gte: minDuration,
         ...(maxDuration ? { lte: maxDuration } : {}),
       },
-      ...(enabledAt ? { createdAt: { gte: enabledAt } } : {}),
+      ...(enabledAt ? { callTimestamp: { gte: enabledAt } } : {}),
     },
     select: { id: true },
     take: 50,
