@@ -20,7 +20,12 @@ import {
 
 function extractConvosoResults(response: unknown): Record<string, unknown>[] {
   const resp = response as Record<string, unknown> | undefined;
+  // Convoso wraps results as { data: { results: [...] } }
+  const dataObj = resp?.data as Record<string, unknown> | undefined;
+  if (dataObj && Array.isArray(dataObj.results)) return dataObj.results as Record<string, unknown>[];
+  // Fallback: data is directly an array
   if (Array.isArray(resp?.data)) return resp.data as Record<string, unknown>[];
+  // Fallback: top-level results array
   if (Array.isArray(resp?.results)) return resp.results as Record<string, unknown>[];
   if (Array.isArray(response)) return response as Record<string, unknown>[];
   return [];
