@@ -30,7 +30,7 @@ type Product = {
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number; todaySalesCount: number; todayPremium: number };
 type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
@@ -39,7 +39,7 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 const NAV_ITEMS: NavItem[] = [
   { icon: <FileText size={18} />, label: "Sales Entry", key: "entry" },
-  { icon: <Users size={18} />, label: "Agent Tracker", key: "tracker" },
+  { icon: <Users size={18} />, label: "Performance Tracker", key: "tracker" },
   { icon: <BarChart3 size={18} />, label: "Agent Sales", key: "sales" },
   { icon: <Headphones size={18} />, label: "Call Audits", key: "audits" },
   { icon: <Settings size={18} />, label: "Config", key: "config" },
@@ -129,7 +129,7 @@ function ManagerPageInner() {
               : t
           );
         }
-        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: totalPrem, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0 }];
+        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: totalPrem, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0, todaySalesCount: 1, todayPremium: totalPrem }];
       });
 
       // Patch salesList
