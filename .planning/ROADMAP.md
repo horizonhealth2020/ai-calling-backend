@@ -107,7 +107,13 @@
   3. Manager can view a sparklines table showing 7-day close rate trends per lead source per daypart (morning/afternoon/evening), rendered as inline SVG polylines with no external charting library
   4. Owner dashboard displays the same timing analytics section, accessible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles, with the Agent Tracker tab renamed to Performance Tracker and a Today column added to agent performance cards
   5. Fallback bundle addon commission correctly applies full commission only in states where the primary required addon is unavailable, and half commission in states where the primary addon IS available
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 30-01-PLAN.md -- Data layer fixes: Convoso DST/business-hours bugs, commission fallback guard, DB indexes
+- [ ] 30-02-PLAN.md -- Dashboard polish: rename tab to Performance Tracker, add Today column
+- [ ] 30-03-PLAN.md -- Lead timing API: heatmap, sparklines, recommendation endpoints
+- [ ] 30-04-PLAN.md -- UI components: heatmap grid, best source card, sparklines table, section wrapper
+- [ ] 30-05-PLAN.md -- Dashboard integration: wire analytics section into Manager and Owner dashboards
 
 ## Progress
 
@@ -142,7 +148,7 @@
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
 | 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete | 2026-03-25 |
-| 30. Lead Source Timing Analytics | v1.8 | 0/? | Not started | - |
+| 30. Lead Source Timing Analytics | v1.8 | 0/5 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
