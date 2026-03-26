@@ -6,7 +6,20 @@
  */
 
 import { prisma } from "@ops/db";
-import { DateTime } from "luxon";
+// Convoso returns timestamps in America/Los_Angeles (Pacific)
+// PDT = UTC-7 (Mar-Nov), PST = UTC-8 (Nov-Mar)
+function convosoDateToUTC(dateStr: string): Date {
+  // Parse "YYYY-MM-DD HH:MM:SS" and determine if DST is active
+  const str = dateStr.replace(" ", "T");
+  // Create date as if UTC to extract month for DST check
+  const asUTC = new Date(str + "Z");
+  if (isNaN(asUTC.getTime())) return new Date();
+  // US Pacific DST: 2nd Sunday Mar → 1st Sunday Nov
+  const month = asUTC.getUTCMonth(); // 0-indexed
+  const isPDT = month >= 2 && month <= 9; // Mar(2) through Oct(9) = PDT
+  const offsetHours = isPDT ? 7 : 8;
+  return new Date(asUTC.getTime() + offsetHours * 60 * 60 * 1000);
+}
 import {
   fetchConvosoCallLogs,
   enrichWithTiers,
@@ -109,13 +122,7 @@ async function pollLeadSource(
             const n = Number(raw);
             return isNaN(n) ? null : n;
           })(),
-          callTimestamp: (() => {
-            const raw = r.call_date ?? r.start_time;
-            if (!raw) return new Date();
-            // Convoso returns "YYYY-MM-DD HH:MM:SS" in America/Los_Angeles (Pacific)
-            const dt = DateTime.fromFormat(String(raw), "yyyy-MM-dd HH:mm:ss", { zone: "America/Los_Angeles" });
-            return dt.isValid ? dt.toJSDate() : new Date();
-          })(),
+          callTimestamp: convosoDateToUTC(String(r.call_date ?? r.start_time ?? "")),
           agentId: agentInfo?.id ?? null,
           leadSourceId: leadSource.id,
         };
