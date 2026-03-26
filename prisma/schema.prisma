@@ -90,7 +90,8 @@ model Agent {
   userId       String?  @map("user_id")
   extension    String?
   active       Boolean  @default(true)
-  auditEnabled Boolean  @default(false) @map("audit_enabled")
+  auditEnabled   Boolean   @default(false) @map("audit_enabled")
+  auditEnabledAt DateTime? @map("audit_enabled_at")
   displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

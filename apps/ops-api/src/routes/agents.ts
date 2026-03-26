@@ -62,7 +62,17 @@ router.patch("/agents/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
-    const agent = await prisma.agent.update({ where: { id: pp.data.id }, data: parsed.data });
+    // Record timestamp when audit is enabled for this agent
+    const updateData: Record<string, unknown> = { ...parsed.data };
+    if (parsed.data.auditEnabled === true) {
+      const existing = await prisma.agent.findUnique({ where: { id: pp.data.id }, select: { auditEnabled: true } });
+      if (!existing?.auditEnabled) {
+        updateData.auditEnabledAt = new Date();
+      }
+    } else if (parsed.data.auditEnabled === false) {
+      updateData.auditEnabledAt = null;
+    }
+    const agent = await prisma.agent.update({ where: { id: pp.data.id }, data: updateData });
     res.json(agent);
   } catch (e: unknown) {
     if (isPrismaError(e) && e.code === "P2002") return res.status(409).json({ error: "An agent with this email already exists" });

@@ -25,9 +25,9 @@ export async function enqueueAuditJob(callLogId: string): Promise<void> {
 // ── Batch enqueue eligible calls for auto-scoring ────────────────
 
 export async function enqueueAutoScore(): Promise<number> {
-  // Only audit calls that happened after scoring was enabled (exact timestamp)
+  // Global gate: only audit calls after scoring was enabled
   const enabledAtSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
-  const enabledAt = enabledAtSetting?.value ? new Date(enabledAtSetting.value) : null;
+  const globalEnabledAt = enabledAtSetting?.value ? new Date(enabledAtSetting.value) : null;
 
   // Use configurable duration filter from Owner dashboard settings
   const [minSetting, maxSetting] = await Promise.all([
@@ -37,19 +37,42 @@ export async function enqueueAutoScore(): Promise<number> {
   const minDuration = minSetting?.value ? Number(minSetting.value) : MIN_CALL_DURATION;
   const maxDuration = maxSetting?.value ? Number(maxSetting.value) : undefined;
 
-  const eligible = await prisma.convosoCallLog.findMany({
+  // Get agents with audit enabled and their individual enabled-at timestamps
+  const auditAgents = await prisma.agent.findMany({
+    where: { auditEnabled: true, active: true },
+    select: { id: true, auditEnabledAt: true },
+  });
+
+  if (auditAgents.length === 0) return 0;
+
+  // Build per-agent eligibility: call must be after BOTH global and agent enabledAt
+  const agentIds = auditAgents.map((a) => a.id);
+  const agentCutoffs = new Map(auditAgents.map((a) => [a.id, a.auditEnabledAt]));
+
+  // Query candidates: agent is audit-enabled, meets duration, has recording
+  const candidates = await prisma.convosoCallLog.findMany({
     where: {
       auditStatus: "pending",
       recordingUrl: { not: null },
+      agentId: { in: agentIds },
       callDurationSeconds: {
         gte: minDuration,
         ...(maxDuration ? { lte: maxDuration } : {}),
       },
-      ...(enabledAt ? { callTimestamp: { gte: enabledAt } } : {}),
+      ...(globalEnabledAt ? { callTimestamp: { gte: globalEnabledAt } } : {}),
     },
-    select: { id: true },
-    take: 50,
+    select: { id: true, agentId: true, callTimestamp: true },
+    take: 100,
   });
+
+  // Filter by per-agent auditEnabledAt timestamp
+  const eligible = candidates.filter((c) => {
+    if (!c.agentId) return false;
+    const agentCutoff = agentCutoffs.get(c.agentId);
+    if (!agentCutoff) return true; // No timestamp = legacy agent, use global only
+    if (!c.callTimestamp) return false;
+    return c.callTimestamp >= agentCutoff;
+  }).slice(0, 50);
 
   if (eligible.length === 0) return 0;
 
