@@ -25,11 +25,16 @@ export async function enqueueAuditJob(callLogId: string): Promise<void> {
 // ── Batch enqueue eligible calls for auto-scoring ────────────────
 
 export async function enqueueAutoScore(): Promise<number> {
+  // Only audit calls that arrived after scoring was enabled
+  const enabledAtSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
+  const enabledAt = enabledAtSetting?.value ? new Date(enabledAtSetting.value) : null;
+
   const eligible = await prisma.convosoCallLog.findMany({
     where: {
       auditStatus: "pending",
       recordingUrl: { not: null },
       callDurationSeconds: { gte: MIN_CALL_DURATION },
+      ...(enabledAt ? { createdAt: { gte: enabledAt } } : {}),
     },
     select: { id: true },
     take: 50,
