@@ -12,11 +12,11 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 - [x] **DATA-01**: Convoso poller DST handling uses Luxon instead of month-based approximation for accurate hour extraction
 - [x] **DATA-02**: Convoso poller business hours check uses America/Los_Angeles local time instead of UTC hours
 - [x] **DATA-03**: Database indexes added on ConvosoCallLog (leadSourceId, callTimestamp) and Sale (leadSourceId, createdAt) for aggregation performance
-- [ ] **DATA-04**: API endpoint returns heatmap data: close rate (sales/calls) grouped by lead source x hour-of-day, with day-of-week or week-of-month grouping toggle
-- [ ] **DATA-05**: API endpoint returns sparkline data: daily close rate per lead source per daypart (morning/afternoon/evening) for last 7 days
-- [ ] **DATA-06**: API endpoint returns recommendation data: top lead sources ranked by historical close rate for current hour and day-of-week
-- [ ] **DATA-07**: All aggregation queries use AT TIME ZONE for consistent timezone handling between Convoso (Pacific) and sale timestamps (UTC)
-- [ ] **DATA-08**: All API responses include sample size (call count) per bucket so frontend can indicate statistical confidence
+- [x] **DATA-04**: API endpoint returns heatmap data: close rate (sales/calls) grouped by lead source x hour-of-day, with day-of-week or week-of-month grouping toggle
+- [x] **DATA-05**: API endpoint returns sparkline data: daily close rate per lead source per daypart (morning/afternoon/evening) for last 7 days
+- [x] **DATA-06**: API endpoint returns recommendation data: top lead sources ranked by historical close rate for current hour and day-of-week
+- [x] **DATA-07**: All aggregation queries use AT TIME ZONE for consistent timezone handling between Convoso (Pacific) and sale timestamps (UTC)
+- [x] **DATA-08**: All API responses include sample size (call count) per bucket so frontend can indicate statistical confidence
 
 ### Heatmap Visualization
 
@@ -43,7 +43,7 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 - [ ] **DASH-02**: Agent performance card includes a "Today" column alongside existing time range columns
 - [ ] **DASH-03**: Timing analytics section (heatmap + recommendation card + sparklines) renders below agent performance on Performance Tracker tab
 - [ ] **DASH-04**: Same timing analytics components visible on Owner dashboard
-- [ ] **DASH-05**: Timing analytics section accessible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles
+- [x] **DASH-05**: Timing analytics section accessible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles
 
 ### Commission Fix
 
@@ -76,11 +76,11 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 | DATA-01 | Phase 30 | Complete |
 | DATA-02 | Phase 30 | Complete |
 | DATA-03 | Phase 30 | Complete |
-| DATA-04 | Phase 30 | Pending |
-| DATA-05 | Phase 30 | Pending |
-| DATA-06 | Phase 30 | Pending |
-| DATA-07 | Phase 30 | Pending |
-| DATA-08 | Phase 30 | Pending |
+| DATA-04 | Phase 30 | Complete |
+| DATA-05 | Phase 30 | Complete |
+| DATA-06 | Phase 30 | Complete |
+| DATA-07 | Phase 30 | Complete |
+| DATA-08 | Phase 30 | Complete |
 | HEAT-01 | Phase 30 | Pending |
 | HEAT-02 | Phase 30 | Pending |
 | HEAT-03 | Phase 30 | Pending |
@@ -95,7 +95,7 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 | DASH-02 | Phase 30 | Pending |
 | DASH-03 | Phase 30 | Pending |
 | DASH-04 | Phase 30 | Pending |
-| DASH-05 | Phase 30 | Pending |
+| DASH-05 | Phase 30 | Complete |
 | COMM-01 | Phase 30 | Complete |
 | COMM-02 | Phase 30 | Complete |
 

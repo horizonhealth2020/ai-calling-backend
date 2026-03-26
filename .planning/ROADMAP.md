@@ -110,8 +110,8 @@
 **Plans**: 5 plans
 Plans:
 - [x] 30-01-PLAN.md -- Data layer fixes: Convoso DST/business-hours bugs, commission fallback guard, DB indexes
-- [ ] 30-02-PLAN.md -- Dashboard polish: rename tab to Performance Tracker, add Today column
-- [ ] 30-03-PLAN.md -- Lead timing API: heatmap, sparklines, recommendation endpoints
+- [x] 30-02-PLAN.md -- Dashboard polish: rename tab to Performance Tracker, add Today column
+- [x] 30-03-PLAN.md -- Lead timing API: heatmap, sparklines, recommendation endpoints
 - [ ] 30-04-PLAN.md -- UI components: heatmap grid, best source card, sparklines table, section wrapper
 - [ ] 30-05-PLAN.md -- Dashboard integration: wire analytics section into Manager and Owner dashboards
 
@@ -148,7 +148,7 @@ Plans:
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
 | 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete | 2026-03-25 |
-| 30. Lead Source Timing Analytics | v1.8 | 1/5 | In Progress | - |
+| 30. Lead Source Timing Analytics | v1.8 | 3/5 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-14*
