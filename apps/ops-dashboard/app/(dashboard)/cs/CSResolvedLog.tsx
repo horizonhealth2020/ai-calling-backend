@@ -89,7 +89,7 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
       if (agent.trim()) params.set("agentName", agent.trim());
 
       const qs = params.toString();
-      const res = await authFetch(`${API}/api/cs-reps/reps/resolved-log${qs ? `?${qs}` : ""}`);
+      const res = await authFetch(`${API}/api/reps/resolved-log${qs ? `?${qs}` : ""}`);
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? `Request failed (${res.status})`);
