@@ -92,9 +92,24 @@ async function pollLeadSource(
         return {
           agentUser: userId,
           listId: leadSource.listId!,
-          recordingUrl: r.recording_url ? String(r.recording_url) : null,
+          recordingUrl: (() => {
+            // Convoso returns recording as array of objects with public_url/src
+            if (Array.isArray(r.recording) && r.recording.length > 0) {
+              const rec = r.recording[0] as Record<string, unknown>;
+              return String(rec.public_url ?? rec.src ?? "");
+            }
+            if (r.recording_url) return String(r.recording_url);
+            return null;
+          })(),
           callDurationSeconds: r.call_length != null ? Number(r.call_length) : null,
-          callTimestamp: r.call_date ? new Date(String(r.call_date)) : r.start_time ? new Date(String(r.start_time)) : new Date(),
+          callTimestamp: (() => {
+            const raw = r.call_date ?? r.start_time;
+            if (!raw) return new Date();
+            // Convoso returns "YYYY-MM-DD HH:MM:SS" without timezone — treat as UTC
+            const str = String(raw).replace(" ", "T") + "Z";
+            const d = new Date(str);
+            return isNaN(d.getTime()) ? new Date() : d;
+          })(),
           agentId: agentInfo?.id ?? null,
           leadSourceId: leadSource.id,
         };
