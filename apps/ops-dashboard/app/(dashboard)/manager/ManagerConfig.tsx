@@ -362,7 +362,6 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
                   <th style={baseThStyle}>Product</th>
                   <th style={baseThStyle}>Type</th>
                   <th style={baseThStyle}>Commission</th>
-                  <th style={baseThStyle}>Bundle Config</th>
                 </tr>
               </thead>
               <tbody>
@@ -376,10 +375,6 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
                   const commission = p.type === "CORE"
                     ? (p.commissionAbove != null ? `${p.commissionAbove}%` : "\u2014")
                     : (p.bundledCommission != null ? `${p.bundledCommission}%` : (p.standaloneCommission != null ? `${p.standaloneCommission}%` : "\u2014"));
-                  const coreProducts = products.filter(cp => cp.type === "CORE");
-                  const bundleConfig = p.type === "CORE"
-                    ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
-                    : <span>{coreProducts.length > 0 ? `Bundled with ${coreProducts[0].name}` : "\u2014"}</span>;
                   return (
                     <tr key={p.id}>
                       <td style={baseTdStyle}>{p.name}</td>
@@ -387,7 +382,6 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
                         <Badge color={tc.text} variant="subtle" size="sm">{TYPE_LABELS[p.type]}</Badge>
                       </td>
                       <td style={baseTdStyle}>{commission}</td>
-                      <td style={baseTdStyle}>{bundleConfig}</td>
                     </tr>
                   );
                 })}
