@@ -85,6 +85,8 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
       if (dateRange.preset === "custom" && dateRange.from && dateRange.to) {
         params.set("from", dateRange.from);
         params.set("to", dateRange.to);
+      } else if (dateRange.preset && dateRange.preset !== "custom") {
+        params.set("range", dateRange.preset);
       }
       if (agent.trim()) params.set("agentName", agent.trim());
 
@@ -121,7 +123,7 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
     };
   }, [agentFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasFilters = typeFilter !== "all" || agentFilter.trim() !== "" || (dateRange.preset === "custom" && dateRange.from && dateRange.to);
+  const hasFilters = typeFilter !== "all" || agentFilter.trim() !== "" || dateRange.preset !== "30d";
 
   return (
     <div style={baseCardStyle}>
