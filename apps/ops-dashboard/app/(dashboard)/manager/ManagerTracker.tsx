@@ -23,7 +23,9 @@ import {
   Award,
   BarChart3,
   Download,
+  Phone,
 } from "lucide-react";
+import LeadTimingSection from "./LeadTimingSection";
 
 /* -- Types -- */
 
@@ -229,6 +231,33 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         </table>
       </div>
     </Card>
+
+    {/* Call Count per Lead Source */}
+    {(() => {
+      const bySource = new Map<string, number>();
+      for (const cc of callCounts) {
+        bySource.set(cc.leadSourceName, (bySource.get(cc.leadSourceName) ?? 0) + cc.callCount);
+      }
+      const entries = [...bySource.entries()].sort((a, b) => b[1] - a[1]);
+      if (entries.length === 0) return null;
+      return (
+        <div style={{ marginTop: spacing[4] }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: spacing[3] }}>
+            <Phone size={15} color={colors.primary400} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary }}>Calls by Lead Source</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: spacing[2] }}>
+            {entries.map(([name, count]) => (
+              <Badge key={name} color={colors.primary400} variant="subtle" size="sm">
+                {name}: {count.toLocaleString()}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      );
+    })()}
+
+    <LeadTimingSection API={API} />
     </>
   );
 }

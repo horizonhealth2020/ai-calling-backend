@@ -28,6 +28,7 @@ import {
   Award,
   Clock,
 } from "lucide-react";
+import LeadTimingSection from "../manager/LeadTimingSection";
 
 type SocketClient = import("socket.io-client").Socket;
 
@@ -474,6 +475,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
           convosoConfigured={convosoConfigured}
         />
       )}
+      <LeadTimingSection API={API} />
     </div>
   );
 }
