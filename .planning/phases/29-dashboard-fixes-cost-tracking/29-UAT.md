@@ -30,7 +30,9 @@ result: [pending]
 
 ### 4. Products Section Is Read-Only
 expected: In Manager Config, the Products section shows a table with Product Name, Type, Commission Rate, and Bundle Config columns. There are no Add, Edit, or Delete buttons — the section is purely informational.
-result: [pending]
+result: issue
+reported: "Bundle Config column shows wrong data — always says 'Bundled with Good Health Distribution Partner' for every non-CORE product regardless of actual bundle config. Remove the Bundle Config column entirely."
+severity: minor
 
 ### 5. Convoso Poller Writes ConvosoCallLog Records
 expected: When Convoso polling is enabled and runs a cycle, individual call records appear in the ConvosoCallLog database table (not just AgentCallKpi snapshots). Running multiple cycles does not create duplicate records.
@@ -46,7 +48,9 @@ result: [pending]
 
 ### 8. CS Resolved Log Tab Visible to Owners
 expected: In the CS dashboard, OWNER_VIEW and SUPER_ADMIN users see a "Resolved Log" tab. CUSTOMER_SERVICE users do NOT see this tab.
-result: [pending]
+result: issue
+reported: "Tab shows but 404 error on resolved log API. Frontend URL had wrong prefix (cs-reps/reps/ instead of reps/). Fixed in commit a98ec0a."
+severity: major
 
 ### 9. Resolved Log Shows Chargebacks and Pending Terms
 expected: The Resolved Log tab displays a unified table showing all resolved chargebacks and pending terms. Each row shows Type (badge), Agent, Member, Resolution Date, Resolved By, Resolution Note, and Original Amount. Sorted by resolution date (most recent first).
