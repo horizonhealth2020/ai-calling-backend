@@ -105,6 +105,19 @@ async function pollLeadSource(
       await prisma.convosoCallLog.createMany({ data: callLogRecords });
     }
 
+    // Mark as processed IMMEDIATELY after ConvosoCallLog write
+    // (before KPI step which can crash and cause duplicate call logs)
+    const newCallIds = newRaw.map((r) => String(r.id)).filter(Boolean);
+    if (newCallIds.length > 0) {
+      await prisma.processedConvosoCall.createMany({
+        data: newCallIds.map((cid) => ({
+          convosoCallId: cid,
+          leadSourceId: leadSource.id,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     // Filter: only calls with call_length >= lead source buffer count toward KPIs
     const bufferSeconds = leadSource.callBufferSeconds ?? 0;
     const filtered = bufferSeconds > 0
@@ -144,18 +157,6 @@ async function pollLeadSource(
     if (records.length === 0) return 0;
 
     await prisma.agentCallKpi.createMany({ data: records });
-
-    // Track processed call IDs to prevent duplicate processing
-    const newCallIds = newRaw.map((r) => String(r.id)).filter(Boolean);
-    if (newCallIds.length > 0) {
-      await prisma.processedConvosoCall.createMany({
-        data: newCallIds.map((cid) => ({
-          convosoCallId: cid,
-          leadSourceId: leadSource.id,
-        })),
-        skipDuplicates: true,
-      });
-    }
 
     return records.length;
   } catch (err: unknown) {
