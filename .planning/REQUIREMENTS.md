@@ -73,37 +73,37 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| DATA-06 | — | Pending |
-| DATA-07 | — | Pending |
-| DATA-08 | — | Pending |
-| HEAT-01 | — | Pending |
-| HEAT-02 | — | Pending |
-| HEAT-03 | — | Pending |
-| HEAT-04 | — | Pending |
-| HEAT-05 | — | Pending |
-| REC-01 | — | Pending |
-| REC-02 | — | Pending |
-| REC-03 | — | Pending |
-| SPARK-01 | — | Pending |
-| SPARK-02 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
-| DASH-05 | — | Pending |
-| COMM-01 | — | Pending |
-| COMM-02 | — | Pending |
+| DATA-01 | Phase 30 | Pending |
+| DATA-02 | Phase 30 | Pending |
+| DATA-03 | Phase 30 | Pending |
+| DATA-04 | Phase 30 | Pending |
+| DATA-05 | Phase 30 | Pending |
+| DATA-06 | Phase 30 | Pending |
+| DATA-07 | Phase 30 | Pending |
+| DATA-08 | Phase 30 | Pending |
+| HEAT-01 | Phase 30 | Pending |
+| HEAT-02 | Phase 30 | Pending |
+| HEAT-03 | Phase 30 | Pending |
+| HEAT-04 | Phase 30 | Pending |
+| HEAT-05 | Phase 30 | Pending |
+| REC-01 | Phase 30 | Pending |
+| REC-02 | Phase 30 | Pending |
+| REC-03 | Phase 30 | Pending |
+| SPARK-01 | Phase 30 | Pending |
+| SPARK-02 | Phase 30 | Pending |
+| DASH-01 | Phase 30 | Pending |
+| DASH-02 | Phase 30 | Pending |
+| DASH-03 | Phase 30 | Pending |
+| DASH-04 | Phase 30 | Pending |
+| DASH-05 | Phase 30 | Pending |
+| COMM-01 | Phase 30 | Pending |
+| COMM-02 | Phase 30 | Pending |
 
 **Coverage:**
 - v1.8 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 (pending roadmap creation)
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after initial definition*
+*Last updated: 2026-03-26 after roadmap creation*

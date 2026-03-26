@@ -9,7 +9,8 @@
 - ✅ **v1.4 State-Aware Bundle Requirements** — Phase 20 (shipped 2026-03-23)
 - ✅ **v1.5 Platform Cleanup & Remaining Features** — Phases 21-24 (shipped 2026-03-24)
 - ✅ **v1.6 Pre-Launch Stabilization** — Phases 25-28 (shipped 2026-03-25)
-- [ ] **v1.7 Dashboard Fixes & Cost Tracking** — Phase 29
+- ✅ **v1.7 Dashboard Fixes & Cost Tracking** — Phase 29 (shipped 2026-03-26)
+- [ ] **v1.8 Lead Source Timing Analytics** — Phase 30
 
 ## Phases
 
@@ -83,37 +84,30 @@
 
 </details>
 
-### v1.7 Dashboard Fixes & Cost Tracking
+<details>
+<summary>✅ v1.7 Dashboard Fixes & Cost Tracking (Phase 29) — SHIPPED 2026-03-26</summary>
 
-- [x] **Phase 29: Dashboard Fixes & Cost Tracking** - Bug fixes, Convoso data flow repair, cost tracking display, CS resolved log (completed 2026-03-25)
+- [x] Phase 29: Dashboard Fixes & Cost Tracking (4/4 plans) — completed 2026-03-25
+
+</details>
+
+### v1.8 Lead Source Timing Analytics
+
+- [ ] **Phase 30: Lead Source Timing Analytics** - Data layer fixes, aggregation API endpoints, heatmap/sparklines/recommendation UI, dashboard integration, and commission fix
 
 ## Phase Details
 
-### Phase 29: Dashboard Fixes & Cost Tracking
-**Goal**: Fix premium display, lead source form, Convoso data flow, cost tracking visibility, manager config cleanup, and add CS resolved log audit trail
-**Depends on**: Nothing
-**Requirements**: FIX-01, FIX-02, FIX-03, CFG-01, CFG-02, DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, CS-01, CS-02, CS-03, CS-04
+### Phase 30: Lead Source Timing Analytics
+**Goal**: Managers and owners can see which lead sources convert best at what times, enabling data-driven call routing decisions
+**Depends on**: Phase 29 (Convoso call log data, lead source configuration)
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, HEAT-01, HEAT-02, HEAT-03, HEAT-04, HEAT-05, REC-01, REC-02, REC-03, SPARK-01, SPARK-02, DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, COMM-01, COMM-02
 **Success Criteria** (what must be TRUE):
-  1. Manager Agent Sales tab shows total premium (core + addon) per sale row, matching sales board and payroll totals
-  2. Lead source create form includes a Buffer (seconds) field that persists to the database on save
-  3. Lead source POST API accepts and validates callBufferSeconds via Zod schema
-  4. Manager Config Products section displays product name, type, commission rates, and bundle config as read-only (no add/edit/delete controls)
-  5. After a poll cycle completes, new call records appear in the ConvosoCallLog table with agent, timestamp, duration, and cost fields
-  6. Running the poller multiple times does not create duplicate ConvosoCallLog records for the same call
-  7. Manager Tracker tab shows cost per sale for each agent when Convoso polling is enabled
-  8. Owner Dashboard agent leaderboard shows cost per sale for each agent
-  9. Agents with calls but zero sales still appear in the tracker with their total lead spend displayed
-  10. When no Convoso data exists, the display shows an appropriate empty state (not broken/blank)
-  11. CS dashboard shows a Resolved Log tab visible only to OWNER_VIEW and SUPER_ADMIN roles (not CUSTOMER_SERVICE)
-  12. Resolved Log lists all resolved chargebacks showing resolution date, who resolved it, and any notes
-  13. Resolved Log lists all resolved pending terms showing resolution date, who resolved it, and any notes
-  14. User can filter the resolved log by type (chargeback vs pending term), date range, and agent
-**Plans:** 4/4 plans complete
-Plans:
-- [x] 29-01-PLAN.md — Bug fixes (premium display, lead source buffer) and products read-only conversion
-- [x] 29-02-PLAN.md — Convoso poller ConvosoCallLog writes and cost display logic fix
-- [x] 29-03-PLAN.md — CS Resolved Log audit tab (API endpoint, component, tab integration)
-- [x] 29-04-PLAN.md — Gap closure: Add Lead Spend column to ManagerTracker and OwnerOverview (DATA-03/04/05)
+  1. Manager can view a source-by-hour heatmap on the Performance Tracker tab showing close rates with diverging color scale, toggle between day-of-week and week-of-month views, filter by independent date range (Last Week / 30 Days / 60 Days / 90 Days / Custom), hover for tooltips with exact rate/count, and see low-sample cells visually de-emphasized
+  2. Manager can see a "Best Source Right Now" recommendation card displaying the top lead source for the current hour with close rate, call count, trend arrow, and a "Not enough data" fallback when sample size is insufficient
+  3. Manager can view a sparklines table showing 7-day close rate trends per lead source per daypart (morning/afternoon/evening), rendered as inline SVG polylines with no external charting library
+  4. Owner dashboard displays the same timing analytics section, accessible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles, with the Agent Tracker tab renamed to Performance Tracker and a Today column added to agent performance cards
+  5. Fallback bundle addon commission correctly applies full commission only in states where the primary required addon is unavailable, and half commission in states where the primary addon IS available
+**Plans**: TBD
 
 ## Progress
 
@@ -147,7 +141,8 @@ Plans:
 | 26. Dead Code Removal | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 27. Error Handling & Robustness | v1.6 | 2/2 | Complete | 2026-03-25 |
 | 28. Type Safety Audit | v1.6 | 4/4 | Complete | 2026-03-25 |
-| 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete    | 2026-03-25 |
+| 29. Dashboard Fixes & Cost Tracking | v1.7 | 4/4 | Complete | 2026-03-25 |
+| 30. Lead Source Timing Analytics | v1.8 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
@@ -158,4 +153,5 @@ Plans:
 *v1.4 shipped: 2026-03-23*
 *v1.5 shipped: 2026-03-24*
 *v1.6 shipped: 2026-03-25*
-*v1.7 roadmap created: 2026-03-25*
+*v1.7 shipped: 2026-03-26*
+*v1.8 roadmap created: 2026-03-26*
