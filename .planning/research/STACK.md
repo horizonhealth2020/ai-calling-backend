@@ -1,116 +1,182 @@
-# Technology Stack
+# Stack Research: Lead Source Timing Analytics Visualizations
 
-**Project:** v1.7 Dashboard Fixes & Cost Tracking
-**Researched:** 2026-03-25
+**Domain:** Data visualization additions to existing sales operations platform
+**Researched:** 2026-03-26
 **Confidence:** HIGH
 
-## Verdict: No New Dependencies Required
+## Decision: Hand-Rolled SVG Components (No Charting Library)
 
-Every v1.7 feature is achievable with the existing stack. This milestone is entirely bug fixes, missing field additions, and a new read-only audit tab -- none of which require new libraries, database engines, or architectural changes.
+**Recommendation: Do NOT add a charting library. Build heatmap, sparklines, and recommendation cards with raw SVG + React.**
 
-## Current Stack (Unchanged)
+### Why
 
-### Core Framework
-| Technology | Version | Purpose | Status for v1.7 |
-|------------|---------|---------|------------------|
-| Next.js | 15.3.9 | Unified dashboard (ops-dashboard) | Sufficient -- new CS tab is a standard page component |
-| Express | 4.19.2 | REST API (ops-api) | Sufficient -- new endpoints follow existing patterns |
-| Prisma | 5.20.0 | ORM + migrations | Sufficient -- queries on existing models, no schema changes needed |
-| PostgreSQL | (via Docker/Railway) | Primary database | Sufficient -- all data already persisted |
-| Socket.IO | 4.8.3 (server) / 4.8.3 (client) | Real-time updates | Sufficient -- CS events already wired |
-| Zod | 3.23.8 | Request validation | Sufficient -- standard schema patterns |
+1. **The visualizations are simple.** A heatmap is a grid of `<rect>` elements with fill colors. A sparkline is a `<polyline>` in an `<svg>`. A recommendation card is just styled divs. None of these require a charting library's layout engine, axis system, or interaction model.
 
-### Supporting Libraries
-| Library | Version | Purpose | v1.7 Relevance |
-|---------|---------|---------|----------------|
-| Luxon | 3.4.4 | Timezone-aware date handling | Used in date range queries for resolved log |
-| lucide-react | 0.577.0 | Icons | Tab icons for new Resolved Log tab |
-| @anthropic-ai/sdk | 0.78.0 | AI call auditing | Not touched in v1.7 |
+2. **Perfect inline-style compatibility.** Raw SVG elements accept `fill`, `stroke`, `opacity` as direct props -- no className or CSS import needed. The existing `@ops/ui` design tokens (CSS custom properties like `var(--success)`) work directly as SVG fill values. A charting library would introduce its own theming layer that fights the existing system.
 
-## What Each v1.7 Feature Needs from the Stack
+3. **Zero new dependencies.** No bundle size increase, no version conflicts, no peer dependency management. The project already has React 18.3.1 which renders SVG natively.
 
-### 1. Remove Products from Manager Config Tab
-**Stack impact:** None. Pure frontend deletion -- remove the Products section JSX from the Manager Config tab component in ops-dashboard.
+4. **Matches project patterns.** The codebase uses hand-built components with inline CSSProperties everywhere. Adding a charting library introduces a different abstraction pattern that breaks consistency.
 
-### 2. Add Buffer Field to Lead Source Create Form
-**Stack impact:** None.
-- **Database:** `callBufferSeconds` column already exists in `lead_sources` table (confirmed in `prisma/schema.prisma` line 114)
-- **API:** The POST `/lead-sources` Zod schema in `agents.ts` line 76 is missing `callBufferSeconds` -- add `z.number().int().min(0).default(0)` to the schema and pass through to `prisma.leadSource.create()`
-- **Frontend:** Add the number input field to the create form (pattern already exists in the edit form)
+5. **Total code for all three visualizations is approximately 150-200 lines.** A `<HeatmapGrid>` component is roughly 60 lines. A `<Sparkline>` is 30 lines. The recommendation card is standard React with existing `Card` and `Badge` components.
 
-### 3. CS Resolved Log Tab (Audit Trail)
-**Stack impact:** None.
-- **Database:** All resolution fields already exist on `ChargebackSubmission` and `PendingTermSubmission` models: `resolvedAt`, `resolvedBy`, `resolutionNote`, `resolutionType`, plus `resolver` relation to User
-- **API:** Existing GET `/chargebacks` and GET `/pending-terms` endpoints return resolution data with `include: { resolver: { select: { name: true } } }` (confirmed in `chargebacks.ts` line 177). Add a `?resolved=true` query param filter or create a dedicated `/chargebacks/resolved` endpoint.
-- **Frontend:** New tab component in CS section, gated to OWNER_VIEW/SUPER_ADMIN. Standard inline CSSProperties table following existing CS tracking patterns.
-- **Query pattern:** `prisma.chargebackSubmission.findMany({ where: { resolvedAt: { not: null } }, include: { resolver: ... } })`
+## Recommended Stack (New Additions)
 
-### 4. Fix Convoso Call Log Data Flow
-**Stack impact:** None. This is a data flow gap, not a stack gap.
-- **Current state:** The KPI poller (`apps/ops-api/src/workers/convosoKpiPoller.ts`) fetches Convoso data, writes KPI aggregates to `AgentCallKpi`, and tracks processed calls via `ProcessedConvosoCall` -- but does NOT write individual records to the `ConvosoCallLog` table. The model exists in schema (line 457) with proper fields and indexes but is never populated by the poller.
-- **Fix:** Add `prisma.convosoCallLog.createMany()` in `pollLeadSource()`, mapping Convoso API response fields to model columns: `agentUser` (from `user_id`), `listId`, `recordingUrl`, `callDurationSeconds` (from `call_length`), `callTimestamp`, `agentId` (from agent map lookup), `leadSourceId`.
-- **Downstream impact:** Once ConvosoCallLog records are persisted, cost-per-sale can be calculated from actual stored data instead of live API calls. The tracker and owner dashboard can query local DB rather than hitting Convoso API.
+### Core Technologies
 
-### 5. Show Agent Lead Spend with Zero Sales
-**Stack impact:** None.
-- **Current state:** The `buildKpiSummary()` in `convosoCallLogs.ts` already calculates `totalLeadCost` for all agents with calls regardless of sale count. The issue is likely in dashboard display -- filtering out agents with zero conversion-eligible calls.
-- **Fix:** Adjust the frontend query or display logic to show all agents with `totalLeadCost > 0`, not just those with `conversion_eligible === true`. May also need an API endpoint that joins `AgentCallKpi` data with `Sale` counts so agents with spend but zero sales appear.
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Raw SVG + React | (built-in) | Heatmap grid, sparkline charts | Zero dependencies, full inline-style control, native React rendering |
 
-### 6. Fix Manager Agent Sales Premium Column
-**Stack impact:** None.
-- **Current state:** Premium column likely shows only core product premium, omitting addon premiums per sale row.
-- **Fix:** Include addon premium sum in the sales query by joining `SaleProduct` records where `product.type === 'ADDON'` and adding to the displayed total. This exact pattern already exists in the sales board leaderboard and payroll addon-inclusive premium (shipped in v1.2).
+**That is it.** No new packages needed for the visualization layer.
 
-## Schema Changes Assessment
+### Supporting Libraries (Already Installed -- No Changes)
 
-**No Prisma migrations expected.** All required database columns and tables already exist:
+| Library | Version | Purpose | Role in v1.8 |
+|---------|---------|---------|--------------|
+| react | 18.3.1 | SVG rendering via JSX | Renders `<svg>`, `<rect>`, `<polyline>`, `<text>` natively |
+| luxon | ^3.4.4 | Timezone-aware hour/day bucketing | Convert Convoso Pacific timestamps to hour-of-day, day-of-week |
+| @ops/ui tokens | (workspace) | Design tokens for colors, spacing | Heatmap fill colors, card styling, text styles |
+| lucide-react | ^0.577.0 | Icons | Recommendation card icons (TrendingUp, Clock, Zap) |
+| socket.io-client | ^4.8.3 | Real-time updates | Live recommendation card refresh on new sale/call events |
 
-| Table/Column | Exists? | Evidence |
-|--------------|---------|----------|
-| `convoso_call_logs` table | Yes | Schema line 457, all columns present |
-| `lead_sources.call_buffer_seconds` | Yes | Schema line 114, `@default(0)` |
-| `chargeback_submissions.resolved_at` | Yes | Schema line 557 |
-| `chargeback_submissions.resolved_by` | Yes | Schema line 558 |
-| `chargeback_submissions.resolution_note` | Yes | Schema line 559 |
-| `chargeback_submissions.resolution_type` | Yes | Schema line 560 |
-| `pending_term_submissions` resolution fields | Yes | Same pattern as chargebacks |
+### API Layer (Already Installed -- No Changes)
 
-## What NOT to Add
+| Library | Version | Purpose | Role in v1.8 |
+|---------|---------|---------|--------------|
+| prisma | (workspace) | Query aggregation | GROUP BY hour, day_of_week, lead_source for heatmap data |
+| express | ^4.18.2 | API endpoints | New `/analytics/timing` routes |
+| zod | (workspace) | Input validation | Date range, granularity params |
 
-| Technology | Why Not |
-|------------|---------|
-| React Query / SWR | Dashboard uses `authFetch()` + `useEffect`. Adding a data fetching library for one tab creates inconsistency across the entire app. |
-| DataGrid library (AG Grid, TanStack Table) | Resolved log is a simple read-only table. Existing inline-styled `<table>` pattern is sufficient and consistent. |
-| State management (Zustand, Redux) | React state + context covers all v1.7 needs. No cross-component state sharing beyond what Socket.IO context already provides. |
-| New database migrations | All required columns already exist. Zero schema changes. |
-| Caching layer (Redis) | Query volumes are low (internal ops tool). Prisma query caching is unnecessary at this scale. |
-| Separate analytics service | Convoso data flow fix is a one-line addition to the existing poller, not an architectural change. |
+## Implementation Patterns
+
+### Heatmap Grid (Raw SVG)
+
+```typescript
+// Approximately 60 lines. Each cell is a <rect> with computed fill.
+interface HeatmapProps {
+  data: { hour: number; day: number; rate: number; count: number }[];
+  width: number;
+  height: number;
+}
+
+// Fill color interpolation using the existing design tokens:
+// Low rate  -> dark muted color matching dark theme
+// High rate -> emerald/teal matching colors.accentTeal
+// Zero data -> transparent feel matching bgSurface
+```
+
+SVG `<rect>` elements accept `fill` as a prop. CSS custom properties work in SVG fill when the element is in the DOM (not `<img>`). Since these render inline in the React tree, `var(--success)` works directly.
+
+For the color gradient (rate 0% to 100%), use a simple linear interpolation between two RGB values computed at render time -- no d3-scale needed for 24x7=168 cells.
+
+### Sparkline (Raw SVG)
+
+```typescript
+// Approximately 30 lines. A <polyline> with points computed from data array.
+interface SparklineProps {
+  data: number[];  // 7 values for 7 days
+  width?: number;  // default 120
+  height?: number; // default 32
+  color?: string;  // default colors.accentTeal
+}
+
+// Points: data.map((v, i) => `${(i / (len - 1)) * width},${height - (v / max) * height}`)
+// Render: <svg><polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} /></svg>
+```
+
+### Recommendation Card (React + Existing Components)
+
+Uses existing `Card` and `Badge` from `@ops/ui`. No SVG needed. "Best Source Right Now" with current-hour close rate highlight. Animated pulse on the recommended source using CSS animation via inline style.
+
+### Color Scale Helper (No Library Needed)
+
+```typescript
+// For heatmap cell colors -- interpolate between two hex values
+function interpolateColor(t: number): string {
+  // t: 0 (cold) to 1 (hot)
+  // cold: rgb(26, 26, 46)  -- dark blue-gray matching dark theme
+  // hot:  rgb(16, 185, 129) -- emerald/teal matching accent
+  const r = Math.round(26 + t * (16 - 26));
+  const g = Math.round(26 + t * (185 - 26));
+  const b = Math.round(46 + t * (129 - 46));
+  return `rgb(${r},${g},${b})`;
+}
+```
 
 ## Alternatives Considered
 
-| Category | Decision | Alternative | Why Not |
-|----------|----------|-------------|---------|
-| Resolved log data source | Query existing ChargebackSubmission/PendingTermSubmission resolution fields | Separate AuditLog table | Unnecessary duplication -- resolution data is already on submission records with resolver relation |
-| Convoso data persistence | Write to existing ConvosoCallLog model in poller | Create new materialized view | ConvosoCallLog model exists with indexes; adding writes is one function call |
-| Resolved log API | Add `?resolved=true` filter to existing endpoints | New dedicated endpoints | Query param is simpler and follows existing `dateRangeQuerySchema` pattern. Separate endpoint only if query shape diverges significantly. |
-| Cost per sale display | Join AgentCallKpi with Sales in API | Client-side calculation | Server-side join is more accurate and follows existing pattern of server-authoritative calculations |
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| Raw SVG `<rect>` grid | @visx/heatmap (3.12.0) | visx adds 5 packages (~250KB unpacked) for something achievable in 60 lines. visx heatmap uses its own scale/group system that does not integrate with existing @ops/ui tokens without adapter code. |
+| Raw SVG `<polyline>` | recharts (3.8.1) | Recharts requires `<ResponsiveContainer>`, `<LineChart>`, `<Line>` -- massive overkill for a 7-point sparkline. Recharts also injects its own CSS classes and has known issues with pure inline styling (GitHub issue #2169). |
+| Raw SVG `<polyline>` | react-sparklines (1.7.0) | Unmaintained (last publish 2018). Works but adds a dependency for 30 lines of code. |
+| Hand-rolled interpolation | d3-scale (4.0.2) | d3-scale is 143KB for a linear interpolation between two colors. Overkill. |
+| Inline `<svg>` in React | Chart.js / react-chartjs-2 | Canvas-based, requires CSS imports, does not integrate with inline CSSProperties at all. |
+| Inline `<svg>` in React | @nivo/heatmap | Nivo has heavy dependencies (~1MB+), requires its own theme provider, and imposes its own styling system. |
+
+### When TO Use a Charting Library (Not This Project)
+
+- **Complex interactions**: Zoom, pan, brush selection on time series -- use visx
+- **Many chart types**: If you need 10+ different chart types -- use recharts
+- **Design-heavy dashboards**: If charts ARE the product -- use nivo for polish
+- **This project**: 1 heatmap + 1 sparkline + 1 card = raw SVG is the right call
+
+## What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| Chart.js / react-chartjs-2 | Canvas-based, requires CSS imports, incompatible with inline CSSProperties approach | Raw SVG |
+| @nivo/* | Heavy (~1MB), brings its own theme provider that conflicts with @ops/ui tokens | Raw SVG |
+| recharts | Overkill for sparklines, known inline-style issues (GitHub #2169, #2785), injects classNames | Raw SVG `<polyline>` |
+| d3 (full library) | 500KB+ for DOM manipulation React already handles better | Raw SVG with simple math |
+| @visx/* | Reasonable library but adds 5+ packages for 2 simple visualizations, introduces visx patterns alongside existing @ops/ui patterns | Raw SVG |
+| Any library requiring globals.css | Violates project constraint: no CSS files, inline CSSProperties only | Raw SVG with design tokens |
+| react-sparklines | Unmaintained since 2018, React 18 compatibility unverified | Raw SVG `<polyline>` |
+
+## Version Compatibility
+
+| Existing Package | Compatible With | Notes |
+|------------------|-----------------|-------|
+| react@18.3.1 | Native SVG rendering | Full SVG support via JSX -- `<svg>`, `<rect>`, `<polyline>`, `<text>`, `<g>` all work as first-class elements |
+| next@15.3.9 | SVG in Server Components | SVG elements render in both server and client components. Heatmap and sparkline should be `"use client"` for hover tooltips |
+| luxon@^3.4.4 | Hour/day bucketing | Use `DateTime.fromISO(callDate).setZone('America/Los_Angeles')` for Convoso timestamp conversion per project memory |
+| @ops/ui tokens | SVG fill/stroke | CSS custom properties (e.g., `var(--success)`) work as SVG `fill` values when rendered inline in DOM |
 
 ## Installation
 
 ```bash
-# No changes. Zero npm install commands for v1.7.
+# No new packages to install.
+# All visualization code uses built-in React SVG rendering + existing @ops/ui tokens.
 npm install          # existing workspace install, no new packages
-npm run db:migrate   # no new migrations expected
 ```
+
+## Stack Patterns by Variant
+
+**If heatmap needs more than hover tooltips later (zoom, brush, click-to-drill):**
+- Upgrade path is @visx/heatmap@3.12.0 + @visx/scale@3.12.0 + @visx/tooltip@3.12.0
+- visx is modular (install only what you need) and SVG-based (compatible with inline styles)
+- Peer dependency: react >=16.3.0 (compatible with project's 18.3.1)
+
+**If more chart types are requested beyond v1.8 (bar charts, area charts, multi-axis):**
+- Evaluate recharts@3.8.1 at that point -- more chart types justify the dependency
+- Would require establishing a pattern for integrating recharts theming with @ops/ui tokens
+
+**For v1.8 scope (1 heatmap + 1 sparkline + 1 recommendation card):**
+- Raw SVG is the right call -- simpler, zero dependencies, full design system integration
 
 ## Sources
 
-- `prisma/schema.prisma` -- ConvosoCallLog model (line 457), LeadSource.callBufferSeconds (line 114), ChargebackSubmission resolution fields (lines 557-560)
-- `apps/ops-api/src/workers/convosoKpiPoller.ts` -- confirmed writes to AgentCallKpi but NOT ConvosoCallLog
-- `apps/ops-api/src/routes/agents.ts:76` -- confirmed POST `/lead-sources` Zod schema missing callBufferSeconds
-- `apps/ops-api/src/routes/chargebacks.ts:177` -- confirmed resolver relation included in GET response
-- `apps/ops-api/src/services/convosoCallLogs.ts` -- confirmed cost_per_sale and total_lead_cost calculations already exist in buildKpiSummary
+- [visx official site](https://visx.airbnb.tech/) -- evaluated as primary charting library candidate (HIGH confidence)
+- npm @visx/heatmap -- version 3.12.0 verified via `npm view` (HIGH confidence)
+- npm recharts -- version 3.8.1 verified via `npm view` (HIGH confidence)
+- [Recharts inline style issues #2169](https://github.com/recharts/recharts/issues/2169) -- confirmed CSS class conflicts with pure inline styling (MEDIUM confidence)
+- [react-sparklines GitHub](https://github.com/borisyankov/react-sparklines) -- last meaningful update 2018, unmaintained (HIGH confidence)
+- React 18 SVG rendering -- native JSX SVG support confirmed (HIGH confidence)
+- `packages/ui/src/tokens.ts` -- read directly from codebase, CSS custom properties as design tokens confirmed (HIGH confidence)
+- `apps/ops-dashboard/package.json` -- React 18.3.1, Next.js 15.3.9, lucide-react 0.577.0 confirmed (HIGH confidence)
+- Project memory `project_convoso_timezone.md` -- Convoso call_date uses America/Los_Angeles timezone (HIGH confidence)
 
 ---
-*Stack research for: v1.7 Dashboard Fixes & Cost Tracking*
-*Researched: 2026-03-25*
+*Stack research for: Lead Source Timing Analytics (v1.8)*
+*Researched: 2026-03-26*

@@ -1,144 +1,194 @@
 # Project Research Summary
 
-**Project:** v1.7 Dashboard Fixes & Cost Tracking
-**Domain:** Insurance sales operations platform — bug fixes, Convoso data flow repair, CS audit trail
-**Researched:** 2026-03-25
+**Project:** Lead Source Timing Analytics (v1.8)
+**Domain:** Data visualization additions to existing sales operations platform
+**Researched:** 2026-03-26
 **Confidence:** HIGH
 
 ## Executive Summary
 
-v1.7 is a surgical maintenance milestone, not a feature build. Every deliverable operates entirely within the existing Next.js 15 / Express / Prisma / PostgreSQL stack — zero new dependencies, zero schema migrations. The work divides into three buckets: (1) three low-friction UI/schema bug fixes that should have shipped earlier, (2) a medium-complexity Convoso data flow repair that unblocks accurate cost tracking, and (3) a new read-only CS Resolved Log tab that surfaces already-persisted resolution data in a dedicated audit view. The most significant research finding is that the `ConvosoCallLog` table, the `callBufferSeconds` column, and all ChargebackSubmission resolution fields already exist in the Prisma schema — the only work is wiring up code paths that were never connected.
+This feature adds lead source timing analytics to an existing Express/Prisma/Next.js sales operations monorepo. All four research areas converge on a single clear approach: build server-side PostgreSQL aggregations over existing `ConvosoCallLog` and `Sale` tables, expose three new API endpoints, and render the results using hand-rolled SVG and inline CSSProperties components — no new dependencies required. The codebase already contains every building block: timezone-aware Luxon, Socket.IO for real-time updates, an established inline-style design system, and parallel-query patterns from existing tracker routes.
 
-The recommended approach is to ship the three quick fixes first, then repair the Convoso data flow, then build the lead spend display on top of the repaired data, and finally add the CS Resolved Log as a standalone capability. This order is driven by one hard dependency: agent lead spend with zero sales cannot display meaningful data until `ConvosoCallLog` records are being persisted by the poller. All other features are independent and could be parallelized if needed.
+The recommended approach is a four-phase build that front-loads critical data layer work. Before any UI is touched, Phase 1 must resolve two pre-existing bugs in `convosoKpiPoller.ts` (crude DST handling and server-local-time usage) and add two database indexes. These fixes are prerequisites, not enhancements — without them, every heatmap cell will bucket calls into the wrong hours. Once the data layer is correct, the heatmap, sparklines, and recommendation card all derive from the same aggregation pattern and can be built with confidence.
 
-The key risk is duplicate `ConvosoCallLog` records if the `createMany` insert is placed at the wrong point in the poller's data flow. The existing `ProcessedConvosoCall` deduplication filter produces a `newRaw` slice that solves this — the insert must happen after that filter, not before it. A secondary risk is silent field-mapping errors from the Convoso API response. Both risks are well-understood, have concrete prevention steps, and are detectable within one poll cycle via a simple duplicate-check query.
+The primary risks are all timezone-related. Mixed-timezone data (Convoso Pacific call timestamps stored as UTC, Sales timestamps in UTC, business operating in Eastern) creates multiple failure surfaces where hours silently shift. The mitigation strategy is consistent: use `AT TIME ZONE 'America/Los_Angeles'` in every PostgreSQL aggregation and Luxon with explicit zone for all application-level time math. Secondary risks are statistical (misleading heatmap cells from small sample sizes) and are fully addressed by the sample-size indicator design specified in FEATURES.md.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No stack changes for v1.7. The existing stack handles all six features without new libraries, new database engines, or architectural changes. The most important confirmation is that the `ConvosoCallLog` model, `callBufferSeconds` column, and all ChargebackSubmission resolution fields already exist in the Prisma schema — the only work is wiring up code paths that were never connected. See `.planning/research/STACK.md` for per-feature stack impact analysis and rationale for explicitly rejecting React Query, DataGrid libraries, and separate analytics services.
+Research strongly recommends building all visualizations with raw SVG and React's native JSX rendering. No charting library is justified for this scope: one heatmap (a 60-line `<rect>` grid), one sparkline (a 30-line `<polyline>`), and one recommendation card (standard React divs). Every charting library evaluated (recharts, visx, nivo, d3) either conflicts with the inline CSSProperties constraint, introduces fighting theming layers, or brings 250KB+ of dependencies for functionality expressible in under 200 lines.
 
-**Core technologies (unchanged):**
-- **Next.js 15.3.9:** New CS Resolved Log tab is a standard page component — no framework-level changes needed
-- **Express 4.19.2:** New endpoints follow existing asyncHandler + Zod + RBAC patterns exactly
-- **Prisma 5.20.0:** All queries use existing models; zero migrations expected
-- **Socket.IO 4.8.3:** Existing `cs:changed` event covers resolved log refresh requirements
-- **Zod 3.23.8:** Schema extension for buffer field and resolved query filter follow established patterns
+**Core technologies:**
+- Raw SVG + React 18.3.1: Heatmap grid and sparkline rendering — zero dependencies, full inline-style control, native JSX rendering
+- Luxon ^3.4.4: Timezone-aware hour/day bucketing — already installed, handles DST automatically via named zones
+- Prisma `$queryRaw`: Aggregation queries with PostgreSQL-specific functions (`EXTRACT`, `AT TIME ZONE`, `GROUP BY`) — required because Prisma's query builder cannot express these
+- Express + Zod: Three new API endpoints following existing route/validation patterns — no new setup needed
+- Socket.IO-client ^4.8.3: Real-time recommendation card updates — already installed at layout level
 
 ### Expected Features
 
-See `.planning/research/FEATURES.md` for full feature analysis with line-level implementation pointers.
+Research identified seven table-stakes features that must ship in v1.8 Phase 1-2, five differentiators that add depth in Phase 3, and four anti-features to explicitly avoid.
 
-**Must have (table stakes — fixing broken behavior):**
-- Remove Products from Manager Config tab — duplicated section causes configuration conflicts; pure JSX removal
-- Add Buffer field to Lead Source create form — field exists in DB and edit form but is absent from create form and Zod schema
-- Fix Convoso call log data flow — poller never writes to `ConvosoCallLog`, blocking all cost-per-sale queries from local DB
-- Fix Manager Agent Sales premium column — excludes addon premiums, inconsistent with sales board and payroll (both include addons since v1.2)
+**Must have (table stakes):**
+- Source x Hour heatmap grid with close rate coloring — the core visualization every timing analytics tool provides
+- Sample size indicators per cell (`23% (47 calls)`) — without these, 1/1 = 100% misleads managers into bad routing decisions
+- Date range filter with 30/60/90-day presets — timing patterns require longer windows than the weekly payroll presets
+- Day-of-week toggle on heatmap — Tue-Thu patterns differ strongly from Mon/Fri; industry data confirms this
+- "Best Source Right Now" recommendation card — the primary actionable output, ranked by current-hour historical close rate
+- Manager and Owner dashboard visibility — explicitly required by milestone, same components rendered in both
+- Tab rename from "Agent Tracker" to "Performance Tracker" — low effort, part of milestone spec
 
-**Should have (new capability):**
-- CS Resolved Log tab — audit trail for OWNER_VIEW/SUPER_ADMIN showing resolved chargebacks and pending terms with resolver name, timestamp, and notes
-- Show agent lead spend with zero sales — surfaces agents burning through leads with no conversions, enabling coaching and termination decisions
+**Should have (competitive):**
+- Daypart sparklines (7-day rolling trend per source) — reveals whether a source is improving or declining
+- Cost-per-sale heatmap overlay — toggle between close rate and cost efficiency using existing `LeadSource.costPerLead`
+- Trend arrow on recommendation card — current vs prior-period comparison
+- Real-time Socket.IO pulse on recommendation card — existing infrastructure makes this low effort
 
-**Defer (not in v1.7 scope):**
-- Cost per sale charting — fix data flow first; visualization is a future milestone concern
-- Batch operations on resolved log — keep it a read-only audit trail; batch ops encourage sloppy workflows
-- Real-time Convoso call monitoring — out of scope per PROJECT.md
+**Defer (v2+):**
+- Agent-level drill-down per heatmap cell — data is too sparse until 90+ days of records accumulate
+- Week-of-month heatmap view — lower priority than day-of-week
+- Analytics CSV export — apply after data views are validated
 
 ### Architecture Approach
 
-v1.7 does not change the system architecture. All six features add code within existing component boundaries: a write call added to the KPI poller, a query filter added to two existing API endpoints, a Zod schema field added to the lead source create route, JSX removed from a manager config component, and one new tab component added to the CS dashboard section. The data flow diagram changes in exactly one place: `ConvosoCallLog` goes from never-written to written by the poller immediately after the `ProcessedConvosoCall` dedup filter. See `.planning/research/ARCHITECTURE.md` for implementation patterns with code examples for all four change types.
+The feature integrates cleanly as a new route module (`routes/lead-timing.ts`) plus a new dashboard section (`LeadTimingSection.tsx`). No new database tables are needed. The architecture is a direct extension of the existing tracker pattern: parallel raw SQL queries, TypeScript application-level join, typed API response, React components with inline styles. The critical design decision is keeping the timing analytics date filter as independent local state, not wired to the global `DateRangeContext` which controls payroll-week presets.
 
-**Major components (unchanged boundaries):**
-1. **convosoKpiPoller.ts** — add `prisma.convosoCallLog.createMany()` after `newRaw` filter, before KPI aggregation
-2. **chargebacks.ts / pending-terms routes** — extend with `?resolved=true` query param filter; do not create new dedicated endpoints
-3. **ops-dashboard CS section** — add `CSResolvedLog.tsx` component following existing CSTracking pattern with Socket.IO listener
+**Major components:**
+1. `routes/lead-timing.ts` — Three GET endpoints (heatmap, sparklines, recommendation), all using `prisma.$queryRaw` with `AT TIME ZONE 'America/Los_Angeles'`, parallel query execution, and BigInt-to-Number conversion before JSON serialization
+2. `LeadTimingSection.tsx` — Wrapper component with independent date filter state; composes all three visualization components; renders in both Manager and Owner dashboard tabs
+3. `LeadTimingHeatmap.tsx` / `LeadTimingSparklines.tsx` / `BestSourceCard.tsx` — Pure display components; heatmap uses inline `backgroundColor` computed from `interpolateColor(t)`; sparklines use SVG `<polyline>`; recommendation card uses existing `Card` and `Badge` from `@ops/ui`
 
 ### Critical Pitfalls
 
-See `.planning/research/PITFALLS.md` for full pitfall analysis with detection queries.
+1. **Naive hour extraction from UTC timestamps** — Always use `AT TIME ZONE 'America/Los_Angeles'` in every `EXTRACT()` call in PostgreSQL. Never use `getUTCHours()` or `getHours()` — the former gives UTC hours, the latter uses the server's local zone (UTC on Railway). Test by verifying a 9 AM Pacific call appears in the 9 AM heatmap column, not the 16-17 PM column.
 
-1. **ConvosoCallLog duplicate records (P1, CRITICAL)** — inserting from `raw` instead of `newRaw` causes every call to be re-inserted on every poll cycle. Prevention: insert only from `newRaw` (post-dedup set), add `skipDuplicates: true`. Detection: `SELECT COUNT(*) FROM convoso_call_logs GROUP BY agent_user, call_timestamp HAVING COUNT(*) > 1` after first poll cycle.
-2. **Convoso API field mapping mismatch (P2, CRITICAL)** — `call_length` unit (seconds vs minutes) and exact field names must be verified against live API response before finalizing the mapping. Prevention: log `raw[0]` during development, add explicit fallbacks (`r.call_length ?? r.call_duration`), spot-check 5 records after first cycle.
-3. **Lead spend display shows nothing without poller data (P4, MODERATE)** — feature appears broken if Convoso data flow fix is not deployed and verified first. Prevention: ship Phase 2 before Phase 3; show "No call data available" empty state that distinguishes zero-spend from no-data.
-4. **Resolved log shows stale data after unresolve (P3, MODERATE)** — new tab may not have a Socket.IO `cs:changed` listener. Prevention: add listener mirroring CSTracking component, or explicitly accept and document manual-refresh behavior for this audit view.
-5. **Manager loses product visibility (P5, MODERATE)** — before removing the Products section, verify managers use it for configuration edits only, not for reference. Prevention: confirm with PROJECT.md scope; convert to read-only instead of deleting if reference access is needed.
+2. **DST bug in `convosoDateToUTC`** — The existing poller uses a crude month-range check (`month >= 2 && month <= 9`) that is wrong at DST boundaries. Replace with Luxon: `DateTime.fromFormat(dateStr, 'yyyy-MM-dd HH:mm:ss', { zone: 'America/Los_Angeles' })`. Fix this before writing analytics queries or DST-boundary data corrupts heatmap cells.
+
+3. **Misleading cells from low sample sizes** — A 100% close rate from 1 call looks identical to 100% from 50 calls without sample size indicators. Three-layer defense: gray out cells below N=5 threshold, show count alongside rate in each cell, and ensure the recommendation endpoint ignores sources with fewer than 10 calls in the target hour slot.
+
+4. **Call-to-sale join using wrong time field** — `Sale.saleDate` is the business date for analytics but lacks hour precision in many records. `Sale.createdAt` has timestamp precision but reflects when the record was entered, not when the call happened. The correct approach is aggregate-level correlation (count calls per source/hour, count sales per source/day) rather than attempting row-level sale-to-call matching. Settling this metric definition is a Phase 1 product decision.
+
+5. **Query performance on 90-day range** — The existing `ConvosoCallLog` composite index leads with `agentId`, making it suboptimal for source-level aggregations. Add `@@index([leadSourceId, callTimestamp])` on `ConvosoCallLog` and `@@index([leadSourceId, createdAt])` on `Sale` in Phase 1. Add a 5-10 minute in-memory cache if response times exceed 500ms.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on combined research, the natural phase structure follows strict data-dependency ordering. The API must exist before the UI. The timezone bugs must be fixed before the API is written. The Owner dashboard integration is pure component reuse with no new API work.
 
-### Phase 1: Quick Bug Fixes
-**Rationale:** Three independent, low-complexity changes with no shared dependencies and no dependency on the Convoso data flow work. Shipping them together reduces PR overhead and immediately improves UX for managers and ops admins.
-**Delivers:** Products removed from Manager Config; Buffer field on Lead Source create; Manager Sales premium column shows addon-inclusive totals
-**Addresses:** Table-stakes features 1, 2, 6 from FEATURES.md
-**Avoids:** P5 (confirm manager product visibility needs before removal), P6 (label column "Total Premium" to signal addon inclusion), P7 (use `z.number().int().min(0).default(0)` not `.optional()` on buffer field)
+### Phase 1: Data Layer — Prerequisite Fixes, Indexes, and API Endpoints
 
-### Phase 2: Convoso Data Flow Repair
-**Rationale:** The foundational fix that unblocks Phase 3. Until `ConvosoCallLog` records exist, the lead spend display has no data source. This phase carries the highest technical risk of the milestone (P1 duplicate records, P2 field mapping) and must be verified before Phase 3 builds on top of it.
-**Delivers:** Poller writes individual call records to `ConvosoCallLog` on every poll cycle; cost-per-sale queries can use local DB instead of live Convoso API; call audit pipeline can reference stored records
-**Addresses:** Table-stakes feature 4 from FEATURES.md
-**Avoids:** P1 (insert from `newRaw` after dedup, add `skipDuplicates: true`), P2 (log raw response in development, validate field names before production deploy)
+**Rationale:** All visualizations are downstream of correct data. Two pre-existing bugs in the poller produce wrong timestamps; writing queries on top of bad data locks in incorrect heatmap patterns from day one. This phase must ship and be validated with curl/Postman before any UI work begins.
 
-### Phase 3: Lead Spend Display
-**Rationale:** Direct dependent of Phase 2. Once `ConvosoCallLog` records exist, this is a low-complexity display change. Keeping it separate from Phase 2 allows Phase 2 to be verified independently before the dashboard surface is built on top of it.
-**Delivers:** Agent tracker and owner dashboard show `totalLeadCost` for all agents with calls, including those with zero sales
-**Addresses:** Should-have feature (agent lead spend with zero sales) from FEATURES.md
-**Avoids:** P4 (Phase 2 must be deployed and verified first; empty state must distinguish "zero spend" from "no data available")
+**Delivers:** Three working API endpoints returning correctly time-bucketed close rate data; fixed DST handling in `convosoDateToUTC`; fixed server timezone in business hours check; two new database indexes.
 
-### Phase 4: CS Resolved Log Tab
-**Rationale:** Standalone new capability with no dependency on the Convoso work. It is medium complexity (two data sources merged into one view) and benefits from shipping after the simpler phases to maintain focus in each PR.
-**Delivers:** OWNER_VIEW/SUPER_ADMIN can browse all resolved chargebacks and pending terms with resolver name, resolution type, notes, and timestamps; date range filter; CSV export
-**Addresses:** Should-have feature (CS Resolved Log) from FEATURES.md
-**Avoids:** P3 (add `cs:changed` Socket.IO listener or explicitly document manual-refresh behavior for audit use case)
+**Addresses:**
+- Fix `convosoDateToUTC` to use Luxon (Pitfall 2, PITFALLS.md)
+- Fix `new Date().getHours()` business hours check to use Luxon with explicit zone (Pitfall 6, PITFALLS.md)
+- Add `@@index([leadSourceId, callTimestamp])` on ConvosoCallLog and `@@index([leadSourceId, createdAt])` on Sale (Pitfall 4, PITFALLS.md)
+- Settle the sale-to-call correlation metric definition before writing queries (Pitfall 5, PITFALLS.md)
+- Build `routes/lead-timing.ts` with all three endpoints using `prisma.$queryRaw` + `AT TIME ZONE` (Pitfall 1, PITFALLS.md)
+- Include call count in all API responses to enable sample size UI in Phase 2 (Pitfall 3, PITFALLS.md)
+
+**Avoids:** Timezone shifts in heatmap cells, DST-boundary data corruption, slow 90-day queries, misleading close rates
+
+### Phase 2: Core Heatmap and Tab Rename
+
+**Rationale:** The heatmap is the highest-value visualization and validates that the Phase 1 API data shape is correct. The tab rename is a trivial one-line change bundled here. Manager stakeholders can validate the heatmap before the full feature set is complete.
+
+**Delivers:** Functional source x hour heatmap in Manager's "Performance Tracker" tab; independent date range filter with 30/60/90-day presets; day-of-week toggle; sample size indicators (gray cells below N=5 threshold).
+
+**Uses:** Raw SVG `<rect>` grid with `interpolateColor(t)` utility (STACK.md); inline CSSProperties `cellColor(closeRate, calls)` function; independent `useState` for date filter (ARCHITECTURE.md Anti-Pattern 2)
+
+**Implements:** `LeadTimingHeatmap.tsx`, `LeadTimingSection.tsx`, `LeadTimingDateFilter.tsx`; rename `NAV_ITEMS` in `manager/page.tsx`
+
+**Avoids:** Using global `DateRangeContext`; charting library dependency; Canvas-based rendering
+
+### Phase 3: Sparklines, Recommendation Card, and Differentiators
+
+**Rationale:** These components build on the same data patterns established in Phase 2 and add the temporal and real-time dimensions. The recommendation card is the highest-value daily-use feature; sparklines add the "is this trend improving?" context.
+
+**Delivers:** Daypart sparklines table with 7-day SVG trend lines; "Best Source Right Now" card with confidence indicator and trend arrow; real-time Socket.IO updates on new call/sale events; cost-per-sale heatmap overlay toggle.
+
+**Uses:** Raw SVG `<polyline>` sparklines (30-line component per STACK.md); existing Socket.IO provider at layout level; existing `LeadSource.costPerLead` field; existing `Card` and `Badge` from `@ops/ui`
+
+**Implements:** `LeadTimingSparklines.tsx`, `BestSourceCard.tsx`; Socket.IO emit on ConvosoCallLog/Sale creation
+
+**Avoids:** Recommending sources below sample size threshold; showing trend arrows without sufficient comparison-period data
+
+### Phase 4: Owner Dashboard Integration
+
+**Rationale:** Owner dashboard is a pure component reuse phase — no new API work required. `OWNER_VIEW` role access needs verification against the `requireAuth` middleware, but no additional role restriction is needed beyond what Phase 1 establishes.
+
+**Delivers:** `BestSourceCard` and `LeadTimingHeatmap` visible on Owner dashboard; OWNER_VIEW role confirmed able to reach lead-timing endpoints.
+
+**Uses:** Same components from Phases 2-3; role verification via existing `requireAuth` middleware
+
+**Implements:** Import `LeadTimingSection` (or subset) into `OwnerOverview.tsx` or `OwnerKPIs.tsx`
 
 ### Phase Ordering Rationale
 
-- Phase 1 ships before Phase 2 because the quick fixes are independent and reduce codebase noise before the higher-risk poller change
-- Phase 2 must precede Phase 3 due to a hard data dependency — no `ConvosoCallLog` records means no lead spend data
-- Phase 4 is independent of Phases 2-3 and could be parallelized; sequential ordering is for simplicity, not necessity
-- All six features have no blocking cross-dependencies beyond the Phase 2 → Phase 3 link
+- Phase 1 must precede all others because the analytics surface is only as trustworthy as the data layer; fixing timezone bugs after visualizations are built forces re-validation of every chart
+- Phase 2 before Phase 3 because the heatmap confirms the API data contract; sparklines and the recommendation card are derived views of the same query patterns
+- Phase 4 last because it requires zero new API work and is a read-only consumer of already-built components
+- The split between Phase 2 and Phase 3 creates a natural validation checkpoint: the heatmap can be demoed to managers before completing the full feature set
 
 ### Research Flags
 
-Phases with standard patterns (research-phase not needed):
-- **Phase 1:** All three changes follow well-established patterns already in the codebase (JSX removal, Zod schema extension, SaleProduct join pattern from sales board and payroll)
-- **Phase 3:** Display-layer change on existing KPI data; standard authFetch + useEffect fetch pattern
-- **Phase 4:** New tab component following existing CSTracking pattern; query filter extension is documented in ARCHITECTURE.md with working code example
+Phases likely needing deeper research during planning:
+- **Phase 1:** The sale-to-call correlation metric definition requires a product decision (aggregate-level correlation vs daily close rate overlay). Both are technically viable but produce different user-facing numbers. Validate with manager stakeholder before writing queries.
+- **Phase 1:** `Sale.saleDate` hour precision needs a data audit — if most sales are entered at midnight or noon, hour-level sale bucketing is meaningless and the heatmap should show call volume only with a separate daily close rate metric.
 
-Phases requiring implementation-time verification (not full research, but careful spot-checking):
-- **Phase 2:** Convoso API field names and units must be verified against a live API response before finalizing the `createMany` field mapping. Log `raw[0]` during development. Spot-check 5 stored records against Convoso dashboard after first poll cycle.
+Phases with standard patterns (skip research-phase):
+- **Phase 2:** Heatmap grid with inline styles follows directly from established codebase patterns. All implementation details are specified in ARCHITECTURE.md with full code examples.
+- **Phase 3:** SVG sparklines and Socket.IO real-time updates have explicit code patterns in ARCHITECTURE.md. Socket.IO provider already exists at layout level.
+- **Phase 4:** Owner dashboard integration is component import work with no novel decisions.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Direct schema and source file analysis; all required columns and models confirmed to exist at specific line numbers |
-| Features | HIGH | Each feature traced to specific file and line numbers; scope matches PROJECT.md; no ambiguous requirements |
-| Architecture | HIGH | Implementation patterns extracted directly from existing codebase code; no inference required; code examples provided |
-| Pitfalls | HIGH | P1 and P2 identified from direct code analysis of poller and schema; prevention steps are concrete with detection queries |
+| Stack | HIGH | All technologies verified against installed package.json; specific version compatibility confirmed; all charting library alternatives explicitly evaluated and rejected with cited reasons |
+| Features | HIGH | Industry sources consulted (Convoso, Revenue.io, ZoomInfo 1.4M call dataset); competitor feature analysis completed; feature prioritization matrix grounded in existing platform data model |
+| Architecture | HIGH | Derived from direct codebase analysis of existing routes, schema, and component patterns; SQL queries and TypeScript patterns provided with full implementation detail |
+| Pitfalls | HIGH | Most pitfalls identified from direct codebase analysis of existing bugs (`convosoKpiPoller.ts` DST check, `getHours()` usage); PostgreSQL `AT TIME ZONE` behavior verified against documentation |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Convoso API response shape:** The exact field names and units (seconds vs minutes for `call_length`, timestamp field name) must be verified against a live API response during Phase 2 implementation. The codebase casts the response without Zod validation. Log `raw[0]` on first development run before finalizing the field mapping.
-- **Manager product reference use:** Whether managers actively use the Products section in Manager Config for reference (vs accidental edits) is a product question that code inspection cannot answer. Confirm with stakeholders before Phase 1 ships, or default to converting it to read-only rather than deleting it outright.
-- **Resolved log CSV export implementation:** FEATURES.md identifies CSV export as an expected capability for the resolved log. The existing export pattern from other ops views should be confirmed as applicable here before Phase 4 implementation begins.
+- **Sale hour precision:** `Sale.saleDate` is documented as lacking hour-level precision (set to noon in the seed). A data audit of production `Sale.createdAt` timestamps is needed to determine whether hour-of-day sale bucketing is reliable or whether the heatmap should display call-volume only with daily close rate as a separate metric. Resolve before writing Phase 1 queries.
+
+- **Convoso data coverage:** Analytics will only cover call logs from v1.7 onward (when `leadSourceId` was added to ConvosoCallLog). The total date range of available data is unknown. If less than 30 days of data exists, the default 30-day range filter will show sparse heatmaps at launch. Consider showing a data-coverage indicator or defaulting to the available-data range on first load.
+
+- **Timezone for heatmap hours:** PITFALLS.md recommends `America/Los_Angeles` (Convoso source timezone per project memory). ARCHITECTURE.md references `America/New_York` (payroll/business timezone). The call center's operating timezone needs explicit confirmation before writing queries — heatmap hours should reflect the timezone managers think in, not the timezone Convoso data originates from.
 
 ## Sources
 
-### Primary (HIGH confidence — direct codebase analysis)
-- `prisma/schema.prisma` lines 114, 457, 537, 557-560 — confirmed existing columns, models, and resolution fields
-- `apps/ops-api/src/workers/convosoKpiPoller.ts` — confirmed poller writes `AgentCallKpi` but not `ConvosoCallLog`; `newRaw` dedup filter location identified
-- `apps/ops-api/src/routes/agents.ts:76` — confirmed `callBufferSeconds` missing from lead source create Zod schema
-- `apps/ops-api/src/routes/chargebacks.ts:148, 177` — `emitCSChanged` on resolve and resolver include in GET response confirmed
-- `apps/ops-api/src/services/convosoCallLogs.ts` — `buildKpiSummary` calculates `totalLeadCost` for all agents with calls
-- `.planning/PROJECT.md` — v1.7 milestone scope definition
+### Primary (HIGH confidence)
 
-### Secondary (MEDIUM confidence — pattern inference from existing views)
-- Sales board / payroll addon-inclusive premium pattern — confirmed as the correct model for the Manager Sales premium fix; directly replicable without modification
+- `apps/ops-api/src/workers/convosoKpiPoller.ts` — DST handling bug, business hours check bug, ConvosoCallLog write pattern (direct codebase analysis)
+- `prisma/schema.prisma` — ConvosoCallLog, Sale, LeadSource models and existing indexes (direct codebase analysis)
+- `apps/ops-api/src/routes/sales.ts` — parallel query pattern, aggregation approach (direct codebase analysis)
+- `apps/ops-dashboard/app/(dashboard)/manager/page.tsx` — tab structure, NAV_ITEMS pattern (direct codebase analysis)
+- `apps/ops-dashboard/lib/DateRangeContext.tsx` — global date range pattern, isolation rationale (direct codebase analysis)
+- `packages/ui/src/tokens.ts` — design token CSS custom properties confirmed compatible with SVG fill (direct codebase analysis)
+- React 18 SVG rendering — native JSX SVG support confirmed for `<svg>`, `<rect>`, `<polyline>`, `<text>`, `<g>`
+- PostgreSQL `EXTRACT()` + `AT TIME ZONE` documentation — behavior on `timestamptz` confirmed correct
+- Prisma `$queryRaw` documentation — tagged template parameterization confirmed safe against SQL injection
+
+### Secondary (MEDIUM confidence)
+
+- [Convoso: Best Time to Cold Call](https://www.convoso.com/blog/best-time-to-cold-call/) — Industry call timing patterns and peak hours
+- [ZoomInfo: Best Days to Cold Call](https://pipeline.zoominfo.com/sales/best-days-to-cold-call) — 1.4M call dataset day-of-week patterns
+- [Balto: Outbound Call Center Performance Metrics](https://www.balto.ai/blog/outbound-call-center-performance-metrics/) — Close rate as primary KPI hierarchy for outbound call centers
+- [LogRocket: Best Heatmap Libraries for React](https://blog.logrocket.com/best-heatmap-libraries-react/) — Charting library evaluation leading to rejection of all external options
+- npm package versions for recharts (3.8.1), @visx/heatmap (3.12.0), react-sparklines (1.7.0) — verified via `npm view`
+
+### Tertiary (LOW confidence)
+
+- [Recharts inline style GitHub issue #2169](https://github.com/recharts/recharts/issues/2169) — Inline style CSS class conflicts (not directly tested in this codebase; cited issue confirmed to exist)
+- react-sparklines React 18 compatibility — unverified; inferred from package being unmaintained since 2018
 
 ---
-*Research completed: 2026-03-25*
+*Research completed: 2026-03-26*
 *Ready for roadmap: yes*
