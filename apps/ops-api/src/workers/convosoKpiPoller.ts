@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@ops/db";
+import { DateTime } from "luxon";
 import {
   fetchConvosoCallLogs,
   enrichWithTiers,
@@ -111,10 +112,9 @@ async function pollLeadSource(
           callTimestamp: (() => {
             const raw = r.call_date ?? r.start_time;
             if (!raw) return new Date();
-            // Convoso returns "YYYY-MM-DD HH:MM:SS" without timezone — treat as UTC
-            const str = String(raw).replace(" ", "T") + "Z";
-            const d = new Date(str);
-            return isNaN(d.getTime()) ? new Date() : d;
+            // Convoso returns "YYYY-MM-DD HH:MM:SS" in America/Los_Angeles (Pacific)
+            const dt = DateTime.fromFormat(String(raw), "yyyy-MM-dd HH:mm:ss", { zone: "America/Los_Angeles" });
+            return dt.isValid ? dt.toJSDate() : new Date();
           })(),
           agentId: agentInfo?.id ?? null,
           leadSourceId: leadSource.id,
