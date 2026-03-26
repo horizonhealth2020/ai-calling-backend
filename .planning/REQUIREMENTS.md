@@ -9,9 +9,9 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 
 ### Data Layer
 
-- [ ] **DATA-01**: Convoso poller DST handling uses Luxon instead of month-based approximation for accurate hour extraction
-- [ ] **DATA-02**: Convoso poller business hours check uses America/Los_Angeles local time instead of UTC hours
-- [ ] **DATA-03**: Database indexes added on ConvosoCallLog (leadSourceId, callTimestamp) and Sale (leadSourceId, createdAt) for aggregation performance
+- [x] **DATA-01**: Convoso poller DST handling uses Luxon instead of month-based approximation for accurate hour extraction
+- [x] **DATA-02**: Convoso poller business hours check uses America/Los_Angeles local time instead of UTC hours
+- [x] **DATA-03**: Database indexes added on ConvosoCallLog (leadSourceId, callTimestamp) and Sale (leadSourceId, createdAt) for aggregation performance
 - [ ] **DATA-04**: API endpoint returns heatmap data: close rate (sales/calls) grouped by lead source x hour-of-day, with day-of-week or week-of-month grouping toggle
 - [ ] **DATA-05**: API endpoint returns sparkline data: daily close rate per lead source per daypart (morning/afternoon/evening) for last 7 days
 - [ ] **DATA-06**: API endpoint returns recommendation data: top lead sources ranked by historical close rate for current hour and day-of-week
@@ -47,8 +47,8 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 
 ### Commission Fix
 
-- [ ] **COMM-01**: Fallback bundle addon only qualifies for full commission in states where the primary required addon is not available
-- [ ] **COMM-02**: In states where the primary required addon IS available, the fallback addon does not qualify as a bundle substitute (half commission applies)
+- [x] **COMM-01**: Fallback bundle addon only qualifies for full commission in states where the primary required addon is not available
+- [x] **COMM-02**: In states where the primary required addon IS available, the fallback addon does not qualify as a bundle substitute (half commission applies)
 
 ## Future Requirements
 
@@ -73,9 +73,9 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 30 | Pending |
-| DATA-02 | Phase 30 | Pending |
-| DATA-03 | Phase 30 | Pending |
+| DATA-01 | Phase 30 | Complete |
+| DATA-02 | Phase 30 | Complete |
+| DATA-03 | Phase 30 | Complete |
 | DATA-04 | Phase 30 | Pending |
 | DATA-05 | Phase 30 | Pending |
 | DATA-06 | Phase 30 | Pending |
@@ -96,8 +96,8 @@ Requirements for Lead Source Timing Analytics milestone. Each maps to roadmap ph
 | DASH-03 | Phase 30 | Pending |
 | DASH-04 | Phase 30 | Pending |
 | DASH-05 | Phase 30 | Pending |
-| COMM-01 | Phase 30 | Pending |
-| COMM-02 | Phase 30 | Pending |
+| COMM-01 | Phase 30 | Complete |
+| COMM-02 | Phase 30 | Complete |
 
 **Coverage:**
 - v1.8 requirements: 25 total

@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-03-25)
 ## Current Position
 
 Phase: 30
-Plan: 02 complete
+Plan: 01 complete (of 5)
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Plan: 02 complete
 | Phase 29 P02 | 4min | 2 tasks | 5 files |
 | Phase 29 P03 | 3min | 2 tasks | 3 files |
 | Phase 29 P04 | 1min | 2 tasks | 2 files |
+| Phase 30 P01 | 3min | 2 tasks | 5 files |
 | Phase 30 P02 | 2min | 1 task | 3 files |
 
 ## Accumulated Context
@@ -55,6 +56,9 @@ Plan: 02 complete
 | tracker/summary wrapped as { agents, convosoConfigured } | Breaking API change handled by updating all 3 frontend consumers |
 | Removed ProductRow component entirely | Cleaner than disabling buttons; dead code removal preferred |
 | Inline IIFE for addon total in table cell | Matches card-level summation pattern already in ManagerSales |
+| Luxon for Convoso DST-correct parsing | IANA timezone database handles exact DST transitions, replacing month-based approximation |
+| Commission fallback guard before loop | Prevents fallback loop when primary addon IS available but missing from sale |
+| Manual migration for indexes | Shadow DB incompatible with existing migrations; hand-crafted SQL is equivalent |
 
 ### Open Questions
 
@@ -73,6 +77,6 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed 30-02 (Tab Rename and Today Column)*
-Last activity: 2026-03-26 - Completed phase 30 plan 02: Rename Agent Tracker to Performance Tracker, add Today column
+*Last session: Completed 30-01 (Data Layer Fixes)*
+Last activity: 2026-03-26 - Completed phase 30 plan 01: Convoso DST fix, commission fallback guard, lead timing indexes
 *Last updated: 2026-03-26*
