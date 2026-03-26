@@ -96,12 +96,18 @@ async function pollLeadSource(
             // Convoso returns recording as array of objects with public_url/src
             if (Array.isArray(r.recording) && r.recording.length > 0) {
               const rec = r.recording[0] as Record<string, unknown>;
-              return String(rec.public_url ?? rec.src ?? "");
+              const url = String(rec.public_url ?? rec.src ?? "");
+              return url.length > 0 ? url : null;
             }
             if (r.recording_url) return String(r.recording_url);
             return null;
           })(),
-          callDurationSeconds: r.call_length != null ? Number(r.call_length) : null,
+          callDurationSeconds: (() => {
+            const raw = r.call_length ?? r.duration ?? r.length;
+            if (raw == null || raw === "") return null;
+            const n = Number(raw);
+            return isNaN(n) ? null : n;
+          })(),
           callTimestamp: (() => {
             const raw = r.call_date ?? r.start_time;
             if (!raw) return new Date();
@@ -117,6 +123,18 @@ async function pollLeadSource(
       .filter((r) => r.agentUser !== ""); // skip records without user_id
 
     if (callLogRecords.length > 0) {
+      console.log(JSON.stringify({
+        event: "kpi_poll_call_log_write",
+        leadSourceId: leadSource.id,
+        count: callLogRecords.length,
+        sample: callLogRecords[0] ? {
+          agentUser: callLogRecords[0].agentUser,
+          duration: callLogRecords[0].callDurationSeconds,
+          hasRecording: !!callLogRecords[0].recordingUrl,
+          timestamp: callLogRecords[0].callTimestamp,
+        } : null,
+        timestamp: new Date().toISOString(),
+      }));
       await prisma.convosoCallLog.createMany({ data: callLogRecords });
     }
 
