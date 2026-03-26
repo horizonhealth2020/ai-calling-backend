@@ -151,6 +151,75 @@ async function pollLeadSource(
       });
     }
 
+    // Backfill: update existing records missing recording URL or duration
+    // (Convoso may not have the recording ready on first fetch)
+    const alreadyProcessedIds = [...existingSet];
+    if (alreadyProcessedIds.length > 0) {
+      const incomplete = await prisma.convosoCallLog.findMany({
+        where: {
+          leadSourceId: leadSource.id,
+          OR: [
+            { recordingUrl: null },
+            { callDurationSeconds: null },
+          ],
+        },
+        select: { id: true, agentUser: true },
+      });
+
+      if (incomplete.length > 0) {
+        // Build lookup from Convoso response by user_id + list_id
+        const rawById = new Map(raw.map((r) => [String(r.id), r]));
+        // Match incomplete records to Convoso data by finding the processed call ID
+        const processedMap = await prisma.processedConvosoCall.findMany({
+          where: { leadSourceId: leadSource.id },
+          select: { convosoCallId: true },
+        });
+
+        for (const rec of incomplete) {
+          // Find matching Convoso call from the full raw response
+          for (const r of raw) {
+            const userId = String(r.user_id ?? "");
+            if (userId === rec.agentUser) {
+              const recordingUrl = (() => {
+                if (Array.isArray(r.recording) && r.recording.length > 0) {
+                  const rr = r.recording[0] as Record<string, unknown>;
+                  const url = String(rr.public_url ?? rr.src ?? "");
+                  return url.length > 0 ? url : null;
+                }
+                return r.recording_url ? String(r.recording_url) : null;
+              })();
+              const duration = (() => {
+                const v = r.call_length ?? r.duration ?? r.length;
+                if (v == null || v === "") return null;
+                const n = Number(v);
+                return isNaN(n) ? null : n;
+              })();
+
+              if (recordingUrl || duration) {
+                const updateData: Record<string, unknown> = {};
+                if (recordingUrl) updateData.recordingUrl = recordingUrl;
+                if (duration != null) updateData.callDurationSeconds = duration;
+                await prisma.convosoCallLog.update({
+                  where: { id: rec.id },
+                  data: updateData,
+                }).catch(() => {}); // Non-critical — skip if update fails
+                break; // Found a match, move to next incomplete record
+              }
+            }
+          }
+        }
+
+        if (incomplete.length > 0) {
+          console.log(JSON.stringify({
+            event: "kpi_poll_backfill",
+            leadSourceId: leadSource.id,
+            incompleteRecords: incomplete.length,
+            timestamp: new Date().toISOString(),
+          }));
+        }
+      }
+    }
+
     // Filter: only calls with call_length >= lead source buffer count toward KPIs
     const bufferSeconds = leadSource.callBufferSeconds ?? 0;
     const filtered = bufferSeconds > 0
