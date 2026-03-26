@@ -151,6 +151,7 @@ async function transcribeRecording(audioBuffer: Buffer): Promise<string> {
 
   const formData = new FormData();
   formData.append("file", new Blob([audioBuffer as unknown as BlobPart]), "recording.mp3");
+  formData.append("model", process.env.WHISPER_MODEL ?? "Systran/faster-whisper-small");
 
   const whisperRes = await fetch(whisperUrl, { method: "POST", body: formData });
   if (!whisperRes.ok) throw new Error(`Whisper transcription failed: ${whisperRes.status}`);
