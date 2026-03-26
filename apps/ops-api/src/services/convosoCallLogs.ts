@@ -98,10 +98,15 @@ export async function fetchConvosoCallLogs(params: Record<string, string>): Prom
 // ---------------------------------------------------------------------------
 
 export function enrichWithTiers(records: ConvosoCallLog[]): EnrichedCallLog[] {
-  return records.map((record) => ({
-    ...record,
-    call_length_tier: classifyTier(record.call_length),
-  }));
+  return records.map((record) => {
+    // Convoso returns call_length as string — coerce to number
+    const callLength = record.call_length != null ? Number(record.call_length) : null;
+    return {
+      ...record,
+      call_length: callLength,
+      call_length_tier: classifyTier(callLength),
+    };
+  });
 }
 
 export function filterByCallLength(
