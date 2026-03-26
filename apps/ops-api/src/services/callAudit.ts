@@ -163,7 +163,7 @@ async function transcribeRecording(audioBuffer: Buffer): Promise<string> {
 // ── Claude audit (primary) ──────────────────────────────────────
 async function auditWithClaude(transcription: string, systemPrompt: string, agentName: string): Promise<{ result: AuditResult; usage: { inputTokens: number; outputTokens: number; model: string } }> {
   const anthropic = new Anthropic();
-  const model = "claude-sonnet-4-6-20250514";
+  const model = "claude-sonnet-4-20250514";
 
   const response = await anthropic.messages.create({
     model,
