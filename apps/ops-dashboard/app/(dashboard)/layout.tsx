@@ -68,7 +68,7 @@ function DashboardInner({ tabs, children }: { tabs: TabConfig[]; children: React
     if (hovered) {
       setDelayedHovered(true);
     } else {
-      const timer = setTimeout(() => setDelayedHovered(false), 400);
+      const timer = setTimeout(() => setDelayedHovered(false), 2000);
       return () => clearTimeout(timer);
     }
   }, [hovered]);
