@@ -227,6 +227,7 @@ model Sale {
 
   @@index([saleDate])
   @@index([memberId])
+  @@index([leadSourceId, createdAt])
   @@map("sales")
 }
 
@@ -489,6 +490,7 @@ model ConvosoCallLog {
 
   @@index([callTimestamp])
   @@index([agentId, leadSourceId, callTimestamp])
+  @@index([leadSourceId, callTimestamp])
   @@map("convoso_call_logs")
 }
 

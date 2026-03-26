@@ -224,6 +224,17 @@ export async function resolveBundleRequirement(
     return { requiredAddonAvailable: true, fallbackAddonAvailable: false, halvingReason: null };
   }
 
+  // If primary IS available but NOT in sale, half commission -- skip fallbacks entirely
+  if (requiredAvail && !requiredAddonInSale) {
+    const addonName = coreProduct.requiredBundleAddon?.name ?? "required addon";
+    return {
+      requiredAddonAvailable: false,
+      fallbackAddonAvailable: false,
+      halvingReason: `Half commission - missing ${addonName}`,
+    };
+  }
+
+  // Only reach fallback loop when primary is NOT available in state (!requiredAvail)
   const fallbacks = coreProduct.fallbackAddons ?? [];
   for (const fb of fallbacks) {
     const fbAvail = await prisma.productStateAvailability.findUnique({
