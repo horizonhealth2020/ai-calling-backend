@@ -139,14 +139,15 @@ model Product {
   notes                String?
 
   requiredBundleAddonId  String?  @map("required_bundle_addon_id")
-  fallbackBundleAddonId  String?  @map("fallback_bundle_addon_id")
 
   requiredBundleAddon    Product? @relation("RequiredBundleAddon", fields: [requiredBundleAddonId], references: [id])
-  fallbackBundleAddon    Product? @relation("FallbackBundleAddon", fields: [fallbackBundleAddonId], references: [id])
 
   // Reverse relations (required by Prisma for self-referencing)
   coreProductsRequiring  Product[] @relation("RequiredBundleAddon")
-  coreProductsFallback   Product[] @relation("FallbackBundleAddon")
+
+  // Many-to-many fallback addons via join table
+  fallbackAddons         CoreProductFallback[] @relation("CoreFallbacks")
+  fallbackForCores       CoreProductFallback[] @relation("FallbackFor")
 
   stateAvailability      ProductStateAvailability[]
 
@@ -170,6 +171,19 @@ model ProductStateAvailability {
 
   @@unique([productId, stateCode])
   @@map("product_state_availability")
+}
+
+model CoreProductFallback {
+  id                String   @id @default(cuid())
+  coreProductId     String   @map("core_product_id")
+  fallbackProductId String   @map("fallback_product_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  coreProduct       Product  @relation("CoreFallbacks", fields: [coreProductId], references: [id], onDelete: Cascade)
+  fallbackProduct   Product  @relation("FallbackFor", fields: [fallbackProductId], references: [id], onDelete: Cascade)
+
+  @@unique([coreProductId, fallbackProductId])
+  @@map("core_product_fallbacks")
 }
 
 model Sale {

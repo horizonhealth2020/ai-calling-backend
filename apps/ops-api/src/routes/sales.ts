@@ -151,7 +151,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     where: { id: parsed.data.productId },
     include: {
       requiredBundleAddon: { select: { name: true } },
-      fallbackBundleAddon: true,
+      fallbackAddons: { select: { fallbackProduct: { select: { id: true, name: true } } } },
     },
   });
   if (!product) return res.status(404).json({ error: "Product not found" });

@@ -205,7 +205,11 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
  * Returns null if no bundle requirement is configured on the core product.
  */
 export async function resolveBundleRequirement(
-  coreProduct: { requiredBundleAddonId: string | null; fallbackBundleAddonId: string | null; requiredBundleAddon?: { name: string } | null; fallbackBundleAddon?: { name: string } | null },
+  coreProduct: {
+    requiredBundleAddonId: string | null;
+    requiredBundleAddon?: { name: string } | null;
+    fallbackAddons?: { fallbackProduct: { id: string; name: string } }[];
+  },
   memberState: string,
   saleAddonProductIds: string[]
 ): Promise<BundleRequirementContext> {
@@ -220,13 +224,13 @@ export async function resolveBundleRequirement(
     return { requiredAddonAvailable: true, fallbackAddonAvailable: false, halvingReason: null };
   }
 
-  if (coreProduct.fallbackBundleAddonId) {
-    const fallbackAvail = await prisma.productStateAvailability.findUnique({
-      where: { productId_stateCode: { productId: coreProduct.fallbackBundleAddonId, stateCode: memberState } }
+  const fallbacks = coreProduct.fallbackAddons ?? [];
+  for (const fb of fallbacks) {
+    const fbAvail = await prisma.productStateAvailability.findUnique({
+      where: { productId_stateCode: { productId: fb.fallbackProduct.id, stateCode: memberState } }
     });
-    const fallbackInSale = saleAddonProductIds.includes(coreProduct.fallbackBundleAddonId);
-
-    if (fallbackAvail && fallbackInSale) {
+    const fbInSale = saleAddonProductIds.includes(fb.fallbackProduct.id);
+    if (fbAvail && fbInSale) {
       return { requiredAddonAvailable: false, fallbackAddonAvailable: true, halvingReason: null };
     }
   }
@@ -276,7 +280,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
       product: {
         include: {
           requiredBundleAddon: { select: { name: true } },
-          fallbackBundleAddon: true,
+          fallbackAddons: { select: { fallbackProduct: { select: { id: true, name: true } } } },
         },
       },
       addons: { include: { product: true } },

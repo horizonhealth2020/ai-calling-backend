@@ -14,7 +14,7 @@ router.get("/products", requireAuth, asyncHandler(async (req, res) => {
     where: includeInactive ? {} : { active: true },
     include: {
       requiredBundleAddon: { select: { id: true, name: true } },
-      fallbackBundleAddon: { select: { id: true, name: true } },
+      fallbackAddons: { select: { fallbackProduct: { select: { id: true, name: true } } } },
       stateAvailability: { select: { stateCode: true } },
     },
   }));
@@ -32,12 +32,18 @@ router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asy
     enrollFeeThreshold: z.number().min(0).nullable().optional(),
     notes: z.string().optional(),
     requiredBundleAddonId: z.string().nullable().optional(),
-    fallbackBundleAddonId: z.string().nullable().optional(),
+    fallbackAddonIds: z.array(z.string()).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
-    const product = await prisma.product.create({ data: parsed.data });
+    const { fallbackAddonIds, ...productData } = parsed.data;
+    const product = await prisma.product.create({ data: productData });
+    if (fallbackAddonIds && fallbackAddonIds.length > 0) {
+      await prisma.coreProductFallback.createMany({
+        data: fallbackAddonIds.map(fid => ({ coreProductId: product.id, fallbackProductId: fid })),
+      });
+    }
     await logAudit(req.user!.id, "CREATE", "Product", product.id, { name: product.name });
     res.status(201).json(product);
   } catch (e: unknown) {
@@ -61,17 +67,26 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     enrollFeeThreshold: z.number().min(0).nullable().optional(),
     notes: z.string().nullable().optional(),
     requiredBundleAddonId: z.string().nullable().optional(),
-    fallbackBundleAddonId: z.string().nullable().optional(),
+    fallbackAddonIds: z.array(z.string()).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   try {
+    const { fallbackAddonIds, ...updateData } = parsed.data;
+    if (fallbackAddonIds !== undefined) {
+      await prisma.coreProductFallback.deleteMany({ where: { coreProductId: pp.data.id } });
+      if (fallbackAddonIds.length > 0) {
+        await prisma.coreProductFallback.createMany({
+          data: fallbackAddonIds.map(fid => ({ coreProductId: pp.data.id, fallbackProductId: fid })),
+        });
+      }
+    }
     const product = await prisma.product.update({
       where: { id: pp.data.id },
-      data: parsed.data,
+      data: updateData,
       include: {
         requiredBundleAddon: { select: { id: true, name: true } },
-        fallbackBundleAddon: { select: { id: true, name: true } },
+        fallbackAddons: { select: { fallbackProduct: { select: { id: true, name: true } } } },
         stateAvailability: { select: { stateCode: true } },
       },
     });
@@ -99,7 +114,7 @@ router.delete("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"
     await prisma.payoutRule.deleteMany({ where: { productId: pp.data.id } });
     // Clear bundle FKs on other products pointing to this one
     await prisma.product.updateMany({ where: { requiredBundleAddonId: pp.data.id }, data: { requiredBundleAddonId: null } });
-    await prisma.product.updateMany({ where: { fallbackBundleAddonId: pp.data.id }, data: { fallbackBundleAddonId: null } });
+    await prisma.coreProductFallback.deleteMany({ where: { fallbackProductId: pp.data.id } });
     await prisma.product.delete({ where: { id: pp.data.id } });
     await logAudit(req.user!.id, "HARD_DELETE", "Product", pp.data.id);
   } else {
@@ -117,7 +132,7 @@ router.patch("/products/:id/reactivate", requireAuth, requireRole("PAYROLL", "SU
     data: { active: true },
     include: {
       requiredBundleAddon: { select: { id: true, name: true } },
-      fallbackBundleAddon: { select: { id: true, name: true } },
+      fallbackAddons: { select: { fallbackProduct: { select: { id: true, name: true } } } },
       stateAvailability: { select: { stateCode: true } },
     },
   });

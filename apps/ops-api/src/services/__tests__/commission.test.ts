@@ -16,7 +16,6 @@ const makeProduct = (overrides: Partial<Product> = {}): Product => ({
   standaloneCommission: null,
   enrollFeeThreshold: null,
   requiredBundleAddonId: null,
-  fallbackBundleAddonId: null,
   notes: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -828,7 +827,6 @@ describe('calculateCommission', () => {
           commissionBelow: new Decimal(25),
           premiumThreshold: new Decimal(50),
           requiredBundleAddonId: 'addon-vab',
-          fallbackBundleAddonId: 'addon-better',
         }),
         addons: [
           makeAddon({ type: 'ADDON', name: 'Better Addon', id: 'addon-better',  }, 10),
