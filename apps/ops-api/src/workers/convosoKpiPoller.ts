@@ -6,19 +6,16 @@
  */
 
 import { prisma } from "@ops/db";
+import { DateTime } from "luxon";
+
 // Convoso returns timestamps in America/Los_Angeles (Pacific)
-// PDT = UTC-7 (Mar-Nov), PST = UTC-8 (Nov-Mar)
+// Luxon uses the IANA timezone database for exact DST transition dates
 function convosoDateToUTC(dateStr: string): Date {
-  // Parse "YYYY-MM-DD HH:MM:SS" and determine if DST is active
-  const str = dateStr.replace(" ", "T");
-  // Create date as if UTC to extract month for DST check
-  const asUTC = new Date(str + "Z");
-  if (isNaN(asUTC.getTime())) return new Date();
-  // US Pacific DST: 2nd Sunday Mar → 1st Sunday Nov
-  const month = asUTC.getUTCMonth(); // 0-indexed
-  const isPDT = month >= 2 && month <= 9; // Mar(2) through Oct(9) = PDT
-  const offsetHours = isPDT ? 7 : 8;
-  return new Date(asUTC.getTime() + offsetHours * 60 * 60 * 1000);
+  const dt = DateTime.fromFormat(dateStr, "yyyy-MM-dd HH:mm:ss", {
+    zone: "America/Los_Angeles",
+  });
+  if (!dt.isValid) return new Date();
+  return dt.toJSDate();
 }
 import {
   fetchConvosoCallLogs,
@@ -312,10 +309,10 @@ async function runPollCycle(): Promise<void> {
   ]);
   const startHour = startSetting?.value ?? "08:00";
   const endHour = endSetting?.value ?? "18:00";
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const now = DateTime.now().setZone("America/Los_Angeles");
+  const currentTime = `${String(now.hour).padStart(2, "0")}:${String(now.minute).padStart(2, "0")}`;
   if (currentTime < startHour || currentTime >= endHour) {
-    console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "outside business hours", currentTime, businessHours: `${startHour}-${endHour}`, timestamp: now.toISOString() }));
+    console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "outside business hours", currentTime, businessHours: `${startHour}-${endHour}`, timestamp: now.toISO() }));
     return;
   }
 
