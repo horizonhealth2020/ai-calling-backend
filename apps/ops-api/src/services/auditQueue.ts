@@ -49,6 +49,7 @@ export async function enqueueAutoScore(): Promise<number> {
   const agentIds = auditAgents.map((a) => a.id);
   const agentCutoffs = new Map(auditAgents.map((a) => [a.id, a.auditEnabledAt]));
 
+  // Use the LATER of global and per-agent timestamps for each call
   // Query candidates: agent is audit-enabled, meets duration, has recording
   const candidates = await prisma.convosoCallLog.findMany({
     where: {
@@ -59,20 +60,36 @@ export async function enqueueAutoScore(): Promise<number> {
         gte: minDuration,
         ...(maxDuration ? { lte: maxDuration } : {}),
       },
-      ...(globalEnabledAt ? { callTimestamp: { gte: globalEnabledAt } } : {}),
     },
     select: { id: true, agentId: true, callTimestamp: true },
     take: 100,
   });
 
-  // Filter by per-agent auditEnabledAt timestamp
+  // Filter by the LATER of global enabledAt and per-agent auditEnabledAt
   const eligible = candidates.filter((c) => {
-    if (!c.agentId) return false;
+    if (!c.agentId || !c.callTimestamp) return false;
     const agentCutoff = agentCutoffs.get(c.agentId);
-    if (!agentCutoff) return true; // No timestamp = legacy agent, use global only
-    if (!c.callTimestamp) return false;
-    return c.callTimestamp >= agentCutoff;
+    // Use the later of global and agent timestamps as the cutoff
+    const cutoff = agentCutoff && globalEnabledAt
+      ? (agentCutoff > globalEnabledAt ? agentCutoff : globalEnabledAt)
+      : agentCutoff ?? globalEnabledAt;
+    if (!cutoff) return true; // No timestamps at all = eligible
+    return c.callTimestamp >= cutoff;
   }).slice(0, 50);
+
+  console.log(JSON.stringify({
+    event: "audit_enqueue_check",
+    globalEnabledAt: globalEnabledAt?.toISOString() ?? null,
+    auditAgents: auditAgents.length,
+    minDuration,
+    candidates: candidates.length,
+    eligible: eligible.length,
+    sampleCandidate: candidates[0] ? {
+      callTimestamp: candidates[0].callTimestamp?.toISOString() ?? null,
+      agentId: candidates[0].agentId,
+    } : null,
+    timestamp: new Date().toISOString(),
+  }));
 
   if (eligible.length === 0) return 0;
 
