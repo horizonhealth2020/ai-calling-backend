@@ -17,6 +17,7 @@ import alertRoutes from "./alerts";
 import aiBudgetRoutes from "./ai-budget";
 import adminRoutes from "./admin";
 import archiveRoutes from "./archive";
+import leadTimingRoutes from "./lead-timing";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use(alertRoutes);
 router.use(aiBudgetRoutes);
 router.use(adminRoutes);
 router.use(archiveRoutes);
+router.use(leadTimingRoutes);
 
 export default router;
