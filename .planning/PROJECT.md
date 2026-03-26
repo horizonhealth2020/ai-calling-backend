@@ -88,7 +88,20 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- No active milestone — ready for next -->
+<!-- Current milestone: v1.8 Lead Source Timing Analytics -->
+
+## Current Milestone: v1.8 Lead Source Timing Analytics
+
+**Goal:** Give managers and owners visual intelligence on which lead sources convert best at what times, enabling real-time call routing decisions.
+
+**Target features:**
+- "Best Source Right Now" recommendation card based on historical close rates for current hour
+- Source x Hour heatmap with toggle between day-of-week and week-of-month views
+- Daypart sparklines table showing 7-day conversion trends per lead source
+- Independent date range filter (Last Week / 30 Days / 60 Days / 90 Days / Custom)
+- Visible on Manager Performance Tracker tab and Owner dashboard
+- Close rate (sales/calls) as core metric with sample size indicators
+- Rename "Agent Tracker" tab to "Performance Tracker"
 
 ### Out of Scope
 
@@ -174,4 +187,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-25 after v1.7 milestone*
+*Last updated: 2026-03-26 after v1.8 milestone start*
