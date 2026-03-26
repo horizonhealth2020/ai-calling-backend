@@ -1,5 +1,25 @@
 # Milestones
 
+## v1.7 Dashboard Fixes & Cost Tracking (Shipped: 2026-03-26)
+
+**Phases completed:** 1 phase, 4 plans, 6 tasks
+**Timeline:** 2026-03-25 → 2026-03-26 (2 days)
+**Requirements:** 14/14 satisfied
+**Stats:** 18 files changed, +624 / -154 lines
+
+**Key accomplishments:**
+
+- Premium column in Manager Agent Sales now shows core + addon total per row, matching payroll and sales board totals
+- Lead source create form includes Buffer (seconds) field with POST API Zod validation
+- Manager Config Products section converted to read-only reference table (no CRUD)
+- Convoso KPI poller writes individual call records to ConvosoCallLog with dedup, backfill for delayed recordings, and proper response parsing
+- Lead Spend and Cost/Sale columns in Manager Tracker and Owner Dashboard with three-state display logic (not configured / no data / has data)
+- CS Resolved Log audit tab for OWNER_VIEW/SUPER_ADMIN with unified chargeback + pending term table, type/date/agent filtering
+- Per-agent auditEnabledAt timestamp for granular call audit eligibility control
+- AI call audit model updated to Claude Sonnet 4.6, auto-enqueue on server boot, configurable duration settings
+
+---
+
 ## v1.6 Pre-Launch Stabilization (Shipped: 2026-03-25)
 
 **Phases completed:** 4 phases, 10 plans, 16 tasks
