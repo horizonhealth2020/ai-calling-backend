@@ -32,9 +32,8 @@ Declared values from existing `packages/ui/src/tokens.ts` spacing object (all mu
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | 1 | 4px | Heatmap cell gap, sparkline inline padding |
-| 2 | 8px | Heatmap cell internal padding, tooltip padding |
-| 3 | 12px | Compact card internal gaps |
-| 4 | 16px | Default element spacing, filter row gaps |
+| 2 | 8px | Heatmap cell internal padding, tooltip padding, subsection label bottom margin, compact card internal gaps |
+| 4 | 16px | Default element spacing, filter row gaps, controls row bottom margin |
 | 6 | 24px | Section padding (LeadTimingSection wrapper), card padding |
 | 8 | 32px | Gap between heatmap and sparklines sections |
 | 12 | 48px | Spacing above/below the entire analytics section |
@@ -49,12 +48,12 @@ Uses existing tokens from `packages/ui/src/tokens.ts`. Phase-specific role mappi
 
 | Role | Size | Weight | Line Height | Usage in this phase |
 |------|------|--------|-------------|---------------------|
-| Table header (xs) | 11px | 700 (bold) | 1.45 | Heatmap hour labels, sparklines table headers, axis labels |
+| Table header (xs) | 11px | 600 (semibold) | 1.45 | Heatmap hour labels, sparklines table headers, axis labels |
 | Body (sm) | 13px | 400 (normal) | 1.5 | Tooltip text, sparklines table cells, date filter labels |
 | Card value (md) | 16px | 600 (semibold) | 1.5 | Best Source card close rate, lead source name in card |
 | Section heading (lg) | 18px | 600 (semibold) | 1.4 | "Lead Source Timing Analytics" collapsible header |
 
-All labels use `textTransform: "uppercase"` with `letterSpacing: typography.tracking.caps` ("0.06em") per existing `baseLabelStyle` / `baseThStyle` pattern.
+All labels use `textTransform: "uppercase"` with `letterSpacing: typography.tracking.caps` ("0.06em") per existing `baseLabelStyle` / `baseThStyle` pattern. The combination of uppercase + letter-spacing + semibold (600) provides sufficient visual differentiation for header/label roles without requiring a third weight.
 
 ---
 
@@ -109,7 +108,7 @@ Business hour emphasis: Columns for hours 8-20 get `borderBottom: 1px solid rgba
 |----------|-------|
 | Container | `background: --bg-surface-raised`, `border: 1px solid --border-default`, `borderLeft: 3px solid --accent-teal`, `borderRadius: 8px`, `padding: 24px` |
 | Width | 100% of section width (full row, not side-by-side with heatmap) |
-| Title | "Best Source Right Now" at 11px/700/uppercase/caps-tracking, color `--text-tertiary` |
+| Title | "Best Source Right Now" at 11px/600/uppercase/caps-tracking, color `--text-tertiary` |
 | Source name | Lead source name at 16px/600, color `--text-primary` |
 | Close rate | AnimatedNumber component at 16px/600, color `--success` (#34d399) |
 | Call count | "N calls this hour" at 13px/400, color `--text-secondary` |
@@ -121,17 +120,17 @@ Business hour emphasis: Columns for hours 8-20 get `borderBottom: 1px solid rgba
 | Property | Value |
 |----------|-------|
 | Container | No extra card wrapper -- renders directly inside LeadTimingSection |
-| Subsection label | "Close Rate Heatmap" at 11px/700/uppercase/caps-tracking, color `--text-tertiary`, marginBottom 12px |
-| Controls row | `display: flex`, `gap: 12px`, `alignItems: center`, `marginBottom: 16px` |
+| Subsection label | "Close Rate Heatmap" at 11px/600/uppercase/caps-tracking, color `--text-tertiary`, marginBottom 8px |
+| Controls row | `display: flex`, `gap: 8px`, `alignItems: center`, `marginBottom: 16px` |
 | Grouping dropdown | `<select>` styled with `baseInputStyle` pattern, options: "Day of Week" / "Week of Month" / "Month of Year" per D-02 |
 | Grid layout | CSS grid: `gridTemplateColumns: 120px repeat(24, 1fr)` |
 | Row header | Lead source name at 13px/400, color `--text-secondary`, truncated with `overflow: hidden`, `textOverflow: ellipsis`, `whiteSpace: nowrap`, max-width 120px |
-| Column header | Hour label (12a, 1a, ... 11p) at 11px/700, color `--text-tertiary`, centered |
+| Column header | Hour label (12a, 1a, ... 11p) at 11px/600, color `--text-tertiary`, centered |
 | Cell size | `minWidth: 36px`, `minHeight: 36px`, `borderRadius: 4px` |
 | Cell gap | 2px (`gap: 2px` on grid) |
 | Cell background | Computed from heatmap color scale above |
 | Cell hover | `outline: 1px solid rgba(255,255,255,0.3)` on hover, `cursor: pointer` |
-| Tooltip | Absolute positioned div: `background: --bg-surface-overlay`, `border: 1px solid --border-strong`, `borderRadius: 6px`, `padding: 8px 12px`, `boxShadow: --shadow-md`, `zIndex: 50` |
+| Tooltip | Absolute positioned div: `background: --bg-surface-overlay`, `border: 1px solid --border-strong`, `borderRadius: 6px`, `padding: 8px 8px`, `boxShadow: --shadow-md`, `zIndex: 50` |
 | Tooltip content | Three lines: "Close rate: X.X%" / "Calls: N" / "Sales: N", each at 13px/400, color `--text-secondary`, with rate value in `--text-primary` at weight 600 |
 | Business hours | Hours 8-20 columns get `borderBottom: 1px solid rgba(255,255,255,0.06)` on header cell |
 
@@ -140,7 +139,7 @@ Business hour emphasis: Columns for hours 8-20 get `borderBottom: 1px solid rgba
 | Property | Value |
 |----------|-------|
 | Container | No extra card wrapper -- renders directly inside LeadTimingSection |
-| Subsection label | "7-Day Trends by Daypart" at 11px/700/uppercase/caps-tracking, color `--text-tertiary`, marginBottom 12px |
+| Subsection label | "7-Day Trends by Daypart" at 11px/600/uppercase/caps-tracking, color `--text-tertiary`, marginBottom 8px |
 | Table | Standard table using `baseThStyle` / `baseTdStyle` from tokens |
 | Columns | Lead Source (text) | Morning (sparkline) | Afternoon (sparkline) | Evening (sparkline) |
 | Column widths | `200px / 120px / 120px / 120px` |
