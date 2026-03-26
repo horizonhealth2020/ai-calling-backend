@@ -544,8 +544,14 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const callWhere: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  const todaySalesWhere = { saleDate: { gte: todayStart, lt: todayEnd } };
+
   // Fetch agents with sales, call logs, and commission totals in parallel
-  const [data, allLeadSources, callLogs, commissionByAgent] = await Promise.all([
+  const [data, allLeadSources, callLogs, commissionByAgent, todayData] = await Promise.all([
     prisma.agent.findMany({
       where: { active: true },
       include: { sales: { where: salesWhere, include: { addons: { select: { premium: true } } } } },
@@ -562,8 +568,27 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
         },
       },
     }),
+    prisma.agent.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+        sales: {
+          where: todaySalesWhere,
+          select: { premium: true, addons: { select: { premium: true } } },
+        },
+      },
+    }),
   ]);
   const commMap = new Map(commissionByAgent.map(c => [c.agentId, Number(c._sum.payoutAmount ?? 0)]));
+
+  // Build today map
+  const todayMap = new Map<string, { salesCount: number; premiumTotal: number }>();
+  for (const agent of todayData) {
+    const salesCount = agent.sales.length;
+    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    todayMap.set(agent.name, { salesCount, premiumTotal });
+  }
 
   // Build lead source lookup
   const lsMap = new Map(allLeadSources.map(ls => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
@@ -582,6 +607,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
     const salesCount = agent.sales.length;
     const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     const totalLeadCost = agentLeadCost.get(agent.id) ?? 0;
+    const today = todayMap.get(agent.name) ?? { salesCount: 0, premiumTotal: 0 };
     return {
       agent: agent.name,
       salesCount,
@@ -589,6 +615,8 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
       totalLeadCost,
       costPerSale: salesCount > 0 ? totalLeadCost / salesCount : 0,
       commissionTotal: commMap.get(agent.id) ?? 0,
+      todaySalesCount: today.salesCount,
+      todayPremium: today.premiumTotal,
     };
   });
   const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;

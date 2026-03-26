@@ -1,59 +1,46 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Lead Source Timing Analytics
-status: Roadmap created — ready for planning
-last_updated: "2026-03-26"
+milestone: v1.7
+milestone_name: Dashboard Fixes & Cost Tracking
+status: v1.7 milestone complete
+last_updated: "2026-03-26T15:20:34.361Z"
 progress:
   total_phases: 1
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-26)
+See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v1.8 Lead Source Timing Analytics -- Phase 30 ready for planning
+**Current focus:** Phase 30 — Lead Source Timing Analytics
 
 ## Current Position
 
-Phase: 30 - Lead Source Timing Analytics
-Plan: --
-Status: Roadmap created, awaiting plan-phase
-Last activity: 2026-03-26 -- Roadmap created for v1.8
-
-```
-v1.8 Lead Source Timing Analytics
-[                                        ] 0% (0/1 phases)
-```
+Phase: 30
+Plan: 02 complete
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 8 (v1.0 through v1.7) |
-| Total phases | 29 complete + 1 planned |
-| Total plans | 86 complete |
-| Total requirements | 189 shipped + 25 v1.8 |
-| Timeline | 12 days shipped (2026-03-14 to 2026-03-26) |
+| Milestones shipped | 7 (v1.0 through v1.6) |
+| Total phases | 28 complete + 4 planned |
+| Total plans | 82 complete |
+| Total requirements | 175 shipped + 14 v1.7 |
+| Timeline | 12 days shipped (2026-03-14 to 2026-03-25) |
 | Phase 29 P01 | 4min | 2 tasks | 3 files |
 | Phase 29 P02 | 4min | 2 tasks | 5 files |
 | Phase 29 P03 | 3min | 2 tasks | 3 files |
 | Phase 29 P04 | 1min | 2 tasks | 2 files |
+| Phase 30 P02 | 2min | 1 task | 3 files |
 
 ## Accumulated Context
-
-### Key Decisions (v1.8)
-
-| Decision | Rationale |
-|----------|-----------|
-| Single phase for all 25 requirements | User directive -- feature is cohesive enough to deliver as one unit; avoids artificial splits |
-| Phase 30 continues from v1.7 Phase 29 | Maintains global phase numbering across milestones |
 
 ### Key Decisions (v1.7)
 
@@ -72,8 +59,6 @@ v1.8 Lead Source Timing Analytics
 ### Open Questions
 
 - Convoso API field names and units (seconds vs minutes for call_length) -- must be verified against live response during Phase 30
-- Sale hour precision: Sale.saleDate may lack hour-level precision -- data audit needed before writing aggregation queries
-- Timezone for heatmap hours: America/Los_Angeles (Convoso source) vs America/New_York (business ops) -- confirm which timezone managers think in
 
 ### Blockers
 
@@ -88,5 +73,6 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Roadmap created for v1.8 Lead Source Timing Analytics*
+*Last session: Completed 30-02 (Tab Rename and Today Column)*
+Last activity: 2026-03-26 - Completed phase 30 plan 02: Rename Agent Tracker to Performance Tracker, add Today column
 *Last updated: 2026-03-26*
