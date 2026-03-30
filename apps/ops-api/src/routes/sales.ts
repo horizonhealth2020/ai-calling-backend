@@ -376,6 +376,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
       enrollmentFee: s => s.enrollmentFee !== null ? Number(s.enrollmentFee) : null,
       paymentType: s => s.paymentType,
       memberState: s => s.memberState,
+      leadPhone: s => s.leadPhone,
       notes: s => s.notes,
       commissionApproved: s => s.commissionApproved,
     };
