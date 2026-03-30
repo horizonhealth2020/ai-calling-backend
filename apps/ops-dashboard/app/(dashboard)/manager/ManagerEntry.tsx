@@ -388,7 +388,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
     setReceipt("");
     setParsed(false);
     setAddonPremiums({});
-    setForm(f => ({ ...blankForm(), agentId: f.agentId, productId: f.productId, leadSourceId: f.leadSourceId }));
+    setForm(blankForm());
   }
 
   async function submitSale(e: FormEvent) {
