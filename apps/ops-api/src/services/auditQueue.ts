@@ -2,7 +2,7 @@ import { prisma } from "@ops/db";
 import { emitAuditStarted, emitAuditStatus, emitAuditFailed } from "../socket";
 import type { AuditUsageInfo } from "./callAudit";
 
-const MAX_CONCURRENT = 3;
+const MAX_CONCURRENT = 1; // Serialize — self-hosted Whisper can't handle concurrent transcriptions
 const RECORDING_MAX_RETRIES = 10;
 const RECORDING_RETRY_DELAY_MS = 60_000; // 60 seconds
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds
@@ -126,14 +126,23 @@ async function checkDailyBudget(): Promise<boolean> {
 // ── DB-backed polling for queued jobs ────────────────────────────
 
 async function pollPendingJobs(): Promise<void> {
-  if (activeJobs.size >= MAX_CONCURRENT) return;
+  if (activeJobs.size >= MAX_CONCURRENT) {
+    console.log(JSON.stringify({ event: "audit_poll_skip", reason: "max_concurrent_reached", activeJobs: activeJobs.size, max: MAX_CONCURRENT, timestamp: new Date().toISOString() }));
+    return;
+  }
 
   // Check if AI scoring is enabled
   const enabledSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled" } });
-  if (!enabledSetting || enabledSetting.value !== "true") return;
+  if (!enabledSetting || enabledSetting.value !== "true") {
+    console.log(JSON.stringify({ event: "audit_poll_skip", reason: "scoring_disabled", settingValue: enabledSetting?.value ?? null, timestamp: new Date().toISOString() }));
+    return;
+  }
 
   const withinBudget = await checkDailyBudget();
-  if (!withinBudget) return;
+  if (!withinBudget) {
+    console.log(JSON.stringify({ event: "audit_poll_skip", reason: "daily_budget_exhausted", timestamp: new Date().toISOString() }));
+    return;
+  }
 
   const pending = await prisma.convosoCallLog.findMany({
     where: {
@@ -144,6 +153,16 @@ async function pollPendingJobs(): Promise<void> {
     take: MAX_CONCURRENT - activeJobs.size,
     select: { id: true },
   });
+
+  if (pending.length === 0) {
+    // Count stuck jobs for diagnostics
+    const [queuedCount, failedCount, processingCount] = await Promise.all([
+      prisma.convosoCallLog.count({ where: { auditStatus: "queued" } }),
+      prisma.convosoCallLog.count({ where: { auditStatus: "failed" } }),
+      prisma.convosoCallLog.count({ where: { auditStatus: { in: ["processing", "waiting_recording", "transcribing", "auditing"] } } }),
+    ]);
+    console.log(JSON.stringify({ event: "audit_poll_empty", queued: queuedCount, failed: failedCount, inProgress: processingCount, activeJobs: activeJobs.size, timestamp: new Date().toISOString() }));
+  }
 
   for (const job of pending) {
     if (activeJobs.has(job.id)) continue;
@@ -220,7 +239,7 @@ async function downloadRecordingWithRetry(callLogId: string, url: string): Promi
         data: { auditStatus: "waiting_recording" },
       });
 
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
 
       if (!res.ok) {
         if (attempt < RECORDING_MAX_RETRIES) {

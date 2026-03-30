@@ -153,7 +153,8 @@ async function transcribeRecording(audioBuffer: Buffer): Promise<string> {
   formData.append("file", new Blob([audioBuffer as unknown as BlobPart]), "recording.mp3");
   formData.append("model", process.env.WHISPER_MODEL ?? "Systran/faster-whisper-small");
 
-  const whisperRes = await fetch(whisperUrl, { method: "POST", body: formData });
+  // 10-minute timeout — long audio (30+ min) can take several minutes to transcribe
+  const whisperRes = await fetch(whisperUrl, { method: "POST", body: formData, signal: AbortSignal.timeout(600_000) });
   if (!whisperRes.ok) throw new Error(`Whisper transcription failed: ${whisperRes.status}`);
 
   const result = await whisperRes.json();

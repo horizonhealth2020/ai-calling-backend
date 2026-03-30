@@ -172,23 +172,16 @@ async function pollLeadSource(
             { leadPhone: null },
           ],
         },
-        select: { id: true, agentUser: true },
+        select: { id: true, agentUser: true, callTimestamp: true },
       });
 
       if (incomplete.length > 0) {
-        // Build lookup from Convoso response by user_id + list_id
-        const rawById = new Map(raw.map((r) => [String(r.id), r]));
-        // Match incomplete records to Convoso data by finding the processed call ID
-        const processedMap = await prisma.processedConvosoCall.findMany({
-          where: { leadSourceId: leadSource.id },
-          select: { convosoCallId: true },
-        });
-
         for (const rec of incomplete) {
-          // Find matching Convoso call from the full raw response
+          // Match by agentUser + callTimestamp to find the exact Convoso call
           for (const r of raw) {
             const userId = String(r.user_id ?? "");
-            if (userId === rec.agentUser) {
+            const callDate = convosoDateToUTC(String(r.call_date ?? r.start_time ?? ""));
+            if (userId === rec.agentUser && callDate.getTime() === rec.callTimestamp.getTime()) {
               const recordingUrl = (() => {
                 if (Array.isArray(r.recording) && r.recording.length > 0) {
                   const rr = r.recording[0] as Record<string, unknown>;
