@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Auth Stability & Phone Number Display
-status: defining requirements
-last_updated: "2026-03-30T15:00:00.000Z"
+status: roadmap created
+last_updated: "2026-03-30T15:30:00.000Z"
 last_activity: 2026-03-30
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,14 +19,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Defining requirements for v1.9
+**Current focus:** v1.9 Auth Stability & Phone Number Display -- roadmap created, ready for phase planning
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-30 — Milestone v1.9 started
+Phase: 31 (Auth Stability Fix) -- not started
+Plan: --
+Status: Roadmap created, awaiting phase planning
+Last activity: 2026-03-30 -- Roadmap created with 2 phases
+
+```
+v1.9 ==================== [..........] 0%
+Phase 31 (Auth)          [..........] Not started
+Phase 32 (Phone)         [..........] Not started
+```
 
 ## Performance Metrics
 
@@ -39,6 +45,12 @@ Last activity: 2026-03-30 — Milestone v1.9 started
 | Timeline | 17 days (2026-03-14 to 2026-03-30) |
 
 ## Accumulated Context
+
+### Decisions
+
+- Auth fix (Phase 31) ships before phone number (Phase 32) because it is a production bug affecting 3 users
+- Both phases are technically independent but ordered by priority
+- Research confirms ~40 lines of changes across 8 modified files + 1 migration
 
 ### Open Questions
 

@@ -43,22 +43,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| PHONE-01 | TBD | Pending |
-| PHONE-02 | TBD | Pending |
-| PHONE-03 | TBD | Pending |
-| PHONE-04 | TBD | Pending |
-| PHONE-05 | TBD | Pending |
-| PHONE-06 | TBD | Pending |
-| PHONE-07 | TBD | Pending |
+| AUTH-01 | Phase 31 | Pending |
+| AUTH-02 | Phase 31 | Pending |
+| AUTH-03 | Phase 31 | Pending |
+| PHONE-01 | Phase 32 | Pending |
+| PHONE-02 | Phase 32 | Pending |
+| PHONE-03 | Phase 32 | Pending |
+| PHONE-04 | Phase 32 | Pending |
+| PHONE-05 | Phase 32 | Pending |
+| PHONE-06 | Phase 32 | Pending |
+| PHONE-07 | Phase 32 | Pending |
 
 **Coverage:**
 - v1.9 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-30*
-*Last updated: 2026-03-30 after initial definition*
+*Last updated: 2026-03-30 after roadmap creation*
