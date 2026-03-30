@@ -251,13 +251,15 @@ router.put("/settings/ai-scoring-enabled", requireAuth, requireRole("OWNER_VIEW"
     update: { value: String(parsed.data.enabled) },
     create: { key: "ai_scoring_enabled", value: String(parsed.data.enabled) },
   });
-  // Record when scoring was enabled so we only audit calls from this point forward
+  // Record when scoring was FIRST enabled — only set if not already present.
+  // Toggling off/on should not reset the cutoff (would block older pending calls).
   if (parsed.data.enabled) {
-    await prisma.salesBoardSetting.upsert({
-      where: { key: "ai_scoring_enabled_at" },
-      update: { value: new Date().toISOString() },
-      create: { key: "ai_scoring_enabled_at", value: new Date().toISOString() },
-    });
+    const existing = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
+    if (!existing) {
+      await prisma.salesBoardSetting.create({
+        data: { key: "ai_scoring_enabled_at", value: new Date().toISOString() },
+      });
+    }
   }
   await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "ai_scoring_enabled", { enabled: parsed.data.enabled });
   res.json({ enabled: parsed.data.enabled });
