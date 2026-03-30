@@ -9,9 +9,9 @@ Requirements for Auth Stability & Phone Number Display. Each maps to roadmap pha
 
 ### Auth Stability
 
-- [ ] **AUTH-01**: Middleware checks JWT `exp` claim and rejects expired tokens before role check
-- [ ] **AUTH-02**: Middleware deletes `ops_session` cookie when redirecting due to expired token
-- [ ] **AUTH-03**: Login page clears expired localStorage token before attempting auto-redirect
+- [x] **AUTH-01**: Middleware checks JWT `exp` claim and rejects expired tokens before role check
+- [x] **AUTH-02**: Middleware deletes `ops_session` cookie when redirecting due to expired token
+- [x] **AUTH-03**: Login page clears expired localStorage token before attempting auto-redirect
 
 ### Phone Number Display
 
@@ -43,9 +43,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 31 | Pending |
-| AUTH-02 | Phase 31 | Pending |
-| AUTH-03 | Phase 31 | Pending |
+| AUTH-01 | Phase 31 | Complete |
+| AUTH-02 | Phase 31 | Complete |
+| AUTH-03 | Phase 31 | Complete |
 | PHONE-01 | Phase 32 | Pending |
 | PHONE-02 | Phase 32 | Pending |
 | PHONE-03 | Phase 32 | Pending |
@@ -61,4 +61,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-30*
-*Last updated: 2026-03-30 after roadmap creation*
+*Last updated: 2026-03-30 -- AUTH-01, AUTH-02, AUTH-03 completed in Phase 31*
