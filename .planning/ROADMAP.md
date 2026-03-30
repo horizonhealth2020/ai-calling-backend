@@ -8,7 +8,7 @@
 ## Phases
 
 - [ ] **Phase 31: Auth Stability Fix** - Fix the production login redirect loop affecting 3 users by adding JWT expiry checks and stale token cleanup
-- [ ] **Phase 32: Phone Number Data Pipeline** - Add lead phone numbers from Convoso data to call audit and agent sales views
+- [x] **Phase 32: Phone Number Data Pipeline** - Add lead phone numbers from Convoso data to call audit and agent sales views (completed 2026-03-30)
 
 ## Phase Details
 
@@ -44,7 +44,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 31. Auth Stability Fix | 0/1 | Planned | - |
-| 32. Phone Number Data Pipeline | 2/2 | Complete | 2026-03-30 |
+| 32. Phone Number Data Pipeline | 2/2 | Complete    | 2026-03-30 |
 
 ---
 *Roadmap created: 2026-03-30*
