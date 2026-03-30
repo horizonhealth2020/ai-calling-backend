@@ -311,10 +311,45 @@ export async function repairScoringCutoff(): Promise<void> {
   }
 }
 
+// ── Nightly queue cleanup (9 PM ET) ──────────────────────────────
+
+async function nightlyQueueCleanup(): Promise<void> {
+  // Reset unprocessed calls so they don't carry over to the next day
+  const cleared = await prisma.convosoCallLog.updateMany({
+    where: { auditStatus: { in: ["queued", "waiting_recording"] } },
+    data: { auditStatus: "skipped" },
+  });
+  if (cleared.count > 0) {
+    console.log(JSON.stringify({ event: "audit_nightly_cleanup", cleared: cleared.count, timestamp: new Date().toISOString() }));
+  }
+}
+
+let cleanupScheduled = false;
+
+function scheduleNightlyCleanup(): void {
+  if (cleanupScheduled) return;
+  cleanupScheduled = true;
+
+  const check = () => {
+    const now = new Date();
+    // 9 PM ET = 21:00 America/New_York
+    const etHour = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }), 10);
+    const etMinute = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", minute: "numeric" }), 10);
+    if (etHour === 21 && etMinute < 1) {
+      nightlyQueueCleanup().catch((err) => console.error("[auditQueue] Nightly cleanup error:", err));
+    }
+  };
+
+  // Check every 60 seconds
+  setInterval(check, 60_000);
+}
+
 export function startAutoScorePolling(): void {
   if (pollingInterval) return;
   // One-time repair on startup
   repairScoringCutoff().catch(() => {});
+  // Schedule nightly queue flush at 9 PM ET
+  scheduleNightlyCleanup();
   pollingInterval = setInterval(async () => {
     try {
       // Enqueue any new eligible calls before polling for queued jobs
