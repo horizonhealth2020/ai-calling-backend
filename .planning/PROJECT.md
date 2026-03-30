@@ -85,23 +85,18 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Convoso KPI poller writes individual call records to ConvosoCallLog table with dedup — v1.7
 - ✓ Cost per sale and lead spend display in Manager Tracker and Owner Dashboard with three-state logic — v1.7
 - ✓ CS Resolved Log audit tab for OWNER_VIEW/SUPER_ADMIN with type/date/agent filtering — v1.7
+- ✓ Luxon-based DST-correct Convoso timestamp parsing replacing month-based approximation — v1.8
+- ✓ Lead timing analytics API endpoints (heatmap, sparklines, recommendation) with timezone-aware aggregation — v1.8
+- ✓ Source x Hour heatmap with diverging color scale, grouping toggle (dow/wom/moy), tooltips, and low-sample de-emphasis — v1.8
+- ✓ Best Source Right Now recommendation card with trend arrows and sample size guards — v1.8
+- ✓ Inline SVG sparklines for 7-day close rate trends by daypart (morning/afternoon/evening) — v1.8
+- ✓ Performance Tracker tab rename, Today column, call count ticker badges — v1.8
+- ✓ Lead timing analytics visible on Manager and Owner dashboards — v1.8
+- ✓ Commission fallback guard: half commission when primary addon available but missing from sale — v1.8
 
 ### Active
 
-<!-- Current milestone: v1.8 Lead Source Timing Analytics -->
-
-## Current Milestone: v1.8 Lead Source Timing Analytics
-
-**Goal:** Give managers and owners visual intelligence on which lead sources convert best at what times, enabling real-time call routing decisions.
-
-**Target features:**
-- "Best Source Right Now" recommendation card based on historical close rates for current hour
-- Source x Hour heatmap with toggle between day-of-week and week-of-month views
-- Daypart sparklines table showing 7-day conversion trends per lead source
-- Independent date range filter (Last Week / 30 Days / 60 Days / 90 Days / Custom)
-- Visible on Manager Performance Tracker tab and Owner dashboard
-- Close rate (sales/calls) as core metric with sample size indicators
-- Rename "Agent Tracker" tab to "Performance Tracker"
+<!-- No current milestone — ready for /gsd:new-milestone -->
 
 ### Out of Scope
 
@@ -113,19 +108,19 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-25)
-**Total:** 8 milestones, 29 phases, 86 plans, 189 requirements across 12 days
-**LOC:** ~128,000 TypeScript/TSX
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30)
+**Total:** 9 milestones, 30 phases, 91 plans, 214 requirements across 17 days
+**LOC:** ~129,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
-- **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs
+- **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs, lead source timing analytics
 - **Sales board** — standalone leaderboard with day/week toggle, real-time WebSocket updates
-- **ops-api** — Express REST API with auth, RBAC, sales, payroll, clawbacks, exports, AI scoring
+- **ops-api** — Express REST API with auth, RBAC, sales, payroll, clawbacks, exports, AI scoring, lead timing analytics
 - **@ops/* packages** — shared auth, db, types, ui (PageShell, DateRangeFilter, design tokens), utils
 
 ## Context
 
-Shipped 7 milestones in 12 days (28 phases, 82 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety.
+Shipped 9 milestones in 17 days (30 phases, 91 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence.
 
 **Known areas for future work:**
 - Bulk sale import from CSV
@@ -162,6 +157,9 @@ Shipped 7 milestones in 12 days (28 phases, 82 plans). Tech stack: Next.js 15, E
 | AI prompt auto-seeds default on first access | No seed dependency — prompt available immediately | ✓ Good |
 | Period status toggle (Open ↔ Closed) | Simple pill click to close periods, red highlight when agents unpaid | ✓ Good |
 | Convoso polling over webhooks | More reliable than webhooks for call log integration | ✓ Good |
+| Luxon IANA timezone for Convoso timestamps | Eliminates DST edge cases vs month-based offset calculation | ✓ Good |
+| Inline SVG sparklines over charting library | Consistent with codebase's no-external-library pattern | ✓ Good |
+| Application-level join for heatmap | Separate call/sale queries joined in JS; simpler than SQL JOINs | ✓ Good |
 | Parse auto-fills form directly | No preview step needed — user edits fields after parse | ✓ Good |
 | Unified dashboard consolidation | 5 standalone apps → 1 app with role-gated tabs | ✓ Good |
 | Layout-level Socket.IO provider | Single connection shared across all tabs — no reconnect on switch | ✓ Good |
@@ -187,4 +185,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after v1.8 milestone start*
+*Last updated: 2026-03-30 after v1.8 milestone completion*

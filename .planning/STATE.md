@@ -1,73 +1,46 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Dashboard Fixes & Cost Tracking
-status: v1.7 milestone complete
-last_updated: "2026-03-26T15:20:34.361Z"
+milestone: v1.8
+milestone_name: Lead Source Timing Analytics
+status: v1.8 milestone complete
+last_updated: "2026-03-30T14:00:00.000Z"
+last_activity: 2026-03-30
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-25)
+See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 30 — Lead Source Timing Analytics
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 30
-Plan: 05 complete (of 5) -- awaiting human verification
+v1.8 milestone complete. All 9 milestones shipped (v1.0-v1.8).
+30 phases, 91 plans across 17 days.
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 7 (v1.0 through v1.6) |
-| Total phases | 28 complete + 4 planned |
-| Total plans | 82 complete |
-| Total requirements | 175 shipped + 14 v1.7 |
-| Timeline | 12 days shipped (2026-03-14 to 2026-03-25) |
-| Phase 29 P01 | 4min | 2 tasks | 3 files |
-| Phase 29 P02 | 4min | 2 tasks | 5 files |
-| Phase 29 P03 | 3min | 2 tasks | 3 files |
-| Phase 29 P04 | 1min | 2 tasks | 2 files |
-| Phase 30 P01 | 3min | 2 tasks | 5 files |
-| Phase 30 P02 | 2min | 1 task | 3 files |
-| Phase 30 P03 | 2min | 2 tasks | 2 files |
-| Phase 30 P04 | 3min | 2 tasks | 4 files |
-| Phase 30 P05 | 1min | 1 task | 2 files |
+| Milestones shipped | 9 (v1.0 through v1.8) |
+| Total phases | 30 complete |
+| Total plans | 91 complete |
+| Total requirements | 214 shipped |
+| Timeline | 17 days (2026-03-14 to 2026-03-30) |
 
 ## Accumulated Context
 
-### Key Decisions (v1.7)
-
-| Decision | Rationale |
-|----------|-----------|
-| Quick fixes before data flow | Independent low-risk changes ship first; reduces codebase noise before higher-risk poller work |
-| Convoso data flow before cost display | Hard dependency -- cost display queries ConvosoCallLog which must be populated first |
-| Manager products read-only (not removed) | Research confirmed managers use products for reference; read-only preserves visibility |
-| CS Resolved Log independent of data flow | No shared dependencies; sequential ordering is for simplicity, not necessity |
-| Used PendingTerm not PendingTermSubmission | Prisma schema model name is PendingTerm; accessor is prisma.pendingTerm |
-| ConvosoCallLog writes use newRaw before buffer | All calls logged regardless of duration; buffer only affects KPI aggregation |
-| tracker/summary wrapped as { agents, convosoConfigured } | Breaking API change handled by updating all 3 frontend consumers |
-| Removed ProductRow component entirely | Cleaner than disabling buttons; dead code removal preferred |
-| Inline IIFE for addon total in table cell | Matches card-level summation pattern already in ManagerSales |
-| Luxon for Convoso DST-correct parsing | IANA timezone database handles exact DST transitions, replacing month-based approximation |
-| Commission fallback guard before loop | Prevents fallback loop when primary addon IS available but missing from sale |
-| Manual migration for indexes | Shadow DB incompatible with existing migrations; hand-crafted SQL is equivalent |
-| Call count ticker between agent table and timing section | Logical visual hierarchy: agent stats -> call volume by source -> timing analytics |
-| Badge component pattern for ticker cards | Reuses existing @ops/ui Badge with subtle variant, consistent with design system |
-
 ### Open Questions
 
-- Convoso API field names and units (seconds vs minutes for call_length) -- must be verified against live response during Phase 30
+None currently.
 
 ### Blockers
 
@@ -82,6 +55,5 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*Last session: Completed 30-05 (Dashboard Integration)*
-Last activity: 2026-03-26 - Completed phase 30 plan 05: LeadTimingSection wired into Manager and Owner dashboards, call count ticker added
-*Last updated: 2026-03-26*
+*v1.8 milestone completed: 2026-03-30*
+*Last updated: 2026-03-30*

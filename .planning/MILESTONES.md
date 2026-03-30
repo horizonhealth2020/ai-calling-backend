@@ -1,5 +1,23 @@
 # Milestones
 
+## v1.8 Lead Source Timing Analytics (Shipped: 2026-03-30)
+
+**Phases completed:** 1 phase, 5 plans, 8 tasks
+**Timeline:** 2026-03-26 → 2026-03-30
+**Requirements:** 25/25 satisfied
+**UAT:** 10/10 passed
+**Stats:** 13 files changed, +954 / -22 lines
+
+**Key accomplishments:**
+
+- Luxon-based DST-correct Convoso timestamp parsing with IANA timezone database replacing month-based DST approximation
+- Lead timing analytics API: heatmap, sparklines, and recommendation endpoints with timezone-aware aggregation
+- Four React components: heatmap grid with diverging color scale, best source recommendation card, sparklines table with inline SVG polylines, and collapsible section wrapper
+- Dashboard integration: Performance Tracker rename, Today column, call count ticker badges, timing analytics on Manager and Owner views
+- Commission fallback guard: half commission when primary addon IS available but missing from sale
+
+---
+
 ## v1.7 Dashboard Fixes & Cost Tracking (Shipped: 2026-03-26)
 
 **Phases completed:** 1 phase, 4 plans, 6 tasks

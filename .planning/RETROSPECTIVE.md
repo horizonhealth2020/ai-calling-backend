@@ -147,6 +147,47 @@
 
 ---
 
+## Milestone: v1.8 — Lead Source Timing Analytics
+
+**Shipped:** 2026-03-30
+**Phases:** 1 | **Plans:** 5 | **Sessions:** ~2
+
+### What Was Built
+- Luxon-based DST-correct Convoso timestamp parsing replacing month-based approximation
+- Three lead timing API endpoints: heatmap (source x hour grid), sparklines (7-day daypart trends), recommendation (best source for current hour)
+- Four React components: LeadTimingSection collapsible wrapper, LeadTimingHeatmap with diverging color scale, BestSourceCard with trend arrows, LeadTimingSparklines with inline SVG polylines
+- Dashboard integration: Performance Tracker rename, Today column, call count ticker badges
+- Commission fallback guard preventing full payout when primary addon IS available
+
+### What Worked
+- Five-plan decomposition (data layer → dashboard polish → API → UI components → integration) matched natural dependency order
+- Inline SVG sparklines avoided introducing a charting library — consistent with codebase patterns
+- Application-level join for heatmap (separate call/sale queries joined in JS) simplified SQL significantly
+- UAT 10/10 pass on first attempt — zero issues found
+
+### What Was Inefficient
+- Nothing notable — clean execution with no rework or gap closure needed
+
+### Patterns Established
+- Luxon with America/Los_Angeles zone for all Convoso timestamp operations
+- Inline SVG polyline pattern for sparklines (no charting library)
+- Diverging color scale function (red-yellow-green) for heatmap cells
+- Collapsible section: default collapsed, data fetched only when expanded
+- Application-level join pattern for cross-table aggregation
+
+### Key Lessons
+1. Small milestones (1 phase, 5 plans) execute cleanly with minimal coordination overhead
+2. Pure data visualization features (no CRUD, no state mutation) have low defect rates
+3. Timezone handling is best solved once with a proper library (Luxon) rather than incrementally
+4. Inline SVG is a viable alternative to charting libraries for simple visualizations
+
+### Cost Observations
+- Model mix: ~80% opus (execution), ~20% sonnet (verification/checking)
+- Sessions: ~2 across 2 days
+- Notable: Clean UAT pass suggests the discuss→plan→execute cycle is well-calibrated for this codebase
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -156,6 +197,7 @@
 | v1.0 | ~8 | 10 | First milestone — established discuss→plan→execute→verify cycle |
 | v1.1 | ~4 | 7 | UI-SPEC contracts, milestone audit→gap closure→re-audit pattern |
 | v1.2 | ~3 | 1 | Single-phase consolidation, UAT-driven iterative fixes |
+| v1.8 | ~2 | 1 | Clean 5-plan execution, 10/10 UAT pass, zero rework |
 
 ### Cumulative Quality
 
@@ -164,6 +206,7 @@
 | v1.0 | 7 (reporting) + existing Morgan tests | Reporting service only | 1 (config form validation) |
 | v1.1 | 0 (client-side parsers, no new tests) | N/A | 2 (Phase 15.04 UAT gaps, Phase 17 tech debt) |
 | v1.2 | 15 UAT tests (all passed) | Full dashboard UAT | 0 (fixes applied inline during verification) |
+| v1.8 | 10 UAT tests (all passed) | Full feature UAT | 0 (zero issues found) |
 
 ### Top Lessons (Verified Across Milestones)
 
