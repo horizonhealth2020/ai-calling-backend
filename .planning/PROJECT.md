@@ -93,6 +93,9 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Performance Tracker tab rename, Today column, call count ticker badges — v1.8
 - ✓ Lead timing analytics visible on Manager and Owner dashboards — v1.8
 - ✓ Commission fallback guard: half commission when primary addon available but missing from sale — v1.8
+- ✓ Lead phone number capture from Convoso API with database storage — v1.9
+- ✓ Phone column in Manager Audits and Sales tables with (XXX) XXX-XXXX formatting — v1.9
+- ✓ Auto-formatting phone input on sales edit form with raw digit storage — v1.9
 
 ### Active
 
@@ -119,8 +122,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 ## Current State
 
 **Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30)
-**In progress:** v1.9 — Phase 31 (auth-stability-fix) complete, Phase 32 (phone-number-data-pipeline) next
-**Total:** 9 milestones, 31 phases, 92 plans, 217 requirements across 17 days
+**In progress:** v1.9 — Phase 31 (auth-stability-fix) complete, Phase 32 (phone-number-data-pipeline) complete
+**Total:** 9 milestones, 32 phases, 94 plans, 224 requirements across 17 days
 **LOC:** ~129,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
