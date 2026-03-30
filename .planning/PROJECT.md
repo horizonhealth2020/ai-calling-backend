@@ -119,7 +119,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 ## Current State
 
 **Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30)
-**Total:** 9 milestones, 30 phases, 91 plans, 214 requirements across 17 days
+**In progress:** v1.9 — Phase 31 (auth-stability-fix) complete, Phase 32 (phone-number-data-pipeline) next
+**Total:** 9 milestones, 31 phases, 92 plans, 217 requirements across 17 days
 **LOC:** ~129,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
@@ -195,4 +196,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 after v1.9 milestone start*
+*Last updated: 2026-03-30 after v1.9 Phase 31 (auth-stability-fix) complete*
