@@ -103,9 +103,10 @@ router.post("/reps/sync-existing", requireAuth, requireRole("SUPER_ADMIN"), asyn
   res.json(result);
 }));
 
-// GET /reps/next-assignment -- get next round robin rep
-router.get("/reps/next-assignment", requireAuth, requireRole("CUSTOMER_SERVICE", "OWNER_VIEW", "PAYROLL", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
-  const rep = await getNextRoundRobinRep();
+// GET /reps/next-assignment -- get next round robin rep (separate indices per type)
+router.get("/reps/next-assignment", requireAuth, requireRole("CUSTOMER_SERVICE", "OWNER_VIEW", "PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const type = req.query.type === "pending_term" ? "pending_term" : "chargeback";
+  const rep = await getNextRoundRobinRep(type);
   res.json(rep || { id: null, name: null });
 }));
 

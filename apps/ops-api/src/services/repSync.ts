@@ -78,27 +78,32 @@ export async function syncExistingReps() {
 
 /**
  * Round robin: get the next rep to assign to.
- * Uses SalesBoardSetting key "cs_round_robin_index" to persist state.
+ * Separate indices for chargebacks and pending terms so they distribute evenly
+ * and independently of each other.
  */
-export async function getNextRoundRobinRep(): Promise<{ id: string; name: string } | null> {
+export async function getNextRoundRobinRep(type: "chargeback" | "pending_term" = "chargeback"): Promise<{ id: string; name: string } | null> {
   const activeReps = await prisma.csRepRoster.findMany({
     where: { active: true },
     orderBy: { name: "asc" },
   });
   if (activeReps.length === 0) return null;
 
+  const settingKey = type === "chargeback"
+    ? "cs_round_robin_chargeback_index"
+    : "cs_round_robin_pending_term_index";
+
   return prisma.$transaction(async (tx) => {
     const setting = await tx.salesBoardSetting.findUnique({
-      where: { key: "cs_round_robin_index" },
+      where: { key: settingKey },
     });
     const currentIndex = setting ? parseInt(setting.value, 10) : 0;
     const safeIndex = currentIndex % activeReps.length;
     const nextIndex = (safeIndex + 1) % activeReps.length;
 
     await tx.salesBoardSetting.upsert({
-      where: { key: "cs_round_robin_index" },
+      where: { key: settingKey },
       update: { value: String(nextIndex) },
-      create: { key: "cs_round_robin_index", value: String(nextIndex) },
+      create: { key: settingKey, value: String(nextIndex) },
     });
 
     return { id: activeReps[safeIndex].id, name: activeReps[safeIndex].name };

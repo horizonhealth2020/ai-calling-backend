@@ -227,16 +227,15 @@ function consolidateByMember(rows: ParsedRow[]): ConsolidatedRecord[] {
   }));
 }
 
-let _rrIndex = 0;
-
 function assignRoundRobin(
   records: ConsolidatedRecord[],
   activeReps: string[]
 ): ConsolidatedRecord[] {
   if (activeReps.length === 0) return records.map((r) => ({ ...r, assignedTo: "" }));
+  let idx = 0;
   return records.map((r) => {
-    const rep = activeReps[_rrIndex % activeReps.length];
-    _rrIndex++;
+    const rep = activeReps[idx % activeReps.length];
+    idx++;
     return { ...r, assignedTo: rep };
   });
 }
@@ -351,9 +350,10 @@ function assignPtRoundRobin(
   activeReps: string[]
 ): ConsolidatedPendingRecord[] {
   if (activeReps.length === 0) return records.map((r) => ({ ...r, assignedTo: "" }));
+  let idx = 0;
   return records.map((r) => {
-    const rep = activeReps[_rrIndex % activeReps.length];
-    _rrIndex++;
+    const rep = activeReps[idx % activeReps.length];
+    idx++;
     return { ...r, assignedTo: rep };
   });
 }
