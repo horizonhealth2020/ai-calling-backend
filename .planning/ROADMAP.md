@@ -21,7 +21,9 @@
   2. After redirect, the expired cookie is gone -- refreshing the login page does not re-trigger a redirect
   3. A user with an expired localStorage token on the login page sees the login form (not a flash redirect back to dashboard)
   4. A user with a valid, non-expired token continues to access dashboard routes without interruption
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 31-01-PLAN.md -- Add JWT expiry checks to middleware and login page with token cleanup
 
 ### Phase 32: Phone Number Data Pipeline
 **Goal**: Managers can see lead phone numbers on call audit rows and agent sales rows for quick reference
@@ -38,7 +40,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 31. Auth Stability Fix | 0/0 | Not started | - |
+| 31. Auth Stability Fix | 0/1 | Planned | - |
 | 32. Phone Number Data Pipeline | 0/0 | Not started | - |
 
 ---
