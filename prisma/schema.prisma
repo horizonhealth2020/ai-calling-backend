@@ -213,6 +213,7 @@ model Sale {
   callDuration       Int?      @map("call_duration")
   callDateTime       DateTime? @map("call_date_time")
   memberState        String?   @map("member_state") @db.VarChar(2)
+  leadPhone          String?   @map("lead_phone")
 
   agent                Agent                 @relation(fields: [agentId], references: [id])
   product              Product               @relation(fields: [productId], references: [id])
@@ -483,6 +484,7 @@ model ConvosoCallLog {
   auditStatus         String   @default("pending") @map("audit_status")
   callAuditId         String?  @unique @map("call_audit_id")
   createdAt           DateTime @default(now()) @map("created_at")
+  leadPhone           String?  @map("lead_phone")
 
   agent      Agent?      @relation(fields: [agentId], references: [id])
   leadSource LeadSource? @relation(fields: [leadSourceId], references: [id])
