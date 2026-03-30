@@ -34,7 +34,7 @@ type Product = {
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
-type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; leadPhone?: string | null; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 export interface ManagerSalesProps {
   API: string;
@@ -45,6 +45,20 @@ export interface ManagerSalesProps {
   setSalesList: React.Dispatch<React.SetStateAction<Sale[]>>;
   highlightedSaleIds: Set<string>;
   onSalesChanged?: () => void;
+}
+
+/* -- Helpers -- */
+
+function formatPhone(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === "1") {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return raw;
 }
 
 /* -- Constants -- */
@@ -178,6 +192,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         memberName: sale.memberName,
         memberId: sale.memberId || "",
         memberState: sale.memberState || "",
+        leadPhone: sale.leadPhone || "",
         saleDate: sale.saleDate ? sale.saleDate.slice(0, 10) : "",
         effectiveDate: sale.effectiveDate ? sale.effectiveDate.slice(0, 10) : "",
         leadSourceId: sale.leadSourceId,
@@ -405,8 +420,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status", "", ""].map((h, i) => (
-                      <th key={h || `col-${i}`} style={{ ...baseThStyle, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
+                    {["Date", "Member", "Carrier", "Product", "Lead Source", "Phone", "Premium", "Status", "", ""].map((h, i) => (
+                      <th key={h || `col-${i}`} style={{ ...baseThStyle, textAlign: i === 6 ? "right" : i === 7 ? "center" : "left", ...(i === 5 ? { minWidth: 130 } : {}) }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -419,6 +434,11 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                       <td style={baseTdStyle}>{s.carrier}</td>
                       <td style={baseTdStyle}>{s.product.name}</td>
                       <td style={baseTdStyle}>{s.leadSource.name}</td>
+                      <td style={baseTdStyle}>
+                        {s.leadPhone
+                          ? formatPhone(s.leadPhone)
+                          : <span style={{ color: colors.textMuted }}>&mdash;</span>}
+                      </td>
                       <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{(() => {
                         const saleWithAddons = s as Sale & { addons?: { premium?: number | null }[] };
                         const addonTotal = saleWithAddons.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0;
@@ -480,7 +500,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                     </tr>
                     {editingSaleId === s.id && (
                       <tr>
-                        <td colSpan={9} style={{ padding: 0 }}>
+                        <td colSpan={10} style={{ padding: 0 }}>
                           <div style={EDIT_ROW_EXPANSION} className="animate-slide-down">
                             {editOriginal._blocked ? (
                               <div style={{ fontSize: 14, color: "#f59e0b", padding: spacing[4] }}>
@@ -561,8 +581,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                     </div>
                                   </div>
 
-                                  {/* Row 5: Carrier | Member Name | Member State (3 cols) */}
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
+                                  {/* Row 5: Carrier | Member Name | Member State | Phone (4 cols) */}
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
                                     <div>
                                       <label style={LBL}>Carrier</label>
                                       <input className="input-focus" style={baseInputStyle} value={editForm.carrier ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, carrier: e.target.value }))} />
@@ -574,6 +594,19 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                     <div>
                                       <label style={LBL}>Member State</label>
                                       <input className="input-focus" style={baseInputStyle} maxLength={2} value={editForm.memberState ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberState: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                      <label style={LBL}>Phone</label>
+                                      <input
+                                        className="input-focus"
+                                        style={{ ...baseInputStyle, width: "100%" }}
+                                        placeholder="(555) 123-4567"
+                                        value={formatPhone(editForm.leadPhone ?? "")}
+                                        onChange={e => {
+                                          const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                                          setEditForm((f: Record<string, any>) => ({ ...f, leadPhone: digits }));
+                                        }}
+                                      />
                                     </div>
                                   </div>
 
