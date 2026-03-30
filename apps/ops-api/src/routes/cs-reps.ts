@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { createSyncedRep, getNextRoundRobinRep, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
+import { createSyncedRep, getNextRoundRobinRep, batchRoundRobinAssign, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
 import { zodErr, asyncHandler, idParamSchema, dateRange, dateRangeQuerySchema } from "./helpers";
 
 const router = Router();
@@ -108,6 +108,14 @@ router.get("/reps/next-assignment", requireAuth, requireRole("CUSTOMER_SERVICE",
   const type = req.query.type === "pending_term" ? "pending_term" : "chargeback";
   const rep = await getNextRoundRobinRep(type);
   res.json(rep || { id: null, name: null });
+}));
+
+// GET /reps/batch-assign -- get N round-robin assignments (persisted index)
+router.get("/reps/batch-assign", requireAuth, requireRole("CUSTOMER_SERVICE", "OWNER_VIEW", "PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const type = req.query.type === "pending_term" ? "pending_term" : "chargeback";
+  const count = Math.min(Math.max(parseInt(String(req.query.count ?? "0"), 10) || 0, 0), 500);
+  const assignments = await batchRoundRobinAssign(type as "chargeback" | "pending_term", count);
+  res.json({ assignments });
 }));
 
 // GET /reps/checklist -- per-rep assignment checklist

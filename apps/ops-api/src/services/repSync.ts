@@ -111,6 +111,46 @@ export async function getNextRoundRobinRep(type: "chargeback" | "pending_term" =
 }
 
 /**
+ * Batch round robin: get the next N reps to assign to.
+ * Advances the persisted index by count so subsequent batches continue where this left off.
+ */
+export async function batchRoundRobinAssign(
+  type: "chargeback" | "pending_term",
+  count: number,
+): Promise<string[]> {
+  const activeReps = await prisma.csRepRoster.findMany({
+    where: { active: true },
+    orderBy: { name: "asc" },
+  });
+  if (activeReps.length === 0 || count <= 0) return [];
+
+  const settingKey = type === "chargeback"
+    ? "cs_round_robin_chargeback_index"
+    : "cs_round_robin_pending_term_index";
+
+  return prisma.$transaction(async (tx) => {
+    const setting = await tx.salesBoardSetting.findUnique({
+      where: { key: settingKey },
+    });
+    let idx = setting ? parseInt(setting.value, 10) : 0;
+
+    const assignments: string[] = [];
+    for (let i = 0; i < count; i++) {
+      assignments.push(activeReps[idx % activeReps.length].name);
+      idx++;
+    }
+
+    await tx.salesBoardSetting.upsert({
+      where: { key: settingKey },
+      update: { value: String(idx % activeReps.length) },
+      create: { key: settingKey, value: String(idx % activeReps.length) },
+    });
+
+    return assignments;
+  });
+}
+
+/**
  * Get per-rep checklist: assigned chargebacks + pending terms with resolution status.
  */
 export async function getRepChecklist() {
