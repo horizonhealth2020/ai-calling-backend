@@ -58,22 +58,22 @@ router.get("/lead-timing/heatmap", requireAuth, requireRole("MANAGER", "OWNER_VI
   const { gte, lt } = computeDateRange(parsed.data);
 
   const callGroupExpr = groupBy === "dow"
-    ? Prisma.sql`EXTRACT(DOW FROM call_timestamp AT TIME ZONE 'America/New_York')::int`
+    ? Prisma.sql`EXTRACT(DOW FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int`
     : groupBy === "wom"
-    ? Prisma.sql`CEIL(EXTRACT(DAY FROM call_timestamp AT TIME ZONE 'America/New_York') / 7.0)::int`
-    : Prisma.sql`EXTRACT(MONTH FROM call_timestamp AT TIME ZONE 'America/New_York')::int`;
+    ? Prisma.sql`CEIL(EXTRACT(DAY FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') / 7.0)::int`
+    : Prisma.sql`EXTRACT(MONTH FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int`;
 
   const saleGroupExpr = groupBy === "dow"
-    ? Prisma.sql`EXTRACT(DOW FROM created_at AT TIME ZONE 'America/New_York')::int`
+    ? Prisma.sql`EXTRACT(DOW FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int`
     : groupBy === "wom"
-    ? Prisma.sql`CEIL(EXTRACT(DAY FROM created_at AT TIME ZONE 'America/New_York') / 7.0)::int`
-    : Prisma.sql`EXTRACT(MONTH FROM created_at AT TIME ZONE 'America/New_York')::int`;
+    ? Prisma.sql`CEIL(EXTRACT(DAY FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') / 7.0)::int`
+    : Prisma.sql`EXTRACT(MONTH FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int`;
 
   const [callBuckets, saleBuckets, leadSources] = await Promise.all([
     prisma.$queryRaw`
       SELECT
         lead_source_id AS "leadSourceId",
-        EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York')::int AS hour,
+        EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int AS hour,
         ${callGroupExpr} AS "groupVal",
         COUNT(*)::bigint AS "callCount"
       FROM convoso_call_logs
@@ -85,7 +85,7 @@ router.get("/lead-timing/heatmap", requireAuth, requireRole("MANAGER", "OWNER_VI
     prisma.$queryRaw`
       SELECT
         lead_source_id AS "leadSourceId",
-        EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York')::int AS hour,
+        EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int AS hour,
         ${saleGroupExpr} AS "groupVal",
         COUNT(*)::bigint AS "saleCount"
       FROM sales
@@ -150,11 +150,11 @@ router.get("/lead-timing/sparklines", requireAuth, requireRole("MANAGER", "OWNER
     prisma.$queryRaw`
       SELECT
         lead_source_id AS "leadSourceId",
-        (call_timestamp AT TIME ZONE 'America/New_York')::date AS day,
+        ((call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::date AS day,
         CASE
-          WHEN EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
-          WHEN EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
-          WHEN EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
+          WHEN EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
+          WHEN EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
+          WHEN EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
           ELSE NULL
         END AS daypart,
         COUNT(*)::bigint AS "callCount"
@@ -163,20 +163,20 @@ router.get("/lead-timing/sparklines", requireAuth, requireRole("MANAGER", "OWNER
         AND agent_id IS NOT NULL AND lead_source_id IS NOT NULL
       GROUP BY lead_source_id, day, daypart
       HAVING CASE
-        WHEN EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
-        WHEN EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
-        WHEN EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
+        WHEN EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
+        WHEN EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
+        WHEN EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
         ELSE NULL
       END IS NOT NULL
     `,
     prisma.$queryRaw`
       SELECT
         lead_source_id AS "leadSourceId",
-        (created_at AT TIME ZONE 'America/New_York')::date AS day,
+        ((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::date AS day,
         CASE
-          WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
-          WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
-          WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
+          WHEN EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
+          WHEN EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
+          WHEN EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
           ELSE NULL
         END AS daypart,
         COUNT(*)::bigint AS "saleCount"
@@ -185,9 +185,9 @@ router.get("/lead-timing/sparklines", requireAuth, requireRole("MANAGER", "OWNER
         AND lead_source_id IS NOT NULL AND status = 'RAN'
       GROUP BY lead_source_id, day, daypart
       HAVING CASE
-        WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
-        WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
-        WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
+        WHEN EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 8 AND 11 THEN 'morning'
+        WHEN EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'afternoon'
+        WHEN EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening'
         ELSE NULL
       END IS NOT NULL
     `,
@@ -250,8 +250,8 @@ router.get("/lead-timing/recommendation", requireAuth, requireRole("MANAGER", "O
       FROM convoso_call_logs
       WHERE call_timestamp >= ${gte} AND call_timestamp < ${lt}
         AND agent_id IS NOT NULL AND lead_source_id IS NOT NULL
-        AND EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York')::int = ${currentHour}
-        AND EXTRACT(DOW FROM call_timestamp AT TIME ZONE 'America/New_York')::int = ${currentDow}
+        AND EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentHour}
+        AND EXTRACT(DOW FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentDow}
       GROUP BY lead_source_id
     `,
     prisma.$queryRaw`
@@ -261,8 +261,8 @@ router.get("/lead-timing/recommendation", requireAuth, requireRole("MANAGER", "O
       FROM sales
       WHERE created_at >= ${gte} AND created_at < ${lt}
         AND lead_source_id IS NOT NULL AND status = 'RAN'
-        AND EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York')::int = ${currentHour}
-        AND EXTRACT(DOW FROM created_at AT TIME ZONE 'America/New_York')::int = ${currentDow}
+        AND EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentHour}
+        AND EXTRACT(DOW FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentDow}
       GROUP BY lead_source_id
     `,
   ]);
@@ -304,8 +304,8 @@ router.get("/lead-timing/recommendation", requireAuth, requireRole("MANAGER", "O
       WHERE call_timestamp >= ${priorGte} AND call_timestamp < ${priorLt}
         AND lead_source_id = ${best.leadSourceId}
         AND agent_id IS NOT NULL
-        AND EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/New_York')::int = ${currentHour}
-        AND EXTRACT(DOW FROM call_timestamp AT TIME ZONE 'America/New_York')::int = ${currentDow}
+        AND EXTRACT(HOUR FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentHour}
+        AND EXTRACT(DOW FROM (call_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentDow}
     `,
     prisma.$queryRaw`
       SELECT COUNT(*)::bigint AS "saleCount"
@@ -313,8 +313,8 @@ router.get("/lead-timing/recommendation", requireAuth, requireRole("MANAGER", "O
       WHERE created_at >= ${priorGte} AND created_at < ${priorLt}
         AND lead_source_id = ${best.leadSourceId}
         AND status = 'RAN'
-        AND EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/New_York')::int = ${currentHour}
-        AND EXTRACT(DOW FROM created_at AT TIME ZONE 'America/New_York')::int = ${currentDow}
+        AND EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentHour}
+        AND EXTRACT(DOW FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York')::int = ${currentDow}
     `,
   ]);
 

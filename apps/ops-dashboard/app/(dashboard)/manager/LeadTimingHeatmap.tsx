@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useMemo } from "react";
 import { colors, spacing, radius, typography, shadows, baseInputStyle } from "@ops/ui";
 
 /* -- Types -- */
@@ -48,24 +48,38 @@ for (let h = 0; h < 24; h++) {
   HOUR_LABELS.push(`${hr12}${suffix}`);
 }
 
+/* -- Group labels -- */
+
+const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WOM_LABELS = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+const MOY_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function getGroupLabels(groupBy: "dow" | "wom" | "moy"): { val: number; label: string }[] {
+  if (groupBy === "dow") return DOW_LABELS.map((label, i) => ({ val: i, label }));
+  if (groupBy === "wom") return WOM_LABELS.map((label, i) => ({ val: i + 1, label }));
+  return MOY_LABELS.map((label, i) => ({ val: i + 1, label }));
+}
+
 /* -- Style constants -- */
 
 const SUBSECTION_LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
 const CONTROLS_ROW: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing[4] };
-const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "120px repeat(24, 1fr)", gap: 2 };
-const SOURCE_LABEL: React.CSSProperties = { fontSize: 13, color: colors.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120, display: "flex", alignItems: "center" };
-const HOUR_LABEL_STYLE: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: colors.textTertiary, textAlign: "center" };
-const CELL: React.CSSProperties = { minWidth: 36, minHeight: 36, borderRadius: 4, cursor: "pointer", transition: "outline 150ms" };
+const SOURCE_TITLE: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: colors.textPrimary, marginBottom: spacing[1], marginTop: spacing[4] };
+const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "70px repeat(24, 1fr)", gap: 2 };
+const ROW_LABEL: React.CSSProperties = { fontSize: 11, color: colors.textSecondary, display: "flex", alignItems: "center" };
+const HOUR_LABEL_STYLE: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: colors.textTertiary, textAlign: "center" };
+const CELL: React.CSSProperties = { minWidth: 28, minHeight: 24, borderRadius: 3, cursor: "pointer", transition: "outline 150ms" };
 const NO_DATA_MSG: React.CSSProperties = { textAlign: "center", color: colors.textMuted, fontSize: 13, padding: spacing[6] };
 const GRID_WRAP: React.CSSProperties = { position: "relative", overflowX: "auto", overflowY: "visible" };
+const SELECT_STYLE: React.CSSProperties = { ...baseInputStyle, padding: "4px 8px", fontSize: 13, width: "auto" };
 
 /* -- Component -- */
 
 export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: LeadTimingHeatmapProps) {
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: HeatmapCell } | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: HeatmapCell; rowLabel: string; sourceName: string } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const handleCellEnter = useCallback((e: React.MouseEvent<HTMLDivElement>, cell: HeatmapCell) => {
+  const handleCellEnter = useCallback((e: React.MouseEvent<HTMLDivElement>, cell: HeatmapCell, rowLabel: string, sourceName: string) => {
     if (!gridRef.current) return;
     const rect = gridRef.current.getBoundingClientRect();
     const cellRect = e.currentTarget.getBoundingClientRect();
@@ -73,6 +87,8 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
       x: cellRect.left - rect.left + cellRect.width / 2,
       y: cellRect.top - rect.top,
       cell,
+      rowLabel,
+      sourceName,
     });
   }, []);
 
@@ -81,98 +97,107 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
   }, []);
 
   const isEmpty = !data || data.sources.length === 0 || data.sources.every(s => s.cells.length === 0);
+  const groupLabels = getGroupLabels(groupBy);
+
+  // Build cell maps per source: "groupVal:hour" -> HeatmapCell
+  const sourceCellMaps = useMemo(() => {
+    if (!data) return [];
+    return data.sources.map(src => {
+      const map = new Map<string, HeatmapCell>();
+      for (const c of src.cells) {
+        const k = `${c.groupVal}:${c.hour}`;
+        const existing = map.get(k);
+        if (existing) {
+          const calls = existing.calls + c.calls;
+          const sales = existing.sales + c.sales;
+          map.set(k, { ...c, calls, sales, closeRate: calls > 0 ? sales / calls : 0 });
+        } else {
+          map.set(k, { ...c });
+        }
+      }
+      return { ...src, cellMap: map };
+    });
+  }, [data]);
+
+  const controlsBlock = (
+    <div style={CONTROLS_ROW}>
+      <div style={SUBSECTION_LBL}>CLOSE RATE HEATMAP</div>
+      <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
+        <span style={{ fontSize: 11, color: colors.textTertiary }}>Group by</span>
+        <select
+          value={groupBy}
+          onChange={e => onGroupByChange(e.target.value as "dow" | "wom" | "moy")}
+          style={SELECT_STYLE}
+        >
+          <option value="dow">Day of Week</option>
+          <option value="wom">Week of Month</option>
+          <option value="moy">Month of Year</option>
+        </select>
+      </div>
+    </div>
+  );
 
   if (isEmpty) {
     return (
       <div>
-        <div style={CONTROLS_ROW}>
-          <div style={SUBSECTION_LBL}>CLOSE RATE HEATMAP</div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-            <span style={{ fontSize: 11, color: colors.textTertiary }}>Group by</span>
-            <select
-              value={groupBy}
-              onChange={e => onGroupByChange(e.target.value as "dow" | "wom" | "moy")}
-              style={{ ...baseInputStyle, padding: "4px 8px", fontSize: 13, width: "auto" }}
-            >
-              <option value="dow">Day of Week</option>
-              <option value="wom">Week of Month</option>
-              <option value="moy">Month of Year</option>
-            </select>
-          </div>
-        </div>
+        {controlsBlock}
         <div style={NO_DATA_MSG}>No call data found for this date range. Adjust filters or check that the Convoso poller is running.</div>
       </div>
     );
   }
 
-  // Build a lookup for each source: hour -> cell
-  const sourceCellMaps = data.sources.map(src => {
-    const map = new Map<number, HeatmapCell>();
-    for (const c of src.cells) map.set(c.hour, c);
-    return { ...src, cellMap: map };
-  });
-
   return (
     <div>
-      <div style={CONTROLS_ROW}>
-        <div style={SUBSECTION_LBL}>CLOSE RATE HEATMAP</div>
-        <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-          <span style={{ fontSize: 11, color: colors.textTertiary }}>Group by</span>
-          <select
-            value={groupBy}
-            onChange={e => onGroupByChange(e.target.value as "dow" | "wom" | "moy")}
-            style={{ ...baseInputStyle, padding: "4px 8px", fontSize: 13, width: "auto" }}
-          >
-            <option value="dow">Day of Week</option>
-            <option value="wom">Week of Month</option>
-            <option value="moy">Month of Year</option>
-          </select>
-        </div>
-      </div>
+      {controlsBlock}
 
       <div style={GRID_WRAP} ref={gridRef}>
-        <div style={GRID} role="grid" aria-label="Close rate heatmap by lead source and hour">
-          {/* Header row: empty corner + hour labels */}
-          <div />
-          {HOUR_LABELS.map((label, h) => (
-            <div
-              key={h}
-              style={{
-                ...HOUR_LABEL_STYLE,
-                borderBottom: h >= 8 && h <= 20 ? "1px solid rgba(255,255,255,0.06)" : undefined,
-              }}
-            >
-              {label}
-            </div>
-          ))}
+        {sourceCellMaps.map(src => (
+          <div key={src.leadSourceId} style={{ marginBottom: spacing[4] }}>
+            <div style={SOURCE_TITLE}>{src.leadSourceName}</div>
+            <div style={GRID} role="grid" aria-label={`Close rate heatmap for ${src.leadSourceName}`}>
+              {/* Header row: empty corner + hour labels */}
+              <div />
+              {HOUR_LABELS.map((label, h) => (
+                <div
+                  key={h}
+                  style={{
+                    ...HOUR_LABEL_STYLE,
+                    borderBottom: h >= 8 && h <= 20 ? "1px solid rgba(255,255,255,0.06)" : undefined,
+                  }}
+                >
+                  {label}
+                </div>
+              ))}
 
-          {/* Data rows */}
-          {sourceCellMaps.map(src => (
-            <React.Fragment key={src.leadSourceId}>
-              <div style={SOURCE_LABEL} title={src.leadSourceName}>{src.leadSourceName}</div>
-              {Array.from({ length: 24 }, (_, h) => {
-                const cell = src.cellMap.get(h);
-                const c: HeatmapCell = cell ?? { hour: h, groupVal: 0, calls: 0, sales: 0, closeRate: 0 };
-                const colorStyle = heatmapColor(c.closeRate, c.calls);
-                return (
-                  <div
-                    key={h}
-                    style={{ ...CELL, ...colorStyle }}
-                    onMouseEnter={e => handleCellEnter(e, c)}
-                    onMouseLeave={handleCellLeave}
-                  />
-                );
-              })}
-            </React.Fragment>
-          ))}
-        </div>
+              {/* Data rows: one per groupVal */}
+              {groupLabels.map(({ val, label }) => (
+                <React.Fragment key={val}>
+                  <div style={ROW_LABEL}>{label}</div>
+                  {Array.from({ length: 24 }, (_, h) => {
+                    const cell = src.cellMap.get(`${val}:${h}`);
+                    const c: HeatmapCell = cell ?? { hour: h, groupVal: val, calls: 0, sales: 0, closeRate: 0 };
+                    const colorStyle = heatmapColor(c.closeRate, c.calls);
+                    return (
+                      <div
+                        key={h}
+                        style={{ ...CELL, ...colorStyle }}
+                        onMouseEnter={e => handleCellEnter(e, c, label, src.leadSourceName)}
+                        onMouseLeave={handleCellLeave}
+                      />
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
 
         {/* Tooltip */}
         {tooltip && (
           <div style={{
             position: "absolute",
             left: tooltip.x,
-            top: tooltip.y - 80,
+            top: tooltip.y - 110,
             background: colors.bgSurfaceOverlay,
             border: `1px solid ${colors.borderStrong}`,
             borderRadius: radius.md,
@@ -181,7 +206,10 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
             zIndex: 50,
             pointerEvents: "none",
             transform: "translateX(-50%)",
+            minWidth: 140,
           }}>
+            <div style={{ fontSize: 11, color: colors.textTertiary, marginBottom: 2 }}>{tooltip.sourceName}</div>
+            <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>{tooltip.rowLabel} &middot; {HOUR_LABELS[tooltip.cell.hour]}</div>
             <div style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>Close rate: {(tooltip.cell.closeRate * 100).toFixed(1)}%</div>
             <div style={{ fontSize: 13, color: colors.textSecondary }}>Calls: {tooltip.cell.calls}</div>
             <div style={{ fontSize: 13, color: colors.textSecondary }}>Sales: {tooltip.cell.sales}</div>
