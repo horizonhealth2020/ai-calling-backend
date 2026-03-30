@@ -108,7 +108,14 @@ function LoadingSkeleton() {
 
 function PayrollInner() {
   const { socket, disconnected } = useSocketContext();
-  const [tab, setTab] = useState<Tab>("periods");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (["periods", "chargebacks", "exports", "products", "service"].includes(hash)) return hash as Tab;
+    }
+    return "periods";
+  });
+  useEffect(() => { window.location.hash = tab; }, [tab]);
 
   /* ── Shared state ─────────────────────────────────────────── */
   const [periods, setPeriods] = useState<Period[]>([]);

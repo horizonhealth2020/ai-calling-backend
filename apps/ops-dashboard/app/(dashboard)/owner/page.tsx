@@ -38,7 +38,14 @@ const STORAGE_ALERT: React.CSSProperties = {
 
 function OwnerPageInner() {
   const { socket } = useSocketContext();
-  const [activeTab, setActiveTab] = useState<ActiveSection>("overview");
+  const [activeTab, setActiveTab] = useState<ActiveSection>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (["overview", "kpis", "config", "users", "scoring"].includes(hash)) return hash as ActiveSection;
+    }
+    return "overview";
+  });
+  useEffect(() => { window.location.hash = activeTab; }, [activeTab]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
   const [storageAlertDismissed, setStorageAlertDismissed] = useState(false);

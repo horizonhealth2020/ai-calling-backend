@@ -49,7 +49,14 @@ const NAV_ITEMS: NavItem[] = [
 
 function ManagerPageInner() {
   const { socket } = useSocketContext();
-  const [activeTab, setActiveTab] = useState<Tab>("entry");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (["entry", "tracker", "sales", "audits", "config"].includes(hash)) return hash as Tab;
+    }
+    return "entry";
+  });
+  useEffect(() => { window.location.hash = activeTab; }, [activeTab]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
