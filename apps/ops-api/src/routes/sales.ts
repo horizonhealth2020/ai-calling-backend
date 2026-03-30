@@ -27,6 +27,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
     status: z.enum(["RAN", "DECLINED", "DEAD"]),
     paymentType: z.enum(["CC", "ACH"]),
     memberState: z.string().max(2).optional(),
+    leadPhone: z.string().optional(),
     notes: z.string().optional(),
   });
   const result = schema.safeParse(req.body);
@@ -277,6 +278,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     addonPremiums: z.record(z.string(), z.number().min(0)).optional(),
     paymentType: z.enum(["CC", "ACH"]).optional(),
     memberState: z.string().max(2).nullable().optional(),
+    leadPhone: z.string().nullable().optional(),
     notes: z.string().nullable().optional(),
     commissionApproved: z.boolean().optional(),
   });

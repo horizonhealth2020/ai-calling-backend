@@ -40,7 +40,10 @@ router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
 
   const audits = await prisma.callAudit.findMany({
     where,
-    include: { agent: { select: { id: true, name: true } } },
+    include: {
+      agent: { select: { id: true, name: true } },
+      convosoCallLog: { select: { leadPhone: true } },
+    },
     orderBy: { callDate: "desc" },
   });
   res.json(audits);
@@ -53,7 +56,7 @@ router.get("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"
     where: { id: pp.data.id },
     include: {
       agent: { select: { id: true, name: true } },
-      convosoCallLog: { select: { id: true, callDurationSeconds: true, agentUser: true, listId: true, callTimestamp: true, auditStatus: true } },
+      convosoCallLog: { select: { id: true, callDurationSeconds: true, agentUser: true, listId: true, callTimestamp: true, auditStatus: true, leadPhone: true } },
     },
   });
   if (!audit) return res.status(404).json({ error: "Audit not found" });

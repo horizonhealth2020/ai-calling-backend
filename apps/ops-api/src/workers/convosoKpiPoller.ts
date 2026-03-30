@@ -122,6 +122,10 @@ async function pollLeadSource(
           callTimestamp: convosoDateToUTC(String(r.call_date ?? r.start_time ?? "")),
           agentId: agentInfo?.id ?? null,
           leadSourceId: leadSource.id,
+          leadPhone: (() => {
+            const ph = r.phone_number ?? r.caller_id;
+            return ph ? String(ph) : null;
+          })(),
         };
       })
       .filter((r) => r.agentUser !== ""); // skip records without user_id
