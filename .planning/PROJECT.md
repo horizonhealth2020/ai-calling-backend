@@ -96,7 +96,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- No current milestone — ready for /gsd:new-milestone -->
+<!-- Current scope: v1.9 Auth Stability & Phone Number Display -->
+
+## Current Milestone: v1.9 Auth Stability & Phone Number Display
+
+**Goal:** Fix the production login redirect loop affecting 3 users and add lead phone numbers to manager audit/sales views.
+
+**Target features:**
+- Fix expired-token redirect loop on login page (clear stale localStorage token before redirecting)
+- Add expiry check in middleware for defense-in-depth
+- Add lead phone number column to call audit rows (from Convoso data)
+- Add lead phone number column to agent sales rows
 
 ### Out of Scope
 
@@ -185,4 +195,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 after v1.8 milestone completion*
+*Last updated: 2026-03-30 after v1.9 milestone start*
