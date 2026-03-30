@@ -42,6 +42,9 @@ type DetailedData = {
 const fmt$ = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const fmt$whole = (n: number) =>
+  "$" + Math.round(n).toLocaleString("en-US");
+
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
 /* ── Podium rank configuration ────────────────────────────────── */
@@ -536,9 +539,9 @@ function WeeklyView({ data }: { data: DetailedData }) {
   const TH: React.CSSProperties = {
     padding: "14px 16px",
     textAlign: "center",
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: 700,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     background: "rgba(12,16,33,0.9)",
@@ -600,6 +603,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                     padding: `14px ${spacing[5]}px`,
                     borderBottom: `1px solid ${colors.borderSubtle}`,
                     fontWeight: 700,
+                    fontSize: 18,
                     color: colors.textPrimary,
                     whiteSpace: "nowrap",
                   }}
@@ -646,11 +650,11 @@ function WeeklyView({ data }: { data: DetailedData }) {
                       }}
                     >
                       {stat ? (
-                        <>
-                          <div
+                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6 }}>
+                          <span
                             style={{
-                              fontSize: 17,
-                              fontWeight: 700,
+                              fontSize: 20,
+                              fontWeight: 800,
                               color:
                                 stat.count >= 3
                                   ? colors.success
@@ -660,11 +664,11 @@ function WeeklyView({ data }: { data: DetailedData }) {
                             }}
                           >
                             <AnimatedNumber value={stat.count} />
-                          </div>
-                          <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>
-                            {fmt$(stat.premium)}
-                          </div>
-                        </>
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary }}>
+                            {fmt$whole(stat.premium)}
+                          </span>
+                        </div>
                       ) : (
                         <span style={{ color: colors.borderStrong, fontSize: 14 }}>&mdash;</span>
                       )}
@@ -678,7 +682,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                     padding: "14px 16px",
                     textAlign: "center",
                     borderBottom: `1px solid ${colors.borderSubtle}`,
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: 800,
                     color: isTop ? colors.gold : colors.success,
                     letterSpacing: "-0.02em",
@@ -694,12 +698,12 @@ function WeeklyView({ data }: { data: DetailedData }) {
                     textAlign: "right",
                     borderBottom: `1px solid ${colors.borderSubtle}`,
                     fontWeight: 700,
-                    color: colors.textSecondary,
-                    fontSize: 13,
+                    color: isTop ? colors.gold : colors.textPrimary,
+                    fontSize: 15,
                     whiteSpace: "nowrap",
                   }}
                 >
-                  <AnimatedNumber value={total?.premium ?? 0} prefix="$" decimals={2} />
+                  {fmt$whole(total?.premium ?? 0)}
                 </td>
               </tr>
             );
@@ -712,7 +716,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 padding: `${spacing[4]}px ${spacing[5]}px`,
                 fontWeight: 800,
                 color: colors.gold,
-                fontSize: 12,
+                fontSize: 14,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
@@ -732,9 +736,14 @@ function WeeklyView({ data }: { data: DetailedData }) {
                   }}
                 >
                   {d ? (
-                    <div style={{ fontSize: 17, fontWeight: 800, color: colors.gold }}>
-                      <AnimatedNumber value={d.totalSales} />
-                    </div>
+                    <>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: colors.gold }}>
+                        <AnimatedNumber value={d.totalSales} />
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: colors.gold, opacity: 0.7, marginTop: 2 }}>
+                        {fmt$whole(d.totalPremium)}
+                      </div>
+                    </>
                   ) : (
                     <span style={{ color: colors.borderStrong }}>&mdash;</span>
                   )}
@@ -746,7 +755,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 padding: `${spacing[4]}px 16px`,
                 textAlign: "center",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
-                fontSize: 24,
+                fontSize: 28,
                 fontWeight: 800,
                 color: colors.gold,
                 letterSpacing: "-0.02em",
@@ -759,13 +768,13 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 padding: `${spacing[4]}px ${spacing[5]}px`,
                 textAlign: "right",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: 800,
                 color: colors.gold,
                 whiteSpace: "nowrap",
               }}
             >
-              <AnimatedNumber value={grandTotalPremium} prefix="$" decimals={2} />
+              {fmt$whole(grandTotalPremium)}
             </td>
           </tr>
         </tbody>
