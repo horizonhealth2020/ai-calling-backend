@@ -21,7 +21,7 @@
   2. After redirect, the expired cookie is gone -- refreshing the login page does not re-trigger a redirect
   3. A user with an expired localStorage token on the login page sees the login form (not a flash redirect back to dashboard)
   4. A user with a valid, non-expired token continues to access dashboard routes without interruption
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [x] 31-01-PLAN.md -- Add JWT expiry checks to middleware and login page with token cleanup
 
@@ -40,7 +40,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 31. Auth Stability Fix | 1/1 | Complete | 2026-03-30 |
+| 31. Auth Stability Fix | 1/1 | Complete    | 2026-03-30 |
 | 32. Phone Number Data Pipeline | 0/0 | Not started | - |
 
 ---
