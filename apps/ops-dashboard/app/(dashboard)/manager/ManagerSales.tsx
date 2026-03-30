@@ -23,6 +23,7 @@ import {
   Edit3,
   Trash2,
   BarChart3,
+  FileText,
 } from "lucide-react";
 
 /* -- Types -- */
@@ -134,6 +135,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
   const [salesDay, setSalesDay] = useState<string>("all");
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const msgTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [expandedNoteIds, setExpandedNoteIds] = useState<Set<string>>(new Set());
 
   /* -- Inline sale editing state -- */
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
@@ -420,7 +422,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["Date", "Member", "Carrier", "Product", "Lead Source", "Phone", "Premium", "Status", "", ""].map((h, i) => (
+                    {["Date", "Member", "Carrier", "Product", "Lead Source", "Phone", "Premium", "Status", "", "", ""].map((h, i) => (
                       <th key={h || `col-${i}`} style={{ ...baseThStyle, textAlign: i === 6 ? "right" : i === 7 ? "center" : "left", ...(i === 5 ? { minWidth: 130 } : {}) }}>{h}</th>
                     ))}
                   </tr>
@@ -472,6 +474,26 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                         )}
                       </td>
                       <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                        {s.notes ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedNoteIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                              return next;
+                            })}
+                            aria-label="Toggle notes"
+                            title="View notes"
+                            style={{ color: expandedNoteIds.has(s.id) ? colors.primary400 : colors.textMuted }}
+                          >
+                            <FileText size={14} />
+                          </Button>
+                        ) : (
+                          <span style={{ color: colors.borderSubtle }}>&mdash;</span>
+                        )}
+                      </td>
+                      <td style={{ ...baseTdStyle, textAlign: "center" }}>
                         {s.hasPendingEditRequest ? (
                           <span style={PENDING_EDIT_BADGE}>Edit Pending</span>
                         ) : (
@@ -498,9 +520,27 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                         </Button>
                       </td>
                     </tr>
+                    {expandedNoteIds.has(s.id) && s.notes && (
+                      <tr>
+                        <td colSpan={11} style={{ padding: 0 }}>
+                          <div className="animate-slide-down" style={{
+                            padding: "10px 20px",
+                            background: "rgba(45,212,191,0.04)",
+                            borderTop: `1px solid ${colors.borderSubtle}`,
+                            borderBottom: `1px solid ${colors.borderSubtle}`,
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 8,
+                          }}>
+                            <FileText size={13} style={{ color: colors.textMuted, flexShrink: 0, marginTop: 1 }} />
+                            <span style={{ fontSize: 13, color: colors.textSecondary, whiteSpace: "pre-wrap" }}>{s.notes}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     {editingSaleId === s.id && (
                       <tr>
-                        <td colSpan={10} style={{ padding: 0 }}>
+                        <td colSpan={11} style={{ padding: 0 }}>
                           <div style={EDIT_ROW_EXPANSION} className="animate-slide-down">
                             {editOriginal._blocked ? (
                               <div style={{ fontSize: 14, color: "#f59e0b", padding: spacing[4] }}>

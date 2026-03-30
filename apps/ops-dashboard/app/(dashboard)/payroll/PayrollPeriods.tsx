@@ -8,7 +8,7 @@ import {
   Calendar, AlertTriangle, Users,
   ChevronDown, CheckCircle,
   XCircle, Printer, Plus, Edit3, Trash2,
-  Save, X, Check, Clock,
+  Save, X, Check, Clock, FileText,
 } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -191,6 +191,8 @@ function EditableSaleRow({
     () => (entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") }))
   );
   const [saving, setSaving] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const hasNotes = !!entry.sale?.notes;
 
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
   const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
@@ -207,6 +209,7 @@ function EditableSaleRow({
     : { borderLeft: "3px solid transparent" };
 
   return (
+    <>
     <tr
       className="row-hover"
       style={{
@@ -423,6 +426,17 @@ function EditableSaleRow({
           </div>
         ) : (
           <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center" }}>
+            {hasNotes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNotes(n => !n)}
+                title="View notes"
+                style={{ color: showNotes ? C.primary400 : C.textMuted }}
+              >
+                <FileText size={12} />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -463,6 +477,25 @@ function EditableSaleRow({
         )}
       </td>
     </tr>
+    {showNotes && hasNotes && (
+      <tr>
+        <td colSpan={7} style={{ padding: 0 }}>
+          <div style={{
+            padding: "10px 20px",
+            background: "rgba(45,212,191,0.04)",
+            borderTop: `1px solid ${C.borderSubtle}`,
+            borderBottom: `1px solid ${C.borderSubtle}`,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+          }}>
+            <FileText size={13} style={{ color: C.textMuted, flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 13, color: C.textSecondary, whiteSpace: "pre-wrap" }}>{entry.sale?.notes}</span>
+          </div>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 
