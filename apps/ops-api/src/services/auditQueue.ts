@@ -309,6 +309,42 @@ export async function getAiUsageStats() {
   };
 }
 
+// ── Audio buffer validation ──────────────────────────────────────
+
+/**
+ * Checks whether a buffer contains valid audio data by inspecting magic bytes.
+ * Returns false for HTML error pages, JSON responses, too-small files, or
+ * unrecognized formats. Logs a warning with hex dump when returning false.
+ */
+export function isValidAudioBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 256) return false;
+
+  // WAV: RIFF....WAVE
+  if (
+    buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+    buffer[8] === 0x57 && buffer[9] === 0x41 && buffer[10] === 0x56 && buffer[11] === 0x45
+  ) return true;
+
+  // MP3 frame sync: 0xFF 0xFB / 0xF3 / 0xF2
+  if (buffer[0] === 0xff && (buffer[1] === 0xfb || buffer[1] === 0xf3 || buffer[1] === 0xf2)) return true;
+
+  // MP3 ID3 tag
+  if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) return true;
+
+  // OGG: "OggS"
+  if (buffer[0] === 0x4f && buffer[1] === 0x67 && buffer[2] === 0x67 && buffer[3] === 0x53) return true;
+
+  // FLAC: "fLaC"
+  if (buffer[0] === 0x66 && buffer[1] === 0x4c && buffer[2] === 0x61 && buffer[3] === 0x43) return true;
+
+  // WebM/Matroska: 0x1A 0x45 0xDF 0xA3
+  if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) return true;
+
+  // No recognized audio header
+  console.warn(`[auditQueue] Invalid audio buffer: first 16 bytes = ${buffer.subarray(0, 16).toString("hex")}, length = ${buffer.length}`);
+  return false;
+}
+
 // ── Utility ──────────────────────────────────────────────────────
 
 function sleep(ms: number): Promise<void> {
