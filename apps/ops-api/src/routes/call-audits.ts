@@ -252,14 +252,21 @@ router.put("/settings/ai-scoring-enabled", requireAuth, requireRole("OWNER_VIEW"
     update: { value: String(parsed.data.enabled) },
     create: { key: "ai_scoring_enabled", value: String(parsed.data.enabled) },
   });
-  // Record when scoring was FIRST enabled — only set if not already present.
-  // Toggling off/on should not reset the cutoff (would block older pending calls).
   if (parsed.data.enabled) {
-    const existing = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
-    if (!existing) {
-      await prisma.salesBoardSetting.create({
-        data: { key: "ai_scoring_enabled_at", value: new Date().toISOString() },
-      });
+    // Set cutoff to NOW — only calls arriving after this moment get audited
+    await prisma.salesBoardSetting.upsert({
+      where: { key: "ai_scoring_enabled_at" },
+      update: { value: new Date().toISOString() },
+      create: { key: "ai_scoring_enabled_at", value: new Date().toISOString() },
+    });
+  } else {
+    // Scoring disabled — flush all unprocessed calls to "skipped"
+    const flushed = await prisma.convosoCallLog.updateMany({
+      where: { auditStatus: { in: ["pending", "queued", "waiting_recording"] } },
+      data: { auditStatus: "skipped" },
+    });
+    if (flushed.count > 0) {
+      console.log(JSON.stringify({ event: "audit_scoring_disabled_flush", skipped: flushed.count, timestamp: new Date().toISOString() }));
     }
   }
   await logAudit(req.user!.id, "UPDATE", "SalesBoardSetting", "ai_scoring_enabled", { enabled: parsed.data.enabled });

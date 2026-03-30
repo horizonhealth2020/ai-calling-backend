@@ -288,29 +288,6 @@ async function downloadRecordingWithRetry(callLogId: string, url: string): Promi
 
 // ── Auto-score polling lifecycle ─────────────────────────────────
 
-export async function repairScoringCutoff(): Promise<void> {
-  // If ai_scoring_enabled_at was set today (from a toggle), backdate it to the
-  // earliest agent auditEnabledAt so older pending calls aren't permanently blocked.
-  try {
-    const setting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled_at" } });
-    if (!setting) return;
-    const earliest = await prisma.agent.findFirst({
-      where: { auditEnabled: true, auditEnabledAt: { not: null } },
-      orderBy: { auditEnabledAt: "asc" },
-      select: { auditEnabledAt: true },
-    });
-    if (earliest?.auditEnabledAt && new Date(setting.value) > earliest.auditEnabledAt) {
-      await prisma.salesBoardSetting.update({
-        where: { key: "ai_scoring_enabled_at" },
-        data: { value: earliest.auditEnabledAt.toISOString() },
-      });
-      console.log(`[auditQueue] Repaired ai_scoring_enabled_at: ${setting.value} → ${earliest.auditEnabledAt.toISOString()}`);
-    }
-  } catch (err) {
-    console.error("[auditQueue] repairScoringCutoff error:", err);
-  }
-}
-
 // ── Nightly queue cleanup (9 PM ET) ──────────────────────────────
 
 async function nightlyQueueCleanup(): Promise<void> {
@@ -346,8 +323,6 @@ function scheduleNightlyCleanup(): void {
 
 export function startAutoScorePolling(): void {
   if (pollingInterval) return;
-  // One-time repair on startup
-  repairScoringCutoff().catch(() => {});
   // Schedule nightly queue flush at 9 PM ET
   scheduleNightlyCleanup();
   pollingInterval = setInterval(async () => {
