@@ -34,15 +34,18 @@ Plans:
   2. When creating or editing a sale, the optional leadPhone field is accepted and persisted
   3. The Manager Sales table displays a Phone column with lead phone data when present
   4. Existing call logs and sales without phone data display gracefully (no errors, empty cell)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 32-01-PLAN.md -- Prisma migration + Convoso poller capture + API route updates
+- [ ] 32-02-PLAN.md -- ManagerAudits and ManagerSales table Phone columns + edit form input
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 31. Auth Stability Fix | 1/1 | Complete    | 2026-03-30 |
-| 32. Phone Number Data Pipeline | 0/0 | Not started | - |
+| 32. Phone Number Data Pipeline | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-30*
-*Last updated: 2026-03-30 -- Phase 31 complete*
+*Last updated: 2026-03-30 -- Phase 32 planned (2 plans)*
