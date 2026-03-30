@@ -25,10 +25,20 @@ export async function middleware(request: NextRequest) {
     const parts = token.split(".");
     if (parts.length === 3) {
       const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+
+      // Reject expired tokens -- redirect to login and clear stale cookie
+      if (typeof payload.exp === "number" && payload.exp * 1000 < Date.now()) {
+        const expired = NextResponse.redirect(new URL("/", request.url));
+        expired.cookies.delete(AUTH_COOKIE_NAME, { path: "/" });
+        return expired;
+      }
+
       roles = payload.roles ?? [];
     }
   } catch {
-    return NextResponse.redirect(new URL("/", request.url));
+    const malformed = NextResponse.redirect(new URL("/", request.url));
+    malformed.cookies.delete(AUTH_COOKIE_NAME, { path: "/" });
+    return malformed;
   }
 
   // Role check: extract first path segment
