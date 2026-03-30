@@ -1,306 +1,166 @@
-# Pitfalls Research
+# Domain Pitfalls
 
-**Domain:** Time-based sales analytics with mixed-timezone data (Pacific call logs + UTC sales records)
-**Researched:** 2026-03-26
-**Confidence:** HIGH
+**Domain:** JWT auth redirect loop fix + phone number display in existing ops platform
+**Researched:** 2026-03-30
+**Confidence:** HIGH (based on direct codebase analysis with line-level tracing)
 
 ## Critical Pitfalls
 
-### Pitfall 1: Naive Hour Extraction From Mixed-Timezone Timestamps
+Mistakes that cause the fix to fail, create new bugs, or break production for all users.
 
-**What goes wrong:**
-The heatmap needs "hour of day" and "day of week" for both calls and sales. `ConvosoCallLog.callTimestamp` is stored as UTC (converted from Pacific via `convosoDateToUTC`). `Sale.createdAt` is UTC. If you extract the hour using `EXTRACT(HOUR FROM call_timestamp)` in SQL or `getUTCHours()` in JS, you get the UTC hour -- not the hour the call actually happened in the call center's timezone. A call at 9:00 AM Pacific shows as 16:00 or 17:00 UTC depending on DST. The heatmap would show peak activity at 4-5 PM when it was actually 9 AM.
+### Pitfall 1: Redirect Loop From Stale Token Without Expiry Check
 
-**Why it happens:**
-Developers see timestamps stored in the database and assume extracting the hour gives a meaningful business hour. PostgreSQL `timestamptz` stores UTC internally, and Prisma returns JS `Date` objects in UTC. Nothing in the query pipeline reminds you to convert to the business timezone before extracting the hour.
+**What goes wrong:** The login page `useEffect` (line 234-250 of `app/page.tsx`) finds a token in localStorage via `getToken()`, decodes roles, and redirects to the dashboard. The middleware then checks the cookie, finds it expired or missing, and redirects back to `/`. The login page fires the useEffect again, finds the same stale localStorage token, redirects to dashboard, middleware bounces back -- infinite loop.
 
-**How to avoid:**
-Always convert to the business display timezone (America/Los_Angeles for this call center) before extracting hour/day-of-week. Two approaches:
+**Why it happens:** The login page checks `if (stored)` and `if (roles.length > 0)` but never checks token expiry. The `decodeRolesFromToken` function (line 8-18 of `lib/auth.ts`) only decodes roles, it does not check the `exp` claim. An expired token still has valid roles, so the redirect fires every time.
 
-1. **SQL-side (recommended for aggregation):** Use `AT TIME ZONE 'America/Los_Angeles'` in PostgreSQL:
-   ```sql
-   EXTRACT(HOUR FROM call_timestamp AT TIME ZONE 'America/Los_Angeles')
-   ```
-   This handles DST transitions automatically because PostgreSQL knows the timezone rules.
+**Consequences:** 3 users currently locked out. Browser tab burns CPU in redirect loop. Users cannot log in without manually clearing localStorage via DevTools -- something non-technical users cannot do.
 
-2. **Application-side:** Use Luxon (already in the project for payroll):
-   ```typescript
-   DateTime.fromJSDate(callTimestamp).setZone('America/Los_Angeles').hour
-   ```
+**Prevention:**
+1. Before redirecting in the login page useEffect, decode the token payload and check `exp * 1000 > Date.now()`. If expired, call `clearToken()` and stay on the login page.
+2. The `@ops/auth/client` package already has `decodeTokenPayload` which returns `exp`. Use it directly rather than duplicating logic.
+3. Add a `isTokenExpired(token: string): boolean` utility to `@ops/auth/client` for reuse.
 
-Use PostgreSQL `AT TIME ZONE` for the aggregation queries (heatmap, sparklines) and Luxon only for display formatting. Do NOT use `new Date().getHours()` -- it uses the server's local timezone which may differ between Railway (UTC) and local dev (Eastern/Pacific).
+**Detection:** Users report "page keeps refreshing" or "can't log in." Network tab shows rapid 302 redirects between `/` and `/manager` (or other dashboard path).
 
-**Warning signs:**
-- Heatmap shows peak call hours at 4-5 PM instead of 9-10 AM
-- Day-of-week patterns shift by one day for evening calls (a Monday 10 PM Pacific call becomes Tuesday in UTC)
-- Metrics disagree between local dev and production deployment
+### Pitfall 2: Fixing Client Without Fixing Middleware Creates a Different Failure Mode
 
-**Phase to address:**
-Phase 1 (data layer / aggregation queries) -- this must be correct from the first query or every downstream visualization is wrong.
+**What goes wrong:** Developer fixes the login page to check expiry and clear stale tokens, but the middleware (line 6-55 of `middleware.ts`) still has no expiry check. A user with a valid cookie containing an expired JWT hits a dashboard route. Middleware decodes the JWT payload (line 24-31) to extract roles but never checks the `exp` field. It trusts any syntactically valid JWT. User lands on the dashboard, but every `authFetch` API call fails with 401 because `ops-api` does real JWT verification via `jsonwebtoken.verify()`.
 
----
+**Why it happens:** The middleware was designed as a lightweight role check with the comment "Real auth is enforced by ops-api on every API call" (line 22). This is fine for authorization, but without expiry checking, the middleware allows expired sessions to render the dashboard chrome before all data fetches fail.
 
-### Pitfall 2: Incorrect DST Handling in convosoDateToUTC
+**Consequences:** User lands on dashboard but sees empty data, broken API calls, or gets silently logged out when `ensureTokenFresh` (line 52-93 of `client.ts`) clears the expired token. Confusing UX where the page loads but nothing works.
 
-**What goes wrong:**
-The existing `convosoDateToUTC` function in `convosoKpiPoller.ts` uses a crude month-based DST check: `month >= 2 && month <= 9` (March through October = PDT). This is wrong at the boundaries. DST transitions happen on specific Sundays (2nd Sunday of March, 1st Sunday of November), not on the 1st of the month. Calls on March 1-7 or October 25-31 get the wrong offset, shifting their timestamps by 1 hour. For heatmap analytics where the unit IS the hour, a 1-hour shift moves data into the wrong cell.
+**Prevention:**
+1. In middleware, after decoding the JWT payload, check `payload.exp * 1000 > Date.now()`. If expired, delete the cookie and redirect to `/`.
+2. Edge Runtime supports `Date.now()` and `atob` -- no Node.js-only APIs needed. This is safe.
+3. Add a small buffer (e.g., 30 seconds) to avoid race conditions where the token expires between middleware check and API call.
 
-**Why it happens:**
-The original implementation was "close enough" for KPI snapshots where a 1-hour offset on a few days per year does not matter. For hour-granularity heatmaps, it corrupts the data at DST boundaries.
+**Detection:** Dashboard loads with empty KPI cards, 401 errors in browser console on all `authFetch` calls.
 
-**How to avoid:**
-Replace the manual DST logic with Luxon, which is already a project dependency:
-```typescript
-import { DateTime } from 'luxon';
+### Pitfall 3: Cookie Deletion in Middleware Uses Wrong Attributes
 
-function convosoDateToUTC(dateStr: string): Date {
-  // Parse as Pacific time (Luxon handles DST automatically)
-  const dt = DateTime.fromFormat(dateStr, 'yyyy-MM-dd HH:mm:ss', {
-    zone: 'America/Los_Angeles'
-  });
-  if (!dt.isValid) return new Date();
-  return dt.toJSDate(); // JS Date in UTC
-}
-```
+**What goes wrong:** When middleware detects an expired token and tries to clear the cookie, the `Set-Cookie` header must match the exact `domain` and `path` used when the cookie was set. If they don't match, the browser ignores the deletion and the stale cookie persists.
 
-This should be done as a prerequisite fix, not as part of the analytics feature, to avoid corrupting historical data going forward.
+**Why it happens:** The cookie is set in middleware (line 44-50) with `path: "/"`, `secure: true`, `sameSite: "lax"`, no explicit domain. But in production, the `buildSessionCookie` in `@ops/auth` (line 30-38 of `index.ts`) sets `domain: process.env.AUTH_COOKIE_DOMAIN`. If the login flow sets the cookie via the API (which uses `buildSessionCookie` with a domain) but middleware tries to clear a cookie without specifying that domain, the browser ignores the deletion.
 
-**Warning signs:**
-- Heatmap cells at 2-3 AM show unusual spikes during DST transition weeks (March, November)
-- Aggregation totals for hour X differ by a few percent from a manual spot-check on DST transition dates
-- Calls placed at 1:59 AM PST on "spring forward" day appear in the 3 AM cell instead of the 2 AM cell
+**Consequences:** Expired cookie cannot be cleared by middleware. User gets stuck even after the fix is deployed.
 
-**Phase to address:**
-Phase 1 (data layer) -- fix this in the poller BEFORE building analytics queries. Also consider a one-time backfill migration for existing records near DST boundaries (low priority -- only affects a few hours of data per year).
+**Prevention:**
+1. When clearing the cookie in middleware, use `response.cookies.delete("ops_session", { path: "/" })` -- Next.js handles matching.
+2. Alternatively, set `maxAge: 0` with the same `path`, `secure`, `sameSite`, and `domain` values used during creation.
+3. Test cookie deletion on Railway production domain, not just localhost where domain is absent.
 
----
+**Detection:** After deploying the fix, check if the `ops_session` cookie persists after it should have been cleared. Examine Application > Cookies panel in DevTools.
 
-### Pitfall 3: Misleading Heatmap Cells With Low Sample Sizes
+### Pitfall 4: Phone Number Column Added to Schema But Poller Not Updated
 
-**What goes wrong:**
-A heatmap cell showing "Source X at 7 PM on Tuesdays has 100% close rate" is misleading if it is based on 1 call and 1 sale. Users see the bright green cell and shift lead routing to that slot, wasting budget. Worse: cells with 0 calls show as 0% instead of "no data", making inactive hours look like bad hours.
+**What goes wrong:** Developer adds a `leadPhone` field to the `ConvosoCallLog` model in `schema.prisma` and creates a migration. The poller (line 99-127 of `convosoKpiPoller.ts`) maps Convoso response fields to the `callLogRecords` object but explicitly picks only `user_id`, `recording`, `call_length`, `call_date`, and `start_time` fields. If the phone field is added to the model but the poller's mapping isn't updated, every new record also has NULL for phone.
 
-**Why it happens:**
-Close rate = sales / calls is a ratio that is meaningless at small sample sizes. Developers display the raw ratio without any indication of confidence. The heatmap color scale treats 100% (1/1) the same as 100% (50/50).
+**Why it happens:** The schema change and the data ingestion code are in different files (`schema.prisma` vs `convosoKpiPoller.ts`). It is easy to update one and forget the other.
 
-**How to avoid:**
-Three-layer defense:
+**Consequences:** Phone column exists but is always empty. Feature appears broken even though the schema change worked. Historical records also have no phone data.
 
-1. **Minimum threshold display:** Do not color-code cells below a minimum sample size (e.g., 5 calls). Show them as gray/hatched with the raw count. The threshold should be configurable or at least a named constant.
+**Prevention:**
+1. Update the poller `callLogRecords` mapping to capture the phone number field from the Convoso response in the SAME commit as the schema change.
+2. Verify which Convoso response field contains the phone number. Based on common Convoso API patterns, it is likely `phone_number`, `lead_phone`, or `number`. Log a sample raw Convoso response to confirm before coding.
+3. For historical backfill, accept that pre-migration records won't have phone numbers. The poller's backfill logic (line 158-224) only updates `recordingUrl` and `callDurationSeconds` -- extending it to also backfill phone numbers on re-fetch is possible but low priority.
 
-2. **Show sample size in the cell:** Each heatmap cell should display both the close rate AND the call count. Format: `23% (47)` or use a tooltip on hover. The call count is the denominator.
+**Detection:** After deployment, check `SELECT lead_phone FROM convoso_call_logs WHERE lead_phone IS NOT NULL LIMIT 5` -- if empty after new polls have run, the field mapping is wrong.
 
-3. **Distinguish "no data" from "zero conversions":** 0 calls = gray (no data), 10 calls with 0 sales = red (0% close rate). These are very different signals and must not share the same visual treatment.
+## Moderate Pitfalls
 
-Do NOT attempt Wilson score confidence intervals or Bayesian smoothing -- this is an internal ops tool, not a statistics product. Simple sample size indicators are sufficient and more understandable for managers.
+### Pitfall 5: Edge Runtime Breakage From Node.js Imports
 
-**Warning signs:**
-- Users report the "Best Source Right Now" recommendation keeps changing wildly hour to hour
-- Early-morning or late-evening cells show extreme values (100% or 0%)
-- Users distrust the heatmap because they saw a misleading cell
+**What goes wrong:** While adding expiry checking to middleware, a developer imports `jsonwebtoken` or `@ops/auth` (server-side) to reuse `verifySessionToken`. The middleware crashes because `jsonwebtoken` uses Node.js `crypto` internals that are not available in Edge Runtime.
 
-**Phase to address:**
-Phase 2 (UI/visualization) -- but the API response should include the sample count from Phase 1 so the frontend has data to work with.
+**Why it happens:** The existing middleware already avoids this (line 21-22: "Edge Runtime can't access secrets"), but the temptation to "properly verify" the JWT is strong when you're already touching the middleware for the expiry fix.
 
----
+**Prevention:** Keep `atob` with the URL-safe replacement for JWT decoding. Only decode and check `exp`, never call `jwt.verify()` in middleware. Add a comment: `// Edge Runtime: jwt.verify() unavailable, expiry check only`.
 
-### Pitfall 4: Aggregation Query Performance on ConvosoCallLog Table
+### Pitfall 6: Race Condition Between localStorage Clear and Cookie Clear
 
-**What goes wrong:**
-The heatmap query needs to GROUP BY (lead_source_id, hour, day_of_week) across potentially hundreds of thousands of call log records over 90 days. A naive query without proper indexing or with application-side grouping (fetching all rows then grouping in JS) causes multi-second response times. The "Best Source Right Now" card needs to run this query on every page load.
+**What goes wrong:** The login page clears localStorage (`clearToken()`), but the cookie persists until the next server request. If the user navigates to a dashboard route between clearing localStorage and the cookie being cleared, middleware sees the cookie and lets them through, but client-side `getToken()` returns null so `authFetch` sends no Bearer token.
 
-**Why it happens:**
-The existing `ConvosoCallLog` table has indexes on `[callTimestamp]` and `[agentId, leadSourceId, callTimestamp]`, which help with range scans but not with the specific grouping pattern needed for heatmaps. The `AT TIME ZONE` conversion in GROUP BY prevents PostgreSQL from using a plain btree index on `callTimestamp` for the grouping.
+**Prevention:**
+1. When clearing the expired token on the login page, both localStorage AND cookie should be cleared. Use a logout API call or set `document.cookie` to expire `ops_session` client-side. However, the cookie is `httpOnly: true` (line 45 of middleware.ts), so `document.cookie` cannot clear it.
+2. The correct approach: redirect to `/` (login page) via `window.location.href` after clearing localStorage. The middleware matcher (line 57-59) doesn't cover `/`, so no cookie check fires. The stale cookie will be overwritten on next successful login.
 
-**How to avoid:**
+### Pitfall 7: Phone Number Display Leaking PII to Unauthorized Roles
 
-1. **Use Prisma `$queryRaw` for the aggregation query.** Prisma's query builder cannot express `EXTRACT(HOUR FROM col AT TIME ZONE 'X')` or `GROUP BY` with computed columns. Use raw SQL for the heatmap endpoint. This is consistent with the project's existing pattern -- complex queries use `$queryRaw`.
+**What goes wrong:** Phone numbers are added to API responses for call audit or agent sales endpoints. All roles that can view those endpoints now see phone numbers, even if some roles (e.g., CUSTOMER_SERVICE) shouldn't have access to lead contact info.
 
-2. **Add a composite index** supporting the grouping pattern:
-   ```sql
-   CREATE INDEX idx_call_logs_source_timestamp ON convoso_call_logs (lead_source_id, call_timestamp);
-   ```
-   This already partially exists as `[agentId, leadSourceId, callTimestamp]` but the leading `agentId` column makes it less useful when you are not filtering by agent.
+**Prevention:**
+1. Review which roles access the affected endpoints.
+2. Phone numbers should only be visible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles.
+3. If the endpoint is shared across roles, conditionally strip phone numbers from the response based on the requesting user's role.
 
-3. **Consider a materialized/precomputed summary table** only if query times exceed 500ms on the 90-day range. Do not prematurely optimize -- PostgreSQL handles GROUP BY on 100k rows efficiently with proper indexes. If needed later, a `lead_source_hourly_stats` table updated by the poller is the right approach.
+### Pitfall 8: Adding leadPhone to Sale Model Creates Denormalization
 
-4. **Cache the heatmap response** with a short TTL (5-10 minutes). The underlying data only changes every 10 minutes (poller interval), so caching is safe. An in-memory cache (Map with timestamp) is sufficient -- no Redis needed.
+**What goes wrong:** Developer adds a `leadPhone` column directly to the `Sale` model, duplicating data already available through Convoso call data. Now there are two sources of truth. If Convoso data is corrected, the Sale record has stale data.
 
-**Warning signs:**
-- Heatmap endpoint takes >1s on 30-day range
-- Database CPU spikes correlate with dashboard page loads
-- EXPLAIN ANALYZE shows sequential scan on convoso_call_logs
+**Why it happens:** It seems simpler to put phone on Sale directly than to join through ConvosoCallLog. The Sale model already has `convosoLeadId` and `recordingUrl` fields (line 211-214 of schema) suggesting some Convoso data is already denormalized.
 
-**Phase to address:**
-Phase 1 (data layer) -- design the query and index together. Add caching in Phase 2 if benchmarks justify it.
+**Prevention:**
+1. Store phone number ONLY on `ConvosoCallLog` (it originates from Convoso, not from sale entry).
+2. For the agent sales view, join through the existing relationship chain: Sale has `leadSourceId` and `convosoLeadId`. The ConvosoCallLog has `leadSourceId` and `agentId`. A direct FK from Sale to ConvosoCallLog would be cleanest if a reliable mapping exists (e.g., matching by agent + timestamp proximity).
+3. If the join is too complex and phone on Sale is pragmatically necessary, document it as intentional denormalization and populate it from Convoso data during sale entry, not as a separate migration.
 
----
+### Pitfall 9: Prisma Explicit Select Statements Miss New Field
 
-### Pitfall 5: Joining Calls to Sales Across Different Time Granularities
+**What goes wrong:** Adding `leadPhone String? @map("lead_phone")` to ConvosoCallLog is a safe additive migration. But if any existing Prisma queries use `select: { field1: true, field2: true }` with an explicit field list, the new field is excluded by default. The API endpoint returns data without the phone field, and the frontend shows blank.
 
-**What goes wrong:**
-"Close rate" = sales / calls. But calls and sales are not directly linked -- there is no foreign key from Sale to ConvosoCallLog. To compute close rate per lead source per hour, you must count calls from `ConvosoCallLog` (grouped by lead_source_id + hour) and sales from `Sale` (grouped by leadSourceId + hour of saleDate). If you join on the wrong time field (Sale.createdAt vs Sale.saleDate) or use different timezone conversions for calls vs sales, the ratios are garbage.
+**Prevention:**
+1. After adding the schema field, search for all `prisma.convosoCallLog.findMany` (and `findFirst`, etc.) calls. If they use explicit `select`, add `leadPhone: true` to each one.
+2. If they use no `select` (return all fields), the new field is included automatically.
+3. Grep for `convosoCallLog` across the routes directory to find all query sites.
 
-**Why it happens:**
-`Sale.saleDate` is the business date entered by the manager (when the sale actually happened). `Sale.createdAt` is when the record was created in the system (may be hours or days later). Using `createdAt` instead of `saleDate` shifts sales into the wrong hour/day bucket.
+## Minor Pitfalls
 
-Additionally, `Sale.saleDate` does not have hour-level precision in many records -- it may be set to midnight or to the time the form was submitted, not the actual call time. If sales are entered in bulk at end of day, they all cluster in one hour.
+### Pitfall 10: Login Page Flash Before Redirect
 
-**How to avoid:**
+**What goes wrong:** After fixing the expiry check, the login page briefly renders (form visible) before the useEffect fires and redirects a user with a valid token. This creates a visual flash.
 
-1. **Use `Sale.saleDate` for the date component** (which day the sale belongs to) but acknowledge that hour-level precision for sales may be unreliable. The heatmap's value comes from the CALL volume pattern (when calls happen) combined with the daily close rate (sales per day per source), not from matching individual calls to individual sales by hour.
+**Prevention:** Add a `checking` state that starts as `true`, render a loading spinner while checking the token, and only show the login form when `checking` is `false` and no valid token was found.
 
-2. **Design the metric as:** close rate per (lead_source, hour_of_day) = (sales on days where calls happened at this hour) / (calls at this hour). Or simpler: show call volume heatmap with a separate daily close rate overlay. Do not try to attribute individual sales to individual call hours.
+### Pitfall 11: Convoso Phone Number Format Inconsistency
 
-3. **Document the metric definition** in the API response or UI tooltip so users understand what "close rate at 2 PM" means.
+**What goes wrong:** Convoso may return phone numbers in different formats: `+15551234567`, `5551234567`, `(555) 123-4567`. Displaying raw values creates an inconsistent UI.
 
-**Warning signs:**
-- Close rates exceed 100% in some cells (more sales than calls at that hour)
-- Total sales from heatmap does not match total sales from manager dashboard
-- Users ask "what does this number mean?"
+**Prevention:** Store the raw value in the database. Format only at display time with a simple utility: strip to digits, then format as `(XXX) XXX-XXXX` for US numbers. Add the formatter to `@ops/utils` for consistency.
 
-**Phase to address:**
-Phase 1 (data layer design) -- the metric definition must be settled before writing queries. This is a product decision, not just a technical one.
+### Pitfall 12: Middleware Matcher Doesn't Cover All Protected Routes
 
----
+**What goes wrong:** The middleware matcher (line 57-59) covers `/manager/:path*`, `/payroll/:path*`, `/owner/:path*`, `/cs/:path*`. If new dashboard routes are added outside these prefixes, they bypass middleware entirely. Not a current issue, but worth noting for awareness.
 
-### Pitfall 6: Business Hours Check Uses Server Local Time
+**Prevention:** If adding new top-level routes, update the matcher array.
 
-**What goes wrong:**
-The existing `convosoKpiPoller.ts` line 315-316 uses `new Date().getHours()` for the business hours check. `getHours()` returns the hour in the server's local timezone. On Railway (UTC), this means business hours 08:00-18:00 are actually checked against UTC, not Pacific or Eastern. The poller may stop polling at 10 AM Pacific (18:00 UTC) or start at midnight Pacific (08:00 UTC).
+## Phase-Specific Warnings
 
-**Why it happens:**
-`new Date().getHours()` is a common footgun -- it is timezone-dependent on the runtime environment. Local dev runs in the developer's timezone; Railway runs in UTC; Docker may run in whatever the host timezone is.
-
-**How to avoid:**
-This is an existing bug, not a new pitfall, but the analytics feature will inherit it if the analytics endpoints also use time-based logic (e.g., "Best Source Right Now" needs to know what hour it is in the call center's timezone). Fix by using Luxon:
-```typescript
-const now = DateTime.now().setZone('America/Los_Angeles');
-const currentTime = now.toFormat('HH:mm');
-```
-
-**Warning signs:**
-- Poller stops during business hours or runs outside them
-- "Best Source Right Now" recommends based on wrong hour
-- Behavior differs between local dev and production
-
-**Phase to address:**
-Phase 1 (data layer) -- fix alongside the `convosoDateToUTC` DST fix since both are timezone correctness issues in the same file.
-
----
-
-### Pitfall 7: Inline CSSProperties Heatmap Color Scale
-
-**What goes wrong:**
-Heatmaps require dynamic background colors based on cell values. With inline `React.CSSProperties` (the project's styling constraint -- no Tailwind, no CSS files), you must compute `backgroundColor` as an inline style. Developers create a color scale function but forget to handle: (a) color-blind accessibility, (b) the dark theme context (light greens on dark backgrounds look different than on white), (c) no-data vs zero-value distinction.
-
-**Why it happens:**
-Heatmap color scales are typically done with CSS classes or Tailwind utilities. Inline styles require manual RGB/HSL interpolation, and the dark glassmorphism theme means standard red-yellow-green scales from charting libraries do not match the design system.
-
-**How to avoid:**
-
-1. **Build a `heatmapColor(value, min, max, sampleSize)` utility** that returns a `React.CSSProperties` object with `backgroundColor` and `color` (text contrast). Use HSL interpolation: hue from 0 (red) to 120 (green), saturation reduced for low sample sizes, lightness tuned for the dark theme background.
-
-2. **Define the color scale as a constant array** matching the existing pattern of `const CARD`, `const BTN`, etc. Use the existing glassmorphism palette -- dark translucent backgrounds with colored borders or subtle fills.
-
-3. **Reserve gray (`rgba(255,255,255,0.05)`)** for no-data cells. Use the existing `rgba(255,255,255,0.08)` pattern from the codebase for background consistency.
-
-4. **Test with real data** -- heatmap colors that look good with 5 cells of sample data often fail when 90% of cells are in a narrow range.
-
-**Warning signs:**
-- All cells look the same color (value range too narrow for the color scale)
-- Text is unreadable against certain cell colors
-- Users cannot distinguish good from bad cells
-
-**Phase to address:**
-Phase 2 (UI/visualization) -- build the color utility early and test with realistic data distributions.
-
----
-
-## Technical Debt Patterns
-
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Hardcoded 'America/Los_Angeles' timezone | Simple, works for current single-location call center | Cannot support multiple call center timezones | Acceptable now -- single location. Extract to config if multi-location ever needed |
-| Raw SQL via `$queryRaw` for heatmap | Handles complex GROUP BY with timezone functions | Bypasses Prisma type safety, no migration tracking | Acceptable -- Prisma cannot express this query. Type the response manually with Zod |
-| In-memory cache for heatmap data | No Redis dependency, simple implementation | Lost on server restart, not shared across instances | Acceptable -- single instance on Railway. Data refreshes every 10 min anyway |
-| Close rate as simple ratio without statistical adjustment | Easy to understand, no stats library needed | Can mislead on small samples | Acceptable with sample size indicators (Pitfall 3) |
-
-## Integration Gotchas
-
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| Convoso call_date field | Treating as UTC when it is Pacific time | Always parse with `zone: 'America/Los_Angeles'` via Luxon, then convert to UTC for storage |
-| Convoso API pagination | Assuming all results come in one response | Check for pagination fields in response; the poller currently fetches without explicit date ranges, which may return limited results for analytics |
-| Sale.saleDate vs Sale.createdAt | Using createdAt for time-based analytics | saleDate is the business date; createdAt is the system timestamp. Use saleDate for analytics |
-| PostgreSQL AT TIME ZONE | Using it on `timestamp` (without tz) vs `timestamptz` -- behavior differs | `callTimestamp` is `timestamptz` in Prisma (DateTime). `AT TIME ZONE` on timestamptz converts TO that zone and returns `timestamp`. This is correct for EXTRACT |
-| Railway deployment timezone | Assuming server runs in same timezone as local dev | Railway containers run in UTC. All `new Date().getHours()` calls return UTC hours. Use Luxon with explicit zone |
-
-## Performance Traps
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Full table scan on 90-day heatmap query | >2s response time, database CPU spike | Add `(lead_source_id, call_timestamp)` index; use date range WHERE clause before GROUP BY | ~50k+ rows without index |
-| Application-side grouping (fetch all rows, group in JS) | High memory usage, slow response | Do grouping in SQL with GROUP BY | ~10k+ rows |
-| Recalculating heatmap on every request | Unnecessary database load when data changes every 10 min | In-memory cache with TTL matching poller interval | Concurrent dashboard users (5+) hammering the endpoint |
-| COUNT(*) across entire ConvosoCallLog table for "total calls" KPI | Slow on large tables in PostgreSQL | Always filter by date range, never unbounded count | ~100k+ rows |
-| N+1 query for lead source names in heatmap response | One query per lead source for name resolution | Join lead source names in the aggregation query or fetch all active lead sources in one query | 10+ lead sources |
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Showing close rate without sample size | Users make routing decisions on statistically meaningless data | Show both rate and count: "23% (47 calls)" |
-| Using red for low close rate | Alarm fatigue; some sources are legitimately low-volume | Use neutral color scale (blue gradient) with saturation for confidence; reserve red for anomalies |
-| "Best Source Right Now" with no explanation | Users do not trust a recommendation they cannot verify | Show the top-3 sources with their rates and sample sizes, not just the #1 pick |
-| Heatmap with too many hours (0-23) on mobile/small screens | Cells too small to read | Since desktop is primary (per constraints), show 6 AM - 10 PM (business-relevant hours); collapse overnight into one column |
-| Date range filter independent from main dashboard filter | Users change the main filter and expect heatmap to update | Explicitly label "Analytics Date Range" separately and explain it covers historical data, not live |
-| Sparkline without axis labels | Users cannot tell if a trend is 5% to 10% or 50% to 55% | Add min/max labels on sparkline Y-axis, or show the current value prominently next to the sparkline |
-
-## "Looks Done But Isn't" Checklist
-
-- [ ] **Heatmap timezone:** Verify EXTRACT uses `AT TIME ZONE 'America/Los_Angeles'` -- test with a call at 11 PM Pacific (should appear in the 11 PM column, not 6-7 AM next day)
-- [ ] **DST boundary:** Test with a callTimestamp from March 10, 2026 2:30 AM Pacific (spring forward) -- this time does not exist; verify it does not crash or produce NaN
-- [ ] **Zero calls vs no data:** Verify heatmap renders differently for "0% (10 calls)" vs "no data (0 calls)"
-- [ ] **Sample size threshold:** Verify cells below minimum threshold are visually distinct and do not influence the "Best Source" recommendation
-- [ ] **90-day query performance:** Run EXPLAIN ANALYZE on the heatmap query with production-scale data; verify it uses the index
-- [ ] **Close rate denominator:** Confirm close rate uses total calls (not just "engaged" or "deep" tier calls) as the denominator, or document clearly if filtered
-- [ ] **Business hours in correct timezone:** Verify the "Best Source Right Now" card shows the recommendation for the current Pacific hour, not UTC hour
-- [ ] **Sale date precision:** Verify Sale.saleDate has meaningful hour-level precision for at least some records; if not, document the limitation in the UI
-
-## Recovery Strategies
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Wrong timezone in aggregation | LOW | Fix the SQL query, re-deploy. No data corruption -- stored timestamps are correct UTC; only the display/grouping was wrong |
-| DST bug in convosoDateToUTC | MEDIUM | Fix the function, then run a one-time migration to recalculate callTimestamp for records near DST boundaries. Small number of affected records |
-| No sample size indicators | LOW | Add sample count to API response and update UI. No backend data changes needed |
-| Slow heatmap query | LOW | Add index via Prisma migration. Zero downtime, instant improvement |
-| Wrong Sale date field used | MEDIUM | Change query from createdAt to saleDate. May shift some analytics results, requiring user communication |
-| Business hours in wrong timezone | LOW | Fix to use Luxon with explicit zone. Immediate effect on next poll cycle |
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Naive hour extraction (Pitfall 1) | Phase 1: Data layer / aggregation queries | Query returns correct hour for known test timestamps spanning PDT and PST |
-| DST handling bug (Pitfall 2) | Phase 1: Data layer (prerequisite fix) | Test with timestamps on DST transition dates; compare Luxon output to manual calculation |
-| Low sample size noise (Pitfall 3) | Phase 1 (API includes count) + Phase 2 (UI renders threshold) | UI shows gray cells for <5 calls; "Best Source" ignores low-sample cells |
-| Query performance (Pitfall 4) | Phase 1: Data layer | EXPLAIN ANALYZE shows index scan; response time <500ms on 90-day range |
-| Call-to-sale join mismatch (Pitfall 5) | Phase 1: Metric definition | Total sales in heatmap matches manager dashboard total for same date range |
-| Server timezone bug (Pitfall 6) | Phase 1: Prerequisite fix | Poller business hours check works correctly on Railway (UTC) server |
-| Heatmap color scale (Pitfall 7) | Phase 2: UI/visualization | Cells are visually distinct across full value range; text readable on all backgrounds |
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Auth redirect loop fix | Pitfall 1 (stale token redirect) + Pitfall 2 (middleware gap) | Fix BOTH client and middleware in same phase; test with expired token in both localStorage AND cookie |
+| Auth redirect loop fix | Pitfall 3 (cookie domain mismatch) | Test cookie clearing on Railway production domain, not just localhost |
+| Auth redirect loop fix | Pitfall 5 (Edge Runtime breakage) | Never import `jsonwebtoken` in middleware; use `atob` + `exp` check only |
+| Auth redirect loop fix | Pitfall 6 (race condition) | Accept stale cookie gets overwritten on next login; don't try to clear httpOnly cookie from client |
+| Phone number: schema | Pitfall 4 (poller not updated) | Update schema + poller mapping in same commit; verify Convoso field name first |
+| Phone number: schema | Pitfall 8 (denormalization) | Store on ConvosoCallLog only; join to Sale through existing fields or new FK |
+| Phone number: schema | Pitfall 9 (select statements) | Grep for all `convosoCallLog` queries and add new field to explicit selects |
+| Phone number: display | Pitfall 7 (PII leakage) | Review role access on affected endpoints before adding phone to response |
+| Phone number: display | Pitfall 11 (format inconsistency) | Normalize at display time with shared formatter in @ops/utils |
+| Database migration | Make new column nullable (`String?`) so migration is additive ALTER TABLE only |
 
 ## Sources
 
-- Codebase analysis: `apps/ops-api/src/workers/convosoKpiPoller.ts` (existing DST handling, business hours check)
-- Codebase analysis: `prisma/schema.prisma` (ConvosoCallLog, Sale, AgentCallKpi models and indexes)
-- Codebase analysis: `apps/ops-api/src/services/convosoCallLogs.ts` (KPI aggregation patterns)
-- Codebase analysis: `apps/ops-api/src/services/payroll.ts` (Luxon usage with America/New_York timezone)
-- PostgreSQL documentation: `AT TIME ZONE` behavior differs between `timestamp` and `timestamptz` types
-- Project memory: Convoso call_date is America/Los_Angeles (Pacific), not UTC
-- Project constraints: Inline React.CSSProperties only, dark glassmorphism theme
+- Direct codebase analysis with line references:
+  - `apps/ops-dashboard/middleware.ts` (Edge Runtime JWT decoding, cookie setting, matcher config)
+  - `apps/ops-dashboard/app/page.tsx` (login page useEffect redirect logic)
+  - `apps/ops-dashboard/lib/auth.ts` (decodeRolesFromToken -- no expiry check)
+  - `packages/auth/src/client.ts` (captureTokenFromUrl, getToken, clearToken, decodeTokenPayload, ensureTokenFresh)
+  - `packages/auth/src/index.ts` (buildSessionCookie with AUTH_COOKIE_DOMAIN, signSessionToken with 12h expiry)
+  - `apps/ops-api/src/workers/convosoKpiPoller.ts` (Convoso data mapping, field extraction)
+  - `prisma/schema.prisma` (ConvosoCallLog model line 473, Sale model line 189)
 
 ---
-*Pitfalls research for: Lead source timing analytics with mixed-timezone data*
-*Researched: 2026-03-26*
+*Pitfalls research for: v1.9 Auth Stability & Phone Number Display*
+*Researched: 2026-03-30*

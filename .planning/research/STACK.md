@@ -1,182 +1,147 @@
-# Stack Research: Lead Source Timing Analytics Visualizations
+# Technology Stack: v1.9 Auth Stability & Phone Number Display
 
-**Domain:** Data visualization additions to existing sales operations platform
-**Researched:** 2026-03-26
+**Project:** Ops Platform v1.9
+**Researched:** 2026-03-30
 **Confidence:** HIGH
 
-## Decision: Hand-Rolled SVG Components (No Charting Library)
+## Decision: No New Dependencies Required
 
-**Recommendation: Do NOT add a charting library. Build heatmap, sparklines, and recommendation cards with raw SVG + React.**
+**Recommendation: This milestone requires zero new libraries.** Both features (auth redirect loop fix and phone number display) are pure application logic changes using the existing stack. Adding dependencies would be overengineering.
 
-### Why
+## What Exists (Relevant to v1.9)
 
-1. **The visualizations are simple.** A heatmap is a grid of `<rect>` elements with fill colors. A sparkline is a `<polyline>` in an `<svg>`. A recommendation card is just styled divs. None of these require a charting library's layout engine, axis system, or interaction model.
+### Auth Stack (No Changes Needed)
 
-2. **Perfect inline-style compatibility.** Raw SVG elements accept `fill`, `stroke`, `opacity` as direct props -- no className or CSS import needed. The existing `@ops/ui` design tokens (CSS custom properties like `var(--success)`) work directly as SVG fill values. A charting library would introduce its own theming layer that fights the existing system.
+| Technology | Version | Role in v1.9 |
+|------------|---------|---------------|
+| jsonwebtoken | (via @ops/auth) | Server-side JWT sign/verify -- already handles expiry correctly |
+| Next.js Middleware | 15.3.9 | Edge Runtime route guard -- **needs expiry check added** |
+| @ops/auth/client | workspace | Browser token management -- **already clears expired tokens** (line 62) |
 
-3. **Zero new dependencies.** No bundle size increase, no version conflicts, no peer dependency management. The project already has React 18.3.1 which renders SVG natively.
+### Database Stack (Schema Change Only)
 
-4. **Matches project patterns.** The codebase uses hand-built components with inline CSSProperties everywhere. Adding a charting library introduces a different abstraction pattern that breaks consistency.
+| Technology | Version | Role in v1.9 |
+|------------|---------|---------------|
+| Prisma | (via @ops/db) | Schema migration to add `leadPhone` column |
+| PostgreSQL | existing | Storage for phone number data |
 
-5. **Total code for all three visualizations is approximately 150-200 lines.** A `<HeatmapGrid>` component is roughly 60 lines. A `<Sparkline>` is 30 lines. The recommendation card is standard React with existing `Card` and `Badge` components.
+### Convoso Integration (Poller Change Only)
 
-## Recommended Stack (New Additions)
+| Technology | Version | Role in v1.9 |
+|------------|---------|---------------|
+| axios | ^1.7.7 | HTTP client for Convoso API -- no changes needed |
+| luxon | ^3.4.4 | Timezone-aware timestamp parsing -- no changes needed |
 
-### Core Technologies
+## Why No New Libraries
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Raw SVG + React | (built-in) | Heatmap grid, sparkline charts | Zero dependencies, full inline-style control, native React rendering |
+### Auth Fix: Pure Logic, Not Missing Capability
 
-**That is it.** No new packages needed for the visualization layer.
+The redirect loop happens because of a logic gap, not a missing library:
 
-### Supporting Libraries (Already Installed -- No Changes)
+1. **Next.js middleware** (Edge Runtime) decodes JWT base64 to read roles but does NOT check the `exp` claim. An expired token has valid base64, so middleware sees roles and allows access.
+2. **ops-api** correctly rejects the expired token via `jsonwebtoken.verify()`.
+3. **Client** clears the rejected token and redirects to login page (`/`).
+4. **Login page** `useEffect` finds no localStorage token, shows login form. But the **cookie** still has the expired token.
+5. **Next visit to a dashboard route**: middleware reads expired cookie, finds roles, allows through. Cycle repeats.
 
-| Library | Version | Purpose | Role in v1.8 |
-|---------|---------|---------|--------------|
-| react | 18.3.1 | SVG rendering via JSX | Renders `<svg>`, `<rect>`, `<polyline>`, `<text>` natively |
-| luxon | ^3.4.4 | Timezone-aware hour/day bucketing | Convert Convoso Pacific timestamps to hour-of-day, day-of-week |
-| @ops/ui tokens | (workspace) | Design tokens for colors, spacing | Heatmap fill colors, card styling, text styles |
-| lucide-react | ^0.577.0 | Icons | Recommendation card icons (TrendingUp, Clock, Zap) |
-| socket.io-client | ^4.8.3 | Real-time updates | Live recommendation card refresh on new sale/call events |
+**Fix requires:** Adding `exp` timestamp check in middleware (3 lines of code) + clearing stale localStorage on login page mount. The `atob` + `JSON.parse` already in middleware gives access to `payload.exp`. No crypto library needed because Edge Runtime cannot verify signatures anyway (no access to `AUTH_JWT_SECRET`); the real auth is API-side.
 
-### API Layer (Already Installed -- No Changes)
+### Phone Number: Schema + Poller Mapping
 
-| Library | Version | Purpose | Role in v1.8 |
-|---------|---------|---------|--------------|
-| prisma | (workspace) | Query aggregation | GROUP BY hour, day_of_week, lead_source for heatmap data |
-| express | ^4.18.2 | API endpoints | New `/analytics/timing` routes |
-| zod | (workspace) | Input validation | Date range, granularity params |
+The Convoso API already returns `phone_number` in call log responses (confirmed: it's listed in `CALL_LOG_PASS_THROUGH_PARAMS` at `call-logs.ts:19`). The poller simply doesn't map it to the database.
 
-## Implementation Patterns
+**Fix requires:**
+1. Prisma migration: add `leadPhone String? @map("lead_phone")` to `ConvosoCallLog` model
+2. Poller: map `r.phone_number` or `r.number_dialed` to `leadPhone` in the `callLogRecords` builder
+3. Dashboard: add column to call audit and agent sales table components
 
-### Heatmap Grid (Raw SVG)
+## Alternatives Considered (and Rejected)
 
-```typescript
-// Approximately 60 lines. Each cell is a <rect> with computed fill.
-interface HeatmapProps {
-  data: { hour: number; day: number; rate: number; count: number }[];
-  width: number;
-  height: number;
-}
+| What | Why Not |
+|------|---------|
+| `jose` library for Edge Runtime JWT verification | Overkill. We only need to check `exp` (a timestamp comparison), not verify the signature. Signature verification happens at the API layer. Adding `jose` just to decode what `atob` already decodes is unnecessary. |
+| `js-cookie` for cookie management | Next.js `cookies()` API and `response.cookies.set/delete` handle everything needed. |
+| Phone number formatting library (e.g., `libphonenumber-js`) | Phone numbers come from Convoso already formatted. Display as-is. If formatting is later needed, it's a 10-line utility, not a 200KB library. |
+| Separate auth middleware package | The expiry check is 3 lines added to existing `middleware.ts`. Extracting to a package adds indirection for no benefit. |
 
-// Fill color interpolation using the existing design tokens:
-// Low rate  -> dark muted color matching dark theme
-// High rate -> emerald/teal matching colors.accentTeal
-// Zero data -> transparent feel matching bgSurface
-```
+## Implementation Points (No Install Steps)
 
-SVG `<rect>` elements accept `fill` as a prop. CSS custom properties work in SVG fill when the element is in the DOM (not `<img>`). Since these render inline in the React tree, `var(--success)` works directly.
+### Middleware Expiry Check (Edge Runtime Compatible)
 
-For the color gradient (rate 0% to 100%), use a simple linear interpolation between two RGB values computed at render time -- no d3-scale needed for 24x7=168 cells.
-
-### Sparkline (Raw SVG)
+The existing middleware already does `JSON.parse(atob(parts[1]))` to get `payload`. Adding expiry check:
 
 ```typescript
-// Approximately 30 lines. A <polyline> with points computed from data array.
-interface SparklineProps {
-  data: number[];  // 7 values for 7 days
-  width?: number;  // default 120
-  height?: number; // default 32
-  color?: string;  // default colors.accentTeal
-}
-
-// Points: data.map((v, i) => `${(i / (len - 1)) * width},${height - (v / max) * height}`)
-// Render: <svg><polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} /></svg>
-```
-
-### Recommendation Card (React + Existing Components)
-
-Uses existing `Card` and `Badge` from `@ops/ui`. No SVG needed. "Best Source Right Now" with current-hour close rate highlight. Animated pulse on the recommended source using CSS animation via inline style.
-
-### Color Scale Helper (No Library Needed)
-
-```typescript
-// For heatmap cell colors -- interpolate between two hex values
-function interpolateColor(t: number): string {
-  // t: 0 (cold) to 1 (hot)
-  // cold: rgb(26, 26, 46)  -- dark blue-gray matching dark theme
-  // hot:  rgb(16, 185, 129) -- emerald/teal matching accent
-  const r = Math.round(26 + t * (16 - 26));
-  const g = Math.round(26 + t * (185 - 26));
-  const b = Math.round(46 + t * (129 - 46));
-  return `rgb(${r},${g},${b})`;
+// After decoding payload (already exists at middleware.ts:27)
+const now = Math.floor(Date.now() / 1000);
+if (typeof payload.exp === "number" && payload.exp < now) {
+  // Expired token: clear cookie and redirect to login
+  const response = NextResponse.redirect(new URL("/", request.url));
+  response.cookies.delete(AUTH_COOKIE_NAME);
+  return response;
 }
 ```
 
-## Alternatives Considered
+This runs in Edge Runtime with zero external dependencies -- just `Date.now()` and integer comparison.
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Raw SVG `<rect>` grid | @visx/heatmap (3.12.0) | visx adds 5 packages (~250KB unpacked) for something achievable in 60 lines. visx heatmap uses its own scale/group system that does not integrate with existing @ops/ui tokens without adapter code. |
-| Raw SVG `<polyline>` | recharts (3.8.1) | Recharts requires `<ResponsiveContainer>`, `<LineChart>`, `<Line>` -- massive overkill for a 7-point sparkline. Recharts also injects its own CSS classes and has known issues with pure inline styling (GitHub issue #2169). |
-| Raw SVG `<polyline>` | react-sparklines (1.7.0) | Unmaintained (last publish 2018). Works but adds a dependency for 30 lines of code. |
-| Hand-rolled interpolation | d3-scale (4.0.2) | d3-scale is 143KB for a linear interpolation between two colors. Overkill. |
-| Inline `<svg>` in React | Chart.js / react-chartjs-2 | Canvas-based, requires CSS imports, does not integrate with inline CSSProperties at all. |
-| Inline `<svg>` in React | @nivo/heatmap | Nivo has heavy dependencies (~1MB+), requires its own theme provider, and imposes its own styling system. |
+### Login Page Stale Token Cleanup
 
-### When TO Use a Charting Library (Not This Project)
+The `useEffect` on the login page should clear expired tokens before checking for auto-redirect:
 
-- **Complex interactions**: Zoom, pan, brush selection on time series -- use visx
-- **Many chart types**: If you need 10+ different chart types -- use recharts
-- **Design-heavy dashboards**: If charts ARE the product -- use nivo for polish
-- **This project**: 1 heatmap + 1 sparkline + 1 card = raw SVG is the right call
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Chart.js / react-chartjs-2 | Canvas-based, requires CSS imports, incompatible with inline CSSProperties approach | Raw SVG |
-| @nivo/* | Heavy (~1MB), brings its own theme provider that conflicts with @ops/ui tokens | Raw SVG |
-| recharts | Overkill for sparklines, known inline-style issues (GitHub #2169, #2785), injects classNames | Raw SVG `<polyline>` |
-| d3 (full library) | 500KB+ for DOM manipulation React already handles better | Raw SVG with simple math |
-| @visx/* | Reasonable library but adds 5+ packages for 2 simple visualizations, introduces visx patterns alongside existing @ops/ui patterns | Raw SVG |
-| Any library requiring globals.css | Violates project constraint: no CSS files, inline CSSProperties only | Raw SVG with design tokens |
-| react-sparklines | Unmaintained since 2018, React 18 compatibility unverified | Raw SVG `<polyline>` |
-
-## Version Compatibility
-
-| Existing Package | Compatible With | Notes |
-|------------------|-----------------|-------|
-| react@18.3.1 | Native SVG rendering | Full SVG support via JSX -- `<svg>`, `<rect>`, `<polyline>`, `<text>`, `<g>` all work as first-class elements |
-| next@15.3.9 | SVG in Server Components | SVG elements render in both server and client components. Heatmap and sparkline should be `"use client"` for hover tooltips |
-| luxon@^3.4.4 | Hour/day bucketing | Use `DateTime.fromISO(callDate).setZone('America/Los_Angeles')` for Convoso timestamp conversion per project memory |
-| @ops/ui tokens | SVG fill/stroke | CSS custom properties (e.g., `var(--success)`) work as SVG `fill` values when rendered inline in DOM |
-
-## Installation
-
-```bash
-# No new packages to install.
-# All visualization code uses built-in React SVG rendering + existing @ops/ui tokens.
-npm install          # existing workspace install, no new packages
+```typescript
+// In the existing useEffect, before checking stored token
+const stored = getToken();
+if (stored) {
+  const payload = decodeTokenPayload(stored);
+  if (payload?.exp && typeof payload.exp === "number" && payload.exp * 1000 < Date.now()) {
+    clearToken();
+    return; // Show login form, don't redirect
+  }
+  // ... existing redirect logic
+}
 ```
 
-## Stack Patterns by Variant
+`decodeTokenPayload` and `clearToken` are already exported from `@ops/auth/client`.
 
-**If heatmap needs more than hover tooltips later (zoom, brush, click-to-drill):**
-- Upgrade path is @visx/heatmap@3.12.0 + @visx/scale@3.12.0 + @visx/tooltip@3.12.0
-- visx is modular (install only what you need) and SVG-based (compatible with inline styles)
-- Peer dependency: react >=16.3.0 (compatible with project's 18.3.1)
+### Prisma Schema Addition
 
-**If more chart types are requested beyond v1.8 (bar charts, area charts, multi-axis):**
-- Evaluate recharts@3.8.1 at that point -- more chart types justify the dependency
-- Would require establishing a pattern for integrating recharts theming with @ops/ui tokens
+```prisma
+model ConvosoCallLog {
+  // ... existing fields ...
+  leadPhone           String?  @map("lead_phone")
+}
+```
 
-**For v1.8 scope (1 heatmap + 1 sparkline + 1 recommendation card):**
-- Raw SVG is the right call -- simpler, zero dependencies, full design system integration
+Migration: `npx prisma migrate dev --name add-lead-phone-to-call-log`
+
+### Poller Phone Capture
+
+In `convosoKpiPoller.ts`, add to the `callLogRecords` mapping (around line 103):
+
+```typescript
+leadPhone: (() => {
+  const phone = r.phone_number ?? r.number_dialed;
+  return phone ? String(phone) : null;
+})(),
+```
+
+## Existing Dependencies Sufficient
+
+| Capability Needed | Already Have | Version |
+|-------------------|-------------|---------|
+| JWT decode in Edge Runtime | Native `atob` + `JSON.parse` | Built-in |
+| JWT verify on API | `jsonwebtoken` via @ops/auth | Already working |
+| Token lifecycle (client) | `@ops/auth/client` | Already has `clearToken`, `decodeTokenPayload` |
+| Cookie management (middleware) | `NextResponse.cookies` | Next.js 15.3.9 |
+| Schema migration | Prisma CLI | Already configured |
+| Convoso HTTP calls | `axios` | ^1.7.7 |
+| Dashboard table columns | React inline styles | Existing pattern |
 
 ## Sources
 
-- [visx official site](https://visx.airbnb.tech/) -- evaluated as primary charting library candidate (HIGH confidence)
-- npm @visx/heatmap -- version 3.12.0 verified via `npm view` (HIGH confidence)
-- npm recharts -- version 3.8.1 verified via `npm view` (HIGH confidence)
-- [Recharts inline style issues #2169](https://github.com/recharts/recharts/issues/2169) -- confirmed CSS class conflicts with pure inline styling (MEDIUM confidence)
-- [react-sparklines GitHub](https://github.com/borisyankov/react-sparklines) -- last meaningful update 2018, unmaintained (HIGH confidence)
-- React 18 SVG rendering -- native JSX SVG support confirmed (HIGH confidence)
-- `packages/ui/src/tokens.ts` -- read directly from codebase, CSS custom properties as design tokens confirmed (HIGH confidence)
-- `apps/ops-dashboard/package.json` -- React 18.3.1, Next.js 15.3.9, lucide-react 0.577.0 confirmed (HIGH confidence)
-- Project memory `project_convoso_timezone.md` -- Convoso call_date uses America/Los_Angeles timezone (HIGH confidence)
-
----
-*Stack research for: Lead Source Timing Analytics (v1.8)*
-*Researched: 2026-03-26*
+- Middleware code reviewed: `apps/ops-dashboard/middleware.ts` (60 lines, full Edge Runtime route guard)
+- Auth client reviewed: `packages/auth/src/client.ts` (117 lines, already handles expired tokens client-side)
+- Auth server reviewed: `packages/auth/src/index.ts` (50 lines, `jsonwebtoken` verification)
+- Login page reviewed: `apps/ops-dashboard/app/page.tsx` (auto-redirect logic in useEffect)
+- Convoso poller reviewed: `apps/ops-api/src/workers/convosoKpiPoller.ts` (call log record mapping)
+- Prisma schema reviewed: `prisma/schema.prisma` (ConvosoCallLog model at line 473)
+- Call logs route reviewed: `apps/ops-api/src/routes/call-logs.ts` (confirms `phone_number` is a known Convoso field)
