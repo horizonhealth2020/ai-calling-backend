@@ -2,7 +2,7 @@ import { prisma } from "@ops/db";
 import { emitAuditStarted, emitAuditStatus, emitAuditFailed } from "../socket";
 import type { AuditUsageInfo } from "./callAudit";
 
-const MAX_CONCURRENT = 1; // Serialize — self-hosted Whisper can't handle concurrent transcriptions
+const MAX_CONCURRENT = 3;
 const RECORDING_MAX_RETRIES = 10;
 const RECORDING_RETRY_DELAY_MS = 60_000; // 60 seconds
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds
