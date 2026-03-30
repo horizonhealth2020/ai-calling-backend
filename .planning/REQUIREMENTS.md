@@ -19,9 +19,9 @@ Requirements for Auth Stability & Phone Number Display. Each maps to roadmap pha
 - [x] **PHONE-02**: Sale model has nullable `leadPhone` field (same migration)
 - [x] **PHONE-03**: Convoso poller captures `phone_number` from API response into `leadPhone`
 - [x] **PHONE-04**: Call audits API includes `convosoCallLog.leadPhone` in list response
-- [ ] **PHONE-05**: ManagerAudits table displays Phone column from call log data
+- [x] **PHONE-05**: ManagerAudits table displays Phone column from call log data
 - [x] **PHONE-06**: Sales API Zod schema accepts optional `leadPhone` on POST/PATCH
-- [ ] **PHONE-07**: ManagerSales table displays Phone column from sale data
+- [x] **PHONE-07**: ManagerSales table displays Phone column from sale data
 
 ## Future Requirements
 
@@ -50,9 +50,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PHONE-02 | Phase 32 | Complete (32-01) |
 | PHONE-03 | Phase 32 | Complete (32-01) |
 | PHONE-04 | Phase 32 | Complete (32-01) |
-| PHONE-05 | Phase 32 | Pending |
+| PHONE-05 | Phase 32 | Complete (32-02) |
 | PHONE-06 | Phase 32 | Complete (32-01) |
-| PHONE-07 | Phase 32 | Pending |
+| PHONE-07 | Phase 32 | Complete (32-02) |
 
 **Coverage:**
 - v1.9 requirements: 10 total

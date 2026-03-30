@@ -37,14 +37,14 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 32-01-PLAN.md -- Add leadPhone to schema, Convoso poller, and API routes
-- [ ] 32-02-PLAN.md -- Add leadPhone display to frontend dashboards
+- [x] 32-02-PLAN.md -- Add leadPhone display to frontend dashboards
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 31. Auth Stability Fix | 0/1 | Planned | - |
-| 32. Phone Number Data Pipeline | 1/2 | In progress | - |
+| 32. Phone Number Data Pipeline | 2/2 | Complete | 2026-03-30 |
 
 ---
 *Roadmap created: 2026-03-30*
