@@ -93,23 +93,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Performance Tracker tab rename, Today column, call count ticker badges — v1.8
 - ✓ Lead timing analytics visible on Manager and Owner dashboards — v1.8
 - ✓ Commission fallback guard: half commission when primary addon available but missing from sale — v1.8
+- ✓ JWT expiry check in Edge middleware with stale cookie deletion — v1.9
+- ✓ Login page clears expired localStorage token before auto-redirect — v1.9
 - ✓ Lead phone number capture from Convoso API with database storage — v1.9
 - ✓ Phone column in Manager Audits and Sales tables with (XXX) XXX-XXXX formatting — v1.9
 - ✓ Auto-formatting phone input on sales edit form with raw digit storage — v1.9
 
 ### Active
 
-<!-- Current scope: v1.9 Auth Stability & Phone Number Display -->
-
-## Current Milestone: v1.9 Auth Stability & Phone Number Display
-
-**Goal:** Fix the production login redirect loop affecting 3 users and add lead phone numbers to manager audit/sales views.
-
-**Target features:**
-- Fix expired-token redirect loop on login page (clear stale localStorage token before redirecting)
-- Add expiry check in middleware for defense-in-depth
-- Add lead phone number column to call audit rows (from Convoso data)
-- Add lead phone number column to agent sales rows
+<!-- Next milestone scope TBD -->
 
 ### Out of Scope
 
@@ -121,10 +113,9 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30)
-**In progress:** v1.9 — Phase 31 (auth-stability-fix) complete, Phase 32 (phone-number-data-pipeline) complete
-**Total:** 9 milestones, 32 phases, 94 plans, 224 requirements across 17 days
-**LOC:** ~129,000 TypeScript/TSX
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30)
+**Total:** 10 milestones, 32 phases, 94 plans, 224 requirements across 17 days
+**LOC:** ~130,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
 - **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs, lead source timing analytics
@@ -134,7 +125,7 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 
 ## Context
 
-Shipped 9 milestones in 17 days (30 phases, 91 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence.
+Shipped 10 milestones in 17 days (32 phases, 94 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence. Phone numbers flow from Convoso API through to manager dashboard views.
 
 **Known areas for future work:**
 - Bulk sale import from CSV
@@ -199,4 +190,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 after v1.9 Phase 31 (auth-stability-fix) complete*
+*Last updated: 2026-03-30 after v1.9 milestone complete*

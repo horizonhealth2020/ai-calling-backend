@@ -1,5 +1,15 @@
 # Milestones
 
+## v1.9 Auth Stability & Phone Number Display (Shipped: 2026-03-30)
+
+**Phases completed:** 2 phases, 3 plans, 7 tasks
+
+**Key accomplishments:**
+
+- JWT expiry checks added to Edge middleware and login page, fixing infinite redirect loop for users with expired tokens
+
+---
+
 ## v1.8 Lead Source Timing Analytics (Shipped: 2026-03-30)
 
 **Phases completed:** 1 phase, 5 plans, 8 tasks
