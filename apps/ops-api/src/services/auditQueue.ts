@@ -350,8 +350,9 @@ export function isValidAudioBuffer(buffer: Buffer): boolean {
     buffer[8] === 0x57 && buffer[9] === 0x41 && buffer[10] === 0x56 && buffer[11] === 0x45
   ) return true;
 
-  // MP3 frame sync: 0xFF 0xFB / 0xF3 / 0xF2
-  if (buffer[0] === 0xff && (buffer[1] === 0xfb || buffer[1] === 0xf3 || buffer[1] === 0xf2)) return true;
+  // MP3 frame sync: 0xFF followed by byte with top 3 bits set (0xE0 mask)
+  // Covers all MPEG versions (1/2/2.5) and layers (1/2/3): 0xFB, 0xF3, 0xF2, 0xE3, etc.
+  if (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0) return true;
 
   // MP3 ID3 tag
   if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) return true;
