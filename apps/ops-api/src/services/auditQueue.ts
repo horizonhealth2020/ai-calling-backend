@@ -126,10 +126,7 @@ async function checkDailyBudget(): Promise<boolean> {
 // ── DB-backed polling for queued jobs ────────────────────────────
 
 async function pollPendingJobs(): Promise<void> {
-  if (activeJobs.size >= MAX_CONCURRENT) {
-    console.log(JSON.stringify({ event: "audit_poll_skip", reason: "max_concurrent_reached", activeJobs: activeJobs.size, max: MAX_CONCURRENT, timestamp: new Date().toISOString() }));
-    return;
-  }
+  if (activeJobs.size >= MAX_CONCURRENT) return; // Normal — job in progress, next poll will pick up queued calls
 
   // Check if AI scoring is enabled
   const enabledSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "ai_scoring_enabled" } });
