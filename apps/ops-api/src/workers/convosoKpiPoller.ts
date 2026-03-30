@@ -169,6 +169,7 @@ async function pollLeadSource(
           OR: [
             { recordingUrl: null },
             { callDurationSeconds: null },
+            { leadPhone: null },
           ],
         },
         select: { id: true, agentUser: true },
@@ -203,10 +204,16 @@ async function pollLeadSource(
                 return isNaN(n) ? null : n;
               })();
 
-              if (recordingUrl || duration) {
+              const phone = (() => {
+                const ph = r.phone_number ?? r.caller_id;
+                return ph ? String(ph) : null;
+              })();
+
+              if (recordingUrl || duration || phone) {
                 const updateData: Record<string, unknown> = {};
                 if (recordingUrl) updateData.recordingUrl = recordingUrl;
                 if (duration != null) updateData.callDurationSeconds = duration;
+                if (phone) updateData.leadPhone = phone;
                 await prisma.convosoCallLog.update({
                   where: { id: rec.id },
                   data: updateData,
