@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 Phase: 32
 Plan: Not started
 Status: Phase 32 complete
-Last activity: 2026-03-30
+Last activity: 2026-03-30 - Completed quick task 260330-irn: notes dropdown
 
 ```
 v1.9 ==================== [==========] 100%
@@ -70,6 +70,7 @@ None currently.
 |---|-------------|------|--------|-----------|
 | 260326-lsx | Add fallback products for core bundle requirements in payroll dashboard | 2026-03-26 | ee186ff | [260326-lsx-add-fallback-products-for-core-bundle-re](./quick/260326-lsx-add-fallback-products-for-core-bundle-re/) |
 | 260326-maj | Increase role dashboard dropdown auto-minimize delay to 2 seconds | 2026-03-26 | 25b24c2 | [260326-maj-increase-role-dashboard-dropdown-auto-mi](./quick/260326-maj-increase-role-dashboard-dropdown-auto-mi/) |
+| 260330-irn | Add notes dropdown to agent sales and payroll views | 2026-03-30 | c305ca3 | [260330-irn-add-notes-dropdown-to-agent-sales-and-pa](./quick/260330-irn-add-notes-dropdown-to-agent-sales-and-pa/) |
 
 ---
 *State initialized: 2026-03-14*
