@@ -50,6 +50,7 @@ type CallAudit = {
   suggestedCoaching?: CoachingPriority[];
   managerSummary?: string;
   agent: { id: string; name: string };
+  convosoCallLog?: { leadPhone: string | null } | null;
 };
 
 type SocketClient = import("socket.io-client").Socket;
@@ -57,6 +58,20 @@ type SocketClient = import("socket.io-client").Socket;
 export interface ManagerAuditsProps {
   socket: SocketClient | null;
   API: string;
+}
+
+/* -- Helpers -- */
+
+function formatPhone(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === "1") {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return raw;
 }
 
 /* -- Style constants -- */
@@ -231,8 +246,8 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {["Date", "Agent", "Outcome", "Score", "Summary", "Actions"].map((h, i) => (
-                  <th key={h} style={{ ...baseThStyle, textAlign: i === 3 ? "center" : "left" }}>{h}</th>
+                {["Date", "Agent", "Phone", "Outcome", "Score", "Summary", "Actions"].map((h, i) => (
+                  <th key={h} style={{ ...baseThStyle, textAlign: i === 4 ? "center" : "left", ...(i === 2 ? { minWidth: 130 } : {}) }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -252,6 +267,11 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                     >
                       <td style={baseTdStyle}>{formatDate(a.callDate)}</td>
                       <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{a.agent.name}</td>
+                      <td style={baseTdStyle}>
+                        {a.convosoCallLog?.leadPhone
+                          ? formatPhone(a.convosoCallLog.leadPhone)
+                          : <span style={{ color: colors.textMuted }}>&mdash;</span>}
+                      </td>
                       <td style={baseTdStyle}>
                         {outcomeStyle ? (
                           <span style={{
@@ -309,7 +329,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                     {/* Expanded details row */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${colors.borderSubtle}` }}>
+                        <td colSpan={7} style={{ padding: 0, borderBottom: `1px solid ${colors.borderSubtle}` }}>
                           <div className="animate-slide-down" style={{ padding: 24, background: colors.bgSurfaceInset, borderTop: `1px solid ${colors.borderSubtle}` }}>
 
                             {/* Manager Summary */}
@@ -555,7 +575,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                     {/* Edit row */}
                     {isEditing && (
                       <tr>
-                        <td colSpan={6} style={{ padding: 0 }}>
+                        <td colSpan={7} style={{ padding: 0 }}>
                           <div className="animate-fade-in" style={{ padding: 20, background: "rgba(20,184,166,0.04)", borderTop: `1px solid ${colors.borderSubtle}` }}>
                             <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
                               <div>
