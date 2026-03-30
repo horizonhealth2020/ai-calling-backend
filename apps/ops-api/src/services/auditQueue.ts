@@ -146,7 +146,7 @@ async function pollPendingJobs(): Promise<void> {
       auditStatus: "queued",
       recordingUrl: { not: null },
     },
-    orderBy: { callTimestamp: "asc" },
+    orderBy: { callTimestamp: "desc" },
     take: MAX_CONCURRENT - activeJobs.size,
     select: { id: true },
   });
