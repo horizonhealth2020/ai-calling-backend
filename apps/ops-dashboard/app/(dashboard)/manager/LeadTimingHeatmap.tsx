@@ -39,19 +39,23 @@ function heatmapColor(closeRate: number, calls: number): React.CSSProperties {
   return { backgroundColor: base, opacity: calls < 10 ? 0.3 : 1.0 };
 }
 
-/* -- Hour labels -- */
+/* -- Business hours: 9am-9pm (12 columns) -- */
 
-const HOUR_LABELS: string[] = [];
-for (let h = 0; h < 24; h++) {
+const START_HOUR = 9;
+const END_HOUR = 21; // exclusive
+const VISIBLE_HOURS: number[] = [];
+for (let h = START_HOUR; h < END_HOUR; h++) VISIBLE_HOURS.push(h);
+
+function hourLabel(h: number): string {
   const hr12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   const suffix = h < 12 ? "a" : "p";
-  HOUR_LABELS.push(`${hr12}${suffix}`);
+  return `${hr12}${suffix}`;
 }
 
 /* -- Group labels -- */
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WOM_LABELS = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+const WOM_LABELS = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5"];
 const MOY_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function getGroupLabels(groupBy: "dow" | "wom" | "moy"): { val: number; label: string }[] {
@@ -62,13 +66,23 @@ function getGroupLabels(groupBy: "dow" | "wom" | "moy"): { val: number; label: s
 
 /* -- Style constants -- */
 
+const COLS = VISIBLE_HOURS.length; // 12
 const SUBSECTION_LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
 const CONTROLS_ROW: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing[4] };
-const SOURCE_TITLE: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: colors.textPrimary, marginBottom: spacing[1], marginTop: spacing[4] };
-const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "70px repeat(24, 1fr)", gap: 2 };
-const ROW_LABEL: React.CSSProperties = { fontSize: 11, color: colors.textSecondary, display: "flex", alignItems: "center" };
-const HOUR_LABEL_STYLE: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: colors.textTertiary, textAlign: "center" };
-const CELL: React.CSSProperties = { minWidth: 28, minHeight: 24, borderRadius: 3, cursor: "pointer", transition: "outline 150ms" };
+const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: `100px repeat(${COLS}, 1fr)`, gap: 2 };
+const GROUP_HEADER: React.CSSProperties = {
+  gridColumn: `1 / -1`,
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: typography.tracking.caps,
+  color: colors.accentTeal,
+  padding: `${spacing[2]} 0 ${spacing[1]} 0`,
+  borderBottom: `1px solid rgba(255,255,255,0.06)`,
+};
+const SOURCE_ROW_LABEL: React.CSSProperties = { fontSize: 11, color: colors.textSecondary, display: "flex", alignItems: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: spacing[2] };
+const HOUR_LABEL_STYLE: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: colors.textTertiary, textAlign: "center" };
+const CELL: React.CSSProperties = { minHeight: 26, borderRadius: 3, cursor: "pointer", transition: "outline 150ms" };
 const NO_DATA_MSG: React.CSSProperties = { textAlign: "center", color: colors.textMuted, fontSize: 13, padding: spacing[6] };
 const GRID_WRAP: React.CSSProperties = { position: "relative", overflowX: "auto", overflowY: "visible" };
 const SELECT_STYLE: React.CSSProperties = { ...baseInputStyle, padding: "4px 8px", fontSize: 13, width: "auto" };
@@ -76,10 +90,10 @@ const SELECT_STYLE: React.CSSProperties = { ...baseInputStyle, padding: "4px 8px
 /* -- Component -- */
 
 export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: LeadTimingHeatmapProps) {
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: HeatmapCell; rowLabel: string; sourceName: string } | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: HeatmapCell; groupLabel: string; sourceName: string } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const handleCellEnter = useCallback((e: React.MouseEvent<HTMLDivElement>, cell: HeatmapCell, rowLabel: string, sourceName: string) => {
+  const handleCellEnter = useCallback((e: React.MouseEvent<HTMLDivElement>, cell: HeatmapCell, groupLabel: string, sourceName: string) => {
     if (!gridRef.current) return;
     const rect = gridRef.current.getBoundingClientRect();
     const cellRect = e.currentTarget.getBoundingClientRect();
@@ -87,14 +101,12 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
       x: cellRect.left - rect.left + cellRect.width / 2,
       y: cellRect.top - rect.top,
       cell,
-      rowLabel,
+      groupLabel,
       sourceName,
     });
   }, []);
 
-  const handleCellLeave = useCallback(() => {
-    setTooltip(null);
-  }, []);
+  const handleCellLeave = useCallback(() => setTooltip(null), []);
 
   const isEmpty = !data || data.sources.length === 0 || data.sources.every(s => s.cells.length === 0);
   const groupLabels = getGroupLabels(groupBy);
@@ -151,29 +163,24 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
       {controlsBlock}
 
       <div style={GRID_WRAP} ref={gridRef}>
-        {sourceCellMaps.map(src => (
-          <div key={src.leadSourceId} style={{ marginBottom: spacing[4] }}>
-            <div style={SOURCE_TITLE}>{src.leadSourceName}</div>
-            <div style={GRID} role="grid" aria-label={`Close rate heatmap for ${src.leadSourceName}`}>
-              {/* Header row: empty corner + hour labels */}
-              <div />
-              {HOUR_LABELS.map((label, h) => (
-                <div
-                  key={h}
-                  style={{
-                    ...HOUR_LABEL_STYLE,
-                    borderBottom: h >= 8 && h <= 20 ? "1px solid rgba(255,255,255,0.06)" : undefined,
-                  }}
-                >
-                  {label}
-                </div>
-              ))}
+        <div style={GRID} role="grid" aria-label="Close rate heatmap">
+          {/* Header row: label column + hour labels */}
+          <div />
+          {VISIBLE_HOURS.map(h => (
+            <div key={h} style={HOUR_LABEL_STYLE}>{hourLabel(h)}</div>
+          ))}
 
-              {/* Data rows: one per groupVal */}
-              {groupLabels.map(({ val, label }) => (
-                <React.Fragment key={val}>
-                  <div style={ROW_LABEL}>{label}</div>
-                  {Array.from({ length: 24 }, (_, h) => {
+          {/* Grouped rows: section header per groupVal, source rows underneath */}
+          {groupLabels.map(({ val, label }) => (
+            <React.Fragment key={val}>
+              {/* Section header spanning full width */}
+              <div style={GROUP_HEADER}>{label}</div>
+
+              {/* One row per lead source */}
+              {sourceCellMaps.map(src => (
+                <React.Fragment key={`${val}-${src.leadSourceId}`}>
+                  <div style={SOURCE_ROW_LABEL} title={src.leadSourceName}>{src.leadSourceName}</div>
+                  {VISIBLE_HOURS.map(h => {
                     const cell = src.cellMap.get(`${val}:${h}`);
                     const c: HeatmapCell = cell ?? { hour: h, groupVal: val, calls: 0, sales: 0, closeRate: 0 };
                     const colorStyle = heatmapColor(c.closeRate, c.calls);
@@ -188,9 +195,9 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
                   })}
                 </React.Fragment>
               ))}
-            </div>
-          </div>
-        ))}
+            </React.Fragment>
+          ))}
+        </div>
 
         {/* Tooltip */}
         {tooltip && (
@@ -201,15 +208,15 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
             background: colors.bgSurfaceOverlay,
             border: `1px solid ${colors.borderStrong}`,
             borderRadius: radius.md,
-            padding: spacing[2],
+            padding: `${spacing[2]} ${spacing[3]}`,
             boxShadow: shadows.md,
             zIndex: 50,
             pointerEvents: "none",
             transform: "translateX(-50%)",
-            minWidth: 140,
+            minWidth: 150,
           }}>
             <div style={{ fontSize: 11, color: colors.textTertiary, marginBottom: 2 }}>{tooltip.sourceName}</div>
-            <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>{tooltip.rowLabel} &middot; {HOUR_LABELS[tooltip.cell.hour]}</div>
+            <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>{tooltip.groupLabel} &middot; {hourLabel(tooltip.cell.hour)}</div>
             <div style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>Close rate: {(tooltip.cell.closeRate * 100).toFixed(1)}%</div>
             <div style={{ fontSize: 13, color: colors.textSecondary }}>Calls: {tooltip.cell.calls}</div>
             <div style={{ fontSize: 13, color: colors.textSecondary }}>Sales: {tooltip.cell.sales}</div>
