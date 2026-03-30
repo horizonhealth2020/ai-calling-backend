@@ -242,6 +242,15 @@ async function downloadRecordingWithRetry(callLogId: string, url: string): Promi
         throw new Error(`Recording empty after ${RECORDING_MAX_RETRIES} attempts`);
       }
 
+      if (!isValidAudioBuffer(buffer)) {
+        if (attempt < RECORDING_MAX_RETRIES) {
+          console.log(`[auditQueue] Invalid audio buffer for ${callLogId} (${buffer.length} bytes, first bytes: ${buffer.subarray(0, 16).toString('hex')}), attempt ${attempt}/${RECORDING_MAX_RETRIES}, retrying in 60s...`);
+          await sleep(RECORDING_RETRY_DELAY_MS);
+          continue;
+        }
+        throw new Error(`Recording has invalid audio content after ${RECORDING_MAX_RETRIES} attempts (${buffer.length} bytes, header: ${buffer.subarray(0, 16).toString('hex')})`);
+      }
+
       console.log(`[auditQueue] Recording downloaded for ${callLogId} (${buffer.length} bytes, attempt ${attempt})`);
       return buffer;
     } catch (err: unknown) {
