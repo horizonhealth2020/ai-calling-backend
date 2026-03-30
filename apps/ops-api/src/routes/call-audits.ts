@@ -46,6 +46,7 @@ router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
     },
     orderBy: { callDate: "desc" },
   });
+  console.log(JSON.stringify({ event: "call_audits_fetch", count: audits.length, whereKeys: Object.keys(where), timestamp: new Date().toISOString() }));
   res.json(audits);
 }));
 
