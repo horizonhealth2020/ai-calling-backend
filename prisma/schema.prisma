@@ -491,6 +491,9 @@ model ConvosoCallLog {
   callAuditId         String?  @unique @map("call_audit_id")
   createdAt           DateTime @default(now()) @map("created_at")
   leadPhone           String?  @map("lead_phone")
+  retryCount          Int      @default(0) @map("retry_count")
+  lastFailedAt        DateTime? @map("last_failed_at")
+  failureReason       String?  @map("failure_reason")
 
   agent      Agent?      @relation(fields: [agentId], references: [id])
   leadSource LeadSource? @relation(fields: [leadSourceId], references: [id])

@@ -12,3 +12,18 @@ export function formatDate(d: string | null | undefined): string {
   const [y, m, dd] = d.split("T")[0].split("-");
   return `${parseInt(m)}/${parseInt(dd)}/${y}`;
 }
+
+/** Format an ISO date string as M/D/YYYY h:mm AM/PM. Returns "--" for null/undefined. */
+export function formatDateTime(d: string | null | undefined): string {
+  if (!d) return "--";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}

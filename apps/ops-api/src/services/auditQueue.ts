@@ -3,7 +3,7 @@ import { emitAuditStarted, emitAuditStatus, emitAuditFailed } from "../socket";
 import type { AuditUsageInfo } from "./callAudit";
 
 const MAX_CONCURRENT = 3;
-const RECORDING_MAX_RETRIES = 10;
+const RECORDING_MAX_RETRIES = 20;
 const RECORDING_RETRY_DELAY_MS = 60_000; // 60 seconds
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds
 const MIN_CALL_DURATION = 120; // 2 minutes minimum
