@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: completed
-last_updated: "2026-03-31T18:20:57.121Z"
+last_updated: "2026-03-31T20:05:37Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 4
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 37
-Plan: 00 complete, 01 next
-Status: Plan 00 complete (test scaffolds)
+Plan: 2 of 4 complete
+Status: Plans 00 and 01 complete, 02 next
 Last activity: 2026-03-31
 
 ```
@@ -67,6 +67,9 @@ Last activity: 2026-03-31
 - Standalone ACA section uses collapsible pattern below main sale form
 - ACA badge uses info-blue color to distinguish from regular product badges in payroll cards
 - Flat commission displayed as "$X.XX x N members = $total" format
+- Exponential backoff delays for audit retry: 1min, 5min, 15min with max 3 retries
+- Recording retry extended to 20 (20min) for long calls where Convoso takes longer to process
+- Audit failures categorized: recording_unavailable, transcription_timeout, claude_api_error, unknown
 
 ### Roadmap Evolution
 
@@ -93,5 +96,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 37-00-PLAN.md*
+*Last session: 2026-03-31 -- Completed 37-00-PLAN.md, 37-01-PLAN.md*
 *Last updated: 2026-03-31*
