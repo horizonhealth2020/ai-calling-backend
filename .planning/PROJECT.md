@@ -101,7 +101,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- Next milestone scope TBD -->
+<!-- Current milestone: v2.0 Sales Board TV Readability -->
+
+- [ ] Sales board font sizes increased for TV-distance readability
+- [ ] Layout scales for 9-15 agents without overflowing the screen
+- [ ] Cell dimensions unchanged — increased fonts use existing whitespace
 
 ### Out of Scope
 
@@ -110,6 +114,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
+
+## Current Milestone: v2.0 Sales Board TV Readability
+
+**Goal:** Make the sales board fully readable from across a sales office when displayed on a wall-mounted TV.
+
+**Target features:**
+- Increase font sizes for agent names, daily counts, premiums, totals, and team total row
+- Ensure layout scales for 9-15 agents without overflowing the screen
+- Keep cell dimensions unchanged — use existing whitespace, not bigger rows
 
 ## Current State
 
@@ -190,4 +203,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 after v1.9 milestone complete*
+*Last updated: 2026-03-31 after v2.0 milestone started*
