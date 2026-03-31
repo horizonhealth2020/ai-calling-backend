@@ -9,6 +9,7 @@
 
 - [x] **Phase 33: Core TV Readability** - Increase font sizes, promote contrast, and prevent overflow on WeeklyView and KPI cards
 - [ ] **Phase 34: Dynamic Scaling & Daily View** - Add agent-count-based font scaling and enlarge DailyView/podium for TV readability
+- [ ] **Phase 37: Fix Call Audit Issues, Manager Dashboard UI, and Agent Performance Card Order** - Correct call audit problems, fix manager dashboard UI issues, and implement correct agent performance card ordering
 
 ## Phase Details
 
@@ -84,6 +85,15 @@ Plans:
 - [x] 36-02-PLAN.md -- ACA PL schema migration, commission engine, API endpoint, sales board exclusion
 - [x] 36-03-PLAN.md -- ACA PL entry UI (checkbox + standalone) and payroll badge display
 
+### Phase 37: Fix Call Audit Issues, Manager Dashboard UI, and Agent Performance Card Order
+**Goal:** Correct issues with call audits, fix manager dashboard UI problems, and determine/implement the correct ordering logic for agent performance cards
+**Requirements**: TBD (to be defined during discussion)
+**Depends on:** Phase 36
+**Plans:** 0 plans
+
+Plans:
+(none yet)
+
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 36 Plan 03 complete (all plans done)*
+*Last updated: 2026-03-31 -- Phase 37 added for discussion*
