@@ -24,12 +24,12 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 36
-Plan: 02 of 3 complete
-Status: Plans 01 and 02 complete, Plan 03 next
+Plan: 03 of 3 complete
+Status: All plans complete
 Last activity: 2026-03-31
 
 ```
-[==========..........] 0/1 phases | 1/3 plans
+[====================] 1/1 phases | 3/3 plans
 ```
 
 ## Performance Metrics
@@ -63,6 +63,10 @@ Last activity: 2026-03-31
 - ACA_PL flat commission uses early return before percentage logic to avoid bundle/enrollment fee interference
 - Self-relation on Sale model links ACA covering sales to parent sales
 - ACA auto-fulfill checks acaCoveringSaleId in resolveBundleRequirement before state availability checks
+- ACA checkbox placed after payment type selector, before submit button in manager entry form
+- Standalone ACA section uses collapsible pattern below main sale form
+- ACA badge uses info-blue color to distinguish from regular product badges in payroll cards
+- Flat commission displayed as "$X.XX x N members = $total" format
 
 ### Roadmap Evolution
 
@@ -88,5 +92,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 36-01 and 36-02*
+*Last session: 2026-03-31 -- Completed 36-03-PLAN.md*
 *Last updated: 2026-03-31*

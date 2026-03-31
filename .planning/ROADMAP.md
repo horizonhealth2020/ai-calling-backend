@@ -56,12 +56,12 @@ Plans:
 **Goal:** Fix receipt parser product matching that breaks on dollar signs/commas, and stabilize payroll agent pay card row ordering
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07
 **Depends on:** Phase 35
-**Plans:** 1/3 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 36-01-PLAN.md -- Fix matchProduct() regex and payroll entry sort order
-- [ ] 36-02-PLAN.md
-- [ ] 36-03-PLAN.md
+- [x] 36-02-PLAN.md -- ACA PL schema migration, commission engine, API endpoint, sales board exclusion
+- [x] 36-03-PLAN.md -- ACA PL entry UI (checkbox + standalone) and payroll badge display
 
 ## Progress
 
@@ -70,7 +70,7 @@ Plans:
 | 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
 | 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
 | 35. Fix KPI Polling & Manager Dashboard | 1/3 | Complete    | 2026-03-31 |
-| 36. Fix Manager Sales Entry & Payroll UI | 1/3 | In progress | - |
+| 36. Fix Manager Sales Entry & Payroll UI | 3/3 | Complete    | 2026-03-31 |
 
 ### Phase 36: Fix manager sales entry parsing error and payroll UI issues
 
@@ -80,10 +80,10 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 36-01-PLAN.md -- Fix matchProduct() regex bug and payroll entry sort order
-- [ ] 36-02-PLAN.md -- ACA PL schema migration, commission engine, API endpoint, sales board exclusion
-- [ ] 36-03-PLAN.md -- ACA PL entry UI (checkbox + standalone) and payroll badge display
+- [x] 36-01-PLAN.md -- Fix matchProduct() regex bug and payroll entry sort order
+- [x] 36-02-PLAN.md -- ACA PL schema migration, commission engine, API endpoint, sales board exclusion
+- [x] 36-03-PLAN.md -- ACA PL entry UI (checkbox + standalone) and payroll badge display
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 36 Plan 01 complete*
+*Last updated: 2026-03-31 -- Phase 36 Plan 03 complete (all plans done)*
