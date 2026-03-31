@@ -62,14 +62,16 @@ Plans:
 
 ### Phase 36: Fix manager sales entry parsing error and payroll UI issues
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Fix receipt parser product matching for names with special characters ($, commas), stabilize payroll agent pay card row ordering by member ID, and add ACA PL flat-commission product type with dedicated entry flows and sales board exclusion
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13
 **Depends on:** Phase 35
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 36 to break down)
+- [ ] 36-01-PLAN.md -- Fix matchProduct() regex bug and payroll entry sort order
+- [ ] 36-02-PLAN.md -- ACA PL schema migration, commission engine, API endpoint, sales board exclusion
+- [ ] 36-03-PLAN.md -- ACA PL entry UI (checkbox + standalone) and payroll badge display
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 35 Plan 02 complete*
+*Last updated: 2026-03-31 -- Phase 36 planned (3 plans in 2 waves)*
