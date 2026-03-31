@@ -209,25 +209,21 @@ function parseReceipt(text: string): ParseResult {
 }
 
 function matchProduct(name: string, products: Product[]): Product | undefined {
-  const lower = name.toLowerCase();
+  const lower = name.toLowerCase().trim();
+  // 1. Exact match
   const exact = products.find(p => p.name.toLowerCase() === lower);
   if (exact) return exact;
-  const wordMatch = products.find(p => {
-    const pn = p.name.toLowerCase();
-    const re1 = new RegExp(`\\b${pn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    const re2 = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    return re1.test(lower) || re2.test(pn);
-  });
-  if (wordMatch) return wordMatch;
-  // Substring fallback: require word-boundary match to prevent short names
-  // (e.g. "AME") from matching inside longer words (e.g. "AmeriCare")
+
+  // 2. Containment with length guard (prevents "AME" matching "AmeriCare")
+  // Uses includes() instead of regex \b to handle special chars ($, ,) in product names
   const subs = products.filter(p => {
     const pn = p.name.toLowerCase();
-    const pnRe = new RegExp(`\\b${pn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    const lowerRe = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    return pnRe.test(lower) || lowerRe.test(pn);
+    const shorter = Math.min(pn.length, lower.length);
+    const longer = Math.max(pn.length, lower.length);
+    return shorter / longer > 0.5 && (pn.includes(lower) || lower.includes(pn));
   });
   if (subs.length > 0) return subs.sort((a, b) => b.name.length - a.name.length)[0];
+
   return undefined;
 }
 
