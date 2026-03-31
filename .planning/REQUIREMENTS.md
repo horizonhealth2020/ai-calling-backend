@@ -18,7 +18,7 @@ Requirements for Sales Board TV Readability milestone. Each maps to roadmap phas
 ### Scaling
 
 - [ ] **SCAL-01**: Font sizes dynamically scale based on agent count — larger when fewer agents, smaller when more agents
-- [ ] **SCAL-02**: 15 agents fit on a 1080p TV without scrolling on weekly breakdown view
+- [x] **SCAL-02**: 15 agents fit on a 1080p TV without scrolling on weekly breakdown view
 - [ ] **SCAL-03**: 15 agents fit on a 1080p TV without scrolling on daily/podium view
 - [x] **SCAL-04**: Row padding adjusts to compensate for larger fonts — cell dimensions stay visually consistent
 
@@ -51,7 +51,7 @@ None deferred — milestone is tightly scoped.
 | TYPO-04 | Phase 33 | Complete |
 | TYPO-05 | Phase 33 | Complete |
 | SCAL-01 | Phase 34 | Pending |
-| SCAL-02 | Phase 34 | Pending |
+| SCAL-02 | Phase 33 | Complete |
 | SCAL-03 | Phase 34 | Pending |
 | SCAL-04 | Phase 33 | Complete |
 | OVFL-01 | Phase 33 | Complete |
@@ -64,4 +64,4 @@ None deferred — milestone is tightly scoped.
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 -- TYPO-04 marked complete (33-02)*
+*Last updated: 2026-03-31 -- SCAL-02 marked complete (Phase 33 delivered weekly view fit, visually verified at 1080p)*

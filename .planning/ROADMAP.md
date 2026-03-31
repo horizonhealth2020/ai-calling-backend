@@ -15,7 +15,7 @@
 ### Phase 33: Core TV Readability
 **Goal**: The weekly breakdown table and KPI stat cards are readable from across a sales office on a wall-mounted 1080p TV
 **Depends on**: Nothing (first phase of v2.0)
-**Requirements**: TYPO-01, TYPO-03, TYPO-04, TYPO-05, OVFL-01, OVFL-02, SCAL-04
+**Requirements**: TYPO-01, TYPO-03, TYPO-04, TYPO-05, OVFL-01, OVFL-02, SCAL-02, SCAL-04
 **Success Criteria** (what must be TRUE):
   1. A person standing 10-15 feet from a 1080p TV can read agent names, daily sale counts, premium amounts, and totals on the weekly breakdown view without squinting
   2. The team total row at the bottom is the most prominent row on the screen -- visually larger than individual agent rows
@@ -31,12 +31,11 @@ Plans:
 ### Phase 34: Dynamic Scaling & Daily View
 **Goal**: The daily/podium leaderboard view is TV-readable with enlarged fonts and promoted contrast, using browser zoom for agent-count scaling
 **Depends on**: Phase 33 (base font sizes must be established before scaling logic)
-**Requirements**: TYPO-02, SCAL-01, SCAL-02, SCAL-03
+**Requirements**: TYPO-02, SCAL-01, SCAL-03
 **Success Criteria** (what must be TRUE):
   1. With 9 agents on screen, fonts are noticeably larger than with 15 agents -- the board uses available space
-  2. With exactly 15 agents, the weekly breakdown view fits on a 1080p screen without scrolling and the team total row is visible
-  3. With exactly 15 agents, the daily/podium leaderboard view fits on a 1080p screen without scrolling
-  4. Agent names, podium numbers, and premium amounts on the daily view are readable from 10-15 feet on a 1080p TV
+  2. With exactly 15 agents, the daily/podium leaderboard view fits on a 1080p screen without scrolling
+  3. Agent names, podium numbers, and premium amounts on the daily view are readable from 10-15 feet on a 1080p TV
 **Plans:** 1 plan
 
 Plans:
@@ -51,4 +50,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 34 planned (1 plan)*
+*Last updated: 2026-03-31 -- SCAL-02 moved to Phase 33 (weekly view fit delivered there)*
