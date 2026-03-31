@@ -89,13 +89,14 @@ Plans:
 **Goal:** Self-healing audit queue (orphan recovery, retry with backoff, failure categorization), audit UI overhaul (timestamps, pagination, agent filter), and composite performance scoring for agent ranking
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13
 **Depends on:** Phase 36
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] 37-01-PLAN.md -- Prisma migration for retry fields, orphan recovery, retry with backoff, failure categorization, formatDateTime helper
+- [ ] 37-00-PLAN.md -- Wave 0: Test scaffolds for auditQueue and compositeScore (RED phase)
+- [ ] 37-01-PLAN.md -- Prisma migration, recording retry extension (D-03), orphan recovery, retry with backoff, failure categorization, formatDateTime helper
 - [ ] 37-02-PLAN.md -- Composite performance score replacing salesCount sort in ManagerTracker
-- [ ] 37-03-PLAN.md -- Audit UI overhaul: timestamps, pagination, agent filter, Load More
+- [ ] 37-03-PLAN.md -- Audit UI overhaul: timestamps, dual-field ordering (D-09), pagination, agent filter, Load More
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 37 plans created*
+*Last updated: 2026-03-31 -- Phase 37 plans revised based on checker feedback*
