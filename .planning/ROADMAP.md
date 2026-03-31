@@ -7,7 +7,7 @@
 
 ## Phases
 
-- [ ] **Phase 33: Core TV Readability** - Increase font sizes, promote contrast, and prevent overflow on WeeklyView and KPI cards
+- [x] **Phase 33: Core TV Readability** - Increase font sizes, promote contrast, and prevent overflow on WeeklyView and KPI cards
 - [ ] **Phase 34: Dynamic Scaling & Daily View** - Add agent-count-based font scaling and enlarge DailyView/podium for TV readability
 
 ## Phase Details
@@ -43,9 +43,9 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 33. Core TV Readability | 2/2 | Awaiting verification | - |
+| 33. Core TV Readability | 2/2 | Complete | 2026-03-31 |
 | 34. Dynamic Scaling & Daily View | 0/0 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Plan 33-02 complete, awaiting visual verification*
+*Last updated: 2026-03-31 -- Phase 33 complete, visual verification approved*

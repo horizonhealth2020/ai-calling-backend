@@ -28,6 +28,7 @@ key-decisions:
   - "Base number fontSize 30->36 with proportional conditional scaling (28/36 vs previous 22/26 and 20/26)"
   - "Padding reduced from 20px uniform to 12px vertical / 16px horizontal to absorb font growth"
   - "Stats-to-tab gap tightened via spacing[2] instead of spacing[3] on both sides"
+  - "Team total row vertical padding further reduced from spacing[3] (12px) to spacing[2] (8px) per user feedback during verification"
 
 patterns-established:
   - "Conditional fontSize uses proportional scaling when increasing base sizes"
@@ -48,7 +49,7 @@ completed: 2026-03-31
 - **Duration:** 2 min
 - **Started:** 2026-03-31T15:10:50Z
 - **Completed:** 2026-03-31T15:13:19Z
-- **Tasks:** 1 of 1 auto tasks (checkpoint pending)
+- **Tasks:** 2 of 2 (checkpoint approved)
 - **Files modified:** 1
 
 ## Accomplishments
@@ -56,13 +57,16 @@ completed: 2026-03-31
 - All 4 KPI stat card label font sizes increased from 11px to 14px
 - Card padding reduced from 20px uniform to 12px/16px to absorb font growth without changing card dimensions
 - Stats-to-tab gap tightened on both sides (marginTop and marginBottom reduced)
+- Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 - Build passes cleanly
+- Visual checkpoint approved at 1080p resolution
 
 ## Task Commits
 
 Each task was committed atomically:
 
 1. **Task 1: Increase KPI card fonts, reduce padding, tighten stats-to-tab gap** - `5b4ef5b` (feat)
+2. **Task 2: Verify complete TV readability at 1080p** - checkpoint approved, team total row padding adjusted in `1ca333b`
 
 ## Files Created/Modified
 - `apps/sales-board/app/page.tsx` - KPI stat card typography, padding, and spacing changes for TV readability
@@ -73,7 +77,14 @@ Each task was committed atomically:
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### User Feedback Adjustment
+
+**[Rule 1 - Adjustment] Team total row vertical padding reduced further**
+- **Found during:** Task 2 (visual verification checkpoint)
+- **Issue:** User found team total row still had too much vertical padding at spacing[3] (12px)
+- **Fix:** Reduced team total row cells from spacing[3] to spacing[2] (8px) vertical padding
+- **Files modified:** apps/sales-board/app/page.tsx
+- **Commit:** 1ca333b
 
 ## Issues Encountered
 None
@@ -82,8 +93,8 @@ None
 None - no external service configuration required.
 
 ## Next Phase Readiness
-- KPI stat cards complete -- awaiting human verification checkpoint (Task 2)
-- Combined with plan 01 (WeeklyView table), full Phase 33 TV readability changes are ready for visual verification at 1080p
+- Phase 33 fully complete -- both plans executed and visually verified at 1080p
+- Sales board is now TV-readable: WeeklyView table (plan 01) and KPI stat cards (plan 02) both optimized for across-the-room viewing
 
 ---
 *Phase: 33-core-tv-readability*
@@ -92,3 +103,5 @@ None - no external service configuration required.
 ## Self-Check: PASSED
 - apps/sales-board/app/page.tsx: FOUND
 - Commit 5b4ef5b: FOUND
+- Commit 1ca333b: FOUND
+- Checkpoint Task 2: APPROVED
