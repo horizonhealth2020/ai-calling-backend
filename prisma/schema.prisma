@@ -54,6 +54,7 @@ enum ProductType {
   CORE
   ADDON
   AD_D
+  ACA_PL
 }
 
 model User {
@@ -136,6 +137,7 @@ model Product {
   bundledCommission    Decimal?    @map("bundled_commission") @db.Decimal(5, 2)
   standaloneCommission Decimal?    @map("standalone_commission") @db.Decimal(5, 2)
   enrollFeeThreshold   Decimal?    @map("enroll_fee_threshold") @db.Decimal(10, 2)
+  flatCommission       Decimal?    @map("flat_commission") @db.Decimal(12, 2)
   notes                String?
 
   requiredBundleAddonId  String?  @map("required_bundle_addon_id")
@@ -214,6 +216,8 @@ model Sale {
   callDateTime       DateTime? @map("call_date_time")
   memberState        String?   @map("member_state") @db.VarChar(2)
   leadPhone          String?   @map("lead_phone")
+  memberCount        Int?      @map("member_count")
+  acaCoveringSaleId  String?   @map("aca_covering_sale_id")
 
   agent                Agent                 @relation(fields: [agentId], references: [id])
   product              Product               @relation(fields: [productId], references: [id])
@@ -225,6 +229,8 @@ model Sale {
   statusChangeRequests StatusChangeRequest[]
   saleEditRequests     SaleEditRequest[]
   matchedChargebacks   ChargebackSubmission[] @relation("ChargebackMatchedSale")
+  acaCoveringSale      Sale?                  @relation("AcaCovering", fields: [acaCoveringSaleId], references: [id])
+  acaCoveredSales      Sale[]                 @relation("AcaCovering")
 
   @@index([saleDate])
   @@index([memberId])

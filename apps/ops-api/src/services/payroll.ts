@@ -101,6 +101,16 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  * Final result rounded to 2 decimal places.
  */
 export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleRequirementContext): { commission: number; halvingReason: string | null } => {
+  // ACA PL: flat dollar amount per member (not percentage-based)
+  if (sale.product.type === "ACA_PL") {
+    const flatAmount = Number(sale.product.flatCommission ?? 0);
+    const count = (sale as SaleWithProduct & { memberCount?: number | null }).memberCount ?? 1;
+    return {
+      commission: Math.round(flatAmount * count * 100) / 100,
+      halvingReason: null,
+    };
+  }
+
   const addons = sale.addons ?? [];
   let halvingReason: string | null = null;
 
@@ -211,9 +221,20 @@ export async function resolveBundleRequirement(
     fallbackAddons?: { fallbackProduct: { id: string; name: string } }[];
   },
   memberState: string,
-  saleAddonProductIds: string[]
+  saleAddonProductIds: string[],
+  saleId?: string
 ): Promise<BundleRequirementContext> {
   if (!coreProduct.requiredBundleAddonId) return null;
+
+  // D-13: ACA PL auto-fulfills bundle requirement
+  if (saleId) {
+    const acaCovering = await prisma.sale.findFirst({
+      where: { acaCoveringSaleId: saleId, product: { type: "ACA_PL" }, status: "RAN" },
+    });
+    if (acaCovering) {
+      return { requiredAddonAvailable: true, fallbackAddonAvailable: false, halvingReason: null };
+    }
+  }
 
   const requiredAvail = await prisma.productStateAvailability.findUnique({
     where: { productId_stateCode: { productId: coreProduct.requiredBundleAddonId, stateCode: memberState } }
@@ -301,7 +322,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
 
   const addonProductIds = (sale.addons ?? []).map(a => a.productId);
   const bundleCtx = sale.memberState
-    ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds)
+    ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds, saleId)
     : null;
   const result = calculateCommission(sale as Parameters<typeof calculateCommission>[0], bundleCtx);
   const payoutAmount = sale.status === 'RAN' ? result.commission : 0;

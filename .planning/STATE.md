@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 36
-Plan: 01 of 3 complete
-Status: Plan 01 complete, Plan 02 next
+Plan: 02 of 3 complete
+Status: Plans 01 and 02 complete, Plan 03 next
 Last activity: 2026-03-31
 
 ```
@@ -60,6 +60,9 @@ Last activity: 2026-03-31
 - Manager Tracker Today column removed (redundant with Today date range preset)
 - Used includes() with length ratio guard instead of regex word boundaries for product name matching
 - useMemo-based stable sort by member ID ascending in payroll agent pay cards
+- ACA_PL flat commission uses early return before percentage logic to avoid bundle/enrollment fee interference
+- Self-relation on Sale model links ACA covering sales to parent sales
+- ACA auto-fulfill checks acaCoveringSaleId in resolveBundleRequirement before state availability checks
 
 ### Roadmap Evolution
 
@@ -85,5 +88,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 36-01-PLAN.md*
+*Last session: 2026-03-31 -- Completed 36-01 and 36-02*
 *Last updated: 2026-03-31*

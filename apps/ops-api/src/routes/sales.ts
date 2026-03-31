@@ -131,6 +131,105 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   res.status(201).json(sale);
 }));
 
+// ── ACA PL Sale Entry ─────────────────────────────────────────
+router.post("/sales/aca", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    agentId: z.string(),
+    memberName: z.string().min(1),
+    carrier: z.string().min(1),
+    memberCount: z.number().int().min(1),
+    productId: z.string(),
+    saleDate: z.string().optional(),
+    acaCoveringSaleId: z.string().optional(),
+    notes: z.string().optional(),
+  });
+  const result = schema.safeParse(req.body);
+  if (!result.success) return res.status(400).json(zodErr(result.error));
+  const parsed = result.data;
+
+  // Verify product is ACA_PL type
+  const product = await prisma.product.findUnique({ where: { id: parsed.productId } });
+  if (!product || product.type !== "ACA_PL") {
+    return res.status(400).json({ error: "Product must be ACA_PL type" });
+  }
+
+  const saleDateStr = parsed.saleDate || new Date().toISOString().slice(0, 10);
+  const sale = await prisma.sale.create({
+    data: {
+      saleDate: new Date(saleDateStr + "T12:00:00"),
+      agentId: parsed.agentId,
+      memberName: parsed.memberName,
+      carrier: parsed.carrier,
+      productId: parsed.productId,
+      premium: 0,
+      effectiveDate: new Date(saleDateStr + "T12:00:00"),
+      leadSourceId: (await prisma.leadSource.findFirst({ where: { active: true }, orderBy: { createdAt: "asc" } }))!.id,
+      status: "RAN",
+      enteredByUserId: req.user!.id,
+      memberCount: parsed.memberCount,
+      acaCoveringSaleId: parsed.acaCoveringSaleId ?? null,
+      notes: parsed.notes ?? null,
+    },
+  });
+
+  try {
+    await upsertPayrollEntryForSale(sale.id);
+  } catch (err) {
+    console.error("Payroll entry failed for ACA sale", sale.id, err);
+  }
+
+  // Emit sale:changed but skip sales board notification for ACA_PL
+  try {
+    const fullSale = await prisma.sale.findUnique({
+      where: { id: sale.id },
+      include: {
+        agent: { select: { id: true, name: true } },
+        product: { select: { id: true, name: true, type: true } },
+      },
+    });
+    if (fullSale) {
+      emitSaleChanged({
+        type: "created",
+        sale: {
+          id: fullSale.id,
+          saleDate: fullSale.saleDate.toISOString(),
+          memberName: fullSale.memberName,
+          memberId: fullSale.memberId ?? undefined,
+          carrier: fullSale.carrier,
+          premium: 0,
+          enrollmentFee: null,
+          status: fullSale.status,
+          agent: { id: fullSale.agent.id, name: fullSale.agent.name },
+          product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
+          addons: [],
+        },
+        payrollEntries: [],
+      });
+    }
+  } catch (emitErr) {
+    console.error("Socket emit failed for ACA sale", sale.id, emitErr);
+  }
+
+  // If this ACA sale covers another sale, recalculate that sale's payroll (bundle auto-fulfill)
+  if (parsed.acaCoveringSaleId) {
+    try {
+      await upsertPayrollEntryForSale(parsed.acaCoveringSaleId);
+    } catch (err) {
+      console.error("Payroll recalc failed for covered sale", parsed.acaCoveringSaleId, err);
+    }
+  }
+
+  logAudit(
+    req.user!.id,
+    "aca_sale_created",
+    "sale",
+    sale.id,
+    { agentId: parsed.agentId, memberCount: parsed.memberCount, carrier: parsed.carrier },
+  );
+
+  res.status(201).json(sale);
+}));
+
 // ── Commission Preview ────────────────────────────────────────
 router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const previewSchema = z.object({
@@ -543,7 +642,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const qp = dateRangeQuerySchema.safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
-  const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : undefined;
+  const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt }, product: { type: { not: 'ACA_PL' as const } } } : { product: { type: { not: 'ACA_PL' as const } } };
   const callWhere: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
@@ -551,7 +650,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
-  const todaySalesWhere = { saleDate: { gte: todayStart, lt: todayEnd } };
+  const todaySalesWhere = { saleDate: { gte: todayStart, lt: todayEnd }, product: { type: { not: 'ACA_PL' as const } } };
 
   // Fetch agents with sales, call logs, and commission totals in parallel
   const [data, allLeadSources, callLogs, commissionByAgent, todayData] = await Promise.all([
@@ -734,7 +833,7 @@ router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const cutoff24h = new Date(Date.now() - 86400000);
   const cutoff7d = new Date(Date.now() - 7 * 86400000);
   const allSales = await prisma.sale.findMany({
-    where: { status: 'RAN', saleDate: { gte: cutoff7d } },
+    where: { status: 'RAN', saleDate: { gte: cutoff7d }, product: { type: { not: 'ACA_PL' } } },
     select: { agentId: true, saleDate: true, premium: true, addons: { select: { premium: true } } },
   });
   const daily: Record<string, { count: number; premium: number }> = {};
@@ -777,7 +876,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
 
   // Fetch all RAN sales for the current week
   const sales = await prisma.sale.findMany({
-    where: { status: 'RAN', saleDate: { gte: monday, lt: sunday } },
+    where: { status: 'RAN', saleDate: { gte: monday, lt: sunday }, product: { type: { not: 'ACA_PL' } } },
     select: { agentId: true, saleDate: true, premium: true, addons: { select: { premium: true } } },
   });
 
