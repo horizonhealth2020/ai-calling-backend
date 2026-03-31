@@ -1,5 +1,19 @@
 # Milestones
 
+## v2.0 Sales Board TV Readability & Manager Dashboard (Shipped: 2026-03-31)
+
+**Phases completed:** 5 phases, 13 plans, 23 tasks
+
+**Key accomplishments:**
+
+- Commit:
+- KPI stat card fonts increased to 36px numbers / 14px labels with padding reduction to preserve card dimensions
+- Podium card and rest-of-agents fonts enlarged for 10-15ft TV readability with textSecondary contrast promotion across all DailyView elements
+- Commit:
+- Commit:
+
+---
+
 ## v1.9 Auth Stability & Phone Number Display (Shipped: 2026-03-30)
 
 **Phases completed:** 2 phases, 3 plans, 7 tasks

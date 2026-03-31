@@ -99,13 +99,20 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Phone column in Manager Audits and Sales tables with (XXX) XXX-XXXX formatting — v1.9
 - ✓ Auto-formatting phone input on sales edit form with raw digit storage — v1.9
 
+- ✓ Sales board font sizes increased for TV-distance readability — v2.0 (Phase 33, 34)
+- ✓ Layout scales for 9-15 agents without overflowing the screen — v2.0 (Phase 34)
+- ✓ Cell dimensions unchanged — increased fonts use existing whitespace — v2.0 (Phase 33, 34)
+- ✓ Convoso KPI poller timezone fix (Pacific not UTC) and per-dashboard date ranges — v2.0 (Phase 35)
+- ✓ Receipt parser hardened for product names with special characters ($, commas) — v2.0 (Phase 36)
+- ✓ Stable payroll agent pay card ordering by member ID — v2.0 (Phase 36)
+- ✓ ACA PL flat-commission product type with bundled/standalone entry and sales board exclusion — v2.0 (Phase 36)
+- ✓ Self-healing audit queue with orphan recovery, exponential backoff retry, categorized failures — v2.0 (Phase 37)
+- ✓ Composite performance scoring (40% premium + 60% cost efficiency) for agent ranking — v2.0 (Phase 37)
+- ✓ Audit UI overhaul: date+time display, cursor pagination, agent filter, dual-field ordering — v2.0 (Phase 37)
+
 ### Active
 
-<!-- Current milestone: v2.0 Sales Board TV Readability -->
-
-- [x] Sales board font sizes increased for TV-distance readability — Phase 33, Phase 34
-- [x] Layout scales for 9-15 agents without overflowing the screen — Phase 34 (browser zoom)
-- [x] Cell dimensions unchanged — increased fonts use existing whitespace — Phase 33, Phase 34
+<!-- Next milestone requirements will be defined via /gsd:new-milestone -->
 
 ### Out of Scope
 
@@ -115,20 +122,10 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
 
-## Current Milestone: v2.0 Sales Board TV Readability
-
-**Goal:** Make the sales board fully readable from across a sales office when displayed on a wall-mounted TV.
-
-**Target features:**
-- Increase font sizes for agent names, daily counts, premiums, totals, and team total row
-- Ensure layout scales for 9-15 agents without overflowing the screen
-- Keep cell dimensions unchanged — use existing whitespace, not bigger rows
-
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30)
-**In progress:** v2.0 Sales Board TV Readability — Phase 34 complete (last phase)
-**Total:** 10 milestones, 34 phases, 97 plans, 224 requirements across 17 days
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31)
+**Total:** 11 milestones, 37 phases, 113 plans across 18 days
 **LOC:** ~130,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
@@ -139,7 +136,7 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 
 ## Context
 
-Shipped 10 milestones in 17 days (32 phases, 94 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence. Phone numbers flow from Convoso API through to manager dashboard views.
+Shipped 11 milestones in 18 days (37 phases, 113 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence. Phone numbers flow from Convoso API through to manager dashboard views. Sales board is TV-readable at 10-15ft with dynamic agent scaling. Self-healing audit queue handles orphaned jobs and retries with exponential backoff. ACA PL flat-commission product type supports bundled and standalone entry modes.
 
 **Known areas for future work:**
 - Bulk sale import from CSV
@@ -204,4 +201,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after Phase 34 (Dynamic Scaling & Daily View) complete — v2.0 milestone fully shipped*
+*Last updated: 2026-03-31 after v2.0 milestone complete*
