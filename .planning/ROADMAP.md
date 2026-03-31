@@ -58,7 +58,7 @@ Plans:
 Plans:
 - [ ] 35-01-PLAN.md -- KPI poller timezone fix and "Today" KPI preset addition
 - [ ] 35-02-PLAN.md -- Per-dashboard date range scoping, Today column removal, Owner KPIs default
-- [ ] 35-03-PLAN.md -- CS round robin fairness fix
+- [x] 35-03-PLAN.md -- CS round robin fairness fix
 
 ---
 *Roadmap created: 2026-03-31*
