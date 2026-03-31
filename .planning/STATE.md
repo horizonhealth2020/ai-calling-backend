@@ -58,6 +58,7 @@ Last activity: 2026-03-31
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 - Per-dashboard local useState replaces global DateRangeProvider for independent date range state
 - Manager Tracker Today column removed (redundant with Today date range preset)
+<<<<<<< HEAD
 - Used includes() with length ratio guard instead of regex word boundaries for product name matching
 - useMemo-based stable sort by member ID ascending in payroll agent pay cards
 - ACA_PL flat commission uses early return before percentage logic to avoid bundle/enrollment fee interference
@@ -75,6 +76,7 @@ Last activity: 2026-03-31
 
 - Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
 - Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
+- [Phase 37]: 40% premium + 60% cost efficiency composite score for agent ranking
 
 ### Open Questions
 

@@ -25,6 +25,7 @@ import {
   Phone,
 } from "lucide-react";
 import LeadTimingSection from "./LeadTimingSection";
+import { computeCompositeScores } from "../../../lib/compositeScore";
 
 /* -- Types -- */
 
@@ -117,7 +118,8 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
   for (const cc of callCounts) {
     callCountByAgent.set(cc.agentName, (callCountByAgent.get(cc.agentName) ?? 0) + cc.callCount);
   }
-  const sorted = [...tracker].sort((a, b) => b.salesCount - a.salesCount);
+  const sorted = computeCompositeScores(tracker)
+    .sort((a, b) => b.compositeScore - a.compositeScore || b.salesCount - a.salesCount);
 
   return (
     <>
