@@ -89,21 +89,6 @@ const PREVIEW_LABEL: React.CSSProperties = {
   marginBottom: spacing[2],
 };
 
-const ACA_TOGGLE_ROW: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 0",
-  marginTop: 12,
-};
-const ACA_TOGGLE_LABEL: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-};
 const ACA_FIELDS: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 120px",
@@ -113,20 +98,6 @@ const ACA_FIELDS: React.CSSProperties = {
   background: "rgba(255,255,255,0.03)",
   borderRadius: 8,
   border: `1px solid ${colors.borderSubtle}`,
-};
-const ACA_SECTION: React.CSSProperties = {
-  marginTop: 16,
-  paddingTop: 16,
-  borderTop: `1px solid ${colors.borderSubtle}`,
-};
-const ACA_SECTION_HEADER: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 600,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  cursor: "pointer",
-  padding: "12px 0",
 };
 const ACA_FORM_GRID: React.CSSProperties = {
   display: "grid",
@@ -294,9 +265,9 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
 
   /* ACA state */
   const [includeAca, setIncludeAca] = useState(false);
+  const [acaMode, setAcaMode] = useState<"bundled" | "standalone">("bundled");
   const [acaCarrier, setAcaCarrier] = useState("");
   const [acaMemberCount, setAcaMemberCount] = useState("1");
-  const [acaStandaloneOpen, setAcaStandaloneOpen] = useState(false);
   const [acaStandaloneAgent, setAcaStandaloneAgent] = useState("");
   const [acaStandaloneMemberName, setAcaStandaloneMemberName] = useState("");
   const [acaStandaloneCarrier, setAcaStandaloneCarrier] = useState("");
@@ -663,45 +634,6 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             )}
           </div>
 
-          {/* ACA Plan Checkbox */}
-          <div style={{ ...ACA_TOGGLE_ROW, gridColumn: "1/-1" }}>
-            <label style={ACA_TOGGLE_LABEL}>
-              <input
-                type="checkbox"
-                checked={includeAca}
-                onChange={(e) => setIncludeAca(e.target.checked)}
-                style={{ accentColor: colors.primary400 }}
-              />
-              Include ACA Plan
-            </label>
-          </div>
-          {includeAca && (
-            <div style={{ ...ACA_FIELDS, gridColumn: "1/-1" }}>
-              <div>
-                <label style={LBL}>Carrier</label>
-                <input
-                  className="input-focus"
-                  style={baseInputStyle}
-                  placeholder="Enter carrier name"
-                  value={acaCarrier}
-                  onChange={(e) => setAcaCarrier(e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={LBL}>Members</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="input-focus"
-                  style={baseInputStyle}
-                  placeholder="1"
-                  value={acaMemberCount}
-                  onChange={(e) => setAcaMemberCount(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
           {/* Submit row */}
           <div style={{ gridColumn: "1/-1", paddingTop: 8 }}>
             <Button
@@ -934,113 +866,192 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               </div>
             );
           })()}
+
+          {/* ACA Plan */}
+          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${includeAca ? "rgba(20,184,166,0.3)" : colors.borderDefault}`, padding: spacing[5], marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={includeAca}
+                onChange={(e) => setIncludeAca(e.target.checked)}
+                style={{ accentColor: colors.primary400 }}
+              />
+              <label style={{ ...LBL, fontSize: 13, margin: 0, cursor: "pointer" }} onClick={() => setIncludeAca(!includeAca)}>
+                Include ACA Plan
+              </label>
+            </div>
+
+            {includeAca && (
+              <div style={{ marginTop: 12 }}>
+                {/* Bundled / Standalone toggle */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {(["bundled", "standalone"] as const).map(mode => (
+                    <label
+                      key={mode}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        padding: "8px 12px",
+                        borderRadius: radius.lg,
+                        border: acaMode === mode
+                          ? `2px solid ${colors.primary500}`
+                          : `2px solid ${colors.borderDefault}`,
+                        background: acaMode === mode ? "rgba(20,184,166,0.1)" : "transparent",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        fontWeight: acaMode === mode ? 700 : 500,
+                        color: acaMode === mode ? colors.primary300 : colors.textSecondary,
+                        transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="acaMode"
+                        value={mode}
+                        checked={acaMode === mode}
+                        onChange={() => setAcaMode(mode)}
+                        style={{ accentColor: colors.primary500 }}
+                      />
+                      {mode === "bundled" ? "Bundled" : "Standalone"}
+                    </label>
+                  ))}
+                </div>
+
+                {acaMode === "bundled" ? (
+                  <>
+                    <div style={ACA_FIELDS}>
+                      <div>
+                        <label style={LBL}>Carrier</label>
+                        <input
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="Enter carrier name"
+                          value={acaCarrier}
+                          onChange={(e) => setAcaCarrier(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={LBL}>Members</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="1"
+                          value={acaMemberCount}
+                          onChange={(e) => setAcaMemberCount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.textTertiary }}>
+                      ACA will be submitted with the sale above — meets bundle requirement
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div style={ACA_FORM_GRID}>
+                      <div>
+                        <label style={LBL}>Agent</label>
+                        <select
+                          className="input-focus"
+                          style={{ ...baseInputStyle, height: 42 }}
+                          value={acaStandaloneAgent}
+                          onChange={(e) => setAcaStandaloneAgent(e.target.value)}
+                        >
+                          <option value="">Select agent...</option>
+                          {agents.filter(a => a.active !== false).map(a => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Input
+                          label="Member Name"
+                          placeholder="Member full name"
+                          value={acaStandaloneMemberName}
+                          onChange={(e) => setAcaStandaloneMemberName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={LBL}>Carrier</label>
+                        <input
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="Enter carrier name"
+                          value={acaStandaloneCarrier}
+                          onChange={(e) => setAcaStandaloneCarrier(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={LBL}>Members</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="1"
+                          value={acaStandaloneMemberCount}
+                          onChange={(e) => setAcaStandaloneMemberCount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+                      <Button
+                        variant="primary"
+                        onClick={async () => {
+                          if (!acaStandaloneAgent) { setMsg({ text: "Select an agent", type: "error" }); return; }
+                          if (!acaStandaloneMemberName.trim()) { setMsg({ text: "Member name is required", type: "error" }); return; }
+                          if (!acaStandaloneCarrier.trim()) { setMsg({ text: "Carrier name is required for ACA entries", type: "error" }); return; }
+                          const count = parseInt(acaStandaloneMemberCount, 10);
+                          if (!count || count < 1) { setMsg({ text: "Member count must be at least 1", type: "error" }); return; }
+                          const acaProduct = products.find(p => p.type === "ACA_PL");
+                          if (!acaProduct) { setMsg({ text: "No ACA product configured", type: "error" }); return; }
+                          try {
+                            const resp = await authFetch(`${API}/api/sales/aca`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                agentId: acaStandaloneAgent,
+                                memberName: acaStandaloneMemberName,
+                                carrier: acaStandaloneCarrier,
+                                memberCount: count,
+                                productId: acaProduct.id,
+                              }),
+                            });
+                            if (!resp.ok) {
+                              const err = await resp.json().catch(() => ({}));
+                              throw new Error(err.error || `Request failed (${resp.status})`);
+                            }
+                            setMsg({ text: "ACA entry submitted", type: "success" });
+                            clearTimeout(msgTimerRef.current);
+                            msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
+                            setAcaStandaloneAgent("");
+                            setAcaStandaloneMemberName("");
+                            setAcaStandaloneCarrier("");
+                            setAcaStandaloneMemberCount("1");
+                            onSaleCreated?.();
+                          } catch (err: unknown) {
+                            const message = err instanceof Error ? err.message : "Request failed. Check connection and try again.";
+                            setMsg({ text: message, type: "error" });
+                          }
+                        }}
+                      >
+                        Submit ACA Entry
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {/* -- END RIGHT COLUMN -- */}
 
         </div>
       </form>
-
-      {/* ACA-Only Entry Section */}
-      <div style={ACA_SECTION}>
-        <div style={ACA_SECTION_HEADER} onClick={() => setAcaStandaloneOpen(!acaStandaloneOpen)}>
-          <span>ACA-Only Entry</span>
-          <span>{acaStandaloneOpen ? "\u25B2" : "\u25BC"}</span>
-        </div>
-        {acaStandaloneOpen && (
-          <div>
-            <div style={ACA_FORM_GRID}>
-              <div>
-                <label style={LBL}>Agent</label>
-                <select
-                  className="input-focus"
-                  style={{ ...baseInputStyle, height: 42 }}
-                  value={acaStandaloneAgent}
-                  onChange={(e) => setAcaStandaloneAgent(e.target.value)}
-                >
-                  <option value="">Select agent...</option>
-                  {agents.filter(a => a.active !== false).map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Input
-                  label="Member Name"
-                  placeholder="Member full name"
-                  value={acaStandaloneMemberName}
-                  onChange={(e) => setAcaStandaloneMemberName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={LBL}>Carrier</label>
-                <input
-                  className="input-focus"
-                  style={baseInputStyle}
-                  placeholder="Enter carrier name"
-                  value={acaStandaloneCarrier}
-                  onChange={(e) => setAcaStandaloneCarrier(e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={LBL}>Members</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="input-focus"
-                  style={baseInputStyle}
-                  placeholder="1"
-                  value={acaStandaloneMemberCount}
-                  onChange={(e) => setAcaStandaloneMemberCount(e.target.value)}
-                />
-              </div>
-            </div>
-            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
-              <Button
-                variant="primary"
-                onClick={async () => {
-                  if (!acaStandaloneAgent) { setMsg({ text: "Select an agent", type: "error" }); return; }
-                  if (!acaStandaloneMemberName.trim()) { setMsg({ text: "Member name is required", type: "error" }); return; }
-                  if (!acaStandaloneCarrier.trim()) { setMsg({ text: "Carrier name is required for ACA entries", type: "error" }); return; }
-                  const count = parseInt(acaStandaloneMemberCount, 10);
-                  if (!count || count < 1) { setMsg({ text: "Member count must be at least 1", type: "error" }); return; }
-                  const acaProduct = products.find(p => p.type === "ACA_PL");
-                  if (!acaProduct) { setMsg({ text: "No ACA product configured", type: "error" }); return; }
-                  try {
-                    const resp = await authFetch(`${API}/api/sales/aca`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        agentId: acaStandaloneAgent,
-                        memberName: acaStandaloneMemberName,
-                        carrier: acaStandaloneCarrier,
-                        memberCount: count,
-                        productId: acaProduct.id,
-                      }),
-                    });
-                    if (!resp.ok) {
-                      const err = await resp.json().catch(() => ({}));
-                      throw new Error(err.error || `Request failed (${resp.status})`);
-                    }
-                    setMsg({ text: "ACA entry submitted", type: "success" });
-                    clearTimeout(msgTimerRef.current);
-                    msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
-                    setAcaStandaloneAgent("");
-                    setAcaStandaloneMemberName("");
-                    setAcaStandaloneCarrier("");
-                    setAcaStandaloneMemberCount("1");
-                    onSaleCreated?.();
-                  } catch (err: unknown) {
-                    const message = err instanceof Error ? err.message : "Request failed. Check connection and try again.";
-                    setMsg({ text: message, type: "error" });
-                  }
-                }}
-              >
-                Submit ACA Entry
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
