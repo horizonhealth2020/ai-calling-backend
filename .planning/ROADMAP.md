@@ -86,14 +86,16 @@ Plans:
 - [x] 36-03-PLAN.md -- ACA PL entry UI (checkbox + standalone) and payroll badge display
 
 ### Phase 37: Fix Call Audit Issues, Manager Dashboard UI, and Agent Performance Card Order
-**Goal:** Correct issues with call audits, fix manager dashboard UI problems, and determine/implement the correct ordering logic for agent performance cards
-**Requirements**: TBD (to be defined during discussion)
+**Goal:** Self-healing audit queue (orphan recovery, retry with backoff, failure categorization), audit UI overhaul (timestamps, pagination, agent filter), and composite performance scoring for agent ranking
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13
 **Depends on:** Phase 36
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-(none yet)
+- [ ] 37-01-PLAN.md -- Prisma migration for retry fields, orphan recovery, retry with backoff, failure categorization, formatDateTime helper
+- [ ] 37-02-PLAN.md -- Composite performance score replacing salesCount sort in ManagerTracker
+- [ ] 37-03-PLAN.md -- Audit UI overhaul: timestamps, pagination, agent filter, Load More
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 37 added for discussion*
+*Last updated: 2026-03-31 -- Phase 37 plans created*
