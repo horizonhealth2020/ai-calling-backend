@@ -22,7 +22,11 @@
   3. KPI stat card numbers at the top of the board are legible from across the room
   4. An agent named "Christopher Rodriguez" does not cause horizontal scrolling -- the name truncates with ellipsis
   5. A premium value of $12,345 displays fully within its cell without overflow
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 33-01-PLAN.md -- WeeklyView table font sizes, padding, contrast, and overflow
+- [ ] 33-02-PLAN.md -- KPI stat card font sizes, padding, and stats-to-tab gap
 
 ### Phase 34: Dynamic Scaling & Daily View
 **Goal**: The sales board automatically adjusts font sizes based on agent count and the daily/podium leaderboard view is TV-readable
@@ -39,7 +43,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 33. Core TV Readability | 0/0 | Not started | - |
+| 33. Core TV Readability | 0/2 | Planning complete | - |
 | 34. Dynamic Scaling & Daily View | 0/0 | Not started | - |
 
 ---
