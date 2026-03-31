@@ -22,7 +22,7 @@
   3. KPI stat card numbers at the top of the board are legible from across the room
   4. An agent named "Christopher Rodriguez" does not cause horizontal scrolling -- the name truncates with ellipsis
   5. A premium value of $12,345 displays fully within its cell without overflow
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 33-01-PLAN.md -- WeeklyView table font sizes, padding, contrast, and overflow
@@ -43,7 +43,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 33. Core TV Readability | 2/2 | Complete | 2026-03-31 |
+| 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
 | 34. Dynamic Scaling & Daily View | 0/0 | Not started | - |
 
 ---
