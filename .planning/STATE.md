@@ -59,6 +59,10 @@ Last activity: 2026-03-31
 - Per-dashboard local useState replaces global DateRangeProvider for independent date range state
 - Manager Tracker Today column removed (redundant with Today date range preset)
 
+### Roadmap Evolution
+
+- Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
+
 ### Open Questions
 
 None currently.

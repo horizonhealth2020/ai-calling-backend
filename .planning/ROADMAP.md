@@ -60,6 +60,16 @@ Plans:
 | 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
 | 35. Fix KPI Polling & Manager Dashboard | 1/3 | Complete    | 2026-03-31 |
 
+### Phase 36: Fix manager sales entry parsing error and payroll UI issues
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 35
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 36 to break down)
+
 ---
 *Roadmap created: 2026-03-31*
 *Last updated: 2026-03-31 -- Phase 35 Plan 02 complete*
