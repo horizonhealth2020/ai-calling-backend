@@ -1,7 +1,7 @@
 # Roadmap: v2.0 Sales Board TV Readability
 
 **Milestone:** v2.0
-**Phases:** 2 (Phase 33-34, continuing from v1.9)
+**Phases:** 3 (Phase 33-35, continuing from v1.9)
 **Granularity:** Fine
 **Coverage:** 11/11 requirements mapped
 
@@ -41,13 +41,25 @@ Plans:
 Plans:
 - [ ] 34-01-PLAN.md -- DailyView podium and rest-of-agents font enlargement, contrast promotion, padding reduction
 
+### Phase 35: Fix KPI polling issues and manager dashboard features
+**Goal:** Fix Convoso KPI poller timezone bug, add "Today" date range preset, scope date ranges per dashboard, remove redundant Today column from Manager Tracker, and fix CS round robin assignment fairness
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11
+**Depends on:** Phase 34
+**Plans:** 3 plans
+
+Plans:
+- [ ] 35-01-PLAN.md -- KPI poller timezone fix and "Today" KPI preset addition
+- [x] 35-02-PLAN.md -- Per-dashboard date range scoping, Today column removal, Owner KPIs default
+- [ ] 35-03-PLAN.md -- CS round robin fairness fix
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
 | 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
+| 35. Fix KPI Polling & Manager Dashboard | 1/3 | In progress | - |
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- SCAL-02 moved to Phase 33 (weekly view fit delivered there)*
+*Last updated: 2026-03-31 -- Phase 35 Plan 02 complete*
