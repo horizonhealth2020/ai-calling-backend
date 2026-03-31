@@ -8,7 +8,7 @@
 ## Phases
 
 - [x] **Phase 33: Core TV Readability** - Increase font sizes, promote contrast, and prevent overflow on WeeklyView and KPI cards
-- [ ] **Phase 34: Dynamic Scaling & Daily View** - Add agent-count-based font scaling and enlarge DailyView/podium for TV readability
+- [x] **Phase 34: Dynamic Scaling & Daily View** - Add agent-count-based font scaling and enlarge DailyView/podium for TV readability
 
 ## Phase Details
 
@@ -36,18 +36,18 @@ Plans:
   1. With 9 agents on screen, fonts are noticeably larger than with 15 agents -- the board uses available space
   2. With exactly 15 agents, the daily/podium leaderboard view fits on a 1080p screen without scrolling
   3. Agent names, podium numbers, and premium amounts on the daily view are readable from 10-15 feet on a 1080p TV
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 34-01-PLAN.md -- DailyView podium and rest-of-agents font enlargement, contrast promotion, padding reduction
+- [x] 34-01-PLAN.md -- DailyView podium and rest-of-agents font enlargement, contrast promotion, padding reduction
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
-| 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
+| 34. Dynamic Scaling & Daily View | 1/1 | Complete | 2026-03-31 |
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- SCAL-02 moved to Phase 33 (weekly view fit delivered there)*
+*Last updated: 2026-03-31 -- Phase 34 complete, all v2.0 requirements shipped*

@@ -10,16 +10,16 @@ Requirements for Sales Board TV Readability milestone. Each maps to roadmap phas
 ### Typography
 
 - [x] **TYPO-01**: All data elements on weekly breakdown table have font sizes increased for TV-distance readability (agent names, daily counts, daily premiums, total column, premium column)
-- [ ] **TYPO-02**: All data elements on daily/podium leaderboard view have font sizes increased for TV-distance readability
+- [x] **TYPO-02**: All data elements on daily/podium leaderboard view have font sizes increased for TV-distance readability
 - [x] **TYPO-03**: Team total row font sizes increased proportionally to match data row increases
 - [x] **TYPO-04**: KPI stat cards at top have font sizes increased for TV distance
 - [x] **TYPO-05**: Secondary text colors (textTertiary, textMuted) promoted one contrast tier for TV visibility in lit offices
 
 ### Scaling
 
-- [ ] **SCAL-01**: Font sizes dynamically scale based on agent count — larger when fewer agents, smaller when more agents
+- [x] **SCAL-01**: Font sizes dynamically scale based on agent count — larger when fewer agents, smaller when more agents
 - [x] **SCAL-02**: 15 agents fit on a 1080p TV without scrolling on weekly breakdown view
-- [ ] **SCAL-03**: 15 agents fit on a 1080p TV without scrolling on daily/podium view
+- [x] **SCAL-03**: 15 agents fit on a 1080p TV without scrolling on daily/podium view
 - [x] **SCAL-04**: Row padding adjusts to compensate for larger fonts — cell dimensions stay visually consistent
 
 ### Overflow
@@ -46,13 +46,13 @@ None deferred — milestone is tightly scoped.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TYPO-01 | Phase 33 | Complete |
-| TYPO-02 | Phase 34 | Pending |
+| TYPO-02 | Phase 34 | Complete |
 | TYPO-03 | Phase 33 | Complete |
 | TYPO-04 | Phase 33 | Complete |
 | TYPO-05 | Phase 33 | Complete |
-| SCAL-01 | Phase 34 | Pending |
+| SCAL-01 | Phase 34 | Complete |
 | SCAL-02 | Phase 33 | Complete |
-| SCAL-03 | Phase 34 | Pending |
+| SCAL-03 | Phase 34 | Complete |
 | SCAL-04 | Phase 33 | Complete |
 | OVFL-01 | Phase 33 | Complete |
 | OVFL-02 | Phase 33 | Complete |
@@ -64,4 +64,4 @@ None deferred — milestone is tightly scoped.
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 -- SCAL-02 marked complete (Phase 33 delivered weekly view fit, visually verified at 1080p)*
+*Last updated: 2026-03-31 -- All v2.0 requirements complete (TYPO-02, SCAL-01, SCAL-03 marked complete after Phase 34 visual verification)*
