@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: completed
-last_updated: "2026-03-31T16:56:51.830Z"
+last_updated: "2026-03-31T20:04:47.146Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 3
@@ -58,6 +58,7 @@ Last activity: 2026-03-31
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 - Per-dashboard local useState replaces global DateRangeProvider for independent date range state
 - Manager Tracker Today column removed (redundant with Today date range preset)
+- [Phase 37]: 40% premium + 60% cost efficiency composite score for agent ranking
 
 ### Open Questions
 
