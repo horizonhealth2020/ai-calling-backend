@@ -21,7 +21,7 @@ created: 2026-03-31
 | Preset | not applicable |
 | Component library | none (inline React.CSSProperties) |
 | Icon library | none (existing inline SVGs) |
-| Font | Inter via next/font/google, weights 700-800 |
+| Font | Inter via next/font/google, weights 600-800 |
 
 ---
 
@@ -33,13 +33,13 @@ Declared values from `packages/ui/src/tokens.ts` (project standard, multiples of
 |-------|-------|-------|
 | spacing[1] | 4px | Icon gaps, inline padding |
 | spacing[2] | 8px | Compact element spacing, reduced stats-to-tab gap |
-| spacing[3] | 12px | KPI card vertical padding (new), team total row vertical padding (new) |
-| spacing[4] | 16px | KPI card horizontal padding (new), default horizontal cell padding |
+| spacing[3] | 12px | KPI card vertical padding, team total row vertical padding, agent row vertical cell padding |
+| spacing[4] | 16px | KPI card horizontal padding, default horizontal cell padding |
 | spacing[5] | 20px | Agent name horizontal padding, premium column horizontal padding |
 | spacing[6] | 24px | Section padding |
 | spacing[8] | 32px | Layout gaps |
 
-Exceptions: Cell vertical padding uses non-token values (11px, 10px) to maintain exact row height budget. This is consistent with existing codebase convention where padding strings like `"14px 16px"` mix literal px with token values.
+All padding values are multiples of 4. No exceptions.
 
 ---
 
@@ -47,11 +47,14 @@ Exceptions: Cell vertical padding uses non-token values (11px, 10px) to maintain
 
 This phase uses fixed numeric fontSize literals per project convention. All values are numbers, not strings.
 
+**Declared sizes (4 total):** 14, 24, 28, 36
+**Declared weights (2 total):** 600 (secondary/label text), 800 (primary numbers/names)
+
 ### Weekly Table — Agent Rows
 
 | Element | Size (before) | Size (after) | Weight | Line Height |
 |---------|--------------|-------------|--------|-------------|
-| Table header (TH) | 15 | 18 | 800 | 1.0 (single line) |
+| Table header (TH) | 15 | 14 | 800 | 1.0 (single line) |
 | Agent name | 18 | 24 | 800 | 1.0 |
 | Daily sale count | 20 | 24 | 800 | 1.0 |
 | Daily premium | 12 | 14 | 600 | 1.0 |
@@ -72,14 +75,14 @@ This phase uses fixed numeric fontSize literals per project convention. All valu
 
 | Element | Size (before) | Size (after) | Weight | Line Height |
 |---------|--------------|-------------|--------|-------------|
-| Card label | 11 | 14 | 700 | 1.45 |
+| Card label | 11 | 14 | 600 | 1.45 |
 | Card number (base) | 30 | 36 | 800 | 1.0 |
-| Today's Premium (>=10000) | 22 | 30 | 800 | 1.0 |
+| Today's Premium (>=10000) | 22 | 28 | 800 | 1.0 |
 | Today's Premium (<10000) | 26 | 36 | 800 | 1.0 |
 | Weekly Premium (>=10000) | 20 | 28 | 800 | 1.0 |
 | Weekly Premium (<10000) | 26 | 36 | 800 | 1.0 |
 
-Source: CONTEXT.md D-01 through D-08, RESEARCH.md code examples.
+Source: CONTEXT.md D-01 through D-08, RESEARCH.md code examples. Table headers merged to 14 (from 18) and Today's Premium >=10000 merged to 28 (from 30) to stay within 4-size budget.
 
 ---
 
@@ -115,11 +118,11 @@ Cell dimensions MUST NOT grow. Padding decreases to absorb font size increases.
 
 | Element | Padding (before) | Padding (after) | Rationale |
 |---------|-----------------|-----------------|-----------|
-| Table header (TH) | "14px 16px" | "10px 16px" | fontSize 15->18: save 4px vertical per side |
-| Agent name td | `14px ${spacing[5]}px` | `11px ${spacing[5]}px` | fontSize 18->24: save 3px vertical per side |
-| Daily cell td | "14px 16px" | "11px 16px" | fontSize 20->24: save 3px vertical per side |
-| Total column td | "14px 16px" | "11px 16px" | Consistent with daily cells |
-| Premium column td | `14px ${spacing[5]}px` | `11px ${spacing[5]}px` | fontSize 15->24: save 3px vertical per side |
+| Table header (TH) | "14px 16px" | "12px 16px" | fontSize 15->14: slight reduction for visual consistency with other rows |
+| Agent name td | `14px ${spacing[5]}px` | `${spacing[3]}px ${spacing[5]}px` (12px 20px) | fontSize 18->24: save 2px vertical per side |
+| Daily cell td | "14px 16px" | `${spacing[3]}px 16px` (12px 16px) | fontSize 20->24: save 2px vertical per side |
+| Total column td | "14px 16px" | `${spacing[3]}px 16px` (12px 16px) | Consistent with daily cells |
+| Premium column td | `14px ${spacing[5]}px` | `${spacing[3]}px ${spacing[5]}px` (12px 20px) | fontSize 15->24: save 2px vertical per side |
 
 ### Team Total Row Cells
 
