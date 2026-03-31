@@ -17,7 +17,7 @@ import {
   baseTdStyle,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { formatDate } from "@ops/utils";
+import { formatDateTime } from "@ops/utils";
 import {
   Edit3,
   Save,
@@ -32,6 +32,7 @@ import {
   MessageSquare,
   AlertCircle,
   Mic,
+  Filter,
 } from "lucide-react";
 
 /* -- Types -- */
@@ -135,19 +136,55 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 
 export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
   const [audits, setAudits] = useState<CallAudit[]>([]);
-  const [auditsLoaded, setAuditsLoaded] = useState(false);
   const [expandedAudit, setExpandedAudit] = useState<string | null>(null);
   const [editingAudit, setEditingAudit] = useState<string | null>(null);
   const [auditEdit, setAuditEdit] = useState({ score: 0, status: "", coachingNotes: "", callOutcome: "", managerSummary: "" });
   const [processingCalls, setProcessingCalls] = useState<Array<{ callLogId: string; agentName: string; status?: string; attempt?: number }>>([]);
   const [transcriptOpen, setTranscriptOpen] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
 
   useEffect(() => {
-    if (!auditsLoaded) {
-      authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => {});
-      setAuditsLoaded(true);
+    // Fetch agent list for filter dropdown
+    authFetch(`${API}/api/call-audits/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
+  }, [API]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("limit", "25");
+    if (selectedAgentId) params.set("agentId", selectedAgentId);
+    // No date range = API defaults to last 24h
+
+    authFetch(`${API}/api/call-audits?${params.toString()}`)
+      .then(r => r.ok ? r.json() : { audits: [], nextCursor: null })
+      .then((data: { audits: CallAudit[]; nextCursor: string | null }) => {
+        setAudits(data.audits);
+        setNextCursor(data.nextCursor);
+      })
+      .catch(() => {});
+  }, [API, selectedAgentId]);
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "25");
+      params.set("cursor", nextCursor);
+      if (selectedAgentId) params.set("agentId", selectedAgentId);
+
+      const res = await authFetch(`${API}/api/call-audits?${params.toString()}`);
+      if (res.ok) {
+        const data: { audits: CallAudit[]; nextCursor: string | null } = await res.json();
+        setAudits(prev => [...prev, ...data.audits]);
+        setNextCursor(data.nextCursor);
+      }
+    } catch { /* ignore */ } finally {
+      setLoadingMore(false);
     }
-  }, [API, auditsLoaded]);
+  };
 
   /* -- Socket events for real-time audit updates -- */
   useEffect(() => {
@@ -181,17 +218,42 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
 
   return (
     <Card className="animate-fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <SectionHeader icon={<Headphones size={18} />} title="Call Audits" count={audits.length} />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            authFetch(`${API}/api/call-audits`).then(r => r.ok ? r.json() : []).then(setAudits).catch(() => {});
-          }}
-        >
-          <RefreshCw size={14} />Refresh
-        </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Filter size={14} style={{ color: colors.textMuted }} />
+            <select
+              className="input-focus"
+              style={{ ...baseInputStyle, width: 180, fontSize: 12, padding: "4px 8px" }}
+              value={selectedAgentId}
+              onChange={e => setSelectedAgentId(e.target.value)}
+            >
+              <option value="">All Agents</option>
+              {agents.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams();
+              params.set("limit", "25");
+              if (selectedAgentId) params.set("agentId", selectedAgentId);
+              authFetch(`${API}/api/call-audits?${params.toString()}`)
+                .then(r => r.ok ? r.json() : { audits: [], nextCursor: null })
+                .then((data: { audits: CallAudit[]; nextCursor: string | null }) => {
+                  setAudits(data.audits);
+                  setNextCursor(data.nextCursor);
+                })
+                .catch(() => {});
+            }}
+          >
+            <RefreshCw size={14} />Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Processing indicator */}
@@ -265,7 +327,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                       style={{ cursor: "pointer" }}
                       onClick={() => setExpandedAudit(isExpanded ? null : a.id)}
                     >
-                      <td style={baseTdStyle}>{formatDate(a.callDate)}</td>
+                      <td style={baseTdStyle}>{formatDateTime(a.callDate)}</td>
                       <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{a.agent.name}</td>
                       <td style={baseTdStyle}>
                         {a.convosoCallLog?.leadPhone
@@ -673,6 +735,18 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
               })}
             </tbody>
           </table>
+          {nextCursor && (
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadMore}
+                style={{ opacity: loadingMore ? 0.5 : 1 }}
+              >
+                {loadingMore ? "Loading..." : "Load More Audits"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </Card>
