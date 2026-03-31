@@ -313,7 +313,7 @@ async function runPollCycle(): Promise<void> {
   ]);
   const startHour = startSetting?.value ?? "08:00";
   const endHour = endSetting?.value ?? "18:00";
-  const now = DateTime.now().setZone("America/Los_Angeles");
+  const now = DateTime.now().setZone("America/New_York");
   const currentTime = `${String(now.hour).padStart(2, "0")}:${String(now.minute).padStart(2, "0")}`;
   if (currentTime < startHour || currentTime >= endHour) {
     console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "outside business hours", currentTime, businessHours: `${startHour}-${endHour}`, timestamp: now.toISO() }));
