@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 37
-Plan: 2 of 4 complete
-Status: Plans 00 and 01 complete, 02 next
+Plan: 4 of 4 complete
+Status: All plans executed
 Last activity: 2026-03-31
 
 ```
@@ -58,7 +58,6 @@ Last activity: 2026-03-31
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 - Per-dashboard local useState replaces global DateRangeProvider for independent date range state
 - Manager Tracker Today column removed (redundant with Today date range preset)
-<<<<<<< HEAD
 - Used includes() with length ratio guard instead of regex word boundaries for product name matching
 - useMemo-based stable sort by member ID ascending in payroll agent pay cards
 - ACA_PL flat commission uses early return before percentage logic to avoid bundle/enrollment fee interference
@@ -71,12 +70,14 @@ Last activity: 2026-03-31
 - Exponential backoff delays for audit retry: 1min, 5min, 15min with max 3 retries
 - Recording retry extended to 20 (20min) for long calls where Convoso takes longer to process
 - Audit failures categorized: recording_unavailable, transcription_timeout, claude_api_error, unknown
+- [Phase 37]: 40% premium + 60% cost efficiency composite score for agent ranking
+- Prisma ID-based cursor pagination over date-based cursor for reliability with duplicate timestamps
+- Agent list fetched once on mount via distinct query for filter dropdown
 
 ### Roadmap Evolution
 
 - Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
 - Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
-- [Phase 37]: 40% premium + 60% cost efficiency composite score for agent ranking
 
 ### Open Questions
 
@@ -98,5 +99,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 37-00-PLAN.md, 37-01-PLAN.md*
+*Last session: 2026-03-31 -- Completed all Phase 37 plans (37-00 through 37-03)*
 *Last updated: 2026-03-31*
