@@ -46,7 +46,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
-| 34. Dynamic Scaling & Daily View | 1/1 | Complete | 2026-03-31 |
+| 34. Dynamic Scaling & Daily View | 1/1 | Complete    | 2026-03-31 |
 
 ---
 *Roadmap created: 2026-03-31*
