@@ -103,9 +103,9 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 <!-- Current milestone: v2.0 Sales Board TV Readability -->
 
-- [x] Sales board font sizes increased for TV-distance readability — Phase 33
-- [ ] Layout scales for 9-15 agents without overflowing the screen
-- [x] Cell dimensions unchanged — increased fonts use existing whitespace — Phase 33
+- [x] Sales board font sizes increased for TV-distance readability — Phase 33, Phase 34
+- [x] Layout scales for 9-15 agents without overflowing the screen — Phase 34 (browser zoom)
+- [x] Cell dimensions unchanged — increased fonts use existing whitespace — Phase 33, Phase 34
 
 ### Out of Scope
 
@@ -127,7 +127,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 ## Current State
 
 **Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30)
-**Total:** 10 milestones, 33 phases, 96 plans, 224 requirements across 17 days
+**In progress:** v2.0 Sales Board TV Readability — Phase 34 complete (last phase)
+**Total:** 10 milestones, 34 phases, 97 plans, 224 requirements across 17 days
 **LOC:** ~130,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
@@ -203,4 +204,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after Phase 33 (Core TV Readability) complete*
+*Last updated: 2026-03-31 after Phase 34 (Dynamic Scaling & Daily View) complete — v2.0 milestone fully shipped*
