@@ -25,7 +25,7 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 33-01-PLAN.md -- WeeklyView table font sizes, padding, contrast, and overflow
+- [x] 33-01-PLAN.md -- WeeklyView table font sizes, padding, contrast, and overflow
 - [ ] 33-02-PLAN.md -- KPI stat card font sizes, padding, and stats-to-tab gap
 
 ### Phase 34: Dynamic Scaling & Daily View
@@ -43,9 +43,9 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 33. Core TV Readability | 0/2 | Planning complete | - |
+| 33. Core TV Readability | 1/2 | Executing | - |
 | 34. Dynamic Scaling & Daily View | 0/0 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31*
+*Last updated: 2026-03-31 -- Plan 33-01 complete*

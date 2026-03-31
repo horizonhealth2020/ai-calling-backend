@@ -9,23 +9,23 @@ Requirements for Sales Board TV Readability milestone. Each maps to roadmap phas
 
 ### Typography
 
-- [ ] **TYPO-01**: All data elements on weekly breakdown table have font sizes increased for TV-distance readability (agent names, daily counts, daily premiums, total column, premium column)
+- [x] **TYPO-01**: All data elements on weekly breakdown table have font sizes increased for TV-distance readability (agent names, daily counts, daily premiums, total column, premium column)
 - [ ] **TYPO-02**: All data elements on daily/podium leaderboard view have font sizes increased for TV-distance readability
-- [ ] **TYPO-03**: Team total row font sizes increased proportionally to match data row increases
+- [x] **TYPO-03**: Team total row font sizes increased proportionally to match data row increases
 - [ ] **TYPO-04**: KPI stat cards at top have font sizes increased for TV distance
-- [ ] **TYPO-05**: Secondary text colors (textTertiary, textMuted) promoted one contrast tier for TV visibility in lit offices
+- [x] **TYPO-05**: Secondary text colors (textTertiary, textMuted) promoted one contrast tier for TV visibility in lit offices
 
 ### Scaling
 
 - [ ] **SCAL-01**: Font sizes dynamically scale based on agent count — larger when fewer agents, smaller when more agents
 - [ ] **SCAL-02**: 15 agents fit on a 1080p TV without scrolling on weekly breakdown view
 - [ ] **SCAL-03**: 15 agents fit on a 1080p TV without scrolling on daily/podium view
-- [ ] **SCAL-04**: Row padding adjusts to compensate for larger fonts — cell dimensions stay visually consistent
+- [x] **SCAL-04**: Row padding adjusts to compensate for larger fonts — cell dimensions stay visually consistent
 
 ### Overflow
 
-- [ ] **OVFL-01**: Long agent names (e.g., "Christopher Rodriguez") don't cause horizontal scrolling at increased font sizes
-- [ ] **OVFL-02**: Large premium values (e.g., $12,345) don't overflow cells at increased font sizes
+- [x] **OVFL-01**: Long agent names (e.g., "Christopher Rodriguez") don't cause horizontal scrolling at increased font sizes
+- [x] **OVFL-02**: Large premium values (e.g., $12,345) don't overflow cells at increased font sizes
 
 ## Future Requirements
 
@@ -45,17 +45,17 @@ None deferred — milestone is tightly scoped.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TYPO-01 | Phase 33 | Pending |
+| TYPO-01 | Phase 33 | Complete |
 | TYPO-02 | Phase 34 | Pending |
-| TYPO-03 | Phase 33 | Pending |
+| TYPO-03 | Phase 33 | Complete |
 | TYPO-04 | Phase 33 | Pending |
-| TYPO-05 | Phase 33 | Pending |
+| TYPO-05 | Phase 33 | Complete |
 | SCAL-01 | Phase 34 | Pending |
 | SCAL-02 | Phase 34 | Pending |
 | SCAL-03 | Phase 34 | Pending |
-| SCAL-04 | Phase 33 | Pending |
-| OVFL-01 | Phase 33 | Pending |
-| OVFL-02 | Phase 33 | Pending |
+| SCAL-04 | Phase 33 | Complete |
+| OVFL-01 | Phase 33 | Complete |
+| OVFL-02 | Phase 33 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 11 total
@@ -64,4 +64,4 @@ None deferred — milestone is tightly scoped.
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after roadmap creation*
+*Last updated: 2026-03-31 -- 33-01 requirements marked complete*
