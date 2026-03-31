@@ -32,7 +32,7 @@ import {
 
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean; auditEnabled?: boolean };
 type Product = {
-  id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
+  id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D" | "ACA_PL";
   premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
@@ -87,6 +87,51 @@ const PREVIEW_LABEL: React.CSSProperties = {
   textTransform: "uppercase" as const,
   letterSpacing: "0.06em",
   marginBottom: spacing[2],
+};
+
+const ACA_TOGGLE_ROW: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 0",
+  marginTop: 12,
+};
+const ACA_TOGGLE_LABEL: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+const ACA_FIELDS: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 120px",
+  gap: 16,
+  marginTop: 8,
+  padding: 12,
+  background: "rgba(255,255,255,0.03)",
+  borderRadius: 8,
+  border: `1px solid ${colors.borderSubtle}`,
+};
+const ACA_SECTION: React.CSSProperties = {
+  marginTop: 16,
+  paddingTop: 16,
+  borderTop: `1px solid ${colors.borderSubtle}`,
+};
+const ACA_SECTION_HEADER: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 600,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  cursor: "pointer",
+  padding: "12px 0",
+};
+const ACA_FORM_GRID: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 16,
 };
 
 /* -- Receipt parser -- */
@@ -246,6 +291,16 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
   const [addonPremiums, setAddonPremiums] = useState<Record<string, string>>({});
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
+
+  /* ACA state */
+  const [includeAca, setIncludeAca] = useState(false);
+  const [acaCarrier, setAcaCarrier] = useState("");
+  const [acaMemberCount, setAcaMemberCount] = useState("1");
+  const [acaStandaloneOpen, setAcaStandaloneOpen] = useState(false);
+  const [acaStandaloneAgent, setAcaStandaloneAgent] = useState("");
+  const [acaStandaloneMemberName, setAcaStandaloneMemberName] = useState("");
+  const [acaStandaloneCarrier, setAcaStandaloneCarrier] = useState("");
+  const [acaStandaloneMemberCount, setAcaStandaloneMemberCount] = useState("1");
 
   const [parsedInfo, setParsedInfo] = useState<{
     enrollmentFee?: string; premium?: string; totalPremium?: string; coreProduct?: string;
@@ -418,6 +473,33 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         }),
       });
       if (res.ok) {
+        const sale = await res.json();
+        /* If ACA checkbox is checked, create linked ACA sale */
+        if (includeAca && acaCarrier.trim()) {
+          const acaProduct = products.find(p => p.type === "ACA_PL");
+          if (acaProduct) {
+            try {
+              await authFetch(`${API}/api/sales/aca`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  agentId: form.agentId,
+                  memberName: form.memberName,
+                  carrier: acaCarrier,
+                  memberCount: parseInt(acaMemberCount, 10) || 1,
+                  productId: acaProduct.id,
+                  saleDate: form.saleDate || undefined,
+                  acaCoveringSaleId: sale.id,
+                }),
+              });
+            } catch (err) {
+              console.error("ACA entry failed:", err);
+            }
+          }
+          setIncludeAca(false);
+          setAcaCarrier("");
+          setAcaMemberCount("1");
+        }
         setFieldErrors({});
         setMsg({ text: "Sale submitted successfully", type: "success" });
         clearTimeout(msgTimerRef.current);
@@ -580,6 +662,45 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               <p style={{ margin: "6px 0 0", fontSize: 12, color: colors.warning }}>Please select a payment type before submitting</p>
             )}
           </div>
+
+          {/* ACA Plan Checkbox */}
+          <div style={{ ...ACA_TOGGLE_ROW, gridColumn: "1/-1" }}>
+            <label style={ACA_TOGGLE_LABEL}>
+              <input
+                type="checkbox"
+                checked={includeAca}
+                onChange={(e) => setIncludeAca(e.target.checked)}
+                style={{ accentColor: colors.primary400 }}
+              />
+              Include ACA Plan
+            </label>
+          </div>
+          {includeAca && (
+            <div style={{ ...ACA_FIELDS, gridColumn: "1/-1" }}>
+              <div>
+                <label style={LBL}>Carrier</label>
+                <input
+                  className="input-focus"
+                  style={baseInputStyle}
+                  placeholder="Enter carrier name"
+                  value={acaCarrier}
+                  onChange={(e) => setAcaCarrier(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={LBL}>Members</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="input-focus"
+                  style={baseInputStyle}
+                  placeholder="1"
+                  value={acaMemberCount}
+                  onChange={(e) => setAcaMemberCount(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Submit row */}
           <div style={{ gridColumn: "1/-1", paddingTop: 8 }}>
@@ -818,6 +939,108 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
 
         </div>
       </form>
+
+      {/* ACA-Only Entry Section */}
+      <div style={ACA_SECTION}>
+        <div style={ACA_SECTION_HEADER} onClick={() => setAcaStandaloneOpen(!acaStandaloneOpen)}>
+          <span>ACA-Only Entry</span>
+          <span>{acaStandaloneOpen ? "\u25B2" : "\u25BC"}</span>
+        </div>
+        {acaStandaloneOpen && (
+          <div>
+            <div style={ACA_FORM_GRID}>
+              <div>
+                <label style={LBL}>Agent</label>
+                <select
+                  className="input-focus"
+                  style={{ ...baseInputStyle, height: 42 }}
+                  value={acaStandaloneAgent}
+                  onChange={(e) => setAcaStandaloneAgent(e.target.value)}
+                >
+                  <option value="">Select agent...</option>
+                  {agents.filter(a => a.active !== false).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Input
+                  label="Member Name"
+                  placeholder="Member full name"
+                  value={acaStandaloneMemberName}
+                  onChange={(e) => setAcaStandaloneMemberName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={LBL}>Carrier</label>
+                <input
+                  className="input-focus"
+                  style={baseInputStyle}
+                  placeholder="Enter carrier name"
+                  value={acaStandaloneCarrier}
+                  onChange={(e) => setAcaStandaloneCarrier(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={LBL}>Members</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="input-focus"
+                  style={baseInputStyle}
+                  placeholder="1"
+                  value={acaStandaloneMemberCount}
+                  onChange={(e) => setAcaStandaloneMemberCount(e.target.value)}
+                />
+              </div>
+            </div>
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  if (!acaStandaloneAgent) { setMsg({ text: "Select an agent", type: "error" }); return; }
+                  if (!acaStandaloneMemberName.trim()) { setMsg({ text: "Member name is required", type: "error" }); return; }
+                  if (!acaStandaloneCarrier.trim()) { setMsg({ text: "Carrier name is required for ACA entries", type: "error" }); return; }
+                  const count = parseInt(acaStandaloneMemberCount, 10);
+                  if (!count || count < 1) { setMsg({ text: "Member count must be at least 1", type: "error" }); return; }
+                  const acaProduct = products.find(p => p.type === "ACA_PL");
+                  if (!acaProduct) { setMsg({ text: "No ACA product configured", type: "error" }); return; }
+                  try {
+                    const resp = await authFetch(`${API}/api/sales/aca`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        agentId: acaStandaloneAgent,
+                        memberName: acaStandaloneMemberName,
+                        carrier: acaStandaloneCarrier,
+                        memberCount: count,
+                        productId: acaProduct.id,
+                      }),
+                    });
+                    if (!resp.ok) {
+                      const err = await resp.json().catch(() => ({}));
+                      throw new Error(err.error || `Request failed (${resp.status})`);
+                    }
+                    setMsg({ text: "ACA entry submitted", type: "success" });
+                    clearTimeout(msgTimerRef.current);
+                    msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
+                    setAcaStandaloneAgent("");
+                    setAcaStandaloneMemberName("");
+                    setAcaStandaloneCarrier("");
+                    setAcaStandaloneMemberCount("1");
+                    onSaleCreated?.();
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : "Request failed. Check connection and try again.";
+                    setMsg({ text: message, type: "error" });
+                  }
+                }}
+              >
+                Submit ACA Entry
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
