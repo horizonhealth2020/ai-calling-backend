@@ -320,19 +320,19 @@ function DailyView({ data }: { data: DetailedData }) {
           >
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to right, transparent, ${colors.borderDefault})` }} />
             <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-              <Crown size={14} color={colors.gold} />
+              <Crown size={16} color={colors.gold} />
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: 700,
-                  color: colors.textTertiary,
+                  color: colors.textSecondary,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                 }}
               >
                 Top Performers
               </span>
-              <Crown size={14} color={colors.gold} />
+              <Crown size={16} color={colors.gold} />
             </div>
             <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${colors.borderDefault})` }} />
           </div>
@@ -345,7 +345,7 @@ function DailyView({ data }: { data: DetailedData }) {
                 onClick={() => setLbMode(m)}
                 style={{
                   padding: "6px 18px", borderRadius: 8, border: "none", cursor: "pointer",
-                  fontSize: 12, fontWeight: 600, textTransform: "capitalize",
+                  fontSize: 14, fontWeight: 600, textTransform: "capitalize",
                   background: lbMode === m ? colors.primary500 : colors.bgSurfaceInset,
                   color: lbMode === m ? "#fff" : colors.textSecondary,
                   transition: "all 150ms ease-out",
@@ -386,9 +386,9 @@ function DailyView({ data }: { data: DetailedData }) {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 700,
-              color: colors.textMuted,
+              color: colors.textSecondary,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
               textAlign: "center",
@@ -437,9 +437,9 @@ function DailyView({ data }: { data: DetailedData }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: 700,
-                      color: colors.textMuted,
+                      color: colors.textSecondary,
                       marginBottom: 6,
                       flexShrink: 0,
                     }}
@@ -451,7 +451,7 @@ function DailyView({ data }: { data: DetailedData }) {
                     style={{
                       width: "100%",
                       flex: 1,
-                      minHeight: 120,
+                      minHeight: 100,
                       borderRadius: `${radius.xl}px ${radius.xl}px 0 0`,
                       background: "linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(100,116,139,0.02) 100%)",
                       border: `1.5px solid ${count > 0 ? "rgba(20,184,166,0.3)" : colors.borderSubtle}`,
@@ -460,17 +460,17 @@ function DailyView({ data }: { data: DetailedData }) {
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      padding: `${spacing[4]}px ${spacing[2]}px ${spacing[5]}px`,
+                      padding: `${spacing[3]}px ${spacing[2]}px ${spacing[3]}px`,
                       textAlign: "center",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 14,
+                        fontSize: 18,
                         fontWeight: 700,
                         color: count > 0 ? colors.textPrimary : colors.textMuted,
                         lineHeight: 1.2,
-                        marginBottom: spacing[2],
+                        marginBottom: 4,
                         wordBreak: "break-word",
                       }}
                     >
@@ -478,7 +478,7 @@ function DailyView({ data }: { data: DetailedData }) {
                     </div>
                     <div
                       style={{
-                        fontSize: 28,
+                        fontSize: 32,
                         fontWeight: 800,
                         color: count > 0 ? colors.textPrimary : colors.textMuted,
                         lineHeight: 1,
@@ -489,7 +489,7 @@ function DailyView({ data }: { data: DetailedData }) {
                     >
                       <AnimatedNumber value={count} />
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary, opacity: count > 0 ? 1 : 0.4 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: colors.textSecondary, opacity: count > 0 ? 1 : 0.4 }}>
                       <AnimatedNumber value={premium} prefix="$" decimals={2} />
                     </div>
                   </div>
