@@ -19,13 +19,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 35 — fix-kpi-polling-issues-and-manager-dashboard-features
+**Current focus:** Phase 37 — fix-call-audit-issues-manager-dashboard-ui-and-agent-performance-card-order
 
 ## Current Position
 
-Phase: 35
-Plan: Not started
-Status: Plan 02 complete, Plan 03 next
+Phase: 37
+Plan: 03
+Status: Plan 03 auto tasks complete (awaiting checkpoint verification)
 Last activity: 2026-03-31
 
 ```
@@ -58,6 +58,8 @@ Last activity: 2026-03-31
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 - Per-dashboard local useState replaces global DateRangeProvider for independent date range state
 - Manager Tracker Today column removed (redundant with Today date range preset)
+- Prisma ID-based cursor pagination over date-based cursor for reliability with duplicate timestamps
+- Agent list fetched once on mount via distinct query for filter dropdown
 
 ### Open Questions
 
@@ -79,5 +81,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 35-02-PLAN.md*
+*Last session: 2026-03-31 -- Completed 37-03-PLAN.md auto tasks (checkpoint pending)*
 *Last updated: 2026-03-31*
