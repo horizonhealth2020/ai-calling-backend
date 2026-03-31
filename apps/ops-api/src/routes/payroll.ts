@@ -12,7 +12,7 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
     include: {
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, product: { select: { id: true, name: true, type: true } }, addons: { select: { productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, memberCount: true, product: { select: { id: true, name: true, type: true, flatCommission: true } }, addons: { select: { productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } } } },
           agent: { select: { name: true } },
         },
       },
@@ -207,7 +207,7 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   const updated = await prisma.payrollEntry.update({
     where: { id: pp.data.id },
     data: { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net },
-    include: { sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, product: { select: { name: true, type: true } } } }, agent: { select: { name: true } } },
+    include: { sale: { select: { id: true, memberName: true, memberId: true, enrollmentFee: true, commissionApproved: true, memberCount: true, product: { select: { name: true, type: true, flatCommission: true } } } }, agent: { select: { name: true } } },
   });
   await logAudit(req.user!.id, "UPDATE", "PayrollEntry", pp.data.id, { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net });
   res.json(updated);

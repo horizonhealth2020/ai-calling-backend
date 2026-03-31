@@ -17,8 +17,8 @@ type SaleAddonInfo = { productId: string; premium: number | null; product: { id:
 type SaleInfo = {
   id: string; memberName: string; memberId?: string; carrier: string;
   premium: number; enrollmentFee: number | null; commissionApproved: boolean;
-  status: string; notes?: string;
-  product: { id: string; name: string; type: string };
+  status: string; notes?: string; memberCount?: number | null;
+  product: { id: string; name: string; type: string; flatCommission?: number | null };
   addons?: SaleAddonInfo[];
 };
 type Entry = {
@@ -149,6 +149,20 @@ const ENROLLMENT_BADGE: React.CSSProperties = {
   borderRadius: 9999,
   padding: "2px 6px",
   marginLeft: 4,
+};
+
+const ACA_BADGE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  fontSize: 11,
+  fontWeight: 600,
+  color: C.info,
+  background: C.infoBg,
+  padding: "4px 8px",
+  borderRadius: 9999,
+  marginLeft: 8,
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
 };
 
 /* ── Helpers ─────────────────────────────────────────────────── */
@@ -327,6 +341,7 @@ function EditableSaleRow({
             {/* Core product */}
             <div style={{ display: "flex", flexDirection: "column" }}>
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
+              {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.sale.premium))}
@@ -373,9 +388,15 @@ function EditableSaleRow({
       </td>
 
       <td style={tdRight}>
-        <span style={{ color: C.textPrimary, fontWeight: 700 }}>
-          {formatDollar(Number(entry.payoutAmount))}
-        </span>
+        {entry.sale?.product?.type === "ACA_PL" && entry.sale?.memberCount ? (
+          <span style={{ color: C.textPrimary, fontWeight: 700 }}>
+            ${(Number(entry.sale.product.flatCommission ?? 0)).toFixed(2)} x {entry.sale.memberCount} members = {formatDollar(Number(entry.payoutAmount))}
+          </span>
+        ) : (
+          <span style={{ color: C.textPrimary, fontWeight: 700 }}>
+            {formatDollar(Number(entry.payoutAmount))}
+          </span>
+        )}
         {entry.halvingReason && (
           <div style={{ fontSize: 11, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
             {entry.halvingReason}
