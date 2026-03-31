@@ -1,14 +1,14 @@
 # Roadmap: v2.0 Sales Board TV Readability
 
 **Milestone:** v2.0
-**Phases:** 2 (Phase 33-34, continuing from v1.9)
+**Phases:** 3 (Phase 33-35, continuing from v1.9)
 **Granularity:** Fine
 **Coverage:** 11/11 requirements mapped
 
 ## Phases
 
 - [x] **Phase 33: Core TV Readability** - Increase font sizes, promote contrast, and prevent overflow on WeeklyView and KPI cards
-- [x] **Phase 34: Dynamic Scaling & Daily View** - Add agent-count-based font scaling and enlarge DailyView/podium for TV readability
+- [ ] **Phase 34: Dynamic Scaling & Daily View** - Add agent-count-based font scaling and enlarge DailyView/podium for TV readability
 
 ## Phase Details
 
@@ -36,20 +36,12 @@ Plans:
   1. With 9 agents on screen, fonts are noticeably larger than with 15 agents -- the board uses available space
   2. With exactly 15 agents, the daily/podium leaderboard view fits on a 1080p screen without scrolling
   3. Agent names, podium numbers, and premium amounts on the daily view are readable from 10-15 feet on a 1080p TV
-**Plans:** 1/1 plans complete
+**Plans:** 1 plan
 
 Plans:
-- [x] 34-01-PLAN.md -- DailyView podium and rest-of-agents font enlargement, contrast promotion, padding reduction
-
-## Progress
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
-| 34. Dynamic Scaling & Daily View | 1/1 | Complete    | 2026-03-31 |
+- [ ] 34-01-PLAN.md -- DailyView podium and rest-of-agents font enlargement, contrast promotion, padding reduction
 
 ### Phase 35: Fix KPI polling issues and manager dashboard features
-
 **Goal:** Fix Convoso KPI poller timezone bug, add "Today" date range preset, scope date ranges per dashboard, remove redundant Today column from Manager Tracker, and fix CS round robin assignment fairness
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11
 **Depends on:** Phase 34
@@ -57,9 +49,17 @@ Plans:
 
 Plans:
 - [ ] 35-01-PLAN.md -- KPI poller timezone fix and "Today" KPI preset addition
-- [ ] 35-02-PLAN.md -- Per-dashboard date range scoping, Today column removal, Owner KPIs default
-- [x] 35-03-PLAN.md -- CS round robin fairness fix
+- [x] 35-02-PLAN.md -- Per-dashboard date range scoping, Today column removal, Owner KPIs default
+- [ ] 35-03-PLAN.md -- CS round robin fairness fix
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
+| 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
+| 35. Fix KPI Polling & Manager Dashboard | 1/3 | In progress | - |
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 35 planned with 3 plans in 2 waves*
+*Last updated: 2026-03-31 -- Phase 35 Plan 02 complete*

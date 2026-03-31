@@ -23,7 +23,6 @@ import {
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
-import { useDateRange } from "@/lib/DateRangeContext";
 import { ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
 
 type SocketClient = import("socket.io-client").Socket;
@@ -165,7 +164,7 @@ export default function CSTracking({ socket, API, userRoles, canManageCS }: CSTr
 }
 
 function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingProps) {
-  const { value: dateRange, onChange: setDateRange } = useDateRange();
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
   // Data
   const [chargebacks, setChargebacks] = useState<Chargeback[]>([]);
   const [pendingTerms, setPendingTerms] = useState<PendingTerm[]>([]);

@@ -17,7 +17,6 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { useDateRange } from "@/lib/DateRangeContext";
 import {
   DollarSign,
   AlertTriangle,
@@ -203,7 +202,7 @@ function buildDateParams(dr: DateRangeFilterValue): string {
 /* -- OwnerKPIs -- */
 
 export default function OwnerKPIs({ API }: { API: string }) {
-  const { value: dateRange, onChange: setDateRange } = useDateRange();
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "today" });
   const [kpiData, setKpiData] = useState<KpiData | null>(null);
 
   useEffect(() => {

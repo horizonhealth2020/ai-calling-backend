@@ -30,7 +30,7 @@ type Product = {
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number; todaySalesCount: number; todayPremium: number };
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
 type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
@@ -136,7 +136,7 @@ function ManagerPageInner() {
               : t
           );
         }
-        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: totalPrem, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0, todaySalesCount: 1, todayPremium: totalPrem }];
+        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: totalPrem, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0 }];
       });
 
       // Patch salesList

@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LogOut, ChevronDown } from "lucide-react";
 import { SocketProvider, useSocketContext } from "@/lib/SocketProvider";
-import { DateRangeProvider } from "@/lib/DateRangeContext";
 import { getTabsForRoles, type TabConfig } from "@/lib/roles";
 import { decodeRolesFromToken } from "@/lib/auth";
 import { getToken, clearToken, captureTokenFromUrl } from "@ops/auth/client";
@@ -185,11 +184,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SocketProvider apiUrl={apiUrl}>
-      <DateRangeProvider>
-        <DashboardInner tabs={tabs}>
-          {children}
-        </DashboardInner>
-      </DateRangeProvider>
+      <DashboardInner tabs={tabs}>
+        {children}
+      </DashboardInner>
     </SocketProvider>
   );
 }

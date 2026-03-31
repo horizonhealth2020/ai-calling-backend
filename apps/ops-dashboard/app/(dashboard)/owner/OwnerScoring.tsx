@@ -16,7 +16,6 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { useDateRange } from "@/lib/DateRangeContext";
 import {
   Target,
   TrendingUp,
@@ -286,7 +285,7 @@ function ScoreDistribution({ distribution, total }: { distribution: ScoringData[
 /* ── OwnerScoring (main component) ──────────────────────────────── */
 
 export default function OwnerScoring({ API }: { API: string }) {
-  const { value: dateRange, onChange: setDateRange } = useDateRange();
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
   const [data, setData] = useState<ScoringData | null>(null);
   const [loading, setLoading] = useState(true);
 

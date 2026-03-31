@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: verifying
-last_updated: "2026-03-31T16:44:38.571Z"
-last_activity: 2026-03-31
+status: executing
+last_updated: "2026-03-31T16:50:34Z"
+last_activity: 2026-03-31 -- Phase 35 Plan 02 complete
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 2
+  total_plans: 6
+  completed_plans: 4
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,17 +19,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 34 — dynamic-scaling-daily-view
+**Current focus:** Phase 35 — fix-kpi-polling-issues-and-manager-dashboard-features
 
 ## Current Position
 
-Phase: 34 (dynamic-scaling-daily-view) — EXECUTING
-Plan: 1 of 1
-Status: Phase complete — ready for verification
-Last activity: 2026-03-31
+Phase: 35 (fix-kpi-polling-issues-and-manager-dashboard-features) — EXECUTING
+Plan: 3 of 3
+Status: Plan 02 complete, Plan 03 next
+Last activity: 2026-03-31 -- Phase 35 Plan 02 complete
 
 ```
-[==========..........] 1/2 phases | 2/2 plans
+[==========..........] 1/3 phases | 4/6 plans
 ```
 
 ## Performance Metrics
@@ -41,7 +41,6 @@ Last activity: 2026-03-31
 | Total plans | 95 complete |
 | Total requirements | 225 shipped |
 | Timeline | 17 days (2026-03-14 to 2026-03-30) |
-| Phase 35 P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -57,8 +56,8 @@ Last activity: 2026-03-31
 - KPI stat card numbers scaled from 30px to 36px base, conditional premium cards use 28/36
 - Card padding reduced from 20px uniform to 12px/16px to absorb font growth without changing card size
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
-- [Phase 35]: Business hours timezone hardcoded to America/New_York matching payroll.ts pattern
-- [Phase 35]: Today preset added as first KPI_PRESETS entry — API already supports range=today
+- Per-dashboard local useState replaces global DateRangeProvider for independent date range state
+- Manager Tracker Today column removed (redundant with Today date range preset)
 
 ### Open Questions
 
@@ -80,5 +79,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Phase 33 complete, checkpoint approved*
+*Last session: 2026-03-31 -- Completed 35-02-PLAN.md*
 *Last updated: 2026-03-31*
