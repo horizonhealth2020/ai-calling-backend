@@ -51,21 +51,22 @@ Source: `packages/ui/src/tokens.ts:53-64`
 
 ## Typography
 
-Existing token system from `@ops/ui`. This phase uses these specific roles:
+Existing token system from `@ops/ui`. This phase uses exactly 2 weights and 3 sizes:
+
+**Weights:** 400 (regular) for body text and field values, 600 (semibold) for all emphasis -- labels, badges, checkbox labels, section headings.
 
 | Role | Size | Weight | Line Height | Token Path |
 |------|------|--------|-------------|------------|
-| Body | 14px | 400 | 1.6 | typography.sizes.base |
-| Label | 11px | 700 | 1.45 | typography.sizes.xs + weights.bold |
-| Form field label (checkbox) | 13px | 600 | 1.5 | typography.sizes.sm + weights.semibold |
+| Body / field values | 14px | 400 | 1.6 | typography.sizes.base |
+| Label / badge text | 11px | 600 | 1.45 | typography.sizes.xs + weights.semibold |
 | Section heading | 16px | 600 | 1.5 | typography.sizes.md + weights.semibold |
 
 New elements in this phase:
 
 | Element | Size | Weight | Line Height | Color |
 |---------|------|--------|-------------|-------|
-| ACA checkbox label | 13px | 600 | 1.5 | colors.textPrimary |
-| ACA badge text | 11px | 700 | 1.45 | colors.textInverse |
+| ACA checkbox label | 14px | 600 | 1.6 | colors.textPrimary |
+| ACA badge text | 11px | 600 | 1.45 | colors.textInverse |
 | ACA section header ("ACA-Only Entry") | 16px | 600 | 1.5 | colors.textPrimary |
 | Member count input value | 14px | 400 | 1.6 | colors.textPrimary |
 | Carrier input value | 14px | 400 | 1.6 | colors.textPrimary |
@@ -101,6 +102,14 @@ Source: `packages/ui/src/tokens.ts:7-51`, existing color usage in ManagerEntry.t
 
 ---
 
+## Visual Hierarchy
+
+**Primary visual anchor for ManagerEntry form:** The "Submit Sale" button is the dominant visual anchor. It uses accent background (colors.primary400) at full width, 600 weight, drawing the eye to the primary action at the bottom of the form. All other form elements use muted surfaces and borders, creating a clear visual funnel toward the CTA.
+
+**Secondary anchor:** The ACA badge ("ACA") in payroll agent pay cards uses info-blue background as a secondary accent point, visually distinguishing ACA entries from standard sales rows.
+
+---
+
 ## Component Inventory
 
 ### Existing Components (no changes needed)
@@ -118,9 +127,9 @@ Source: `packages/ui/src/tokens.ts:7-51`, existing color usage in ManagerEntry.t
 | Element | Pattern | Style Constants |
 |---------|---------|-----------------|
 | ACA checkbox row | `<label>` with flexbox, gap 8px | Follows existing checkbox pattern at ManagerEntry.tsx:671 |
-| ACA inline fields (carrier + member count) | CSS grid, `gridTemplateColumns: "1fr 120px"`, gap 14px | Matches existing 2-col form grid at ManagerEntry.tsx:468 |
+| ACA inline fields (carrier + member count) | CSS grid, `gridTemplateColumns: "1fr 120px"`, gap 16px | Matches existing 2-col form grid at ManagerEntry.tsx:468 |
 | ACA standalone section | Collapsible `<div>` with border-top separator | Uses PREVIEW_PANEL style with distinct header |
-| ACA badge in pay cards | Badge variant with info background | `{ background: colors.infoBg, color: colors.info, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: radius.full }` |
+| ACA badge in pay cards | Badge variant with info background | `{ background: colors.infoBg, color: colors.info, fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: radius.full }` |
 
 ---
 
@@ -163,13 +172,13 @@ const ACA_TOGGLE_ROW: React.CSSProperties = {
 **Checkbox label style:**
 ```typescript
 const ACA_TOGGLE_LABEL: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: 14,
   fontWeight: 600,
   color: colors.textPrimary,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
-  gap: 6,
+  gap: spacing[2],            // 8px
 };
 ```
 
@@ -178,11 +187,11 @@ const ACA_TOGGLE_LABEL: React.CSSProperties = {
 const ACA_FIELDS: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 120px",
-  gap: 14,
+  gap: spacing[4],            // 16px
   marginTop: spacing[2],      // 8px
-  padding: `${spacing[3]}px`,  // 12px
+  padding: `${spacing[3]}px`, // 12px
   background: colors.bgSurfaceInset,
-  borderRadius: radius.lg,     // 8px
+  borderRadius: radius.lg,    // 8px
   border: `1px solid ${colors.borderSubtle}`,
 };
 ```
@@ -239,7 +248,7 @@ const ACA_SECTION: React.CSSProperties = {
 const ACA_FORM_GRID: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 14,
+  gap: spacing[4],               // 16px
 };
 ```
 
@@ -264,10 +273,10 @@ const ACA_BADGE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   fontSize: 11,
-  fontWeight: 700,
+  fontWeight: 600,
   color: colors.info,
   background: colors.infoBg,
-  padding: "2px 8px",
+  padding: "4px 8px",
   borderRadius: radius.full,
   marginLeft: spacing[2],        // 8px
   letterSpacing: typography.tracking.wide,
