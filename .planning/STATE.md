@@ -19,17 +19,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 35 — fix-kpi-polling-issues-and-manager-dashboard-features
+**Current focus:** Phase 36 — fix-manager-sales-entry-parsing-error-and-payroll-ui-issues
 
 ## Current Position
 
-Phase: 35
-Plan: Not started
-Status: Plan 02 complete, Plan 03 next
+Phase: 36
+Plan: 01 of 3 complete
+Status: Plan 01 complete, Plan 02 next
 Last activity: 2026-03-31
 
 ```
-[==========..........] 1/3 phases | 4/6 plans
+[==========..........] 0/1 phases | 1/3 plans
 ```
 
 ## Performance Metrics
@@ -58,6 +58,8 @@ Last activity: 2026-03-31
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 - Per-dashboard local useState replaces global DateRangeProvider for independent date range state
 - Manager Tracker Today column removed (redundant with Today date range preset)
+- Used includes() with length ratio guard instead of regex word boundaries for product name matching
+- useMemo-based stable sort by member ID ascending in payroll agent pay cards
 
 ### Open Questions
 
@@ -79,5 +81,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 35-02-PLAN.md*
+*Last session: 2026-03-31 -- Completed 36-01-PLAN.md*
 *Last updated: 2026-03-31*
