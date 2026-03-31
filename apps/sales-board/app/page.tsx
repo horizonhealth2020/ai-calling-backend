@@ -998,14 +998,14 @@ export default function SalesBoard() {
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: spacing[3],
-            marginTop: spacing[3],
+            marginTop: spacing[2],
           }}
         >
           {/* Today's Sales */}
           <div
             className="animate-fade-in-up stagger-1"
             style={{
-              padding: `${spacing[5]}px`,
+              padding: `${spacing[3]}px ${spacing[4]}px`,
               borderRadius: radius.xl,
               background: colors.successBg,
               border: `1px solid rgba(52,211,153,0.15)`,
@@ -1026,7 +1026,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: 700,
                 color: colors.success,
                 textTransform: "uppercase",
@@ -1038,7 +1038,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: 30,
+                fontSize: 36,
                 fontWeight: 800,
                 color: colors.success,
                 letterSpacing: "-0.02em",
@@ -1053,7 +1053,7 @@ export default function SalesBoard() {
           <div
             className="animate-fade-in-up stagger-2"
             style={{
-              padding: `${spacing[5]}px`,
+              padding: `${spacing[3]}px ${spacing[4]}px`,
               borderRadius: radius.xl,
               background: colors.warningBg,
               border: `1px solid rgba(251,191,36,0.15)`,
@@ -1074,7 +1074,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: 700,
                 color: colors.gold,
                 textTransform: "uppercase",
@@ -1086,7 +1086,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: data && totalPremToday >= 10000 ? 22 : 26,
+                fontSize: data && totalPremToday >= 10000 ? 28 : 36,
                 fontWeight: 800,
                 color: colors.gold,
                 letterSpacing: "-0.02em",
@@ -1105,7 +1105,7 @@ export default function SalesBoard() {
           <div
             className="animate-fade-in-up stagger-3"
             style={{
-              padding: `${spacing[5]}px`,
+              padding: `${spacing[3]}px ${spacing[4]}px`,
               borderRadius: radius.xl,
               background: colors.infoBg,
               border: `1px solid rgba(45,212,191,0.15)`,
@@ -1126,7 +1126,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: 700,
                 color: colors.info,
                 textTransform: "uppercase",
@@ -1138,7 +1138,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: 30,
+                fontSize: 36,
                 fontWeight: 800,
                 color: colors.info,
                 letterSpacing: "-0.02em",
@@ -1157,7 +1157,7 @@ export default function SalesBoard() {
           <div
             className="animate-fade-in-up stagger-4"
             style={{
-              padding: `${spacing[5]}px`,
+              padding: `${spacing[3]}px ${spacing[4]}px`,
               borderRadius: radius.xl,
               background: colors.infoBg,
               border: `1px solid rgba(45,212,191,0.15)`,
@@ -1178,7 +1178,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: 700,
                 color: colors.info,
                 textTransform: "uppercase",
@@ -1190,7 +1190,7 @@ export default function SalesBoard() {
             </div>
             <div
               style={{
-                fontSize: data && data.grandTotalPremium >= 10000 ? 20 : 26,
+                fontSize: data && data.grandTotalPremium >= 10000 ? 28 : 36,
                 fontWeight: 800,
                 color: colors.info,
                 letterSpacing: "-0.02em",
@@ -1208,7 +1208,7 @@ export default function SalesBoard() {
       </div>
 
       {/* ── View Toggle ──────────────────────────────────────────── */}
-      <div className="animate-fade-in stagger-3" style={{ marginBottom: spacing[3] }}>
+      <div className="animate-fade-in stagger-3" style={{ marginBottom: spacing[2] }}>
         <TabNav
           tabs={[
             { key: "daily", label: "Leaderboard", icon: <Users size={14} /> },
