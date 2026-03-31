@@ -1,166 +1,224 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** JWT auth redirect loop fix + phone number display in existing ops platform
-**Researched:** 2026-03-30
-**Confidence:** HIGH (based on direct codebase analysis with line-level tracing)
+**Domain:** TV-readable sales board leaderboard (optimizing existing Next.js dark-theme dashboard for wall-mounted TV viewing distance)
+**Researched:** 2026-03-31
+**Confidence:** HIGH (based on direct codebase analysis + established display/typography best practices)
 
 ## Critical Pitfalls
 
-Mistakes that cause the fix to fail, create new bugs, or break production for all users.
+### Pitfall 1: Increasing font sizes causes cell height expansion, breaking 9-15 agent fit
 
-### Pitfall 1: Redirect Loop From Stale Token Without Expiry Check
+**What goes wrong:**
+The weekly table uses `padding: "14px 16px"` on every `<td>`. Bumping font sizes from 18px/20px to TV-readable sizes (24px+) increases the line box height, which adds to the existing 28px of vertical padding per cell. With 15 agents + header + team total row = 17 rows, each gaining even 8px of height totals 136px of extra vertical space. The table overflows the viewport on a 1080p TV.
 
-**What goes wrong:** The login page `useEffect` (line 234-250 of `app/page.tsx`) finds a token in localStorage via `getToken()`, decodes roles, and redirects to the dashboard. The middleware then checks the cookie, finds it expired or missing, and redirects back to `/`. The login page fires the useEffect again, finds the same stale localStorage token, redirects to dashboard, middleware bounces back -- infinite loop.
+**Why it happens:**
+Developers increase `fontSize` but leave `padding` untouched, assuming "cell dimensions unchanged" means only padding stays the same. In reality, the browser computes cell height as `padding-top + line-height * fontSize + padding-bottom`. Bigger font = taller cell regardless of padding.
 
-**Why it happens:** The login page checks `if (stored)` and `if (roles.length > 0)` but never checks token expiry. The `decodeRolesFromToken` function (line 8-18 of `lib/auth.ts`) only decodes roles, it does not check the `exp` claim. An expired token still has valid roles, so the redirect fires every time.
+**How to avoid:**
+Reduce vertical padding proportionally as font size increases. The constraint is "keep cell dimensions unchanged," which means the total rendered height per row must stay the same. If font goes from 18px to 24px (6px taller), reduce top+bottom padding by 6px (e.g., 14px -> 11px each side). Test with exactly 15 agents at 1080p to verify no overflow.
 
-**Consequences:** 3 users currently locked out. Browser tab burns CPU in redirect loop. Users cannot log in without manually clearing localStorage via DevTools -- something non-technical users cannot do.
+**Warning signs:**
+- Vertical scrollbar appears on the table container (it has `overflowX: "auto"` but no `overflowY`)
+- Team total row disappears below the fold
+- Page requires scrolling when more than 12 agents are active
 
-**Prevention:**
-1. Before redirecting in the login page useEffect, decode the token payload and check `exp * 1000 > Date.now()`. If expired, call `clearToken()` and stay on the login page.
-2. The `@ops/auth/client` package already has `decodeTokenPayload` which returns `exp`. Use it directly rather than duplicating logic.
-3. Add a `isTokenExpired(token: string): boolean` utility to `@ops/auth/client` for reuse.
+**Phase to address:**
+Phase 1 (font size changes) -- must be validated simultaneously with size increases, not as a follow-up fix.
 
-**Detection:** Users report "page keeps refreshing" or "can't log in." Network tab shows rapid 302 redirects between `/` and `/manager` (or other dashboard path).
+---
 
-### Pitfall 2: Fixing Client Without Fixing Middleware Creates a Different Failure Mode
+### Pitfall 2: Dark theme contrast ratios that pass on monitors fail on TVs
 
-**What goes wrong:** Developer fixes the login page to check expiry and clear stale tokens, but the middleware (line 6-55 of `middleware.ts`) still has no expiry check. A user with a valid cookie containing an expired JWT hits a dashboard route. Middleware decodes the JWT payload (line 24-31) to extract roles but never checks the `exp` field. It trusts any syntactically valid JWT. User lands on the dashboard, but every `authFetch` API call fails with 401 because `ops-api` does real JWT verification via `jsonwebtoken.verify()`.
+**What goes wrong:**
+The current theme uses `--text-tertiary: #64748b` (slate-500) and `--text-muted: #475569` (slate-600) on backgrounds like `#070a0a` and `#0c1414`. On a backlit monitor at 60cm viewing distance, these pass WCAG AA. On a consumer-grade TV at 3-6 meters with ambient office lighting, lower-contrast elements become invisible. Specifically: the "dash" placeholders (`&mdash;` in `colors.borderStrong`), the premium sub-text (`colors.textTertiary`), and the rank badges on non-top-3 agents (`colors.textMuted`) will disappear.
 
-**Why it happens:** The middleware was designed as a lightweight role check with the comment "Real auth is enforced by ops-api on every API call" (line 22). This is fine for authorization, but without expiry checking, the middleware allows expired sessions to render the dashboard chrome before all data fetches fail.
+**Why it happens:**
+TV panels have lower native contrast ratios than IPS monitors (especially in bright rooms), and viewing distance means the eye integrates text with surrounding background more aggressively. A color that "looks dim but readable" on a monitor becomes "invisible" on a TV from across the room.
 
-**Consequences:** User lands on dashboard but sees empty data, broken API calls, or gets silently logged out when `ensureTokenFresh` (line 52-93 of `client.ts`) clears the expired token. Confusing UX where the page loads but nothing works.
+**How to avoid:**
+Promote all text elements by one contrast tier: `textTertiary` -> `textSecondary`, `textMuted` -> `textTertiary`. For the sales board specifically, nothing should use `textMuted` or `borderStrong` for any visible text or numbers. The minimum should be `textTertiary` (#64748b) for truly secondary info, and `textSecondary` (#94a3b8) for anything a manager needs to read from across the room.
 
-**Prevention:**
-1. In middleware, after decoding the JWT payload, check `payload.exp * 1000 > Date.now()`. If expired, delete the cookie and redirect to `/`.
-2. Edge Runtime supports `Date.now()` and `atob` -- no Node.js-only APIs needed. This is safe.
-3. Add a small buffer (e.g., 30 seconds) to avoid race conditions where the token expires between middleware check and API call.
+**Warning signs:**
+- Any text element using `colors.textMuted` or `colors.borderStrong` for content that should be readable
+- Premium dollar amounts using `colors.textTertiary` at small font sizes
+- Placeholder dashes using border colors instead of text colors
 
-**Detection:** Dashboard loads with empty KPI cards, 401 errors in browser console on all `authFetch` calls.
+**Phase to address:**
+Phase 1 -- contrast adjustments must ship with font size changes. Bigger text at low contrast is still unreadable.
 
-### Pitfall 3: Cookie Deletion in Middleware Uses Wrong Attributes
+---
 
-**What goes wrong:** When middleware detects an expired token and tries to clear the cookie, the `Set-Cookie` header must match the exact `domain` and `path` used when the cookie was set. If they don't match, the browser ignores the deletion and the stale cookie persists.
+### Pitfall 3: The podium section on DailyView consumes too much vertical space for TV
 
-**Why it happens:** The cookie is set in middleware (line 44-50) with `path: "/"`, `secure: true`, `sameSite: "lax"`, no explicit domain. But in production, the `buildSessionCookie` in `@ops/auth` (line 30-38 of `index.ts`) sets `domain: process.env.AUTH_COOKIE_DOMAIN`. If the login flow sets the cookie via the API (which uses `buildSessionCookie` with a domain) but middleware tries to clear a cookie without specifying that domain, the browser ignores the deletion.
+**What goes wrong:**
+The DailyView has a podium section with cards at heights 160px, 180px, 220px plus a 48px platform base, plus "Top Performers" header, plus day/week toggle, plus "All Agents" section below. This layout assumes vertical scrolling is acceptable. On a TV, the entire board must fit in one viewport with no scrolling -- nobody can scroll a wall-mounted TV.
 
-**Consequences:** Expired cookie cannot be cleared by middleware. User gets stuck even after the fix is deployed.
+**Why it happens:**
+The existing design was built for desktop browser use where scrolling is natural. The podium is a visual showpiece that prioritizes engagement over information density. TV use inverts this: information density and zero-scroll are paramount.
 
-**Prevention:**
-1. When clearing the cookie in middleware, use `response.cookies.delete("ops_session", { path: "/" })` -- Next.js handles matching.
-2. Alternatively, set `maxAge: 0` with the same `path`, `secure`, `sameSite`, and `domain` values used during creation.
-3. Test cookie deletion on Railway production domain, not just localhost where domain is absent.
+**How to avoid:**
+Either (a) compress the podium section significantly (reduce card heights by 30-40%, shrink gaps), or (b) when in "weekly" tab mode the table already has no podium -- consider making weekly the default/only view for TV mode, or (c) add a TV-specific layout that removes the podium entirely and shows all agents in a flat ranked list. The milestone requirements focus on the table (font sizes, 9-15 agents), so the weekly table view is likely the primary TV target.
 
-**Detection:** After deploying the fix, check if the `ops_session` cookie persists after it should have been cleared. Examine Application > Cookies panel in DevTools.
+**Warning signs:**
+- DailyView content extends below 1080px viewport height
+- "All Agents" section gets compressed or cut off below the podium
+- Users report needing to scroll on the TV
 
-### Pitfall 4: Phone Number Column Added to Schema But Poller Not Updated
+**Phase to address:**
+Phase 1 -- decide early whether DailyView or WeeklyView is the TV target. If both, podium compression is Phase 1 work.
 
-**What goes wrong:** Developer adds a `leadPhone` field to the `ConvosoCallLog` model in `schema.prisma` and creates a migration. The poller (line 99-127 of `convosoKpiPoller.ts`) maps Convoso response fields to the `callLogRecords` object but explicitly picks only `user_id`, `recording`, `call_length`, `call_date`, and `start_time` fields. If the phone field is added to the model but the poller's mapping isn't updated, every new record also has NULL for phone.
+---
 
-**Why it happens:** The schema change and the data ingestion code are in different files (`schema.prisma` vs `convosoKpiPoller.ts`). It is easy to update one and forget the other.
+### Pitfall 4: Fixed pixel widths in podium cards break on non-1080p TV resolutions
 
-**Consequences:** Phone column exists but is always empty. Feature appears broken even though the schema change worked. Historical records also have no phone data.
+**What goes wrong:**
+Podium cards use fixed pixel widths: 200px, 175px, 165px. The platform base mirrors these. If the TV is 4K (3840x2160) running at native resolution, these cards will look tiny. If the TV is 720p, they may overlap or overflow. The weekly table has `minWidth: 760` which is fine for most TVs, but the inline pixel dimensions throughout are resolution-fragile.
 
-**Prevention:**
-1. Update the poller `callLogRecords` mapping to capture the phone number field from the Convoso response in the SAME commit as the schema change.
-2. Verify which Convoso response field contains the phone number. Based on common Convoso API patterns, it is likely `phone_number`, `lead_phone`, or `number`. Log a sample raw Convoso response to confirm before coding.
-3. For historical backfill, accept that pre-migration records won't have phone numbers. The poller's backfill logic (line 158-224) only updates `recordingUrl` and `callDurationSeconds` -- extending it to also backfill phone numbers on re-fetch is possible but low priority.
+**Why it happens:**
+The codebase uses inline `React.CSSProperties` exclusively (project constraint: no Tailwind, no CSS files beyond theme/responsive). Fixed pixel values work well when the target viewport is known (desktop browser). TVs vary wildly: 720p, 1080p, 4K, and browsers on TV sticks may or may not honor device-pixel-ratio.
 
-**Detection:** After deployment, check `SELECT lead_phone FROM convoso_call_logs WHERE lead_phone IS NOT NULL LIMIT 5` -- if empty after new polls have run, the field mapping is wrong.
+**How to avoid:**
+For the weekly table (the primary TV view), column widths are already flexible (`width: "100%"` on the table). Font sizes are the main concern. Use `clamp()` in font-size values so they scale between a floor and ceiling: e.g., `fontSize: "clamp(18px, 2vw, 28px)"`. This keeps things readable across resolutions without media queries. Note: `clamp()` works in inline styles as a string value.
 
-## Moderate Pitfalls
+**Warning signs:**
+- Testing only on one resolution (e.g., only 1080p)
+- Podium cards overlapping or having large gaps on non-standard resolutions
+- Text that looks perfect on 1080p but is too small on 4K or too large on 720p
 
-### Pitfall 5: Edge Runtime Breakage From Node.js Imports
+**Phase to address:**
+Phase 1 -- if using fixed pixel font sizes, document the target resolution explicitly. If using clamp(), implement it from the start.
 
-**What goes wrong:** While adding expiry checking to middleware, a developer imports `jsonwebtoken` or `@ops/auth` (server-side) to reuse `verifySessionToken`. The middleware crashes because `jsonwebtoken` uses Node.js `crypto` internals that are not available in Edge Runtime.
+---
 
-**Why it happens:** The existing middleware already avoids this (line 21-22: "Edge Runtime can't access secrets"), but the temptation to "properly verify" the JWT is strong when you're already touching the middleware for the expiry fix.
+### Pitfall 5: Animated numbers cause visual jitter at TV viewing distance
 
-**Prevention:** Keep `atob` with the URL-safe replacement for JWT decoding. Only decode and check `exp`, never call `jwt.verify()` in middleware. Add a comment: `// Edge Runtime: jwt.verify() unavailable, expiry check only`.
+**What goes wrong:**
+The board uses `<AnimatedNumber>` throughout for sales counts and premiums. These animate on value changes (real-time Socket.IO updates). At TV viewing distance, a number flickering from "4" to "5" with a counting animation creates momentary visual noise that draws the eye unnecessarily. Worse, if multiple cells update simultaneously (a sale triggers cascade), the entire table appears to shimmer.
 
-### Pitfall 6: Race Condition Between localStorage Clear and Cookie Clear
+**Why it happens:**
+Animation that feels polished at arm's length feels chaotic from across a room. The eye can't track the transition -- it just sees "something changed" without catching the before/after. This defeats the purpose of the leaderboard: quick at-a-glance status.
 
-**What goes wrong:** The login page clears localStorage (`clearToken()`), but the cookie persists until the next server request. If the user navigates to a dashboard route between clearing localStorage and the cookie being cleared, middleware sees the cookie and lets them through, but client-side `getToken()` returns null so `authFetch` sends no Bearer token.
+**How to avoid:**
+Keep AnimatedNumber but ensure the animation duration is very short (under 200ms) so it reads as a snap rather than a count-up. Alternatively, for TV mode, replace AnimatedNumber with static rendering and use a brief background flash (cell background pulses green for 1 second) to signal "this value just changed." This is more TV-appropriate: the number is always statically readable, and the flash provides change notification.
 
-**Prevention:**
-1. When clearing the expired token on the login page, both localStorage AND cookie should be cleared. Use a logout API call or set `document.cookie` to expire `ops_session` client-side. However, the cookie is `httpOnly: true` (line 45 of middleware.ts), so `document.cookie` cannot clear it.
-2. The correct approach: redirect to `/` (login page) via `window.location.href` after clearing localStorage. The middleware matcher (line 57-59) doesn't cover `/`, so no cookie check fires. The stale cookie will be overwritten on next successful login.
+**Warning signs:**
+- Multiple cells animating simultaneously when a sale is entered
+- Numbers mid-animation being unreadable (showing intermediate values)
+- Users reporting the board "flickers" or is "always moving"
 
-### Pitfall 7: Phone Number Display Leaking PII to Unauthorized Roles
+**Phase to address:**
+Phase 2 (polish) -- functional but not critical. Font sizes and contrast are Phase 1; animation tuning is refinement.
 
-**What goes wrong:** Phone numbers are added to API responses for call audit or agent sales endpoints. All roles that can view those endpoints now see phone numbers, even if some roles (e.g., CUSTOMER_SERVICE) shouldn't have access to lead contact info.
+---
 
-**Prevention:**
-1. Review which roles access the affected endpoints.
-2. Phone numbers should only be visible to MANAGER, OWNER_VIEW, and SUPER_ADMIN roles.
-3. If the endpoint is shared across roles, conditionally strip phone numbers from the response based on the requesting user's role.
+### Pitfall 6: Agent name truncation when font size increases
 
-### Pitfall 8: Adding leadPhone to Sale Model Creates Denormalization
+**What goes wrong:**
+Agent names in the weekly table use `whiteSpace: "nowrap"` and `fontSize: 18`. Increasing to 24px+ means names like "Christopher M." or "Alejandra Rodriguez" may overflow the agent column, pushing day columns off-screen or causing horizontal scroll. The table has `overflowX: "auto"` which will add a scrollbar -- unusable on a TV.
 
-**What goes wrong:** Developer adds a `leadPhone` column directly to the `Sale` model, duplicating data already available through Convoso call data. Now there are two sources of truth. If Convoso data is corrected, the Sale record has stale data.
+**Why it happens:**
+The agent column has no `maxWidth` or `overflow: hidden` constraint. At 18px the names fit. At 24px they may not, especially with the rank badge (24px wide + 12px gap) eating into available space.
 
-**Why it happens:** It seems simpler to put phone on Sale directly than to join through ConvosoCallLog. The Sale model already has `convosoLeadId` and `recordingUrl` fields (line 211-214 of schema) suggesting some Convoso data is already denormalized.
+**How to avoid:**
+Add `overflow: hidden`, `textOverflow: "ellipsis"`, and a `maxWidth` on the agent name cell. Better: use first name + last initial format for TV display (server-side or client-side formatting). "Christopher M." is 30% shorter than "Christopher Martinez" and equally identifiable in a sales office where everyone knows each other.
 
-**Prevention:**
-1. Store phone number ONLY on `ConvosoCallLog` (it originates from Convoso, not from sale entry).
-2. For the agent sales view, join through the existing relationship chain: Sale has `leadSourceId` and `convosoLeadId`. The ConvosoCallLog has `leadSourceId` and `agentId`. A direct FK from Sale to ConvosoCallLog would be cleanest if a reliable mapping exists (e.g., matching by agent + timestamp proximity).
-3. If the join is too complex and phone on Sale is pragmatically necessary, document it as intentional denormalization and populate it from Convoso data during sale entry, not as a separate migration.
+**Warning signs:**
+- Horizontal scrollbar appearing on the table
+- Agent column consuming more than 20% of table width
+- Day columns getting compressed to accommodate long names
 
-### Pitfall 9: Prisma Explicit Select Statements Miss New Field
+**Phase to address:**
+Phase 1 -- must be handled when font sizes increase, not after.
 
-**What goes wrong:** Adding `leadPhone String? @map("lead_phone")` to ConvosoCallLog is a safe additive migration. But if any existing Prisma queries use `select: { field1: true, field2: true }` with an explicit field list, the new field is excluded by default. The API endpoint returns data without the phone field, and the frontend shows blank.
+---
 
-**Prevention:**
-1. After adding the schema field, search for all `prisma.convosoCallLog.findMany` (and `findFirst`, etc.) calls. If they use explicit `select`, add `leadPhone: true` to each one.
-2. If they use no `select` (return all fields), the new field is included automatically.
-3. Grep for `convosoCallLog` across the routes directory to find all query sites.
+### Pitfall 7: `fmt$whole` dollar formatting becomes ambiguous at large font sizes
 
-## Minor Pitfalls
+**What goes wrong:**
+The `fmt$whole` function rounds premiums to whole dollars: "$1,234". At 12px this is fine as supplementary info. At TV-readable sizes (18px+), "$1,234" without cents reads as authoritative. When the total on the payroll dashboard shows "$1,234.50", users may perceive a discrepancy. More critically, "$0" for agents with no sales is large and prominent, creating visual clutter.
 
-### Pitfall 10: Login Page Flash Before Redirect
+**Why it happens:**
+The formatting was designed for a supplementary/secondary display context. Increasing font size promotes it to primary information, changing user perception.
 
-**What goes wrong:** After fixing the expiry check, the login page briefly renders (form visible) before the useEffect fires and redirects a user with a valid token. This creates a visual flash.
+**How to avoid:**
+Keep `fmt$whole` (no cents is correct for TV readability -- fewer characters = more readable at distance). But suppress the "$0" case entirely: show a dash or nothing for zero-premium agents, same as the zero-sales treatment. This reduces visual noise.
 
-**Prevention:** Add a `checking` state that starts as `true`, render a loading spinner while checking the token, and only show the login form when `checking` is `false` and no valid token was found.
+**Warning signs:**
+- Large "$0" values drawing attention to inactive agents
+- Users comparing board totals to payroll and finding "mismatches" due to rounding
 
-### Pitfall 11: Convoso Phone Number Format Inconsistency
+**Phase to address:**
+Phase 1 -- part of the font size change pass.
 
-**What goes wrong:** Convoso may return phone numbers in different formats: `+15551234567`, `5551234567`, `(555) 123-4567`. Displaying raw values creates an inconsistent UI.
+## Technical Debt Patterns
 
-**Prevention:** Store the raw value in the database. Format only at display time with a simple utility: strip to digits, then format as `(XXX) XXX-XXXX` for US numbers. Add the formatter to `@ops/utils` for consistency.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Hardcoding TV-specific font sizes inline | Quick to implement, matches codebase pattern | If the board is ever viewed on desktop again, sizes are wrong | Acceptable if the sales board is TV-only. If dual-use, use clamp() or a CSS class toggle. |
+| Duplicating style objects for TV sizes | No need to refactor existing styles | Two sets of magic numbers to maintain | Never -- use a multiplier or scale factor applied to existing values. |
+| Removing animations entirely for TV | Simplest fix for jitter | Loses the "living dashboard" feel | Only if animation tuning proves too complex. Prefer reducing duration first. |
 
-### Pitfall 12: Middleware Matcher Doesn't Cover All Protected Routes
+## Performance Traps
 
-**What goes wrong:** The middleware matcher (line 57-59) covers `/manager/:path*`, `/payroll/:path*`, `/owner/:path*`, `/cs/:path*`. If new dashboard routes are added outside these prefixes, they bypass middleware entirely. Not a current issue, but worth noting for awareness.
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| 30-second polling + Socket.IO both active | Duplicate data fetches, flash of stale data on poll then immediate Socket.IO correction | Not a TV-specific issue, but more visible on TV because the "flash" is large-font and prominent | With 15+ agents, visible now |
+| Large AnimatedNumber re-renders on every poll | Every cell re-renders even if value unchanged | Memoize agent rows or use React.memo with comparison on count+premium | Noticeable with 15 agents x 9 columns = 135 cells re-rendering every 30s |
 
-**Prevention:** If adding new top-level routes, update the matcher array.
+## UX Pitfalls
 
-## Phase-Specific Warnings
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Day/Week toggle buttons too small for TV | Nobody can switch modes -- buttons are 12px font, 6px padding | Increase toggle size proportionally, or auto-detect TV mode and default to weekly |
+| "Top Performers" and "All Agents" section labels invisible at distance | Users can't parse the visual hierarchy | Either remove labels (the podium speaks for itself) or increase to 16px+ |
+| Theme toggle (light/dark) visible on TV | Someone accidentally clicks it, board goes white in a dark sales office | Hide ThemeToggle in TV mode -- the board should always be dark on a TV |
+| Team total row not visually distinct enough at distance | The gold background at 0.07 opacity is barely visible on TV | Increase opacity to 0.15-0.20, or add a thicker top border (current 2px may need 3-4px) |
+| Column header abbreviations (Mon, Tue...) at 15px may be too small | Headers are reference text -- need to be readable but not dominant | Increase to 18px minimum for TV, keep uppercase + letter-spacing for distinction |
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Auth redirect loop fix | Pitfall 1 (stale token redirect) + Pitfall 2 (middleware gap) | Fix BOTH client and middleware in same phase; test with expired token in both localStorage AND cookie |
-| Auth redirect loop fix | Pitfall 3 (cookie domain mismatch) | Test cookie clearing on Railway production domain, not just localhost |
-| Auth redirect loop fix | Pitfall 5 (Edge Runtime breakage) | Never import `jsonwebtoken` in middleware; use `atob` + `exp` check only |
-| Auth redirect loop fix | Pitfall 6 (race condition) | Accept stale cookie gets overwritten on next login; don't try to clear httpOnly cookie from client |
-| Phone number: schema | Pitfall 4 (poller not updated) | Update schema + poller mapping in same commit; verify Convoso field name first |
-| Phone number: schema | Pitfall 8 (denormalization) | Store on ConvosoCallLog only; join to Sale through existing fields or new FK |
-| Phone number: schema | Pitfall 9 (select statements) | Grep for all `convosoCallLog` queries and add new field to explicit selects |
-| Phone number: display | Pitfall 7 (PII leakage) | Review role access on affected endpoints before adding phone to response |
-| Phone number: display | Pitfall 11 (format inconsistency) | Normalize at display time with shared formatter in @ops/utils |
-| Database migration | Make new column nullable (`String?`) so migration is additive ALTER TABLE only |
+## "Looks Done But Isn't" Checklist
+
+- [ ] **Font sizes increased:** Verify padding was reduced to compensate -- total row height must not exceed original
+- [ ] **Tested at 1080p:** Also test at 720p and 4K -- font sizes must remain readable at all three
+- [ ] **Tested with 15 agents:** Not just 5 or 9 -- the table must fit 15 rows + header + team total without scrolling
+- [ ] **Tested with long names:** Use "Christopher Rodriguez" as a test name -- if it overflows, add text-overflow handling
+- [ ] **Tested with ambient light:** View the TV in a lit room, not a dark dev setup -- contrast issues only appear in real conditions
+- [ ] **Tested at actual distance:** Stand 3-4 meters from the screen -- what looks readable at your desk may not be
+- [ ] **Zero-sales agents tested:** An agent with 0 sales and $0 premium should look clean, not cluttered with large "0" and "$0"
+- [ ] **Team total row visible:** The gold highlight must be distinct enough to separate team totals from last agent at a glance
+- [ ] **No horizontal scroll:** The table must never trigger horizontal overflow on a 1080p or higher TV
+- [ ] **Socket.IO updates don't cause layout shift:** When a sale comes in, the row should update in-place without the table reflowing
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Cell height overflow (too many agents) | LOW | Reduce padding values and re-test. Pure CSS change, no logic affected. |
+| Contrast too low on TV | LOW | Bump color tokens one tier. Search-and-replace in the single page.tsx file. |
+| Podium won't fit on TV | MEDIUM | Must either compress or remove podium. If DailyView is the TV target, this requires layout restructuring. |
+| Agent names overflowing | LOW | Add textOverflow + ellipsis. 2-line change per cell. |
+| Animations jarring on TV | LOW | Reduce duration prop on AnimatedNumber or swap to static rendering. |
+| Fixed pixels wrong on non-1080p TV | MEDIUM | Retrofitting clamp() across all font-size values after shipping px values. Tedious but mechanical. |
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Cell height overflow | Phase 1 (font sizes) | Render with 15 agents at 1080p -- no scrollbar, team total visible |
+| Dark theme contrast on TV | Phase 1 (font sizes) | View on actual TV in lit room -- all text readable from 3m |
+| Podium vertical space | Phase 1 (layout) | DailyView fits in single viewport at 1080p with 12 agents |
+| Fixed pixel resolution fragility | Phase 1 (font sizes) | Test at 720p, 1080p, 4K -- text remains proportional |
+| AnimatedNumber jitter | Phase 2 (polish) | Watch board for 5 minutes during active sales -- no distracting flicker |
+| Agent name truncation | Phase 1 (font sizes) | Test with "Christopher Rodriguez" at max font size -- no horizontal overflow |
+| Dollar format visual noise | Phase 1 (font sizes) | Zero-premium agents show dash, not "$0" at large size |
 
 ## Sources
 
-- Direct codebase analysis with line references:
-  - `apps/ops-dashboard/middleware.ts` (Edge Runtime JWT decoding, cookie setting, matcher config)
-  - `apps/ops-dashboard/app/page.tsx` (login page useEffect redirect logic)
-  - `apps/ops-dashboard/lib/auth.ts` (decodeRolesFromToken -- no expiry check)
-  - `packages/auth/src/client.ts` (captureTokenFromUrl, getToken, clearToken, decodeTokenPayload, ensureTokenFresh)
-  - `packages/auth/src/index.ts` (buildSessionCookie with AUTH_COOKIE_DOMAIN, signSessionToken with 12h expiry)
-  - `apps/ops-api/src/workers/convosoKpiPoller.ts` (Convoso data mapping, field extraction)
-  - `prisma/schema.prisma` (ConvosoCallLog model line 473, Sale model line 189)
+- Direct codebase analysis: `apps/sales-board/app/page.tsx` (current layout, font sizes, padding values, table structure)
+- Direct codebase analysis: `packages/ui/src/tokens.ts` and `packages/ui/src/theme.css` (color values, contrast ratios)
+- Direct codebase analysis: `packages/ui/src/responsive.css` (existing breakpoints, no TV-specific rules)
+- WCAG 2.1 contrast ratio guidelines (4.5:1 minimum for normal text, 3:1 for large text)
+- TV display best practices: minimum 24px font for body text at 3m viewing distance on 1080p (widely cited in digital signage industry)
 
 ---
-*Pitfalls research for: v1.9 Auth Stability & Phone Number Display*
-*Researched: 2026-03-30*
+*Pitfalls research for: TV-readable sales board leaderboard*
+*Researched: 2026-03-31*

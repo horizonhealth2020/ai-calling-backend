@@ -1,147 +1,176 @@
-# Technology Stack: v1.9 Auth Stability & Phone Number Display
+# Technology Stack
 
-**Project:** Ops Platform v1.9
-**Researched:** 2026-03-30
-**Confidence:** HIGH
+**Project:** Sales Board TV Readability (v2.0)
+**Researched:** 2026-03-31
 
-## Decision: No New Dependencies Required
+## Recommendation: No New Dependencies
 
-**Recommendation: This milestone requires zero new libraries.** Both features (auth redirect loop fix and phone number display) are pure application logic changes using the existing stack. Adding dependencies would be overengineering.
+This milestone requires zero new libraries. The existing stack (Next.js 15, React, inline CSSProperties, Inter font via next/font/google) provides everything needed. The work is purely CSS font-size and layout tuning within the existing pattern.
 
-## What Exists (Relevant to v1.9)
+## Current Font Size Inventory
 
-### Auth Stack (No Changes Needed)
+Understanding what exists is critical before changing anything. All values are in `px` (hardcoded integers in inline styles).
 
-| Technology | Version | Role in v1.9 |
-|------------|---------|---------------|
-| jsonwebtoken | (via @ops/auth) | Server-side JWT sign/verify -- already handles expiry correctly |
-| Next.js Middleware | 15.3.9 | Edge Runtime route guard -- **needs expiry check added** |
-| @ops/auth/client | workspace | Browser token management -- **already clears expired tokens** (line 62) |
+### Weekly View (table layout -- primary TV view)
 
-### Database Stack (Schema Change Only)
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| Table header (day labels) | 15px | `TH` style object, line 542 |
+| Agent name | 18px | Agent name `<td>`, line 606 |
+| Rank badge number | 11px | Rank `<span>`, line 623 |
+| Daily cell count | 20px | Sale count per day, line 656 |
+| Daily cell premium | 12px | Premium per day, line 668 |
+| Empty cell dash | 14px | `&mdash;` placeholder, line 673 |
+| Agent total count | 24px | Weekly total column, line 685 |
+| Agent total premium | 15px | Premium total, line 702 |
+| Team Total label | 14px | Footer row label, line 719 |
+| Team Total daily count | 20px | Footer daily counts, line 740 |
+| Team Total daily premium | 12px | Footer daily premiums, line 743 |
+| Team Total grand count | 28px | Grand total number, line 758 |
+| Team Total grand premium | 16px | Grand total premium, line 771 |
 
-| Technology | Version | Role in v1.9 |
-|------------|---------|---------------|
-| Prisma | (via @ops/db) | Schema migration to add `leadPhone` column |
-| PostgreSQL | existing | Storage for phone number data |
+### Daily View (podium + columns)
 
-### Convoso Integration (Poller Change Only)
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| 1st place name | 17px | `PODIUM_CONFIG[0].nameSize`, line 61 |
+| 1st place count | 36px | `PODIUM_CONFIG[0].countSize`, line 62 |
+| 2nd place name | 15px | `PODIUM_CONFIG[1].nameSize`, line 75 |
+| 2nd place count | 28px | `PODIUM_CONFIG[1].countSize`, line 76 |
+| 3rd place name | 14px | `PODIUM_CONFIG[2].nameSize`, line 89 |
+| 3rd place count | 26px | `PODIUM_CONFIG[2].countSize`, line 90 |
+| Podium premium | 12px | Below count, line 212 |
+| Remaining agent name | 14px | Column name, line 469 |
+| Remaining agent count | 28px | Column count, line 481 |
+| Remaining agent premium | 12px | Column premium, line 492 |
+| Rank badge number | 11px | Rank circle, line 440 |
 
-| Technology | Version | Role in v1.9 |
-|------------|---------|---------------|
-| axios | ^1.7.7 | HTTP client for Convoso API -- no changes needed |
-| luxon | ^3.4.4 | Timezone-aware timestamp parsing -- no changes needed |
+### Header / Stats Bar
 
-## Why No New Libraries
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| "Sales Board" title | 36px | `<h1>`, line 917 |
+| Stats card label | 11px | "TODAY'S SALES" etc., lines 1022/1070/1122/1174 |
+| Stats card value | 20-30px | Varies by data magnitude, lines 1034/1082/1134/1186 |
 
-### Auth Fix: Pure Logic, Not Missing Capability
+## Techniques for TV-Distance Readability
 
-The redirect loop happens because of a logic gap, not a missing library:
+### Use Static `px` Values (Not `clamp()` or `vw`)
 
-1. **Next.js middleware** (Edge Runtime) decodes JWT base64 to read roles but does NOT check the `exp` claim. An expired token has valid base64, so middleware sees roles and allows access.
-2. **ops-api** correctly rejects the expired token via `jsonwebtoken.verify()`.
-3. **Client** clears the rejected token and redirects to login page (`/`).
-4. **Login page** `useEffect` finds no localStorage token, shows login form. But the **cookie** still has the expired token.
-5. **Next visit to a dashboard route**: middleware reads expired cookie, finds roles, allows through. Cycle repeats.
+**Recommendation: Keep using hardcoded `px` values. Do NOT introduce `clamp()`, `vw`, or responsive font techniques.**
 
-**Fix requires:** Adding `exp` timestamp check in middleware (3 lines of code) + clearing stale localStorage on login page mount. The `atob` + `JSON.parse` already in middleware gives access to `payload.exp`. No crypto library needed because Edge Runtime cannot verify signatures anyway (no access to `AUTH_JWT_SECRET`); the real auth is API-side.
+**Why:**
+1. The sales board runs on a single known display: a wall-mounted TV, typically 1080p (1920x1080). The viewport does not change.
+2. `clamp()` and viewport units solve a problem that does not exist here -- adapting to unknown screen sizes. A TV is a fixed target.
+3. CSS `clamp()` cannot be expressed as a React `CSSProperties` `fontSize` number -- it requires a string value like `"clamp(18px, 2vw, 28px)"`. This would break the existing pattern of `fontSize: 18` (number) and create inconsistency across the codebase.
+4. Viewport units (`2vw` = ~38px on 1920px wide) are harder to reason about than explicit pixel values when the target resolution is known.
 
-### Phone Number: Schema + Poller Mapping
+**Bottom line:** When you know the screen, pick the right number. `fontSize: 24` is clearer than `fontSize: "clamp(18px, 1.25vw, 24px)"` and produces identical results on the target TV.
 
-The Convoso API already returns `phone_number` in call log responses (confirmed: it's listed in `CALL_LOG_PASS_THROUGH_PARAMS` at `call-logs.ts:19`). The poller simply doesn't map it to the database.
+### Font Size Scaling Strategy
 
-**Fix requires:**
-1. Prisma migration: add `leadPhone String? @map("lead_phone")` to `ConvosoCallLog` model
-2. Poller: map `r.phone_number` or `r.number_dialed` to `leadPhone` in the `callLogRecords` builder
-3. Dashboard: add column to call audit and agent sales table components
+For a 1080p TV viewed from 10-15 feet (typical sales floor):
 
-## Alternatives Considered (and Rejected)
+| Readability Tier | Minimum Size | Purpose |
+|-----------------|-------------|---------|
+| Glanceable numbers | 28-36px | Sale counts, totals -- the numbers agents care about most |
+| Key labels | 20-24px | Agent names, day headers, premium amounts |
+| Supporting text | 14-16px | Section labels, secondary metrics |
+| Decorative/metadata | 11-12px | Rank labels, timestamps -- fine to stay small |
 
-| What | Why Not |
-|------|---------|
-| `jose` library for Edge Runtime JWT verification | Overkill. We only need to check `exp` (a timestamp comparison), not verify the signature. Signature verification happens at the API layer. Adding `jose` just to decode what `atob` already decodes is unnecessary. |
-| `js-cookie` for cookie management | Next.js `cookies()` API and `response.cookies.set/delete` handle everything needed. |
-| Phone number formatting library (e.g., `libphonenumber-js`) | Phone numbers come from Convoso already formatted. Display as-is. If formatting is later needed, it's a 10-line utility, not a 200KB library. |
-| Separate auth middleware package | The expiry check is 3 lines added to existing `middleware.ts`. Extracting to a package adds indirection for no benefit. |
+**Confidence:** MEDIUM -- based on TV typography best practices (minimum 24px for body text at 10ft viewing distance on 1080p). The exact sweet spots will need real-world testing on the actual TV.
 
-## Implementation Points (No Install Steps)
+### Font Weight as a Readability Multiplier
 
-### Middleware Expiry Check (Edge Runtime Compatible)
+The codebase already uses `fontWeight: 800` for key numbers. This is correct. Bold text is more legible at distance than increasing font size alone. The Inter font (already loaded via `next/font/google`) renders well at heavy weights.
 
-The existing middleware already does `JSON.parse(atob(parts[1]))` to get `payload`. Adding expiry check:
+**Key insight:** Going from 700 to 800 weight on a number gains more perceived readability than adding 2px of font size, at no layout cost.
+
+### Letter Spacing for Large Numbers
+
+Current: `letterSpacing: "-0.03em"` on large counts. This tight tracking works well for display-size numbers and should be preserved. At large sizes, negative letter spacing prevents numbers from looking spaced-out.
+
+### Row Cell Padding Constraints
+
+The milestone requirement states "cell dimensions unchanged -- use existing whitespace, not bigger rows." Current cell padding is `14px 16px`. The existing whitespace within cells can absorb larger font sizes because:
+
+- Agent name cells have `whiteSpace: "nowrap"` and adequate horizontal padding (`14px + spacing[5]px`)
+- Daily cells center-align content with `16px` horizontal padding
+- The table has `minWidth: 760` which is far below 1920px, leaving generous horizontal space
+
+Increasing fonts within cells will consume vertical whitespace but the current `14px` top/bottom padding provides buffer.
+
+## What NOT to Add
+
+| Library/Technique | Why Skip It |
+|-------------------|-------------|
+| `clamp()` / CSS functions | Fixed viewport; adds string-type fontSize breaking numeric pattern |
+| Viewport units (`vw`, `vh`) | Harder to reason about than explicit px for known screen |
+| `@media` queries | Single target resolution; no breakpoints needed |
+| CSS Container Queries | Overkill for static TV layout |
+| `react-responsive` / `react-use` | Zero benefit over hardcoded values for single-screen target |
+| Custom font (e.g., `Roboto Mono`) | Inter at weight 800 is excellent for numbers; monospace not needed |
+| `fitty` / `textFit` libraries | Auto-sizing libraries solve dynamic content; agent counts are 1-3 digits |
+| CSS Grid `auto-fit`/`auto-fill` | The table already handles column distribution; podium uses flex |
+
+## What to Change (Implementation Guidance)
+
+### Approach: Bump Static Values
+
+Create a font size constant object at the top of `page.tsx` to centralize TV-optimized values:
 
 ```typescript
-// After decoding payload (already exists at middleware.ts:27)
-const now = Math.floor(Date.now() / 1000);
-if (typeof payload.exp === "number" && payload.exp < now) {
-  // Expired token: clear cookie and redirect to login
-  const response = NextResponse.redirect(new URL("/", request.url));
-  response.cookies.delete(AUTH_COOKIE_NAME);
-  return response;
-}
+const TV = {
+  // Weekly table
+  tableHeader: 18,      // was 15
+  agentName: 22,        // was 18
+  dailyCount: 24,       // was 20
+  dailyPremium: 15,     // was 12
+  totalCount: 30,       // was 24
+  totalPremium: 20,     // was 15
+  teamLabel: 18,        // was 14
+  teamDailyCount: 24,   // was 20
+  teamDailyPremium: 15, // was 12
+  teamGrandCount: 34,   // was 28
+  teamGrandPremium: 20, // was 16
+
+  // Daily podium
+  podium1Name: 22,      // was 17
+  podium1Count: 42,     // was 36
+  podium2Name: 19,      // was 15
+  podium2Count: 34,     // was 28
+  podium3Name: 17,      // was 14
+  podium3Count: 30,     // was 26
+  podiumPremium: 15,    // was 12
+
+  // Remaining agents
+  restName: 18,         // was 14
+  restCount: 34,        // was 28
+  restPremium: 15,      // was 12
+} as const;
 ```
 
-This runs in Edge Runtime with zero external dependencies -- just `Date.now()` and integer comparison.
+This keeps the inline CSSProperties pattern (`fontSize: TV.agentName`) while making all TV-optimized values discoverable and tunable in one place.
 
-### Login Page Stale Token Cleanup
+### Agent Count Scaling (9-15 agents)
 
-The `useEffect` on the login page should clear expired tokens before checking for auto-redirect:
+The weekly table handles variable agent counts naturally -- rows stack vertically with no overflow concern at 9-15 rows on a 1080px tall screen (each row ~50-60px = 450-900px total, well within budget with header/footer).
 
-```typescript
-// In the existing useEffect, before checking stored token
-const stored = getToken();
-if (stored) {
-  const payload = decodeTokenPayload(stored);
-  if (payload?.exp && typeof payload.exp === "number" && payload.exp * 1000 < Date.now()) {
-    clearToken();
-    return; // Show login form, don't redirect
-  }
-  // ... existing redirect logic
-}
-```
+The daily view's "remaining agents" section uses `flex: 1` columns with `minWidth: 0` and `maxWidth: 200`. For 6-12 remaining agents (after top 3 podium), this distributes evenly across 1920px width. No changes needed to the flex layout -- just the font sizes within columns.
 
-`decodeTokenPayload` and `clearToken` are already exported from `@ops/auth/client`.
+## Integration with Existing Patterns
 
-### Prisma Schema Addition
+All changes stay within the existing pattern:
 
-```prisma
-model ConvosoCallLog {
-  // ... existing fields ...
-  leadPhone           String?  @map("lead_phone")
-}
-```
-
-Migration: `npx prisma migrate dev --name add-lead-phone-to-call-log`
-
-### Poller Phone Capture
-
-In `convosoKpiPoller.ts`, add to the `callLogRecords` mapping (around line 103):
-
-```typescript
-leadPhone: (() => {
-  const phone = r.phone_number ?? r.number_dialed;
-  return phone ? String(phone) : null;
-})(),
-```
-
-## Existing Dependencies Sufficient
-
-| Capability Needed | Already Have | Version |
-|-------------------|-------------|---------|
-| JWT decode in Edge Runtime | Native `atob` + `JSON.parse` | Built-in |
-| JWT verify on API | `jsonwebtoken` via @ops/auth | Already working |
-| Token lifecycle (client) | `@ops/auth/client` | Already has `clearToken`, `decodeTokenPayload` |
-| Cookie management (middleware) | `NextResponse.cookies` | Next.js 15.3.9 |
-| Schema migration | Prisma CLI | Already configured |
-| Convoso HTTP calls | `axios` | ^1.7.7 |
-| Dashboard table columns | React inline styles | Existing pattern |
+- **Inline `React.CSSProperties`** -- fontSize remains a number, not a string
+- **Constant objects** -- the `TV` constant follows the existing `TH`, `PODIUM_CONFIG` pattern
+- **No CSS files** -- no `@media`, no `clamp()`, no global styles
+- **No new imports** -- zero new dependencies
+- **Inter font** -- already loaded, already used at weight 800
 
 ## Sources
 
-- Middleware code reviewed: `apps/ops-dashboard/middleware.ts` (60 lines, full Edge Runtime route guard)
-- Auth client reviewed: `packages/auth/src/client.ts` (117 lines, already handles expired tokens client-side)
-- Auth server reviewed: `packages/auth/src/index.ts` (50 lines, `jsonwebtoken` verification)
-- Login page reviewed: `apps/ops-dashboard/app/page.tsx` (auto-redirect logic in useEffect)
-- Convoso poller reviewed: `apps/ops-api/src/workers/convosoKpiPoller.ts` (call log record mapping)
-- Prisma schema reviewed: `prisma/schema.prisma` (ConvosoCallLog model at line 473)
-- Call logs route reviewed: `apps/ops-api/src/routes/call-logs.ts` (confirms `phone_number` is a known Convoso field)
+- Direct analysis of `apps/sales-board/app/page.tsx` (current font sizes, layout structure, styling patterns)
+- Direct analysis of `apps/sales-board/app/layout.tsx` (Inter font, ThemeProvider)
+- TV typography guidelines: 24px minimum for body text at 10ft on 1080p (MEDIUM confidence -- general industry guidance, not verified against a specific standard)
+- CSS `clamp()` incompatibility with `React.CSSProperties` number type: verified via TypeScript type definition (`fontSize` accepts `number | string`, but project convention is numbers only)
