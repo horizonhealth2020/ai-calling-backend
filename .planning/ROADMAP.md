@@ -52,6 +52,17 @@ Plans:
 - [x] 35-02-PLAN.md -- Per-dashboard date range scoping, Today column removal, Owner KPIs default
 - [ ] 35-03-PLAN.md -- CS round robin fairness fix
 
+### Phase 36: Fix Manager Sales Entry Parsing Error and Payroll UI Issues
+**Goal:** Fix receipt parser product matching that breaks on dollar signs/commas, and stabilize payroll agent pay card row ordering
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07
+**Depends on:** Phase 35
+**Plans:** 1/3 plans complete
+
+Plans:
+- [x] 36-01-PLAN.md -- Fix matchProduct() regex and payroll entry sort order
+- [ ] 36-02-PLAN.md
+- [ ] 36-03-PLAN.md
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -59,6 +70,7 @@ Plans:
 | 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
 | 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
 | 35. Fix KPI Polling & Manager Dashboard | 1/3 | Complete    | 2026-03-31 |
+| 36. Fix Manager Sales Entry & Payroll UI | 1/3 | In progress | - |
 
 ### Phase 36: Fix manager sales entry parsing error and payroll UI issues
 
@@ -74,4 +86,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 36 planned (3 plans in 2 waves)*
+*Last updated: 2026-03-31 -- Phase 36 Plan 01 complete*

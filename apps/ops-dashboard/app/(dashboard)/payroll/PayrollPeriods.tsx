@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
 import { colors, spacing, radius, shadows, motion, baseInputStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -569,10 +569,27 @@ function AgentPayCard({
   const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
   const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
 
+  const sortedEntries = useMemo(() => {
+    return [...entries].sort((a, b) => {
+      const aId = a.sale?.memberId;
+      const bId = b.sale?.memberId;
+      // Entries without member ID sort to top (D-06)
+      if (!aId && !bId) return 0;
+      if (!aId) return -1;
+      if (!bId) return 1;
+      // Numeric sort by member ID when both are numbers
+      const aNum = parseInt(aId, 10);
+      const bNum = parseInt(bId, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      // Fallback to string comparison for non-numeric IDs
+      return aId.localeCompare(bId);
+    });
+  }, [entries]);
+
   const [showAllEntries, setShowAllEntries] = useState(false);
   const COLLAPSED_LIMIT = 5;
-  const visibleEntries = showAllEntries ? entries : entries.slice(0, COLLAPSED_LIMIT);
-  const hiddenCount = entries.length - COLLAPSED_LIMIT;
+  const visibleEntries = showAllEntries ? sortedEntries : sortedEntries.slice(0, COLLAPSED_LIMIT);
+  const hiddenCount = sortedEntries.length - COLLAPSED_LIMIT;
 
   const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED");
   const hasPaidSiblings = entries.some(e => e.status === "PAID");
