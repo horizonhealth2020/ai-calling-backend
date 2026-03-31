@@ -72,6 +72,7 @@ Plans:
 | 34. Dynamic Scaling & Daily View | 0/1 | In progress | - |
 | 35. Fix KPI Polling & Manager Dashboard | 1/3 | Complete    | 2026-03-31 |
 | 36. Fix Manager Sales Entry & Payroll UI | 3/3 | Complete    | 2026-03-31 |
+| 37. Fix Call Audit Issues & Performance | 1/4 | In progress | - |
 
 ### Phase 36: Fix manager sales entry parsing error and payroll UI issues
 
@@ -92,7 +93,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 37-00-PLAN.md -- Wave 0: Test scaffolds for auditQueue and compositeScore (RED phase)
+- [x] 37-00-PLAN.md -- Wave 0: Test scaffolds for auditQueue and compositeScore (RED phase)
 - [ ] 37-01-PLAN.md -- Prisma migration, recording retry extension (D-03), orphan recovery, retry with backoff, failure categorization, formatDateTime helper
 - [ ] 37-02-PLAN.md -- Composite performance score replacing salesCount sort in ManagerTracker
 - [ ] 37-03-PLAN.md -- Audit UI overhaul: timestamps, dual-field ordering (D-09), pagination, agent filter, Load More

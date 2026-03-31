@@ -19,17 +19,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 36 — fix-manager-sales-entry-parsing-error-and-payroll-ui-issues
+**Current focus:** Phase 37 — fix-call-audit-issues-manager-dashboard-ui-and-agent-performance-card-order
 
 ## Current Position
 
-Phase: 36
-Plan: Not started
-Status: All plans complete
+Phase: 37
+Plan: 00 complete, 01 next
+Status: Plan 00 complete (test scaffolds)
 Last activity: 2026-03-31
 
 ```
-[====================] 1/1 phases | 3/3 plans
+[=====...............] 1/4 plans
 ```
 
 ## Performance Metrics
@@ -71,6 +71,7 @@ Last activity: 2026-03-31
 ### Roadmap Evolution
 
 - Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
+- Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
 
 ### Open Questions
 
@@ -92,5 +93,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 36-03-PLAN.md*
+*Last session: 2026-03-31 -- Completed 37-00-PLAN.md*
 *Last updated: 2026-03-31*
