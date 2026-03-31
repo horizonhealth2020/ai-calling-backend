@@ -50,14 +50,16 @@ Plans:
 
 ### Phase 35: Fix KPI polling issues and manager dashboard features
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Fix Convoso KPI poller timezone bug, add "Today" date range preset, scope date ranges per dashboard, remove redundant Today column from Manager Tracker, and fix CS round robin assignment fairness
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11
 **Depends on:** Phase 34
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 35 to break down)
+- [ ] 35-01-PLAN.md -- KPI poller timezone fix and "Today" KPI preset addition
+- [ ] 35-02-PLAN.md -- Per-dashboard date range scoping, Today column removal, Owner KPIs default
+- [ ] 35-03-PLAN.md -- CS round robin fairness fix
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Phase 34 complete, all v2.0 requirements shipped*
+*Last updated: 2026-03-31 -- Phase 35 planned with 3 plans in 2 waves*
