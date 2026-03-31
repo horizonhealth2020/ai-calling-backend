@@ -18,7 +18,6 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { useDateRange } from "@/lib/DateRangeContext";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
 import {
@@ -349,7 +348,7 @@ function DashboardSection({
 /* -- OwnerOverview -- */
 
 export default function OwnerOverview({ socket, API }: { socket: SocketClient | null; API: string }) {
-  const { value: dateRange, onChange: setDateRange } = useDateRange();
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
   const [summary, setSummary] = useState<Summary | null>(null);
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
   const [loading, setLoading] = useState(true);

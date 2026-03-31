@@ -15,7 +15,6 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { useDateRange } from "@/lib/DateRangeContext";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import {
   Trophy,
@@ -98,7 +97,7 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 /* -- Component -- */
 
 export default function ManagerTracker({ API, tracker, setTracker, highlightedAgentNames }: ManagerTrackerProps) {
-  const { value: dateRangeCtx, onChange: setDateRangeCtx } = useDateRange();
+  const [dateRangeCtx, setDateRangeCtx] = useState<DateRangeFilterValue>({ preset: "today" });
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [, setCallCountsLoaded] = useState(false);
   const [convosoConfigured, setConvosoConfigured] = useState(false);
