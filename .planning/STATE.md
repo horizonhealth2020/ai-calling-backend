@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-03-31T15:07:30.000Z"
-last_activity: 2026-03-31 -- Completed 33-01 WeeklyView TV readability
+last_updated: "2026-03-31T15:13:19.000Z"
+last_activity: 2026-03-31 -- Completed 33-02 KPI stat cards TV readability
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 33 (core-tv-readability) — EXECUTING
-Plan: 2 of 2
-Status: Executing Phase 33
-Last activity: 2026-03-31 -- Completed 33-01 WeeklyView TV readability
+Plan: 2 of 2 (complete, awaiting visual verification)
+Status: Phase 33 code complete -- awaiting human verification checkpoint
+Last activity: 2026-03-31 -- Completed 33-02 KPI stat cards TV readability
 
 ```
-[=====               ] 0/2 phases | 1/2 plans
+[====================] 0/2 phases | 2/2 plans
 ```
 
 ## Performance Metrics
@@ -38,8 +38,8 @@ Last activity: 2026-03-31 -- Completed 33-01 WeeklyView TV readability
 |--------|-------|
 | Milestones shipped | 10 (v1.0 through v1.9) |
 | Total phases | 32 complete |
-| Total plans | 94 complete |
-| Total requirements | 224 shipped |
+| Total plans | 95 complete |
+| Total requirements | 225 shipped |
 | Timeline | 17 days (2026-03-14 to 2026-03-30) |
 
 ## Accumulated Context
@@ -53,6 +53,8 @@ Last activity: 2026-03-31 -- Completed 33-01 WeeklyView TV readability
 - All changes land in a single file: apps/sales-board/app/page.tsx
 - Row height budget at 15 agents is ~49px per row -- reduce vertical padding from 14px to 11-12px to compensate for larger fonts
 - Promote textTertiary to textSecondary for anything readable on a TV in a lit office
+- KPI stat card numbers scaled from 30px to 36px base, conditional premium cards use 28/36
+- Card padding reduced from 20px uniform to 12px/16px to absorb font growth without changing card size
 
 ### Open Questions
 
@@ -74,5 +76,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 33-01-PLAN.md*
+*Last session: 2026-03-31 -- Completed 33-02-PLAN.md*
 *Last updated: 2026-03-31*

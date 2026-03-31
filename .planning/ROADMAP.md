@@ -26,7 +26,7 @@
 
 Plans:
 - [x] 33-01-PLAN.md -- WeeklyView table font sizes, padding, contrast, and overflow
-- [ ] 33-02-PLAN.md -- KPI stat card font sizes, padding, and stats-to-tab gap
+- [x] 33-02-PLAN.md -- KPI stat card font sizes, padding, and stats-to-tab gap
 
 ### Phase 34: Dynamic Scaling & Daily View
 **Goal**: The sales board automatically adjusts font sizes based on agent count and the daily/podium leaderboard view is TV-readable
@@ -43,9 +43,9 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 33. Core TV Readability | 1/2 | Executing | - |
+| 33. Core TV Readability | 2/2 | Awaiting verification | - |
 | 34. Dynamic Scaling & Daily View | 0/0 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 -- Plan 33-01 complete*
+*Last updated: 2026-03-31 -- Plan 33-02 complete, awaiting visual verification*
