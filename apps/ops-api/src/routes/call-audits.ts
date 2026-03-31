@@ -31,23 +31,66 @@ router.get("/call-recordings", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"
 
 // ── Call Audits ─────────────────────────────────────────────────
 router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const qp = dateRangeQuerySchema.extend({ agentId: z.string().optional() }).safeParse(req.query);
+  const qp = dateRangeQuerySchema.extend({
+    agentId: z.string().optional(),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().min(1).max(100).default(25),
+  }).safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
+
+  const { cursor, limit } = qp.data;
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
-  const where: { callDate?: { gte: Date; lt: Date }; agentId?: string } = {};
-  if (dr) where.callDate = { gte: dr.gte, lt: dr.lt };
+
+  // Default to last 24 hours if no date range specified and no cursor (initial load)
+  const where: { callDate?: { gte: Date; lt: Date } | { gte: Date; lt: Date } & { lt?: Date }; agentId?: string } = {};
+  if (dr) {
+    where.callDate = { gte: dr.gte, lt: dr.lt };
+  } else if (!cursor) {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    where.callDate = { gte: yesterday, lt: now };
+  }
   if (qp.data.agentId) where.agentId = qp.data.agentId;
+
+  // Cursor-based pagination: use Prisma cursor with skip 1 to exclude the cursor item
+  const paginationArgs: { cursor?: { id: string }; skip?: number } = {};
+  if (cursor) {
+    paginationArgs.cursor = { id: cursor };
+    paginationArgs.skip = 1;
+  }
 
   const audits = await prisma.callAudit.findMany({
     where,
+    ...paginationArgs,
     include: {
       agent: { select: { id: true, name: true } },
       convosoCallLog: { select: { leadPhone: true } },
     },
-    orderBy: { callDate: "desc" },
+    // D-09: Order by callDate desc (most recent call first), then updatedAt desc
+    // (processing completion time — recently processed audits appear first among same-date calls)
+    orderBy: [
+      { callDate: "desc" },
+      { updatedAt: "desc" },
+    ],
+    take: limit + 1,
   });
-  console.log(JSON.stringify({ event: "call_audits_fetch", count: audits.length, whereKeys: Object.keys(where), timestamp: new Date().toISOString() }));
-  res.json(audits);
+
+  const hasMore = audits.length > limit;
+  const items = hasMore ? audits.slice(0, limit) : audits;
+  const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+
+  console.log(JSON.stringify({ event: "call_audits_fetch", count: items.length, hasMore, whereKeys: Object.keys(where), timestamp: new Date().toISOString() }));
+  res.json({ audits: items, nextCursor });
+}));
+
+// ── Agent list for audit filter dropdown ─────────────────────────
+router.get("/call-audits/agents", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
+  const agents = await prisma.callAudit.findMany({
+    select: { agent: { select: { id: true, name: true } } },
+    distinct: ["agentId"],
+    orderBy: { agentId: "asc" },
+  });
+  res.json(agents.map(a => a.agent));
 }));
 
 router.get("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
