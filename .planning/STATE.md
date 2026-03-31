@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: completed
-last_updated: "2026-03-31T18:20:57.121Z"
+last_updated: "2026-03-31T20:05:37Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 4
@@ -19,17 +19,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 36 — fix-manager-sales-entry-parsing-error-and-payroll-ui-issues
+**Current focus:** Phase 37 — fix-call-audit-issues-manager-dashboard-ui-and-agent-performance-card-order
 
 ## Current Position
 
-Phase: 36
-Plan: Not started
-Status: All plans complete
+Phase: 37
+Plan: 1 of 4 complete
+Status: Plan 01 complete, Plan 02 next
 Last activity: 2026-03-31
 
 ```
-[====================] 1/1 phases | 3/3 plans
+[=====...............] 1/4 plans
 ```
 
 ## Performance Metrics
@@ -67,10 +67,14 @@ Last activity: 2026-03-31
 - Standalone ACA section uses collapsible pattern below main sale form
 - ACA badge uses info-blue color to distinguish from regular product badges in payroll cards
 - Flat commission displayed as "$X.XX x N members = $total" format
+- Exponential backoff delays for audit retry: 1min, 5min, 15min with max 3 retries
+- Recording retry extended to 20 (20min) for long calls where Convoso takes longer to process
+- Audit failures categorized: recording_unavailable, transcription_timeout, claude_api_error, unknown
 
 ### Roadmap Evolution
 
 - Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
+- Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
 
 ### Open Questions
 
@@ -92,5 +96,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed 36-03-PLAN.md*
+*Last session: 2026-03-31 -- Completed 37-01-PLAN.md*
 *Last updated: 2026-03-31*
