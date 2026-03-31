@@ -438,10 +438,12 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
         return data.assignments ?? [];
       }
     } catch { /* fallback below */ }
-    // Fallback: local round-robin if API fails
+    console.warn(`[CSSubmissions] batch-assign API failed for type=${type}, using local fallback`);
+    // Fallback: local round-robin with random offset to avoid always-start-at-0 bias
     const active = repsRef.current.filter((r) => r.active).map((r) => r.name);
     if (active.length === 0) return Array(count).fill("");
-    return Array.from({ length: count }, (_, i) => active[i % active.length]);
+    const offset = Math.floor(Math.random() * active.length);
+    return Array.from({ length: count }, (_, i) => active[(offset + i) % active.length]);
   };
 
   const handleTextChange = async (text: string) => {
