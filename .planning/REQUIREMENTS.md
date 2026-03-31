@@ -45,23 +45,23 @@ None deferred — milestone is tightly scoped.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TYPO-01 | TBD | Pending |
-| TYPO-02 | TBD | Pending |
-| TYPO-03 | TBD | Pending |
-| TYPO-04 | TBD | Pending |
-| TYPO-05 | TBD | Pending |
-| SCAL-01 | TBD | Pending |
-| SCAL-02 | TBD | Pending |
-| SCAL-03 | TBD | Pending |
-| SCAL-04 | TBD | Pending |
-| OVFL-01 | TBD | Pending |
-| OVFL-02 | TBD | Pending |
+| TYPO-01 | Phase 33 | Pending |
+| TYPO-02 | Phase 34 | Pending |
+| TYPO-03 | Phase 33 | Pending |
+| TYPO-04 | Phase 33 | Pending |
+| TYPO-05 | Phase 33 | Pending |
+| SCAL-01 | Phase 34 | Pending |
+| SCAL-02 | Phase 34 | Pending |
+| SCAL-03 | Phase 34 | Pending |
+| SCAL-04 | Phase 33 | Pending |
+| OVFL-01 | Phase 33 | Pending |
+| OVFL-02 | Phase 33 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11
+- Mapped to phases: 11
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after initial definition*
+*Last updated: 2026-03-31 after roadmap creation*
