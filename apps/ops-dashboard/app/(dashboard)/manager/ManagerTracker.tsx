@@ -28,7 +28,7 @@ import LeadTimingSection from "./LeadTimingSection";
 
 /* -- Types -- */
 
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number; todaySalesCount: number; todayPremium: number };
+type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
 type CallCount = { agentId: string; agentName: string; leadSourceId: string; leadSourceName: string; callCount: number; totalLeadCost: number };
 
 export interface ManagerTrackerProps {
@@ -60,12 +60,10 @@ function buildDateParams(filter: DateRangeFilterValue): string {
 
 function exportAgentPerformanceCSV(tracker: TrackerEntry[]) {
   const esc = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
-  const rows: string[][] = [["Agent", "Today Sales", "Today Premium", "Sales Count", "Commission Earned", "Premium Total", "Lead Cost", "Cost Per Sale"]];
+  const rows: string[][] = [["Agent", "Sales Count", "Commission Earned", "Premium Total", "Lead Cost", "Cost Per Sale"]];
   for (const t of tracker) {
     rows.push([
       esc(t.agent),
-      String(t.todaySalesCount),
-      t.todayPremium.toFixed(2),
       String(t.salesCount),
       t.commissionTotal.toFixed(2),
       t.premiumTotal.toFixed(2),
@@ -144,7 +142,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Rank", "Agent", "Today", "Calls", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
+              {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
                 <th key={h} style={{ ...baseThStyle, textAlign: i >= 2 ? "right" : "left" }}>{h}</th>
               ))}
             </tr>
@@ -186,11 +184,6 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                   <td style={{ ...baseTdStyle, fontWeight: isTop ? 700 : 500, color: isTop ? colors.textPrimary : colors.textSecondary, fontSize: isTop ? 14 : 13 }}>
                     {row.agent}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600 }}>
-                    {row.todaySalesCount > 0
-                      ? <span style={{ color: colors.textPrimary }}>{row.todaySalesCount} <span style={{ color: colors.textSecondary, fontSize: 12 }}>(${row.todayPremium.toLocaleString()})</span></span>
-                      : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
-                  </td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
                     {agentCalls ? <AnimatedNumber value={agentCalls} /> : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                   </td>
@@ -221,7 +214,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
             })}
             {tracker.length === 0 && (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <EmptyState icon={<BarChart3 size={32} />} title="No sales data yet" description="Sales will appear here once agents submit entries." />
                 </td>
               </tr>
