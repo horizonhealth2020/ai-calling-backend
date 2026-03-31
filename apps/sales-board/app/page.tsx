@@ -58,7 +58,7 @@ const PODIUM_CONFIG = {
     icon: <Trophy size={32} strokeWidth={1.5} />,
     height: 220,
     width: 200,
-    nameSize: 17,
+    nameSize: 22,
     countSize: 36,
     stagger: "stagger-2",
     label: "1st Place",
@@ -72,8 +72,8 @@ const PODIUM_CONFIG = {
     icon: <Medal size={28} strokeWidth={1.5} />,
     height: 180,
     width: 175,
-    nameSize: 15,
-    countSize: 28,
+    nameSize: 20,
+    countSize: 32,
     stagger: "stagger-1",
     label: "2nd Place",
     order: 0,
@@ -86,8 +86,8 @@ const PODIUM_CONFIG = {
     icon: <Award size={26} strokeWidth={1.5} />,
     height: 160,
     width: 165,
-    nameSize: 14,
-    countSize: 26,
+    nameSize: 18,
+    countSize: 30,
     stagger: "stagger-3",
     label: "3rd Place",
     order: 2,
@@ -123,7 +123,7 @@ function PodiumCard({
       {/* Rank label above card */}
       <div
         style={{
-          fontSize: 10,
+          fontSize: 13,
           fontWeight: 700,
           color: cfg.rankColor,
           letterSpacing: "0.1em",
@@ -149,7 +149,7 @@ function PodiumCard({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: `${spacing[5]}px ${spacing[4]}px`,
+          padding: `${spacing[3]}px ${spacing[3]}px`,
           position: "relative",
           overflow: "hidden",
           backdropFilter: "blur(8px)",
@@ -172,7 +172,7 @@ function PodiumCard({
         <div
           style={{
             color: cfg.rankColor,
-            marginBottom: spacing[2],
+            marginBottom: 4,
             filter: `drop-shadow(0 2px 8px ${cfg.rankColor}60)`,
           }}
         >
@@ -187,7 +187,7 @@ function PodiumCard({
             color: colors.textPrimary,
             textAlign: "center",
             lineHeight: 1.2,
-            marginBottom: spacing[2],
+            marginBottom: 4,
             letterSpacing: "-0.01em",
           }}
         >
@@ -209,7 +209,7 @@ function PodiumCard({
         </div>
 
         {/* Premium */}
-        <div style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: colors.textSecondary }}>
           <AnimatedNumber value={premium} prefix="$" decimals={2} />
         </div>
       </div>
@@ -244,7 +244,7 @@ function PodiumPlatform() {
           justifyContent: "center",
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: colors.silver, opacity: 0.6 }}>2</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: colors.silver, opacity: 0.6 }}>2</span>
       </div>
       {/* 1st */}
       <div
@@ -259,7 +259,7 @@ function PodiumPlatform() {
           justifyContent: "center",
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: colors.gold, opacity: 0.7 }}>1</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: colors.gold, opacity: 0.7 }}>1</span>
       </div>
       {/* 3rd */}
       <div
@@ -274,7 +274,7 @@ function PodiumPlatform() {
           justifyContent: "center",
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: colors.bronze, opacity: 0.6 }}>3</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: colors.bronze, opacity: 0.6 }}>3</span>
       </div>
     </div>
   );
