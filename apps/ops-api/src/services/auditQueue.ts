@@ -216,11 +216,24 @@ async function runJob(callLogId: string): Promise<void> {
       });
     }
   } catch (err: unknown) {
-    console.error(`[auditQueue] Job failed for ${callLogId}:`, err);
-    emitAuditFailed({ callLogId, error: err instanceof Error ? err.message : "Unknown error" });
+    const failureVector = categorizeError(err);
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    console.log(JSON.stringify({
+      event: "audit_job_failed",
+      callLogId,
+      failureVector,
+      errorMessage,
+      timestamp: new Date().toISOString(),
+    }));
+    emitAuditFailed({ callLogId, error: errorMessage });
     await prisma.convosoCallLog.update({
       where: { id: callLogId },
-      data: { auditStatus: "failed" },
+      data: {
+        auditStatus: "failed",
+        failureReason: failureVector,
+        lastFailedAt: new Date(),
+        retryCount: { increment: 1 },
+      },
     }).catch(() => {});
   }
 }
@@ -288,6 +301,69 @@ async function downloadRecordingWithRetry(callLogId: string, url: string): Promi
 
 // ── Auto-score polling lifecycle ─────────────────────────────────
 
+// ── Orphan recovery (startup) ────────────────────────────────────
+
+/** On startup, reset any audits stuck in intermediate states back to queued.
+ *  Safe because activeJobs Set is empty on fresh start -- no in-memory jobs exist. */
+export async function recoverOrphanedJobs(): Promise<number> {
+  const orphaned = await prisma.convosoCallLog.updateMany({
+    where: {
+      auditStatus: { in: ["processing", "waiting_recording", "transcribing", "auditing"] },
+    },
+    data: { auditStatus: "queued" },
+  });
+  if (orphaned.count > 0) {
+    console.log(JSON.stringify({
+      event: "audit_orphan_recovery",
+      recovered: orphaned.count,
+      timestamp: new Date().toISOString(),
+    }));
+  }
+  return orphaned.count;
+}
+
+// ── Retry failed audits with exponential backoff ─────────────────
+
+const MAX_RETRIES = 3;
+
+/** Find failed audits eligible for retry based on backoff timing, re-queue them */
+export async function retryFailedAudits(): Promise<number> {
+  const now = new Date();
+  const candidates = await prisma.convosoCallLog.findMany({
+    where: {
+      auditStatus: "failed",
+      retryCount: { lt: MAX_RETRIES },
+      recordingUrl: { not: null },
+    },
+    select: { id: true, retryCount: true, lastFailedAt: true },
+    take: 5,
+  });
+
+  const eligible = candidates.filter(c => {
+    if (!c.lastFailedAt) return true;
+    // Exponential backoff: 1min, 5min, 15min
+    const delays = [60_000, 300_000, 900_000];
+    const delay = delays[c.retryCount] ?? delays[delays.length - 1];
+    return now.getTime() - c.lastFailedAt.getTime() > delay;
+  });
+
+  if (eligible.length === 0) return 0;
+
+  await prisma.convosoCallLog.updateMany({
+    where: { id: { in: eligible.map(e => e.id) } },
+    data: { auditStatus: "queued" },
+  });
+
+  console.log(JSON.stringify({
+    event: "audit_retry_requeued",
+    count: eligible.length,
+    ids: eligible.map(e => e.id),
+    timestamp: new Date().toISOString(),
+  }));
+
+  return eligible.length;
+}
+
 // ── Nightly queue cleanup (9 PM ET) ──────────────────────────────
 
 async function nightlyQueueCleanup(): Promise<void> {
@@ -321,13 +397,17 @@ function scheduleNightlyCleanup(): void {
   setInterval(check, 60_000);
 }
 
-export function startAutoScorePolling(): void {
+export async function startAutoScorePolling(): Promise<void> {
   if (pollingInterval) return;
   // Schedule nightly queue flush at 9 PM ET
   scheduleNightlyCleanup();
+
+  // Recover orphaned jobs before starting polling (safe: activeJobs is empty on startup)
+  await recoverOrphanedJobs();
+
   pollingInterval = setInterval(async () => {
     try {
-      // Enqueue any new eligible calls before polling for queued jobs
+      await retryFailedAudits();
       await enqueueAutoScore();
       await pollPendingJobs();
     } catch (err) {
@@ -410,4 +490,15 @@ export function isValidAudioBuffer(buffer: Buffer): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ── Error categorization ──────────────────────────────────────────
+
+/** Classify audit job failures into actionable categories for logging */
+export function categorizeError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("Recording download failed") || msg.includes("Recording empty") || msg.includes("Invalid audio")) return "recording_unavailable";
+  if (msg.includes("Whisper") || msg.includes("transcription") || msg.includes("AbortError")) return "transcription_timeout";
+  if (msg.includes("anthropic") || msg.includes("Claude") || msg.includes("429") || msg.includes("overloaded") || msg.includes("claude")) return "claude_api_error";
+  return "unknown";
 }
