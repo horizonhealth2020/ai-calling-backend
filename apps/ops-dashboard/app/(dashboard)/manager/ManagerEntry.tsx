@@ -715,160 +715,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             )}
           </div>
 
-          {/* Receipt paste area */}
-          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
-            <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-              <ClipboardList size={14} />Paste Sale Receipt
-            </label>
-            <div style={{ position: "relative" }}>
-              <textarea
-                className="input-focus"
-                style={{
-                  ...baseInputStyle,
-                  height: 120,
-                  resize: "vertical",
-                  fontFamily: typography.fontMono,
-                  fontSize: 11,
-                  borderStyle: "dashed",
-                  borderWidth: 2,
-                  borderColor: parsed ? colors.success : colors.borderStrong,
-                  borderRadius: radius.lg,
-                  paddingRight: parsed ? 40 : 14,
-                } as React.CSSProperties}
-                value={receipt}
-                placeholder={"MemberID: 686724349 Marc Fahrlander\u2026\nSALE on March 9, 2026 - Approved\nDate:03/09/2026\u2026Amount:$436.43\u2026"}
-                onChange={e => { setReceipt(e.target.value); setParsed(false); }}
-              />
-              {parsed && (
-                <div style={{ position: "absolute", top: 10, right: 12, color: colors.success }}>
-                  <CheckCircle size={18} />
-                </div>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <Button type="button" variant="success" size="sm" onClick={handleParse}>
-                <Upload size={13} />Parse Receipt
-              </Button>
-              {receipt && (
-                <Button type="button" variant="secondary" size="sm" onClick={clearReceipt}>
-                  <X size={13} />Clear
-                </Button>
-              )}
-            </div>
-
-            {parsed && (
-              <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                <Check size={12} />Parsed — fields filled in form
-              </p>
-            )}
-
-            {/* Parsed receipt info */}
-            {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
-              <div className="animate-fade-in" style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid rgba(52,211,153,0.2)` }}>
-                {parsedInfo.parsedProducts.length > 0 && (
-                  <div style={{ marginBottom: 10 }}>
-                    {parsedInfo.parsedProducts.map((pp, i) => {
-                      const matched = matchProduct(pp.name, products);
-                      return (
-                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            {matched ? <Check size={12} color={colors.success} /> : <XCircle size={12} color={colors.danger} />}
-                            <span style={{ color: colors.textPrimary }}>{matched ? matched.name : pp.name}</span>
-                            <Badge color={pp.isAddon ? colors.info : colors.primary400} variant="subtle" size="sm">
-                              {pp.isAddon ? "Add-on" : "Core"}
-                            </Badge>
-                          </div>
-                          <span style={{ fontWeight: 600, color: colors.textPrimary }}>${pp.price}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {parsedInfo.totalPremium && (
-                    <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(52,211,153,0.15)`, flex: 1, minWidth: 100 }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>TOTAL PREMIUM</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: colors.success }}>${parsedInfo.totalPremium}</div>
-                    </div>
-                  )}
-                  {parsedInfo.enrollmentFee && (
-                    <div style={{ background: colors.warningBg, borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(251,191,36,0.15)`, flex: 1, minWidth: 100 }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>ENROLL FEE</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: colors.warning }}>${parsedInfo.enrollmentFee}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Add-on Products */}
-          {(() => {
-            const addonProducts = products
-              .filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId)
-              .sort((a, b) => {
-                if (a.type !== b.type) return a.type === "ADDON" ? -1 : 1;
-                return a.name.localeCompare(b.name);
-              });
-            return (
-              <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5] }}>
-                <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Plus size={14} />Add-on Products
-                </label>
-                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[2] }}>
-                  {addonProducts.length === 0 ? (
-                    <span style={{ fontSize: 12, color: colors.textTertiary }}>No add-on products available</span>
-                  ) : (
-                    addonProducts.map(ap => {
-                      const isChecked = form.addonProductIds.includes(ap.id);
-                      return (
-                        <div key={ap.id}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              style={{ accentColor: colors.primary400 }}
-                              onChange={e => {
-                                if (e.target.checked) {
-                                  setForm(f => ({ ...f, addonProductIds: [...f.addonProductIds, ap.id] }));
-                                } else {
-                                  setForm(f => ({ ...f, addonProductIds: f.addonProductIds.filter(id => id !== ap.id) }));
-                                  setAddonPremiums(prev => { const next = { ...prev }; delete next[ap.id]; return next; });
-                                }
-                                triggerPreview(true);
-                              }}
-                            />
-                            <span style={{ fontSize: 12, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
-                            <Badge color={ap.type === "AD_D" ? colors.warning : colors.info} variant="subtle" size="sm">
-                              {ap.type === "AD_D" ? "AD&D" : "ADDON"}
-                            </Badge>
-                          </div>
-                          {isChecked && (
-                            <div style={{ paddingLeft: 26, paddingBottom: 10 }}>
-                              <label style={{ ...LBL, fontSize: 11, marginBottom: 4 }}>Premium ($)</label>
-                              <input
-                                className="input-focus"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="0.00"
-                                value={addonPremiums[ap.id] ?? ""}
-                                onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
-                                style={{ ...baseInputStyle, width: "100%", fontSize: 13 }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
           {/* ACA Plan */}
-          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${includeAca ? "rgba(20,184,166,0.3)" : colors.borderDefault}`, padding: spacing[5], marginTop: 16 }}>
+          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${includeAca ? "rgba(20,184,166,0.3)" : colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input
                 type="checkbox"
@@ -1047,6 +895,159 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               </div>
             )}
           </div>
+
+          {/* Receipt paste area */}
+          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
+            <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+              <ClipboardList size={14} />Paste Sale Receipt
+            </label>
+            <div style={{ position: "relative" }}>
+              <textarea
+                className="input-focus"
+                style={{
+                  ...baseInputStyle,
+                  height: 120,
+                  resize: "vertical",
+                  fontFamily: typography.fontMono,
+                  fontSize: 11,
+                  borderStyle: "dashed",
+                  borderWidth: 2,
+                  borderColor: parsed ? colors.success : colors.borderStrong,
+                  borderRadius: radius.lg,
+                  paddingRight: parsed ? 40 : 14,
+                } as React.CSSProperties}
+                value={receipt}
+                placeholder={"MemberID: 686724349 Marc Fahrlander\u2026\nSALE on March 9, 2026 - Approved\nDate:03/09/2026\u2026Amount:$436.43\u2026"}
+                onChange={e => { setReceipt(e.target.value); setParsed(false); }}
+              />
+              {parsed && (
+                <div style={{ position: "absolute", top: 10, right: 12, color: colors.success }}>
+                  <CheckCircle size={18} />
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <Button type="button" variant="success" size="sm" onClick={handleParse}>
+                <Upload size={13} />Parse Receipt
+              </Button>
+              {receipt && (
+                <Button type="button" variant="secondary" size="sm" onClick={clearReceipt}>
+                  <X size={13} />Clear
+                </Button>
+              )}
+            </div>
+
+            {parsed && (
+              <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                <Check size={12} />Parsed — fields filled in form
+              </p>
+            )}
+
+            {/* Parsed receipt info */}
+            {parsed && (parsedInfo.parsedProducts.length > 0 || parsedInfo.coreProduct) && (
+              <div className="animate-fade-in" style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid rgba(52,211,153,0.2)` }}>
+                {parsedInfo.parsedProducts.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    {parsedInfo.parsedProducts.map((pp, i) => {
+                      const matched = matchProduct(pp.name, products);
+                      return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {matched ? <Check size={12} color={colors.success} /> : <XCircle size={12} color={colors.danger} />}
+                            <span style={{ color: colors.textPrimary }}>{matched ? matched.name : pp.name}</span>
+                            <Badge color={pp.isAddon ? colors.info : colors.primary400} variant="subtle" size="sm">
+                              {pp.isAddon ? "Add-on" : "Core"}
+                            </Badge>
+                          </div>
+                          <span style={{ fontWeight: 600, color: colors.textPrimary }}>${pp.price}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {parsedInfo.totalPremium && (
+                    <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(52,211,153,0.15)`, flex: 1, minWidth: 100 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>TOTAL PREMIUM</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: colors.success }}>${parsedInfo.totalPremium}</div>
+                    </div>
+                  )}
+                  {parsedInfo.enrollmentFee && (
+                    <div style={{ background: colors.warningBg, borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(251,191,36,0.15)`, flex: 1, minWidth: 100 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>ENROLL FEE</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: colors.warning }}>${parsedInfo.enrollmentFee}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add-on Products */}
+          {(() => {
+            const addonProducts = products
+              .filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D") && p.id !== form.productId)
+              .sort((a, b) => {
+                if (a.type !== b.type) return a.type === "ADDON" ? -1 : 1;
+                return a.name.localeCompare(b.name);
+              });
+            return (
+              <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5] }}>
+                <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Plus size={14} />Add-on Products
+                </label>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[2] }}>
+                  {addonProducts.length === 0 ? (
+                    <span style={{ fontSize: 12, color: colors.textTertiary }}>No add-on products available</span>
+                  ) : (
+                    addonProducts.map(ap => {
+                      const isChecked = form.addonProductIds.includes(ap.id);
+                      return (
+                        <div key={ap.id}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              style={{ accentColor: colors.primary400 }}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  setForm(f => ({ ...f, addonProductIds: [...f.addonProductIds, ap.id] }));
+                                } else {
+                                  setForm(f => ({ ...f, addonProductIds: f.addonProductIds.filter(id => id !== ap.id) }));
+                                  setAddonPremiums(prev => { const next = { ...prev }; delete next[ap.id]; return next; });
+                                }
+                                triggerPreview(true);
+                              }}
+                            />
+                            <span style={{ fontSize: 12, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
+                            <Badge color={ap.type === "AD_D" ? colors.warning : colors.info} variant="subtle" size="sm">
+                              {ap.type === "AD_D" ? "AD&D" : "ADDON"}
+                            </Badge>
+                          </div>
+                          {isChecked && (
+                            <div style={{ paddingLeft: 26, paddingBottom: 10 }}>
+                              <label style={{ ...LBL, fontSize: 11, marginBottom: 4 }}>Premium ($)</label>
+                              <input
+                                className="input-focus"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                                value={addonPremiums[ap.id] ?? ""}
+                                onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
+                                style={{ ...baseInputStyle, width: "100%", fontSize: 13 }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
         {/* -- END RIGHT COLUMN -- */}
 
