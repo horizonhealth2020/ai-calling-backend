@@ -720,7 +720,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
           <tr style={{ background: "rgba(251,191,36,0.07)" }}>
             <td
               style={{
-                padding: `${spacing[3]}px ${spacing[5]}px`,
+                padding: `${spacing[2]}px ${spacing[5]}px`,
                 fontWeight: 800,
                 color: colors.gold,
                 fontSize: 14,
@@ -737,7 +737,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 <td
                   key={day}
                   style={{
-                    padding: `${spacing[3]}px 16px`,
+                    padding: `${spacing[2]}px 16px`,
                     textAlign: "center",
                     borderTop: `2px solid rgba(251,191,36,0.2)`,
                   }}
@@ -759,7 +759,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
             })}
             <td
               style={{
-                padding: `${spacing[3]}px 16px`,
+                padding: `${spacing[2]}px 16px`,
                 textAlign: "center",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
                 fontSize: 28,
@@ -772,7 +772,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
             </td>
             <td
               style={{
-                padding: `${spacing[3]}px ${spacing[5]}px`,
+                padding: `${spacing[2]}px ${spacing[5]}px`,
                 textAlign: "right",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
                 fontSize: 24,
