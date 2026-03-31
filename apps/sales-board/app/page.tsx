@@ -537,9 +537,9 @@ function WeeklyView({ data }: { data: DetailedData }) {
   });
 
   const TH: React.CSSProperties = {
-    padding: "14px 16px",
+    padding: "12px 16px",
     textAlign: "center",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 700,
     color: colors.textSecondary,
     textTransform: "uppercase",
@@ -600,10 +600,10 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 {/* Agent name cell */}
                 <td
                   style={{
-                    padding: `14px ${spacing[5]}px`,
+                    padding: `${spacing[3]}px ${spacing[5]}px`,
                     borderBottom: `1px solid ${colors.borderSubtle}`,
                     fontWeight: 700,
-                    fontSize: 18,
+                    fontSize: 24,
                     color: colors.textPrimary,
                     whiteSpace: "nowrap",
                   }}
@@ -628,7 +628,14 @@ function WeeklyView({ data }: { data: DetailedData }) {
                     >
                       {i + 1}
                     </span>
-                    <span>{agent}</span>
+                    <span style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: 160,
+                      display: "inline-block",
+                      verticalAlign: "middle",
+                    }}>{agent}</span>
                     {isFirst && (
                       <span style={{ color: colors.gold, display: "flex", alignItems: "center" }}>
                         <Crown size={14} />
@@ -644,7 +651,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                     <td
                       key={day}
                       style={{
-                        padding: "14px 16px",
+                        padding: `${spacing[3]}px 16px`,
                         textAlign: "center",
                         borderBottom: `1px solid ${colors.borderSubtle}`,
                       }}
@@ -653,7 +660,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6 }}>
                           <span
                             style={{
-                              fontSize: 20,
+                              fontSize: 24,
                               fontWeight: 800,
                               color:
                                 stat.count >= 3
@@ -665,7 +672,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                           >
                             <AnimatedNumber value={stat.count} />
                           </span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: colors.textTertiary }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: colors.textSecondary }}>
                             {fmt$whole(stat.premium)}
                           </span>
                         </div>
@@ -679,7 +686,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 {/* Total */}
                 <td
                   style={{
-                    padding: "14px 16px",
+                    padding: `${spacing[3]}px 16px`,
                     textAlign: "center",
                     borderBottom: `1px solid ${colors.borderSubtle}`,
                     fontSize: 24,
@@ -694,12 +701,12 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 {/* Premium */}
                 <td
                   style={{
-                    padding: `14px ${spacing[5]}px`,
+                    padding: `${spacing[3]}px ${spacing[5]}px`,
                     textAlign: "right",
                     borderBottom: `1px solid ${colors.borderSubtle}`,
                     fontWeight: 700,
                     color: isTop ? colors.gold : colors.textPrimary,
-                    fontSize: 15,
+                    fontSize: 24,
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -713,7 +720,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
           <tr style={{ background: "rgba(251,191,36,0.07)" }}>
             <td
               style={{
-                padding: `${spacing[4]}px ${spacing[5]}px`,
+                padding: `${spacing[3]}px ${spacing[5]}px`,
                 fontWeight: 800,
                 color: colors.gold,
                 fontSize: 14,
@@ -730,17 +737,17 @@ function WeeklyView({ data }: { data: DetailedData }) {
                 <td
                   key={day}
                   style={{
-                    padding: `${spacing[4]}px 16px`,
+                    padding: `${spacing[3]}px 16px`,
                     textAlign: "center",
                     borderTop: `2px solid rgba(251,191,36,0.2)`,
                   }}
                 >
                   {d ? (
                     <>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: colors.gold }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: colors.gold }}>
                         <AnimatedNumber value={d.totalSales} />
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: colors.gold, opacity: 0.7, marginTop: 2 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: colors.gold, opacity: 0.7, marginTop: 2 }}>
                         {fmt$whole(d.totalPremium)}
                       </div>
                     </>
@@ -752,7 +759,7 @@ function WeeklyView({ data }: { data: DetailedData }) {
             })}
             <td
               style={{
-                padding: `${spacing[4]}px 16px`,
+                padding: `${spacing[3]}px 16px`,
                 textAlign: "center",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
                 fontSize: 28,
@@ -765,10 +772,10 @@ function WeeklyView({ data }: { data: DetailedData }) {
             </td>
             <td
               style={{
-                padding: `${spacing[4]}px ${spacing[5]}px`,
+                padding: `${spacing[3]}px ${spacing[5]}px`,
                 textAlign: "right",
                 borderTop: `2px solid rgba(251,191,36,0.2)`,
-                fontSize: 16,
+                fontSize: 24,
                 fontWeight: 800,
                 color: colors.gold,
                 whiteSpace: "nowrap",
