@@ -48,6 +48,16 @@ Plans:
 | 33. Core TV Readability | 2/2 | Complete    | 2026-03-31 |
 | 34. Dynamic Scaling & Daily View | 1/1 | Complete    | 2026-03-31 |
 
+### Phase 35: Fix KPI polling issues and manager dashboard features
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 34
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 35 to break down)
+
 ---
 *Roadmap created: 2026-03-31*
 *Last updated: 2026-03-31 -- Phase 34 complete, all v2.0 requirements shipped*

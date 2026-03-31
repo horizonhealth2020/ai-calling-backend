@@ -57,6 +57,10 @@ Last activity: 2026-03-31
 - Card padding reduced from 20px uniform to 12px/16px to absorb font growth without changing card size
 - Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
 
+### Roadmap Evolution
+
+- Phase 35 added: Fix KPI polling issues and manager dashboard features
+
 ### Open Questions
 
 None currently.
