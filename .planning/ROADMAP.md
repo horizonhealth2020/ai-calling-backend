@@ -96,7 +96,7 @@ Plans:
 - [x] 37-00-PLAN.md -- Wave 0: Test scaffolds for auditQueue and compositeScore (RED phase)
 - [x] 37-01-PLAN.md -- Prisma migration, recording retry extension (D-03), orphan recovery, retry with backoff, failure categorization, formatDateTime helper
 - [ ] 37-02-PLAN.md -- Composite performance score replacing salesCount sort in ManagerTracker
-- [ ] 37-03-PLAN.md -- Audit UI overhaul: timestamps, dual-field ordering (D-09), pagination, agent filter, Load More
+- [x] 37-03-PLAN.md -- Audit UI overhaul: timestamps, dual-field ordering (D-09), pagination, agent filter, Load More
 
 ---
 *Roadmap created: 2026-03-31*
