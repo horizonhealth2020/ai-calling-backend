@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 34 — dynamic-scaling-daily-view
+**Current focus:** Phase 35 — fix-kpi-polling-issues-and-manager-dashboard-features
 
 ## Current Position
 
@@ -81,5 +81,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Phase 34 complete, checkpoint approved, v2.0 milestone shipped*
+*Last session: 2026-03-31 -- Completed 35-03-PLAN.md (CS round robin fairness fix)*
 *Last updated: 2026-03-31*
