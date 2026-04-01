@@ -117,8 +117,8 @@ export default function PayrollPeriods({
 
   /* ── Initialize expand/selected state when data changes ──── */
   useEffect(() => {
-    // All agents start expanded
-    setExpandedAgents(new Set(agentData.keys()));
+    // All agents start collapsed
+    setExpandedAgents(new Set());
 
     const weekMap = new Map<string, Set<string>>();
     const selMap = new Map<string, string>();
