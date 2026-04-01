@@ -21,6 +21,8 @@ export interface PageShellProps {
   onNavChange?: (key: string) => void;
   headerRight?: React.ReactNode;
   children: React.ReactNode;
+  /** Render nav as horizontal pills in topbar instead of sidebar */
+  compact?: boolean;
 }
 
 /* ── Static style constants ────────────────────────────────────── */
@@ -454,6 +456,7 @@ export function PageShell({
   onNavChange,
   headerRight,
   children,
+  compact = false,
 }: PageShellProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -513,6 +516,63 @@ export function PageShell({
             ))}
           </nav>
         )}
+      </div>
+    );
+  }
+
+  /* ── Compact layout (horizontal pills, no sidebar) ─────────── */
+
+  if (compact) {
+    return (
+      <div style={{ fontFamily: typography.fontSans, minHeight: "100vh", background: colors.bgRoot, color: colors.textPrimary }}>
+        {/* Single row: title + pills + headerRight */}
+        <div style={{ display: "flex", alignItems: "center", padding: `${spacing[3]}px ${spacing[6]}px`, borderBottom: `1px solid ${colors.borderSubtle}`, background: colors.bgSurface, gap: spacing[4] }}>
+          <h1 style={{ margin: 0, fontSize: typography.sizes.lg.fontSize, fontWeight: typography.weights.bold, color: colors.textPrimary, whiteSpace: "nowrap" }}>{title}</h1>
+
+          {navItems.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: spacing[1], flex: 1 }}>
+              {navItems.map((item) => {
+                const isActive = activeNav === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => onNavChange?.(item.key)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: spacing[2],
+                      padding: `${spacing[1]}px ${spacing[3]}px`,
+                      borderRadius: radius.full,
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: typography.sizes.sm.fontSize,
+                      fontWeight: isActive ? typography.weights.semibold : typography.weights.medium,
+                      color: isActive ? colors.primary400 : colors.textTertiary,
+                      background: isActive ? `color-mix(in srgb, ${colors.primary500} 15%, transparent)` : "transparent",
+                      transition: `background ${motion.duration.fast} ${motion.easing.out}, color ${motion.duration.fast} ${motion.easing.out}`,
+                    }}
+                  >
+                    {item.icon}
+                    {item.label}
+                    {item.badge != null && item.badge > 0 && (
+                      <span style={{ fontSize: 11, fontWeight: typography.weights.bold, background: colors.primary500, color: "#fff", borderRadius: radius.full, padding: "1px 6px", minWidth: 18, textAlign: "center" }}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: spacing[3], flexShrink: 0, marginLeft: "auto" }}>
+            {headerRight}
+            <ThemeToggle />
+          </div>
+        </div>
+
+        {/* Page content */}
+        <main style={MAIN_CONTENT}>{children}</main>
       </div>
     );
   }

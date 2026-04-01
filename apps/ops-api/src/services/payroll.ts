@@ -37,14 +37,24 @@ export const getSundayWeekRange = (date: Date, shiftWeeks: number = 0) => {
 type SaleWithProduct = Sale & { product: Product; addons: (SaleAddon & { product: Product })[] };
 
 /**
+ * Bundle requirement context resolved from ProductStateAvailability data.
+ * null means no bundle requirement configured on the core product.
+ */
+export type BundleRequirementContext = {
+  requiredAddonAvailable: boolean;
+  fallbackAddonAvailable: boolean;
+  halvingReason: string | null;
+} | null;
+
+/**
  * Apply enrollment fee rules:
  *   $125 -> +$10 bonus
  *   $99  -> $0
  *   <$99 (or <$50 for standalone addon) -> halve commission, unless approved
  */
-function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean, product: Product): { finalCommission: number; enrollmentBonus: number } {
+function applyEnrollmentFee(commission: number, enrollmentFee: number | null, commissionApproved: boolean, hasCoreInSale: boolean, product: Product): { finalCommission: number; enrollmentBonus: number; feeHalvingReason: string | null } {
   if (enrollmentFee === null || enrollmentFee === undefined) {
-    return { finalCommission: commission, enrollmentBonus: 0 };
+    return { finalCommission: commission, enrollmentBonus: 0, feeHalvingReason: null };
   }
 
   const fee = Number(enrollmentFee);
@@ -67,10 +77,10 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
   }
 
   if (fee < halfThreshold && !commissionApproved) {
-    return { finalCommission: commission / 2, enrollmentBonus };
+    return { finalCommission: commission, enrollmentBonus, feeHalvingReason: `Half commission - waived enrollment fee` };
   }
 
-  return { finalCommission: commission, enrollmentBonus };
+  return { finalCommission: commission, enrollmentBonus, feeHalvingReason: null };
 }
 
 /**
@@ -78,12 +88,11 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  *
  * When a core product exists:
  *   1. ADDONs with bundledCommission = null: fold premium into bundlePremium, earn core rate.
- *      bundlePremium = core premium + those addon premiums (isBundleQualifier ADDONs excluded).
+ *      bundlePremium = core premium + those addon premiums.
  *      Core rate = commissionAbove if bundlePremium >= premiumThreshold, else commissionBelow.
  *   2. ADDONs with bundledCommission set: calculated separately at their own bundledCommission rate.
- *      isBundleQualifier ADDONs (e.g. AD&D) always use their own bundledCommission rate.
  *   3. AD&D products always use their own bundledCommission rate (separate calculation).
- *   4. If no bundle qualifier (isBundleQualifier) and not commissionApproved: halve entire total.
+ *   4. Bundle qualifier halving: if bundleCtx says required/fallback addon missing, commission is halved.
  *
  * When no core (standalone addons only):
  *   - Each ADDON/AD&D uses its standaloneCommission rate x its own premium.
@@ -91,8 +100,19 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
  * Null commission rates produce $0 (no hardcoded fallbacks).
  * Final result rounded to 2 decimal places.
  */
-export const calculateCommission = (sale: SaleWithProduct): number => {
+export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleRequirementContext): { commission: number; halvingReason: string | null } => {
+  // ACA PL: flat dollar amount per member (not percentage-based)
+  if (sale.product.type === "ACA_PL") {
+    const flatAmount = Number(sale.product.flatCommission ?? 0);
+    const count = (sale as SaleWithProduct & { memberCount?: number | null }).memberCount ?? 1;
+    return {
+      commission: Math.round(flatAmount * count * 100) / 100,
+      halvingReason: null,
+    };
+  }
+
   const addons = sale.addons ?? [];
+  let halvingReason: string | null = null;
 
   // Build product entries with their respective premiums
   const allEntries = [
@@ -103,19 +123,17 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
   // Classify products
   const coreEntry = allEntries.find(e => e.product.type === "CORE");
   const hasCoreInSale = !!coreEntry;
-  const qualifierExists = allEntries.some(e => e.product.isBundleQualifier);
 
   let totalCommission = 0;
 
   if (hasCoreInSale) {
     // --- CORE + ADDON BUNDLE ---
-    // ADDONs with bundledCommission = null OR isBundleQualifier: fold into bundlePremium and earn the core rate.
-    // ADDONs with bundledCommission set AND NOT isBundleQualifier: excluded from bundlePremium; earn their own rate.
-    // isBundleQualifier ADDONs always fold into bundle premium (their flag only prevents halving penalty).
+    // ADDONs with bundledCommission = null: fold into bundlePremium and earn the core rate.
+    // ADDONs with bundledCommission set: excluded from bundlePremium; earn their own rate.
     const bundlePremium = allEntries
       .filter(e =>
         (e.product.type === "CORE" || e.product.type === "ADDON") &&
-        (e.product.bundledCommission === null || e.product.isBundleQualifier)
+        e.product.bundledCommission === null
       )
       .reduce((sum, e) => sum + e.premium, 0);
 
@@ -139,10 +157,8 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     }
 
     // --- ADDONs with their own bundledCommission rate (separate calculation) ---
-    // Only ADDONs with bundledCommission set AND NOT isBundleQualifier.
-    // isBundleQualifier ADDONs were folded into bundlePremium above.
     for (const entry of allEntries.filter(
-      e => e.product.type === "ADDON" && e.product.bundledCommission !== null && !e.product.isBundleQualifier
+      e => e.product.type === "ADDON" && e.product.bundledCommission !== null
     )) {
       const addonRate = Number(entry.product.bundledCommission ?? 0);
       totalCommission += entry.premium * (addonRate / 100);
@@ -157,10 +173,9 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
       totalCommission += entry.premium * (addDRate / 100);
     }
 
-    // --- BUNDLE QUALIFIER HALVING ---
-    // If no bundle qualifier present and not manually approved: halve entire sale commission
-    if (!qualifierExists && !sale.commissionApproved) {
-      totalCommission /= 2;
+    // --- BUNDLE QUALIFIER CHECK (collect reason, don't halve yet) ---
+    if (bundleCtx && !bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable && !sale.commissionApproved) {
+      halvingReason = bundleCtx.halvingReason;
     }
   } else {
     // --- STANDALONE (no core product) ---
@@ -175,8 +190,8 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     }
   }
 
-  // Apply enrollment fee rules (Phase 3 scope -- do not modify applyEnrollmentFee)
-  const { finalCommission, enrollmentBonus } = applyEnrollmentFee(
+  // Apply enrollment fee rules
+  const { finalCommission, enrollmentBonus, feeHalvingReason } = applyEnrollmentFee(
     totalCommission,
     sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
     sale.commissionApproved,
@@ -184,8 +199,81 @@ export const calculateCommission = (sale: SaleWithProduct): number => {
     sale.product,
   );
 
-  return Math.round((finalCommission + enrollmentBonus) * 100) / 100;
+  // Combine halving reasons — halve only once regardless of how many reasons
+  const reasons = [halvingReason, feeHalvingReason].filter(Boolean);
+  const combinedReason = reasons.length > 0 ? reasons.join("; ") : null;
+  const halvedCommission = combinedReason ? finalCommission / 2 : finalCommission;
+
+  return {
+    commission: Math.round((halvedCommission + enrollmentBonus) * 100) / 100,
+    halvingReason: combinedReason,
+  };
 };
+
+/**
+ * Resolve bundle requirement context for a core product + member state combination.
+ * Returns null if no bundle requirement is configured on the core product.
+ */
+export async function resolveBundleRequirement(
+  coreProduct: {
+    requiredBundleAddonId: string | null;
+    requiredBundleAddon?: { name: string } | null;
+    fallbackAddons?: { fallbackProduct: { id: string; name: string } }[];
+  },
+  memberState: string,
+  saleAddonProductIds: string[],
+  saleId?: string
+): Promise<BundleRequirementContext> {
+  if (!coreProduct.requiredBundleAddonId) return null;
+
+  // D-13: ACA PL auto-fulfills bundle requirement
+  if (saleId) {
+    const acaCovering = await prisma.sale.findFirst({
+      where: { acaCoveringSaleId: saleId, product: { type: "ACA_PL" }, status: "RAN" },
+    });
+    if (acaCovering) {
+      return { requiredAddonAvailable: true, fallbackAddonAvailable: false, halvingReason: null };
+    }
+  }
+
+  const requiredAvail = await prisma.productStateAvailability.findUnique({
+    where: { productId_stateCode: { productId: coreProduct.requiredBundleAddonId, stateCode: memberState } }
+  });
+  const requiredAddonInSale = saleAddonProductIds.includes(coreProduct.requiredBundleAddonId);
+
+  if (requiredAvail && requiredAddonInSale) {
+    return { requiredAddonAvailable: true, fallbackAddonAvailable: false, halvingReason: null };
+  }
+
+  // If primary IS available but NOT in sale, half commission -- skip fallbacks entirely
+  if (requiredAvail && !requiredAddonInSale) {
+    const addonName = coreProduct.requiredBundleAddon?.name ?? "required addon";
+    return {
+      requiredAddonAvailable: false,
+      fallbackAddonAvailable: false,
+      halvingReason: `Half commission - missing ${addonName}`,
+    };
+  }
+
+  // Only reach fallback loop when primary is NOT available in state (!requiredAvail)
+  const fallbacks = coreProduct.fallbackAddons ?? [];
+  for (const fb of fallbacks) {
+    const fbAvail = await prisma.productStateAvailability.findUnique({
+      where: { productId_stateCode: { productId: fb.fallbackProduct.id, stateCode: memberState } }
+    });
+    const fbInSale = saleAddonProductIds.includes(fb.fallbackProduct.id);
+    if (fbAvail && fbInSale) {
+      return { requiredAddonAvailable: false, fallbackAddonAvailable: true, halvingReason: null };
+    }
+  }
+
+  const addonName = coreProduct.requiredBundleAddon?.name ?? "required addon";
+  return {
+    requiredAddonAvailable: false,
+    fallbackAddonAvailable: false,
+    halvingReason: `Half commission - missing ${addonName}`,
+  };
+}
 
 /**
  * Zero out commission for a sale across all payroll entries.
@@ -220,11 +308,26 @@ export const handleCommissionZeroing = async (saleId: string) => {
 export const upsertPayrollEntryForSale = async (saleId: string) => {
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
-    include: { product: true, addons: { include: { product: true } } },
+    include: {
+      product: {
+        include: {
+          requiredBundleAddon: { select: { name: true } },
+          fallbackAddons: { select: { fallbackProduct: { select: { id: true, name: true } } } },
+        },
+      },
+      addons: { include: { product: true } },
+    },
   });
   if (!sale) throw new Error("Sale not found");
 
-  const payoutAmount = sale.status === 'RAN' ? calculateCommission(sale) : 0;
+  const addonProductIds = (sale.addons ?? []).map(a => a.productId);
+  const bundleCtx = sale.memberState
+    ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds, saleId)
+    : null;
+  const result = calculateCommission(sale as Parameters<typeof calculateCommission>[0], bundleCtx);
+  const payoutAmount = sale.status === 'RAN' ? result.commission : 0;
+  const halvingReason = sale.status === 'RAN' ? result.halvingReason : null;
+
   const shiftWeeks = sale.paymentType === 'ACH' ? 1 : 0;
   const { weekStart, weekEnd } = getSundayWeekRange(sale.saleDate, shiftWeeks);
 
@@ -258,8 +361,9 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
       agentId: sale.agentId,
       payoutAmount,
       netAmount: payoutAmount,
+      halvingReason,
     },
-    update: { payoutAmount, netAmount },
+    update: { payoutAmount, netAmount, halvingReason },
   });
 };
 
@@ -274,7 +378,7 @@ export const isAgentPaidInPeriod = async (agentId: string, payrollPeriodId: stri
   return paidEntries.length > 0;
 };
 
-export const handleSaleEditApproval = async (saleId: string, changes: Record<string, { old: any; new: any }>, oldAgentId?: string) => {
+export const handleSaleEditApproval = async (saleId: string, changes: Record<string, { old: unknown; new: unknown }>, oldAgentId?: string) => {
   // If agent changed, delete old payroll entries under old agent
   if (oldAgentId && changes.agentId) {
     await prisma.payrollEntry.deleteMany({ where: { saleId, agentId: oldAgentId } });

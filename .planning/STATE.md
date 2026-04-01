@@ -1,91 +1,103 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Dashboard Consolidation & Uniform Date Ranges
-status: executing
-stopped_at: Completed 19-07-PLAN.md
-last_updated: "2026-03-19T19:35:00.000Z"
+milestone: v2.0
+milestone_name: milestone
+status: All plans executed
+last_updated: "2026-03-31T21:20:03.149Z"
+last_activity: 2026-03-31
 progress:
-  total_phases: 1
-  completed_phases: 0
-  total_plans: 8
-  completed_plans: 7
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 13
+  completed_plans: 13
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-19)
+See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 19 — dashboard-consolidation-uniform-date-ranges
+**Current focus:** Phase 37 — fix-call-audit-issues-manager-dashboard-ui-and-agent-performance-card-order
 
 ## Current Position
 
-Phase: 19 (dashboard-consolidation-uniform-date-ranges) — EXECUTING
-Plan: 8 of 8 (plans 01, 02, 03, 04, 05, 06, 07 complete)
+Phase: 37
+Plan: 4 of 4 complete
+Status: All plans executed
+Last activity: 2026-03-31
+
+```
+[=====...............] 1/4 plans
+```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 3 (v1.0, v1.1, v1.2) |
-| Total phases | 19 (18 complete, 1 pending) |
-| Total plans | 54 (all complete from prior milestones) |
-| Total requirements | 133 (114 prior + 19 v1.3) |
-| Timeline | 6 days shipped (2026-03-14 to 2026-03-19) |
+| Milestones shipped | 10 (v1.0 through v1.9) |
+| Total phases | 32 complete |
+| Total plans | 95 complete |
+| Total requirements | 225 shipped |
+| Timeline | 17 days (2026-03-14 to 2026-03-30) |
 
 ## Accumulated Context
 
-### Quick Tasks Completed
+### Decisions
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260317-dgz | Convoso call log API integration with KPI tiers and per-agent aggregates | 2026-03-17 | 6c8ef4e | [260317-dgz-convoso-call-log-api-integration-with-kp](./quick/260317-dgz-convoso-call-log-api-integration-with-kp/) |
-| 260317-dqd | Wire Convoso call logs to Agent model with cost-per-sale and CallAudit auto-tag | 2026-03-17 | ba7b111 | [260317-dqd-wire-convoso-call-logs-to-agent-model-an](./quick/260317-dqd-wire-convoso-call-logs-to-agent-model-an/) |
-| 260317-dxw | Cron worker polling Convoso every 10 min for per-agent KPI snapshots | 2026-03-17 | 2083caa | [260317-dxw-cron-worker-polling-convoso-every-10-min](./quick/260317-dxw-cron-worker-polling-convoso-every-10-min/) |
-| 260317-e6a | Deduplicate Convoso call log processing to prevent KPI inflation | 2026-03-17 | b422e4b | [260317-e6a-deduplicate-convoso-call-logs-prevent-sa](./quick/260317-e6a-deduplicate-convoso-call-logs-prevent-sa/) |
+- Sales board is displayed on a TV for the whole office to view from a distance
+- Agent count fluctuates (9 today, could be 15) -- all must fit on screen
+- Each cell has plenty of whitespace -- increase fonts within existing cell dimensions
+- Current font sizes too small: daily premium 12px, agent names 18px, daily counts 20px
+- All changes land in a single file: apps/sales-board/app/page.tsx
+- Row height budget at 15 agents is ~49px per row -- reduce vertical padding from 14px to 11-12px to compensate for larger fonts
+- Promote textTertiary to textSecondary for anything readable on a TV in a lit office
+- KPI stat card numbers scaled from 30px to 36px base, conditional premium cards use 28/36
+- Card padding reduced from 20px uniform to 12px/16px to absorb font growth without changing card size
+- Team total row vertical padding further reduced from 12px to 8px per user feedback during visual verification
+- Per-dashboard local useState replaces global DateRangeProvider for independent date range state
+- Manager Tracker Today column removed (redundant with Today date range preset)
+- Used includes() with length ratio guard instead of regex word boundaries for product name matching
+- useMemo-based stable sort by member ID ascending in payroll agent pay cards
+- ACA_PL flat commission uses early return before percentage logic to avoid bundle/enrollment fee interference
+- Self-relation on Sale model links ACA covering sales to parent sales
+- ACA auto-fulfill checks acaCoveringSaleId in resolveBundleRequirement before state availability checks
+- ACA checkbox placed after payment type selector, before submit button in manager entry form
+- Standalone ACA section uses collapsible pattern below main sale form
+- ACA badge uses info-blue color to distinguish from regular product badges in payroll cards
+- Flat commission displayed as "$X.XX x N members = $total" format
+- Exponential backoff delays for audit retry: 1min, 5min, 15min with max 3 retries
+- Recording retry extended to 20 (20min) for long calls where Convoso takes longer to process
+- Audit failures categorized: recording_unavailable, transcription_timeout, claude_api_error, unknown
+- [Phase 37]: 40% premium + 60% cost efficiency composite score for agent ranking
+- Prisma ID-based cursor pagination over date-based cursor for reliability with duplicate timestamps
+- Agent list fetched once on mount via distinct query for filter dropdown
 
-### Key Decisions (v1.3)
+### Roadmap Evolution
 
-| Decision | Rationale |
-|----------|-----------|
-| Single consolidated phase (Phase 19) | User requested all work in one long-running phase |
-| Route-segment-per-dashboard | Prevents monster file anti-pattern; enables per-route code splitting |
-| SocketProvider in shared layout | Avoids connect/disconnect churn on tab switches |
-| DateRangeContext in shared layout | Persists date range selection across tab navigation |
-| Same-origin login in unified dashboard | /api/login returns relative redirect instead of cross-domain URL |
-| Middleware verifies tokens directly | verifySessionToken called in middleware instead of HTTP verify call |
-| tsconfig needs explicit baseUrl for Next.js | Monorepo base tsconfig baseUrl overrides app-level paths without explicit override |
-| Self-contained sub-tab components for Owner | Each sub-tab manages own state/fetching; no shared state in orchestrator |
-| Socket events via prop instead of useSocket | Unified app uses SocketProvider context; sub-tabs bind events on socket prop |
-| Payroll orchestrator owns shared state | Periods, products, agents, alerts loaded once at orchestrator level; sub-tabs receive as props |
-| Manager orchestrator owns shared state | agents, products, leadSources fetched once in page.tsx; passed as props to all 5 sub-tabs |
-| Socket sale:changed at page level for Manager | Patches tracker and salesList simultaneously for cross-tab real-time updates |
-| Replaced OwnerOverview RangePicker with DateRangeFilter | Uniform KPI_PRESETS across all dashboards |
-| getAgentRetentionKpis accepts optional dateWindow | Backward compatible -- defaults to 30-day rolling window |
-
-### Research Flags (from SUMMARY.md)
-
-- **Phase 25 (Date Range):** Each KPI endpoint in ops-api needs audit to confirm which are date-range-blind before wiring the filter
-- **Phase 20 (SocketProvider):** Confirm useSocket hook in @ops/socket stays backward-compatible for sales-board before adding provider pattern
-- **Phase 19 (Auth):** RESOLVED in 19-02 -- decodeTokenPayload now exported from @ops/auth/client
+- Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
+- Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
 
 ### Open Questions
 
-- (none currently)
+None currently.
 
 ### Blockers
 
 None currently.
 
-## Session Continuity
+### Quick Tasks Completed
 
-**Last session:** 2026-03-19T19:35:00.000Z
-**Stopped at:** Completed 19-07-PLAN.md
-**Next action:** Execute 19-08-PLAN.md (Final integration verification / cleanup)
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260326-lsx | Add fallback products for core bundle requirements in payroll dashboard | 2026-03-26 | ee186ff | [260326-lsx-add-fallback-products-for-core-bundle-re](./quick/260326-lsx-add-fallback-products-for-core-bundle-re/) |
+| 260326-maj | Increase role dashboard dropdown auto-minimize delay to 2 seconds | 2026-03-26 | 25b24c2 | [260326-maj-increase-role-dashboard-dropdown-auto-mi](./quick/260326-maj-increase-role-dashboard-dropdown-auto-mi/) |
+| 260330-irn | Add notes dropdown to agent sales and payroll views | 2026-03-30 | c305ca3 | [260330-irn-add-notes-dropdown-to-agent-sales-and-pa](./quick/260330-irn-add-notes-dropdown-to-agent-sales-and-pa/) |
+| 260330-jfj | Add audio buffer validation to audit queue | 2026-03-30 | b67ad52 | [260330-jfj-add-audio-buffer-validation-to-audit-que](./quick/260330-jfj-add-audio-buffer-validation-to-audit-queue/) |
 
 ---
 *State initialized: 2026-03-14*
-*Last updated: 2026-03-19*
+*v2.0 milestone started: 2026-03-31*
+*Last session: 2026-03-31 -- Completed all Phase 37 plans (37-00 through 37-03)*
+*Last updated: 2026-03-31*

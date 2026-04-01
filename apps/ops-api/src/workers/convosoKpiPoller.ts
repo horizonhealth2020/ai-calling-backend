@@ -6,21 +6,39 @@
  */
 
 import { prisma } from "@ops/db";
+import { DateTime } from "luxon";
+
+// Convoso returns timestamps in America/Los_Angeles (Pacific)
+// Luxon uses the IANA timezone database for exact DST transition dates
+function convosoDateToUTC(dateStr: string): Date {
+  const dt = DateTime.fromFormat(dateStr, "yyyy-MM-dd HH:mm:ss", {
+    zone: "America/Los_Angeles",
+  });
+  if (!dt.isValid) return new Date();
+  return dt.toJSDate();
+}
 import {
   fetchConvosoCallLogs,
   enrichWithTiers,
   buildKpiSummary,
   type AgentKpi,
+  type ConvosoCallLog,
 } from "../services/convosoCallLogs";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function extractConvosoResults(response: any): any[] {
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.results)) return response.results;
-  if (Array.isArray(response)) return response;
+function extractConvosoResults(response: unknown): Record<string, unknown>[] {
+  const resp = response as Record<string, unknown> | undefined;
+  // Convoso wraps results as { data: { results: [...] } }
+  const dataObj = resp?.data as Record<string, unknown> | undefined;
+  if (dataObj && Array.isArray(dataObj.results)) return dataObj.results as Record<string, unknown>[];
+  // Fallback: data is directly an array
+  if (Array.isArray(resp?.data)) return resp.data as Record<string, unknown>[];
+  // Fallback: top-level results array
+  if (Array.isArray(resp?.results)) return resp.results as Record<string, unknown>[];
+  if (Array.isArray(response)) return response as Record<string, unknown>[];
   return [];
 }
 
@@ -33,27 +51,26 @@ interface LeadSourceRow {
   name: string;
   listId: string | null;
   costPerLead: { toNumber?: () => number } | number;
+  callBufferSeconds: number;
 }
 
 async function pollLeadSource(
   leadSource: LeadSourceRow,
   agentMap: Map<string, { id: string; name: string }>,
-  queueId: string,
 ): Promise<number> {
   try {
     const response = await fetchConvosoCallLogs({
-      queue_id: queueId,
       list_id: leadSource.listId!,
       call_type: "INBOUND",
       called_count: "0",
-      include_recordings: "0",
+      include_recordings: "1",
     });
 
     const raw = extractConvosoResults(response);
     if (raw.length === 0) return 0;
 
     // --- Deduplication: filter out already-processed call IDs ---
-    const callIds = raw.map((r: any) => String(r.id)).filter(Boolean);
+    const callIds = raw.map((r) => String(r.id)).filter(Boolean);
 
     const existing = await prisma.processedConvosoCall.findMany({
       where: { convosoCallId: { in: callIds } },
@@ -61,7 +78,7 @@ async function pollLeadSource(
     });
     const existingSet = new Set(existing.map((e) => e.convosoCallId));
 
-    const newRaw = raw.filter((r: any) => !existingSet.has(String(r.id)));
+    const newRaw = raw.filter((r) => !existingSet.has(String(r.id)));
 
     if (existingSet.size > 0) {
       console.log(
@@ -78,12 +95,156 @@ async function pollLeadSource(
 
     if (newRaw.length === 0) return 0;
 
-    const enriched = enrichWithTiers(newRaw);
+    // Write individual call records to ConvosoCallLog (before buffer filtering)
+    const callLogRecords = newRaw
+      .map((r) => {
+        const userId = String(r.user_id ?? "");
+        const agentInfo = agentMap.get(userId);
+        return {
+          agentUser: userId,
+          listId: leadSource.listId!,
+          recordingUrl: (() => {
+            // Convoso returns recording as array of objects with public_url/src
+            if (Array.isArray(r.recording) && r.recording.length > 0) {
+              const rec = r.recording[0] as Record<string, unknown>;
+              const url = String(rec.public_url ?? rec.src ?? "");
+              return url.length > 0 ? url : null;
+            }
+            if (r.recording_url) return String(r.recording_url);
+            return null;
+          })(),
+          callDurationSeconds: (() => {
+            const raw = r.call_length ?? r.duration ?? r.length;
+            if (raw == null || raw === "") return null;
+            const n = Number(raw);
+            return isNaN(n) ? null : n;
+          })(),
+          callTimestamp: convosoDateToUTC(String(r.call_date ?? r.start_time ?? "")),
+          agentId: agentInfo?.id ?? null,
+          leadSourceId: leadSource.id,
+          leadPhone: (() => {
+            const ph = r.phone_number ?? r.caller_id;
+            return ph ? String(ph) : null;
+          })(),
+        };
+      })
+      .filter((r) => r.agentUser !== ""); // skip records without user_id
+
+    if (callLogRecords.length > 0) {
+      console.log(JSON.stringify({
+        event: "kpi_poll_call_log_write",
+        leadSourceId: leadSource.id,
+        count: callLogRecords.length,
+        sample: callLogRecords[0] ? {
+          agentUser: callLogRecords[0].agentUser,
+          duration: callLogRecords[0].callDurationSeconds,
+          hasRecording: !!callLogRecords[0].recordingUrl,
+          timestamp: callLogRecords[0].callTimestamp,
+        } : null,
+        timestamp: new Date().toISOString(),
+      }));
+      await prisma.convosoCallLog.createMany({ data: callLogRecords });
+    }
+
+    // Mark as processed IMMEDIATELY after ConvosoCallLog write
+    // (before KPI step which can crash and cause duplicate call logs)
+    const newCallIds = newRaw.map((r) => String(r.id)).filter(Boolean);
+    if (newCallIds.length > 0) {
+      await prisma.processedConvosoCall.createMany({
+        data: newCallIds.map((cid) => ({
+          convosoCallId: cid,
+          leadSourceId: leadSource.id,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Backfill: update existing records missing recording URL or duration
+    // (Convoso may not have the recording ready on first fetch)
+    const alreadyProcessedIds = [...existingSet];
+    if (alreadyProcessedIds.length > 0) {
+      const incomplete = await prisma.convosoCallLog.findMany({
+        where: {
+          leadSourceId: leadSource.id,
+          OR: [
+            { recordingUrl: null },
+            { callDurationSeconds: null },
+            { leadPhone: null },
+          ],
+        },
+        select: { id: true, agentUser: true, callTimestamp: true },
+      });
+
+      if (incomplete.length > 0) {
+        for (const rec of incomplete) {
+          // Match by agentUser + callTimestamp to find the exact Convoso call
+          for (const r of raw) {
+            const userId = String(r.user_id ?? "");
+            const callDate = convosoDateToUTC(String(r.call_date ?? r.start_time ?? ""));
+            if (userId === rec.agentUser && callDate.getTime() === rec.callTimestamp.getTime()) {
+              const recordingUrl = (() => {
+                if (Array.isArray(r.recording) && r.recording.length > 0) {
+                  const rr = r.recording[0] as Record<string, unknown>;
+                  const url = String(rr.public_url ?? rr.src ?? "");
+                  return url.length > 0 ? url : null;
+                }
+                return r.recording_url ? String(r.recording_url) : null;
+              })();
+              const duration = (() => {
+                const v = r.call_length ?? r.duration ?? r.length;
+                if (v == null || v === "") return null;
+                const n = Number(v);
+                return isNaN(n) ? null : n;
+              })();
+
+              const phone = (() => {
+                const ph = r.phone_number ?? r.caller_id;
+                return ph ? String(ph) : null;
+              })();
+
+              if (recordingUrl || duration || phone) {
+                const updateData: Record<string, unknown> = {};
+                if (recordingUrl) updateData.recordingUrl = recordingUrl;
+                if (duration != null) updateData.callDurationSeconds = duration;
+                if (phone) updateData.leadPhone = phone;
+                await prisma.convosoCallLog.update({
+                  where: { id: rec.id },
+                  data: updateData,
+                }).catch(() => {}); // Non-critical — skip if update fails
+                break; // Found a match, move to next incomplete record
+              }
+            }
+          }
+        }
+
+        if (incomplete.length > 0) {
+          console.log(JSON.stringify({
+            event: "kpi_poll_backfill",
+            leadSourceId: leadSource.id,
+            incompleteRecords: incomplete.length,
+            timestamp: new Date().toISOString(),
+          }));
+        }
+      }
+    }
+
+    // Filter: only calls with call_length >= lead source buffer count toward KPIs
+    const bufferSeconds = leadSource.callBufferSeconds ?? 0;
+    const filtered = bufferSeconds > 0
+      ? newRaw.filter((r) => {
+          const len = Number(r.call_length ?? 0);
+          return len >= bufferSeconds;
+        })
+      : newRaw;
+
+    if (filtered.length === 0) return 0;
+
+    const enriched = enrichWithTiers(filtered as ConvosoCallLog[]);
     const costPerLead =
       typeof leadSource.costPerLead === "number"
         ? leadSource.costPerLead
-        : typeof (leadSource.costPerLead as any)?.toNumber === "function"
-          ? (leadSource.costPerLead as any).toNumber()
+        : typeof (leadSource.costPerLead as { toNumber?: () => number })?.toNumber === "function"
+          ? (leadSource.costPerLead as { toNumber: () => number }).toNumber()
           : Number(leadSource.costPerLead);
 
     const kpiResponse = buildKpiSummary(enriched, { agentMap, costPerLead });
@@ -96,7 +257,7 @@ async function pollLeadSource(
         convosoUserId: a.user_id,
         totalCalls: a.total_calls,
         avgCallLength: a.avg_call_length,
-        callsByTier: a.calls_by_tier as any,
+        callsByTier: a.calls_by_tier as unknown as Record<string, number>,
         costPerSale: a.cost_per_sale,
         totalLeadCost: a.total_lead_cost,
         longestCall: a.longest_call,
@@ -107,26 +268,14 @@ async function pollLeadSource(
 
     await prisma.agentCallKpi.createMany({ data: records });
 
-    // Track processed call IDs to prevent duplicate processing
-    const newCallIds = newRaw.map((r: any) => String(r.id)).filter(Boolean);
-    if (newCallIds.length > 0) {
-      await prisma.processedConvosoCall.createMany({
-        data: newCallIds.map((cid) => ({
-          convosoCallId: cid,
-          leadSourceId: leadSource.id,
-        })),
-        skipDuplicates: true,
-      });
-    }
-
     return records.length;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(
       JSON.stringify({
         event: "kpi_poll_lead_source_error",
         leadSourceId: leadSource.id,
         leadSourceName: leadSource.name,
-        error: err.message,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       }),
     );
@@ -150,15 +299,24 @@ async function runPollCycle(): Promise<void> {
     return;
   }
 
-  const queueId = process.env.CONVOSO_DEFAULT_QUEUE_ID;
-  if (!queueId) {
-    console.log(
-      JSON.stringify({
-        event: "kpi_poll_cycle_skipped",
-        reason: "CONVOSO_DEFAULT_QUEUE_ID not set",
-        timestamp: new Date().toISOString(),
-      }),
-    );
+  // Check if polling is enabled
+  const enabledSetting = await prisma.salesBoardSetting.findUnique({ where: { key: "convoso_polling_enabled" } });
+  if (!enabledSetting || enabledSetting.value !== "true") {
+    console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "polling disabled", timestamp: new Date().toISOString() }));
+    return;
+  }
+
+  // Check business hours
+  const [startSetting, endSetting] = await Promise.all([
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_business_hours_start" } }),
+    prisma.salesBoardSetting.findUnique({ where: { key: "convoso_business_hours_end" } }),
+  ]);
+  const startHour = startSetting?.value ?? "08:00";
+  const endHour = endSetting?.value ?? "18:00";
+  const now = DateTime.now().setZone("America/New_York");
+  const currentTime = `${String(now.hour).padStart(2, "0")}:${String(now.minute).padStart(2, "0")}`;
+  if (currentTime < startHour || currentTime >= endHour) {
+    console.log(JSON.stringify({ event: "kpi_poll_cycle_skipped", reason: "outside business hours", currentTime, businessHours: `${startHour}-${endHour}`, timestamp: now.toISO() }));
     return;
   }
 
@@ -171,6 +329,7 @@ async function runPollCycle(): Promise<void> {
     select: { id: true, name: true, email: true },
   });
 
+  // Agent map keyed by CRM user ID (stored in email field) → agent info
   const agentMap = new Map(
     agents
       .filter((a) => a.email)
@@ -181,7 +340,7 @@ async function runPollCycle(): Promise<void> {
 
   // Sequential to avoid Convoso rate limiting
   for (const ls of leadSources) {
-    const count = await pollLeadSource(ls, agentMap, queueId);
+    const count = await pollLeadSource(ls, agentMap);
     totalCount += count;
   }
 
@@ -201,11 +360,11 @@ async function runPollCycle(): Promise<void> {
         }),
       );
     }
-  } catch (cleanupErr: any) {
+  } catch (cleanupErr: unknown) {
     console.error(
       JSON.stringify({
         event: "kpi_poll_cleanup_error",
-        error: cleanupErr.message,
+        error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
         timestamp: new Date().toISOString(),
       }),
     );

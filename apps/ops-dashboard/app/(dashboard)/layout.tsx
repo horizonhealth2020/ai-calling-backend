@@ -2,24 +2,14 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, ChevronDown } from "lucide-react";
 import { SocketProvider, useSocketContext } from "@/lib/SocketProvider";
-import { DateRangeProvider } from "@/lib/DateRangeContext";
 import { getTabsForRoles, type TabConfig } from "@/lib/roles";
 import { decodeRolesFromToken } from "@/lib/auth";
-import { getToken, clearToken } from "@ops/auth/client";
+import { getToken, clearToken, captureTokenFromUrl } from "@ops/auth/client";
 import { colors, spacing, radius, typography, motion } from "@ops/ui";
 
 /* -- Styles -- */
-
-const TAB_BAR: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: spacing[1],
-  padding: `${spacing[3]}px ${spacing[6]}px`,
-  borderBottom: `1px solid ${colors.borderSubtle}`,
-  background: colors.bgSurface,
-};
 
 const TAB_INACTIVE: React.CSSProperties = {
   padding: `${spacing[2]}px ${spacing[4]}px`,
@@ -70,11 +60,26 @@ const DISCONNECT_BANNER: React.CSSProperties = {
 function DashboardInner({ tabs, children }: { tabs: TabConfig[]; children: React.ReactNode }) {
   const pathname = usePathname();
   const { disconnected } = useSocketContext();
+  const [hovered, setHovered] = useState(false);
+  const [delayedHovered, setDelayedHovered] = useState(false);
+
+  useEffect(() => {
+    if (hovered) {
+      setDelayedHovered(true);
+    } else {
+      const timer = setTimeout(() => setDelayedHovered(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [hovered]);
+
+  const activeTab = tabs.find((t) => pathname.startsWith(t.path));
 
   function handleLogout() {
     clearToken();
     window.location.href = "/";
   }
+
+  const expanded = delayedHovered || !activeTab;
 
   return (
     <>
@@ -84,40 +89,76 @@ function DashboardInner({ tabs, children }: { tabs: TabConfig[]; children: React
         </div>
       )}
       {tabs.length > 1 && (
-        <nav style={TAB_BAR}>
-          {tabs.map((tab) => {
-            const isActive = pathname.startsWith(tab.path);
-            return (
-              <Link
-                key={tab.path}
-                href={tab.path}
-                style={isActive ? TAB_ACTIVE : TAB_INACTIVE}
+        <nav
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: spacing[1],
+            padding: expanded ? `${spacing[3]}px ${spacing[6]}px` : `${spacing[1]}px ${spacing[6]}px`,
+            borderBottom: `1px solid ${colors.borderSubtle}`,
+            background: colors.bgSurface,
+            transition: `padding ${motion.duration.fast} ${motion.easing.out}`,
+            overflow: "hidden",
+          }}
+        >
+          {expanded ? (
+            <>
+              {tabs.map((tab) => {
+                const isActive = pathname.startsWith(tab.path);
+                return (
+                  <Link
+                    key={tab.path}
+                    href={tab.path}
+                    style={isActive ? TAB_ACTIVE : TAB_INACTIVE}
+                  >
+                    {tab.label}
+                  </Link>
+                );
+              })}
+              <button
+                type="button"
+                style={LOGOUT_BTN}
+                onClick={handleLogout}
+                title="Sign out"
               >
-                {tab.label}
-              </Link>
-            );
-          })}
-          <button
-            type="button"
-            style={LOGOUT_BTN}
-            onClick={handleLogout}
-            title="Sign out"
-          >
-            <LogOut size={14} />
-            Sign out
-          </button>
+                <LogOut size={14} />
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <span style={{
+                fontSize: typography.sizes.xs.fontSize,
+                fontWeight: typography.weights.semibold,
+                color: colors.primary400,
+                letterSpacing: "0.02em",
+              }}>
+                {activeTab?.label}
+              </span>
+              <ChevronDown size={12} style={{ color: colors.textMuted }} />
+              <button
+                type="button"
+                style={{ ...LOGOUT_BTN, fontSize: typography.sizes.xs.fontSize, padding: `0 ${spacing[2]}px` }}
+                onClick={handleLogout}
+                title="Sign out"
+              >
+                <LogOut size={12} />
+              </button>
+            </>
+          )}
         </nav>
       )}
       {tabs.length <= 1 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: `${spacing[2]}px ${spacing[6]}px`, borderBottom: `1px solid ${colors.borderSubtle}`, background: colors.bgSurface }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: `${spacing[1]}px ${spacing[6]}px`, borderBottom: `1px solid ${colors.borderSubtle}`, background: colors.bgSurface }}>
           <button
             type="button"
             style={LOGOUT_BTN}
             onClick={handleLogout}
             title="Sign out"
           >
-            <LogOut size={14} />
-            Sign out
+            <LogOut size={12} />
           </button>
         </div>
       )}
@@ -132,7 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [tabs, setTabs] = useState<TabConfig[]>([]);
 
   useEffect(() => {
-    const token = getToken();
+    const token = captureTokenFromUrl() || getToken();
     if (token) {
       const roles = decodeRolesFromToken(token);
       setTabs(getTabsForRoles(roles));
@@ -143,11 +184,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SocketProvider apiUrl={apiUrl}>
-      <DateRangeProvider>
-        <DashboardInner tabs={tabs}>
-          {children}
-        </DashboardInner>
-      </DateRangeProvider>
+      <DashboardInner tabs={tabs}>
+        {children}
+      </DashboardInner>
     </SocketProvider>
   );
 }

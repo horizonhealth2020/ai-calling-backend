@@ -1,6 +1,6 @@
 export async function POST(req: Request) {
   const body = await req.json();
-  const opsApiUrl = process.env.NEXT_PUBLIC_OPS_API_URL;
+  const opsApiUrl = process.env.OPS_API_INTERNAL_URL || process.env.NEXT_PUBLIC_OPS_API_URL;
 
   if (!opsApiUrl) {
     return Response.json({ error: "Server misconfiguration: API URL not set" }, { status: 500 });
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return Response.json(
       { error: `Cannot reach API server. Check that ops-api is running at ${opsApiUrl}` },
       { status: 502 },

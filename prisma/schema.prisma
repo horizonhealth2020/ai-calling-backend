@@ -54,6 +54,7 @@ enum ProductType {
   CORE
   ADDON
   AD_D
+  ACA_PL
 }
 
 model User {
@@ -90,7 +91,8 @@ model Agent {
   userId       String?  @map("user_id")
   extension    String?
   active       Boolean  @default(true)
-  auditEnabled Boolean  @default(false) @map("audit_enabled")
+  auditEnabled   Boolean   @default(false) @map("audit_enabled")
+  auditEnabledAt DateTime? @map("audit_enabled_at")
   displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -134,9 +136,23 @@ model Product {
   commissionAbove      Decimal?    @map("commission_above") @db.Decimal(5, 2)
   bundledCommission    Decimal?    @map("bundled_commission") @db.Decimal(5, 2)
   standaloneCommission Decimal?    @map("standalone_commission") @db.Decimal(5, 2)
-  isBundleQualifier    Boolean     @default(false) @map("is_bundle_qualifier")
   enrollFeeThreshold   Decimal?    @map("enroll_fee_threshold") @db.Decimal(10, 2)
+  flatCommission       Decimal?    @map("flat_commission") @db.Decimal(12, 2)
   notes                String?
+
+  requiredBundleAddonId  String?  @map("required_bundle_addon_id")
+
+  requiredBundleAddon    Product? @relation("RequiredBundleAddon", fields: [requiredBundleAddonId], references: [id])
+
+  // Reverse relations (required by Prisma for self-referencing)
+  coreProductsRequiring  Product[] @relation("RequiredBundleAddon")
+
+  // Many-to-many fallback addons via join table
+  fallbackAddons         CoreProductFallback[] @relation("CoreFallbacks")
+  fallbackForCores       CoreProductFallback[] @relation("FallbackFor")
+
+  stateAvailability      ProductStateAvailability[]
+
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
@@ -145,6 +161,31 @@ model Product {
   saleAddons  SaleAddon[]
 
   @@map("products")
+}
+
+model ProductStateAvailability {
+  id         String   @id @default(cuid())
+  productId  String   @map("product_id")
+  stateCode  String   @map("state_code") @db.VarChar(2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@unique([productId, stateCode])
+  @@map("product_state_availability")
+}
+
+model CoreProductFallback {
+  id                String   @id @default(cuid())
+  coreProductId     String   @map("core_product_id")
+  fallbackProductId String   @map("fallback_product_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  coreProduct       Product  @relation("CoreFallbacks", fields: [coreProductId], references: [id], onDelete: Cascade)
+  fallbackProduct   Product  @relation("FallbackFor", fields: [fallbackProductId], references: [id], onDelete: Cascade)
+
+  @@unique([coreProductId, fallbackProductId])
+  @@map("core_product_fallbacks")
 }
 
 model Sale {
@@ -174,6 +215,9 @@ model Sale {
   callDuration       Int?      @map("call_duration")
   callDateTime       DateTime? @map("call_date_time")
   memberState        String?   @map("member_state") @db.VarChar(2)
+  leadPhone          String?   @map("lead_phone")
+  memberCount        Int?      @map("member_count")
+  acaCoveringSaleId  String?   @map("aca_covering_sale_id")
 
   agent                Agent                 @relation(fields: [agentId], references: [id])
   product              Product               @relation(fields: [productId], references: [id])
@@ -184,9 +228,13 @@ model Sale {
   addons               SaleAddon[]
   statusChangeRequests StatusChangeRequest[]
   saleEditRequests     SaleEditRequest[]
+  matchedChargebacks   ChargebackSubmission[] @relation("ChargebackMatchedSale")
+  acaCoveringSale      Sale?                  @relation("AcaCovering", fields: [acaCoveringSaleId], references: [id])
+  acaCoveredSales      Sale[]                 @relation("AcaCovering")
 
   @@index([saleDate])
   @@index([memberId])
+  @@index([leadSourceId, createdAt])
   @@map("sales")
 }
 
@@ -264,6 +312,7 @@ model PayrollEntry {
   bonusAmount      Decimal            @default(0) @map("bonus_amount") @db.Decimal(12, 2)
   frontedAmount    Decimal            @default(0) @map("fronted_amount") @db.Decimal(12, 2)
   holdAmount       Decimal            @default(0) @map("hold_amount") @db.Decimal(12, 2)
+  halvingReason    String?            @map("halving_reason")
   netAmount        Decimal            @map("net_amount") @db.Decimal(12, 2)
   status           PayrollEntryStatus @default(PENDING)
   paidAt           DateTime?          @map("paid_at")
@@ -441,6 +490,10 @@ model ConvosoCallLog {
   auditStatus         String   @default("pending") @map("audit_status")
   callAuditId         String?  @unique @map("call_audit_id")
   createdAt           DateTime @default(now()) @map("created_at")
+  leadPhone           String?  @map("lead_phone")
+  retryCount          Int      @default(0) @map("retry_count")
+  lastFailedAt        DateTime? @map("last_failed_at")
+  failureReason       String?  @map("failure_reason")
 
   agent      Agent?      @relation(fields: [agentId], references: [id])
   leadSource LeadSource? @relation(fields: [leadSourceId], references: [id])
@@ -448,6 +501,7 @@ model ConvosoCallLog {
 
   @@index([callTimestamp])
   @@index([agentId, leadSourceId, callTimestamp])
+  @@index([leadSourceId, callTimestamp])
   @@map("convoso_call_logs")
 }
 
@@ -535,9 +589,13 @@ model ChargebackSubmission {
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  submitter User  @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
-  resolver  User? @relation("ChargebackResolvedBy", fields: [resolvedBy], references: [id])
-  alerts    PayrollAlert[]
+  matchedSaleId  String?  @map("matched_sale_id")
+  matchStatus    String?  @map("match_status")
+
+  matchedSale Sale?  @relation("ChargebackMatchedSale", fields: [matchedSaleId], references: [id])
+  submitter   User   @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
+  resolver    User?  @relation("ChargebackResolvedBy", fields: [resolvedBy], references: [id])
+  alerts      PayrollAlert[]
 
   @@map("chargeback_submissions")
 }

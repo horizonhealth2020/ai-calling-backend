@@ -39,7 +39,7 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 const NAV_ITEMS: NavItem[] = [
   { icon: <FileText size={18} />, label: "Sales Entry", key: "entry" },
-  { icon: <Users size={18} />, label: "Agent Tracker", key: "tracker" },
+  { icon: <Users size={18} />, label: "Performance Tracker", key: "tracker" },
   { icon: <BarChart3 size={18} />, label: "Agent Sales", key: "sales" },
   { icon: <Headphones size={18} />, label: "Call Audits", key: "audits" },
   { icon: <Settings size={18} />, label: "Config", key: "config" },
@@ -49,7 +49,14 @@ const NAV_ITEMS: NavItem[] = [
 
 function ManagerPageInner() {
   const { socket } = useSocketContext();
-  const [activeTab, setActiveTab] = useState<Tab>("entry");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (["entry", "tracker", "sales", "audits", "config"].includes(hash)) return hash as Tab;
+    }
+    return "entry";
+  });
+  useEffect(() => { window.location.hash = activeTab; }, [activeTab]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
@@ -89,7 +96,7 @@ function ManagerPageInner() {
   }, []);
 
   const loadTracker = useCallback(() => {
-    return authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : []).then(setTracker).catch(() => {});
+    return authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : { agents: [] }).then(data => setTracker(data.agents ?? [])).catch(() => {});
   }, []);
 
   const loadSales = useCallback(() => {
@@ -116,18 +123,20 @@ function ManagerPageInner() {
 
       highlightSale(payload.sale.id, payload.sale.agent.name);
 
-      // Patch tracker state
+      // Patch tracker state (include addon premiums)
+      const addonPrem = payload.sale.addons?.reduce((s: number, a) => s + Number((a as { premium?: number | null }).premium ?? 0), 0) ?? 0;
+      const totalPrem = payload.sale.premium + addonPrem;
       setTracker(prev => {
         const agentName = payload.sale.agent.name;
         const exists = prev.some(t => t.agent === agentName);
         if (exists) {
           return prev.map(t =>
             t.agent === agentName
-              ? { ...t, salesCount: t.salesCount + 1, premiumTotal: t.premiumTotal + payload.sale.premium }
+              ? { ...t, salesCount: t.salesCount + 1, premiumTotal: t.premiumTotal + totalPrem }
               : t
           );
         }
-        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: payload.sale.premium, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0 }];
+        return [...prev, { agent: agentName, salesCount: 1, premiumTotal: totalPrem, totalLeadCost: 0, costPerSale: 0, commissionTotal: 0 }];
       });
 
       // Patch salesList
@@ -166,7 +175,7 @@ function ManagerPageInner() {
 
   if (loading) {
     return (
-      <PageShell title="Manager Dashboard" navItems={NAV_ITEMS} activeNav={activeTab} onNavChange={k => setActiveTab(k as Tab)}>
+      <PageShell compact title="Manager Dashboard" navItems={NAV_ITEMS} activeNav={activeTab} onNavChange={k => setActiveTab(k as Tab)}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[1, 2, 3].map(i => <SkeletonCard key={i} height={64} />)}
         </div>
@@ -176,6 +185,7 @@ function ManagerPageInner() {
 
   return (
     <PageShell
+      compact
       title="Manager Dashboard"
       subtitle="Sales operations and team management"
       navItems={NAV_ITEMS}

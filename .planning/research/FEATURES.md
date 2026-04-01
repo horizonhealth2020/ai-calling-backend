@@ -1,175 +1,180 @@
-# Feature Landscape
+# Feature Research
 
-**Domain:** Dashboard consolidation (multi-app to single app) with uniform date range filtering
-**Researched:** 2026-03-19
-**Context:** Existing 5 dashboard apps + 1 standalone sales board, all Next.js 15, merging into single unified app
+**Domain:** TV-readable sales leaderboard dashboard
+**Researched:** 2026-03-31
+**Confidence:** HIGH
 
-## Table Stakes
+## Feature Landscape
 
-Features users expect from a consolidated dashboard. Missing = feels broken or confusing.
+### Table Stakes (Users Expect These)
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| Role-gated tab navigation | Users currently see only their dashboard; consolidation must preserve this isolation | Medium | @ops/types AppRole, existing PageShell navItems pattern | Each role maps to a tab. SUPER_ADMIN sees all tabs. CS role sees CS tab only. Tab visibility is the new access control boundary. |
-| Login lands on correct default tab | Current auth-portal redirects to the right app URL; unified app must replicate this with tab selection | Low | Auth login route, role-to-tab mapping | Replace URL redirect with in-app tab routing. Role priority order: SUPER_ADMIN > MANAGER > PAYROLL > OWNER_VIEW > CUSTOMER_SERVICE |
-| Preserved feature parity per tab | Every feature in every current dashboard must work identically in its tab | High | All existing page.tsx files (~11k LOC across 4 dashboards) | This is the bulk of the work. Each dashboard page becomes a tab component. No features can regress. |
-| Shared auth state across tabs | Token capture and authFetch must work once for the entire app, not per-tab | Low | @ops/auth/client captureTokenFromUrl, existing pattern | Already solved -- single app means single token capture in root layout. Simpler than current cross-domain token passing. |
-| URL-based tab routing | Users expect browser back/forward to work with tabs, and direct links to specific tabs | Medium | Next.js App Router | Use path segments (e.g., /manager, /payroll, /owner, /cs) or searchParams. Path segments are better for bookmarkability. |
-| Date range picker on all KPI sections | PROJECT.md explicitly requires uniform date range filtering across all KPI counters | Medium | Existing DateRangeFilter component in @ops/ui, existing dateRange() server utility | Component exists but is only used for CSV exports currently. Need to wire it to KPI data fetches. |
-| Current Week preset in date picker | PROJECT.md specifies "Current Week / Last Week / 30 Days / Custom" -- existing component has "Last 7 days / Last 30 days / This month / Custom" | Low | DateRangeFilter component update | Presets need updating: add "Current Week" (Sun-Sat) and "Last Week", keep "30 Days" and "Custom". Drop "This month" and "Last 7 days". |
-| Date range persists across tab switches | Picking a date range on one tab should carry to other tabs | Low | Shared React state in parent, or URL searchParams | Lift dateRange state to app-level. All tabs receive same range. Natural UX for "show me everything from last week". |
-| Sales board remains standalone | PROJECT.md explicitly states sales board is unchanged | None | No work needed | Do NOT consolidate sales-board app. It has no auth requirement. |
+Features that any TV-mounted sales board must have to be functional from across an office. Missing these means the board fails its primary purpose.
 
-## Differentiators
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Enlarged table font sizes (agent names, counts, premiums) | Current 14-18px agent names and 12-15px premiums are unreadable beyond 6 feet. 10-foot UI guidelines mandate 24px minimum for any text. Sales offices typically have 10-20ft viewing distances. | LOW | Existing inline styles use hardcoded px values. Change fontSize properties in WeeklyView TH/TD styles and DailyView column styles. No layout changes needed -- current cells have generous padding that accommodates larger text. |
+| Enlarged KPI card numbers | KPI cards (Today's Sales, Today's Premium, Weekly Sales, Weekly Premium) use 26-30px numbers. At 15+ feet these blur together. Need 36-42px minimum for the primary number. | LOW | Only touches the 4 stat card divs in the main SalesBoard component. Labels can stay small (they provide context, not data). |
+| Enlarged team total row | Team total row uses 14px label, 20px daily counts, 28px grand total. This is the most-glanced row and needs to dominate visually -- 24px+ for daily, 36px+ for grand total. | LOW | Single `<tr>` at bottom of WeeklyView. Increase fontSize on the 3 style objects in that row. |
+| Sufficient contrast on secondary text | Premium amounts use `colors.textTertiary` (muted gray) at 12px. On a TV in a bright office with overhead lighting, these wash out. Need either bolder color or larger size or both. | LOW | Change color from textTertiary to textSecondary for premium values. This is a token swap, not a design overhaul. Dark theme already provides good base contrast for primary text. |
+| Abbreviated dollar amounts for large numbers | "$34,231.42" at distance is noise. "$34.2K" communicates instantly. Klipfolio and digital signage best practices universally recommend numeric suffixes for TV displays. | LOW | Add a `fmt$short` helper (already have `fmt$` and `fmt$whole`). Use for premium columns where precision beyond hundreds is not actionable from a TV. Keep full precision on desktop/close-up views or use the existing `fmt$whole` which already drops cents. |
+| Bold/heavy font weights on data cells | Current daily count cells use fontWeight 800 (good) but premium sub-values use 600. At distance, anything below 700 loses definition. Industry guidance says avoid thin/light typefaces on TV. | LOW | Bump fontWeight from 600 to 700 on premium sub-text in daily cells and agent column premium values. |
 
-Features that improve the experience beyond what separate apps provided. Not strictly required but high value for effort.
+### Differentiators (Competitive Advantage)
 
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| Cross-tab KPI summary header | A top-level KPI bar showing aggregated numbers across all user-visible dashboards | Medium | API endpoints for summary stats | Currently each dashboard loads its own KPIs independently. A unified header showing "Total Sales / Total Payroll / Open Chargebacks" gives instant cross-functional context. |
-| Tab badges with live counts | Show notification badges on tabs (e.g., "3" on Payroll for pending approvals, "5" on CS for unresolved chargebacks) | Low | Existing Socket.IO events, PageShell already supports badge prop on NavItem | PageShell NavItem type already has `badge?: number`. Wire Socket.IO events to tab badge counts. Low effort, high polish. |
-| Keyboard shortcuts for tab switching | Ctrl+1/2/3/4 to jump between tabs | Low | Client-side keydown listener | Power users managing multiple areas will appreciate fast switching. 20 lines of code. |
-| Deep link support with date range in URL | URLs like /payroll?range=week preserve both tab and date context for sharing | Low | Already using searchParams pattern | Enables "here's what I'm looking at" sharing between team members. |
-| Unified loading skeleton | Single skeleton pattern while any tab's data loads, rather than per-dashboard loading states | Low | Existing SkeletonCard component in @ops/ui | Smoother perceived performance when switching tabs. |
+Features that would make this sales board notably better than generic TV dashboard tools (Klipfolio, Spinify, Geckoboard) when wall-mounted.
 
-## Anti-Features
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Auto-scaling font sizes based on agent count | With 9 agents the table is spacious; with 15 it gets tight. A simple `clamp()` or computed fontSize that shrinks proportionally as agent rows increase keeps text maximally large without overflow. Better than picking one fixed size that works for 15 but wastes space with 9. | MEDIUM | Calculate based on `sorted.length`. Use `Math.max(MIN, BASE - (agentCount - 9) * STEP)` pattern. Apply to agent name, count, and premium fontSize. Requires testing at 9, 12, 15 agent counts. |
+| Podium card size increase for TV | The DailyView podium cards use 14-17px names and 26-36px counts. These are designed for desktop proximity. Scaling podium dimensions and font sizes ~1.5x makes the leaderboard view dramatic and readable from across the room. | MEDIUM | Modify PODIUM_CONFIG constants (nameSize, countSize, height, width). Must verify 3 cards still fit side-by-side at 1920px width with increased widths. The podium is the "hero" view so this has high visual payoff. |
+| Row height optimization for 9-15 agent fit | The milestone spec says "cell dimensions unchanged -- increased fonts use existing whitespace." Current row padding is `14px 16px`. At 1080p with header + KPI bar + tab nav, available table height is roughly 600-700px. With 15 agents + header + team total = 17 rows, each row gets ~38px. Current 14px vertical padding (28px total) + line height means rows are already ~48px. The constraint is real: fonts must grow but rows must not. | MEDIUM | Audit exact pixel budget: 1080px viewport minus header (~120px), KPI bar (~100px), tab nav (~48px), table header (~48px), team total row (~56px), bottom padding (~24px) = ~741px for agent rows. At 15 agents that is 49px per row. Current padding of 14px top+bottom = 28px padding + ~20px text = 48px. Fits. Can increase font without increasing row height by reducing vertical padding slightly if needed (12px instead of 14px). |
+| Whole-dollar display in table cells | Premium sub-values in daily cells currently show cents ($1,234.56). Dropping cents to show "$1,235" saves 3 characters per cell, which at 7 day columns times 15 agents = 105 fewer characters of visual noise. The existing `fmt$whole` helper already does this. | LOW | Already partially implemented -- WeeklyView uses `fmt$whole` for premium. Verify DailyView podium and remaining-agent columns also use it. Consistency pass only. |
 
-Features to explicitly NOT build during this milestone.
+### Anti-Features (Commonly Requested, Often Problematic)
 
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| Multi-tab visible simultaneously (split view) | Adds massive complexity for minimal value; internal ops tool, not a trading dashboard | One tab at a time with fast switching |
-| Custom dashboard layout / drag-and-drop widgets | Over-engineering for a team of < 20 users; every role has well-defined needs | Fixed layout per tab, optimized for each role's workflow |
-| Tab customization / ordering preferences | Premature personalization; roles define what you see | Fixed tab order based on role hierarchy |
-| Merge sales board into unified app | PROJECT.md explicitly excludes it; sales board is public-facing (no auth) | Keep as standalone app at port 3013 |
-| Real-time date range auto-refresh | Socket.IO already handles real-time sale events; adding polling for date-filtered KPIs adds complexity without clear value | Manual refresh or re-select date range to update; Socket.IO continues to handle live sale cascade |
-| Date range on individual table rows | Tables already have their own filters (status, agent, etc.); mixing date range into row-level filters creates UX confusion | Date range applies to KPI counters/cards only; table data uses its existing filter patterns |
-| Global search across all tabs | Nice to have but not part of this milestone; each tab has its own search/filter patterns | Keep existing per-tab search and filter mechanisms |
-| Merge auth-portal completely | Auth-portal still handles login form, password change, access-denied pages; these should move but keep as separate concern within unified app | Login page is a route in the unified app (/login), not a tab |
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| Auto-rotating between views | "Show leaderboard for 30s then weekly table for 30s." Feels like it adds value by showing everything. | Viewers glance at the board for 2-3 seconds. If the view they need is not showing, they get nothing and wait. Klipfolio warns against cycling when a single focused view serves better. | Let the office pick one default view (likely weekly table). If both views are needed, use two TVs or let an admin toggle manually. |
+| Responsive/mobile layout for TV | "What if someone opens it on their phone?" | The board is explicitly for TV. Adding responsive breakpoints dilutes the TV optimization. Mobile users should use the ops-dashboard. | Keep as a single-purpose TV display. Project already decided "sales board stays standalone" and "mobile app is out of scope." |
+| Animated transitions on data updates | "Numbers should flash when they change to draw attention." | Constant animation fatigues peripheral vision over 8+ hour display. Persistent motion becomes annoying noise. | Keep existing AnimatedNumber (subtle counting animation). Do NOT add flashing, bouncing, or color-change on update. The live pulse dot is sufficient. |
+| Color-coded rows by performance tier | "Green for top performers, red for low performers." | Publicly shaming low performers on a wall TV is a morale killer. Spinify and Ambition warn against this. Also fragments the color scheme. | Keep subtle gold highlight on top 3 rows. Rank badges communicate position without punishment. |
+| Scrolling/pagination for large teams | "Support 30+ agents with scrolling." | A scrolling table on a TV is unusable -- nobody controls the scroll from across the room. | 9-15 agent range is the design target. For larger teams, split into sub-teams or use multiple boards. |
+| Dense multi-metric cells | "Show count + premium + close rate + calls in each cell." | More data per cell = smaller text. At TV distance, 4 values in one cell means 4 unreadable values. | One primary metric (count) with one secondary (premium). Close rate and call data belong on ops-dashboard. |
 
 ## Feature Dependencies
 
 ```
-DateRangeFilter component update (new presets)
-  --> Wire to KPI fetches on Manager tab
-  --> Wire to KPI fetches on Payroll tab
-  --> Wire to KPI fetches on Owner tab
-  --> Wire to KPI fetches on CS tab
+[Enlarged table font sizes]
+    +-- depends on --> [Row height optimization for 9-15 agent fit]
+                           (font increase must be validated against row budget)
 
-Auth consolidation (single token capture)
-  --> Role-gated tab navigation
-  --> Login-to-default-tab routing
+[Auto-scaling font sizes based on agent count]
+    +-- depends on --> [Enlarged table font sizes]
+                           (base sizes must be established before scaling logic)
 
-PageShell adaptation (app-level tabs vs per-dashboard tabs)
-  --> Each dashboard becomes a tab component
-  --> Sub-tabs within each dashboard tab remain unchanged
-       (e.g., Manager keeps entry/tracker/sales/audits/config)
-       (e.g., CS keeps submissions/tracking)
+[Podium card size increase]
+    +-- independent (DailyView only, does not affect WeeklyView)
 
-API dateRange() utility (already exists, lines 33-82 in routes/index.ts)
-  --> KPI endpoints need to accept range/from/to query params
-  --> Currently only CSV export endpoints use date params
-  --> KPI-producing endpoints need updates to accept optional date range
+[Abbreviated dollar amounts]
+    +-- independent (helper function change, applies across views)
+
+[Bold font weights on data cells]
+    +-- independent (style property changes only)
+
+[Sufficient contrast on secondary text]
+    +-- independent (color token swap)
 ```
 
-## MVP Recommendation
+### Dependency Notes
 
-### Phase 1: Unified App Shell + Auth (do first)
+- **Enlarged table fonts requires row height validation:** Cannot blindly increase font sizes without confirming the pixel budget accommodates 15 agent rows plus header and team total within 1080px viewport height. Research suggests it fits (see differentiator analysis), but implementation must verify.
+- **Auto-scaling depends on base sizes:** The scaling formula needs established min/max font sizes as inputs. Set the fixed enlarged sizes first, then add the dynamic scaling as a refinement.
+- **Podium changes are isolated:** The podium only appears in DailyView (leaderboard tab), so changes there do not affect the weekly breakdown table at all.
 
-1. **New unified-dashboard Next.js app** with role-gated tab navigation
-2. **Auth consolidation** -- login route returns tab selection instead of external URL redirect
-3. **Move each dashboard page.tsx into a tab component** (mechanical migration, no feature changes)
-4. **Retire auth-portal landing page** (replaced by tab navigation)
+## MVP Definition
 
-Rationale: This is the structural change. Everything else depends on having one app with working tab switching. The risk is regression in ~11k LOC of existing functionality across 4 dashboard page.tsx files (manager: 2702 LOC, payroll: 3030 LOC, owner: 1957 LOC, CS: 2377 LOC).
+### Launch With (v2.0)
 
-### Phase 2: Uniform Date Range (do second)
+The milestone is narrowly scoped ("increase font sizes for TV readability"). These are the changes that directly satisfy the stated requirements.
 
-1. **Update DateRangeFilter presets** to Current Week / Last Week / 30 Days / Custom
-2. **Lift date range state to app level** so it persists across tabs
-3. **Wire date range to KPI fetches** on each tab (CS tracker, manager tracker, owner overview, payroll)
-4. **Update API KPI endpoints** to accept optional range/from/to query params (reuse existing `dateRange()` utility)
+- [ ] Enlarged table font sizes in WeeklyView -- agent names, daily counts, premiums, totals
+- [ ] Enlarged KPI card numbers -- primary stat values in the 4 top cards
+- [ ] Enlarged team total row -- label, daily counts, grand total, grand premium
+- [ ] Bold font weights on all data-bearing text (minimum 700)
+- [ ] Contrast improvement on premium/secondary text (textTertiary to textSecondary)
+- [ ] Whole-dollar display consistency across both views
 
-Rationale: Date range depends on having a single app (phase 1) because the "persists across tabs" behavior requires shared state. Lower risk than phase 1 -- adding query params to existing fetches.
+### Add After Validation (v2.x)
 
-### Defer to Post-MVP
+Features to add once the basic font sizing is confirmed readable on an actual office TV.
 
-- Cross-tab KPI summary header (nice but not in PROJECT.md requirements)
-- Tab badges with live counts (low effort, can add during polish)
-- Keyboard shortcuts (trivial, add anytime)
-- Deep link with date range in URL (add once core flow works)
+- [ ] Auto-scaling font sizes based on agent count -- add after confirming static sizes work at both 9 and 15 agents on a real TV
+- [ ] Podium card size increase -- add after confirming the weekly table changes
+- [ ] Abbreviated dollar amounts with K/M suffixes -- add if full dollar amounts still feel noisy after the font increase
 
-## Key Complexity Notes
+### Future Consideration (v3+)
 
-### Dashboard Consolidation is Mostly Mechanical but Large
+- [ ] TV-specific URL parameter (?tv=1) that activates TV-optimized sizing vs desktop sizing -- only if the same board needs to serve both contexts
+- [ ] Configurable default view (persist leaderboard vs weekly preference) -- only matters if offices disagree on which view to show
 
-Each dashboard is a single massive page.tsx (700-3000 lines). The consolidation pattern is:
-1. Create `components/ManagerTab.tsx`, `components/PayrollTab.tsx`, etc.
-2. Move page content into each component
-3. Share auth state (token, user roles) from parent
-4. Share Socket.IO connection from parent
-5. Share date range state from parent
+## Feature Prioritization Matrix
 
-The risk is not technical complexity -- it is **regression risk** across ~11k lines of working code. Each tab must be tested thoroughly after migration.
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Enlarged table font sizes | HIGH | LOW | P1 |
+| Enlarged KPI card numbers | HIGH | LOW | P1 |
+| Enlarged team total row | HIGH | LOW | P1 |
+| Bold font weights on data cells | MEDIUM | LOW | P1 |
+| Contrast on secondary text | MEDIUM | LOW | P1 |
+| Whole-dollar consistency | MEDIUM | LOW | P1 |
+| Auto-scaling by agent count | HIGH | MEDIUM | P2 |
+| Podium card size increase | MEDIUM | MEDIUM | P2 |
+| Abbreviated K/M suffixes | LOW | LOW | P3 |
+| TV-specific URL param | LOW | MEDIUM | P3 |
 
-### Two-Level Tab Navigation
+**Priority key:**
+- P1: Must have for v2.0 launch -- directly satisfies milestone requirements
+- P2: Should have -- validates well on real TV, adds polish
+- P3: Nice to have -- only if specific pain points emerge from TV testing
 
-The unified app needs two levels of navigation:
-1. **App-level tabs**: Manager | Payroll | Owner | CS (role-gated by user roles)
-2. **Dashboard-level sub-tabs**: Within Manager tab, sub-tabs for Entry | Tracker | Sales | Audits | Config; within CS, sub-tabs for Submissions | Tracking
+## Current State Analysis
 
-PageShell already supports navItems with activeNav. Recommendation: use PageShell for app-level tabs, then a secondary tab bar component within each dashboard tab for sub-navigation. Do NOT nest two PageShells.
+### Existing Font Sizes (from code audit)
 
-### Date Range on KPIs Requires API Changes
+| Element | Current Size | TV Minimum (10ft) | Gap |
+|---------|-------------|-------------------|-----|
+| Page title "Sales Board" | 36px | 36px+ | OK |
+| KPI card labels | 11px | 18px+ | Needs increase |
+| KPI card numbers | 26-30px | 36-42px | Needs increase |
+| Table header (TH) | 15px | 20px+ | Needs increase |
+| Agent name in table | 18px | 22-26px | Needs increase |
+| Daily count in cell | 20px | 26-32px | Needs increase |
+| Premium sub-value in cell | 12px | 16-20px | Needs increase |
+| Total column | 24px | 30-36px | Needs increase |
+| Premium column | 15px | 20-24px | Needs increase |
+| Team total label | 14px | 18-22px | Needs increase |
+| Team total daily count | 20px | 26-32px | Needs increase |
+| Team total grand number | 28px | 36-42px | Needs increase |
+| Podium name (1st place) | 17px | 24px+ | Needs increase |
+| Podium count (1st place) | 36px | 48px+ | Needs increase |
+| DailyView agent name (4th+) | 14px | 20px+ | Needs increase |
+| DailyView agent count (4th+) | 28px | 36px+ | Needs increase |
+| DailyView agent premium (4th+) | 12px | 18px+ | Needs increase |
 
-Current state of date range support:
-- **CSV export endpoints**: Already accept `range`, `from`, `to` query params via `dateRange()` utility
-- **KPI/stats endpoints**: Do NOT currently accept date params (return current/all-time data)
-- **Agent KPI endpoint** (`/api/agent-kpis`): Hardcoded 30-day window via `getAgentRetentionKpis()`
-- **Tracker endpoints**: Return all data, client groups/filters
+### Pixel Budget Analysis (1080p TV, WeeklyView)
 
-Each KPI-producing endpoint needs to accept optional date range params. The `dateRange()` utility already exists (lines 33-82 in routes/index.ts) and handles: today, week (Sun-Sat), 7d, 30d, month, and custom from/to. Just need to add the "last week" range option.
+```
+Viewport height:                  1080px
+- Top accent bar:                    3px
+- Header (title + KPI cards):     ~160px
+- Tab navigation:                  ~48px
+- Table header row:                ~48px
+- Team total row:                  ~56px
+- Bottom padding:                  ~24px
+                                 -------
+Available for agent rows:         ~741px
 
-### Auth Simplification
+At 15 agents: 741 / 15 = 49px per row
+Current row height: ~48px (14px padding top + 14px padding bottom + 20px text)
+Verdict: FITS. Can increase font from 20px to 28-32px by reducing
+         vertical padding from 14px to 10-12px if needed.
 
-Consolidation actually **simplifies** auth significantly:
-- **Eliminates** cross-domain token passing via URL params between separate apps
-- **Eliminates** DASHBOARD_MAP with per-role external URLs in auth-portal landing page
-- **Eliminates** 5 separate `NEXT_PUBLIC_OPS_API_URL` configurations
-- **Eliminates** auth-portal as separate deployment (login becomes a route in unified app)
-- Login API returns JWT, client stores it, tabs check roles in-memory
-- RBAC moves from "which app can you access" to "which tabs do you see"
-
-### Existing DateRangeFilter Component
-
-The `DateRangeFilter` in `@ops/ui` (packages/ui/src/components/DateRangeFilter.tsx) currently has:
-- Presets: "Last 7 days", "Last 30 days", "This month", "Custom"
-- Custom mode with from/to date inputs
-- Value type: `{ preset: string; from?: string; to?: string }`
-
-Needs updating for v1.3:
-- New presets: "Current Week" (Sun-Sat containing today), "Last Week" (prior Sun-Sat), "30 Days", "Custom"
-- The API `dateRange()` function already handles "week" (current Sun-Sat window) -- need to add "last_week"
-- Consider adding preset key mapping so DateRangeFilter value maps directly to API query param
-
-### Deployment Impact
-
-Consolidating 5 apps into 1 means:
-- **Railway**: 5 fewer services to deploy and monitor (auth-portal, manager, payroll, owner, CS all become one)
-- **Docker**: Fewer containers, simpler docker-compose
-- **CORS**: Single origin instead of 5 separate origins in ALLOWED_ORIGINS
-- **Ports**: Free up 3011, 3012, 3019, 3026; unified app gets one port
-- **Environment**: One NEXT_PUBLIC_OPS_API_URL instead of five
+At 9 agents: 741 / 9 = 82px per row
+Verdict: Generous. Larger fonts will look great.
+```
 
 ## Sources
 
-- Codebase analysis: apps/auth-portal, apps/manager-dashboard, apps/payroll-dashboard, apps/owner-dashboard, apps/cs-dashboard
-- packages/ui/src/components/DateRangeFilter.tsx -- existing date range component (97 lines, presets defined lines 50-55)
-- packages/ui/src/index.tsx -- PageShell with NavItem interface (badge support exists)
-- packages/types/src/index.ts -- AppRole type with 7 roles
-- apps/ops-api/src/routes/index.ts -- dateRange() utility (lines 33-82), handles week/7d/30d/month/custom
-- apps/auth-portal/app/landing/page.tsx -- DASHBOARD_MAP with role-to-URL mapping (to be replaced)
-- apps/auth-portal/app/api/login/route.ts -- current auth flow with cross-domain redirect
-- apps/manager-dashboard/app/page.tsx -- Tab type and PageShell usage pattern (line 70: 5 sub-tabs)
-- apps/cs-dashboard/app/page.tsx -- role-gated tab pattern with canManageCS (line 505-523)
-- .planning/PROJECT.md -- v1.3 milestone requirements
+- [Klipfolio: Best Practices for Displaying Dashboards on Large Screens](https://www.klipfolio.com/resources/articles/best-practices-large-screen-wallboard-tv-dashboard) -- design for glancing, abbreviate numbers, remove fine details
+- [DigitalSignage.com: Typography & Viewing Distance Guide](https://digitalsignage.com/digital_signage/docs/guides/typography-viewing-distance/) -- font size formulas by viewing distance
+- [Pascal Potvin: Designing a 10ft UI](https://pascalpotvin.medium.com/designing-a-10ft-ui-ae2ca0da08b7) -- 24px minimum, simplicity over density
+- [Spyro-soft: 8 UX/UI best practices for TV apps](https://spyro-soft.com/blog/media-and-entertainment/8-ux-ui-best-practices-for-designing-user-friendly-tv-apps) -- white space, bold typefaces, high contrast
+- [Spinify: Sales Leaderboard Best Practices](https://spinify.com/blog/top-10-sales-leaderboard-best-practices/) -- motivation through visibility, avoid shaming
+- [Ambition: Top 10 Best Practices for Sales Leaderboards](https://ambition.com/blog/entry/2017-09-26-how-use-wallboards-and-leaderboards-close-out-year-strong/) -- keep metrics simple, multiple recognition opportunities
+- [RiseVision: Digital Signage Best Practices](https://www.risevision.com/blog/digital-signage-best-practices) -- sans-serif bold, limit text density, test at distance
+- [Android TV Style Guide](https://spot.pcc.edu/~mgoodman/developer.android.com/preview/tv/design/style.html) -- 28px minimum on 1080p, light-on-dark preferred
+- [Alicia.design: Solving small text for large screens](https://www.alicia.design/post/solving-small-text-and-contrast-issues-for-large-screen-readability) -- contrast requirements higher on TV than web
+
+---
+*Feature research for: TV-readable sales leaderboard dashboard*
+*Researched: 2026-03-31*

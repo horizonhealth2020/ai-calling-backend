@@ -1,6 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
+import { Badge, AnimatedNumber, Button, Card, EmptyState } from "@ops/ui";
 import { colors, spacing, radius, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
@@ -51,7 +51,7 @@ type ServiceEntry = {
 };
 type Period = {
   id: string; weekStart: string; weekEnd: string; quarterLabel: string;
-  status: string; entries: any[]; serviceEntries: ServiceEntry[];
+  status: string; entries: unknown[]; serviceEntries: ServiceEntry[];
 };
 
 function fmtDate(iso: string): string {
@@ -157,8 +157,9 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 
@@ -179,8 +180,9 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 
@@ -208,8 +210,9 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? "Failed"}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 
@@ -228,8 +231,9 @@ export default function PayrollService({
         const err = await res.json().catch(() => ({}));
         setSvcMsg(`Error: ${err.error ?? "Failed"}`);
       }
-    } catch (e: any) {
-      setSvcMsg(`Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setSvcMsg(`Error: ${message}`);
     }
   }
 

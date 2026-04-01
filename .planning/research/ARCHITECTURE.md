@@ -1,451 +1,315 @@
-# Architecture Patterns: Dashboard Consolidation & Uniform Date Ranges
+# Architecture Patterns
 
-**Domain:** Multi-dashboard monorepo consolidation into single unified app
-**Researched:** 2026-03-19
-**Confidence:** HIGH (analysis based on direct codebase inspection of all 5 apps, shared packages, auth flow, and deployment configs)
+**Domain:** TV-readable sales board leaderboard (font scaling within existing layout)
+**Researched:** 2026-03-31
 
-## Current Architecture (Before)
+## Current Architecture (Relevant Subset)
 
-```
-Browser
-  |
-  auth-portal (:3011)     login -> /landing role picker -> opens dashboard in new tab
-  |           \          \          \
-  manager (:3019)  payroll (:3012)  owner (:3026)  cs (:3014)  sales-board (:3013)
-  |           |          |          |               |
-  +---------- authFetch (Bearer token) -----------+
-  |                                                |
-  ops-api (:8080) ------ CORS whitelist: 5 origins |
-  |                                                |
-  PostgreSQL                                       |
-  |                                                |
-  Socket.IO ------ 5 independent connections ------+
-```
-
-**5 separate Next.js apps** each with their own:
-- `package.json`, `next.config.js`, `tsconfig.json`
-- Single `app/page.tsx` (all UI in one file per app)
-- `captureTokenFromUrl()` call on mount
-- `PageShell` wrapper with sidebar nav for sub-tabs
-- Independent Socket.IO connection
-
-**Line counts:**
-| App | Lines | Sub-tabs |
-|-----|-------|----------|
-| manager-dashboard | 2,702 | entry, tracker, sales, audits, config |
-| payroll-dashboard | 3,030 | periods, chargebacks, exports, products, service |
-| owner-dashboard | 1,957 | dashboard, kpis, config, users |
-| cs-dashboard | 2,377 | submissions, tracking |
-| auth-portal | 502 | login, change-password, landing |
-| **Total** | **10,568** | |
-
-### Current Auth Flow (Critical Path)
-
-1. User visits `auth-portal:3011/` -- sees login form
-2. Login form POSTs to `/api/login` (Next.js route handler)
-3. Route handler proxies to `ops-api:8080/api/auth/login`
-4. ops-api returns `{ token, roles }` -- JWT contains `{ id, email, name, roles }`
-5. Route handler builds redirect: `/landing?session_token=TOKEN&roles=ROLE1,ROLE2`
-6. Landing page reads roles from URL, shows dashboard cards with env-var URLs
-7. User clicks card -- `window.open(DASHBOARD_URL?session_token=TOKEN, "_blank")`
-8. Dashboard app runs `captureTokenFromUrl()` -- stores token in localStorage, cleans URL
-9. All subsequent API calls use `authFetch()` which reads token from localStorage
-
-**Key observation:** Each dashboard is a completely separate origin. Token passes via URL query param across origins. This is the fragile part that consolidation eliminates.
-
-### Current Cross-Origin Dependencies
-
-| Env Var | Set On | Value |
-|---------|--------|-------|
-| `MANAGER_DASHBOARD_URL` | auth-portal | `http://localhost:3019` |
-| `PAYROLL_DASHBOARD_URL` | auth-portal | `http://localhost:3012` |
-| `OWNER_DASHBOARD_URL` | auth-portal | `http://localhost:3026` |
-| `CS_DASHBOARD_URL` | auth-portal | `http://localhost:3014` |
-| `AUTH_PORTAL_URL` | auth-portal | `http://localhost:3011` |
-| `ALLOWED_ORIGINS` | ops-api | All 5 dashboard origins |
-
-**After consolidation:** All of these env vars become unnecessary. One origin, one CORS entry.
-
-## Recommended Architecture (After)
-
-### Single Unified App: `apps/dashboard`
+The sales board is a single-file page component (`apps/sales-board/app/page.tsx`, ~1240 lines) with two views:
 
 ```
-Browser
-  |
-  dashboard (:3011)
-  |  /              -- login page
-  |  /manager       -- manager content
-  |  /payroll       -- payroll content
-  |  /owner         -- owner content
-  |  /cs            -- CS content
-  |
-  +-- authFetch (Bearer token, same origin) --+
-  |                                           |
-  ops-api (:8080) -- CORS: 2 origins ---------+
-  |                                           |
-  PostgreSQL                                  |
-  |                                           |
-  Socket.IO -- 1 connection at a time --------+
-
-  sales-board (:3013)  -- unchanged, standalone
+SalesBoard (main)
+  |-- Hero Header (title, stats bar, view toggle)
+  |-- DailyView (podium cards + remaining agent columns)
+  |-- WeeklyView (7-day breakdown table)
 ```
 
-### File Structure
+### Font Size Inventory (Current State)
+
+Every font size in the sales board is hardcoded as a literal number in inline `style={{ fontSize: N }}` objects. There are no CSS classes, no shared font-size constants, and no references to the `typography.sizes` tokens from `@ops/ui`.
+
+**DailyView -- Podium Cards (top 3 agents):**
+
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| Rank label ("1st Place") | 10px | PODIUM_CONFIG, line ~63 |
+| Agent name (1st) | 17px | PODIUM_CONFIG.0.nameSize |
+| Agent name (2nd) | 15px | PODIUM_CONFIG.1.nameSize |
+| Agent name (3rd) | 14px | PODIUM_CONFIG.2.nameSize |
+| Sales count (1st) | 36px | PODIUM_CONFIG.0.countSize |
+| Sales count (2nd) | 28px | PODIUM_CONFIG.1.countSize |
+| Sales count (3rd) | 26px | PODIUM_CONFIG.2.countSize |
+| Premium | 12px | Line ~212 |
+
+**DailyView -- Remaining Agents (4th+):**
+
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| Rank badge number | 11px | Line ~440 |
+| Agent name | 14px | Line ~469 |
+| Sales count | 28px | Line ~481 |
+| Premium | 12px | Line ~492 |
+
+**WeeklyView -- Table:**
+
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| Table header (TH) | 15px | TH constant, line ~543 |
+| Agent name cell | 18px | Line ~607 |
+| Rank badge | 11px | Line ~624 |
+| Daily count | 20px | Line ~656 |
+| Daily premium | 12px | Line ~668 |
+| Empty dash | 14px | Line ~673 |
+| Total column | 24px | Line ~686 |
+| Premium column | 15px | Line ~701 |
+| Team total label | 14px | Line ~719 |
+| Team total daily count | 20px | Line ~740 |
+| Team total daily premium | 12px | Line ~743 |
+| Team total grand count | 28px | Line ~759 |
+| Team total grand premium | 16px | Line ~770 |
+
+**Stats Bar (header KPIs):**
+
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| KPI label | 11px | Lines ~1022, ~1070, ~1124, ~1174 |
+| KPI value (sales count) | 30px | Lines ~1035, ~1135 |
+| KPI value (premium, dynamic) | 22-26px | Lines ~1082, ~1186 |
+
+**Other:**
+
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| Page title "Sales Board" | 36px | Line ~917 |
+| "Top Performers" label | 11px | Line ~326 |
+| "All Agents" label | 11px | Line ~389 |
+| Day/Week toggle buttons | 12px | Line ~348 |
+| Countdown timer | 11px | Lines ~974, ~980 |
+
+### Existing Design Token System
+
+The `@ops/ui` package (`packages/ui/src/tokens.ts`) already has a `typography.sizes` scale:
 
 ```
-apps/dashboard/
-  app/
-    layout.tsx                  -- root layout: html, body, font, metadata
-    page.tsx                    -- login page (from auth-portal/app/page.tsx)
-    api/
-      login/route.ts            -- proxy to ops-api (from auth-portal)
-      verify/route.ts           -- JWT verification (from auth-portal)
-      change-password/route.ts  -- password change (from auth-portal)
-    (dashboard)/                -- route group: no URL segment, just auth boundary
-      layout.tsx                -- DashboardShell: role-gated top-level sidebar + user info
-      manager/page.tsx          -- manager content (2,702 lines, keeps internal sub-tabs)
-      payroll/page.tsx          -- payroll content (3,030 lines, keeps internal sub-tabs)
-      owner/page.tsx            -- owner content (1,957 lines, keeps internal sub-tabs)
-      cs/page.tsx               -- CS content (2,377 lines, keeps internal sub-tabs)
-  lib/
-    auth.ts                     -- JWT verification for middleware (from auth-portal/lib/auth.ts)
-    roles.ts                    -- role-to-tab mapping, default tab resolution
-  middleware.ts                 -- protect (dashboard)/* routes, redirect to / if unauthenticated
-  next.config.js
-  package.json
-  tsconfig.json
+xs: 11px, sm: 13px, base: 14px, md: 16px, lg: 18px,
+xl: 22px, 2xl: 28px, 3xl: 36px, display: 48px
 ```
 
-### Component Boundaries
+**The sales board does NOT use `typography.sizes`.** Every font size is a raw number literal. This is consistent with the rest of the codebase pattern -- the ops-dashboard uses `typography.sizes` in some places but the sales board was built with raw values.
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `app/page.tsx` (login) | Login form + change-password | `/api/login` route handler |
-| `app/api/login/route.ts` | Proxy auth to ops-api, return redirect path | ops-api `/api/auth/login` |
-| `middleware.ts` | Verify JWT on `/(dashboard)/*`, redirect to `/` if invalid | `/api/verify` |
-| `(dashboard)/layout.tsx` | Top-level sidebar with role-gated tabs, user name display, logout | Reads JWT claims client-side |
-| `(dashboard)/manager/page.tsx` | Manager tab: entry, tracker, sales, audits, config sub-tabs | ops-api via `authFetch`, Socket.IO |
-| `(dashboard)/payroll/page.tsx` | Payroll tab: periods, chargebacks, exports, products, service sub-tabs | ops-api via `authFetch`, Socket.IO |
-| `(dashboard)/owner/page.tsx` | Owner tab: dashboard, kpis, config, users sub-tabs | ops-api via `authFetch`, Socket.IO |
-| `(dashboard)/cs/page.tsx` | CS tab: submissions, tracking sub-tabs | ops-api via `authFetch`, Socket.IO |
+### Cell Dimension Inventory
 
-### Data Flow
+The constraint is: cell dimensions must NOT change. Larger fonts must use existing whitespace.
 
-**Login (simplified -- same origin):**
-```
-1. User visits /                        -- login page renders
-2. User submits credentials
-3. POST /api/login                      -- Next.js route handler
-4.   -> ops-api /api/auth/login         -- validates credentials
-5.   <- { token, roles }
-6.   <- { redirect: "/manager?session_token=TOKEN" }  -- path, not URL
-7. Browser navigates to /manager?session_token=TOKEN
-8. middleware.ts verifies JWT            -- passes
-9. (dashboard)/layout.tsx renders        -- decodes JWT for roles, shows nav
-10. captureTokenFromUrl() stores token   -- cleans URL to /manager
-11. manager/page.tsx renders content
-```
+**WeeklyView table cells:**
+- Table header (TH): `padding: 14px 16px`
+- Agent name cell: `padding: 14px 20px` (uses `spacing[5]` = 20)
+- Daily cells: `padding: 14px 16px`
+- Total cell: `padding: 14px 16px`
+- Premium cell: `padding: 14px 20px`
+- Team total row: `padding: 16px 16px` or `16px 20px`
 
-**Tab navigation (client-side, no reload):**
-```
-1. User clicks "Payroll" in sidebar
-2. Next.js Link navigates to /payroll   -- client-side transition
-3. manager/page.tsx unmounts             -- Socket.IO disconnects
-4. payroll/page.tsx mounts               -- Socket.IO connects
-5. Token already in localStorage         -- authFetch works immediately
-```
+**DailyView agent columns:**
+- Rank badge: 26x26px
+- Column padding: `16px 8px 20px` (top/sides/bottom)
+- `flex: 1` with `maxWidth: 200` per agent
+- `minHeight: 120` on the column body
 
-**Key improvement:** No cross-origin redirects. No `window.open`. No env vars for dashboard URLs. Token stays in localStorage on the same origin.
+**Podium cards:**
+- 1st: 200px wide x 220px tall
+- 2nd: 175px wide x 180px tall
+- 3rd: 165px wide x 160px tall
+- Padding: `20px 16px`
 
-### Role-to-Tab Mapping
+## Recommended Architecture for TV Readability
+
+### Approach: Inline Font Size Increases with No New Abstraction Layer
+
+**Decision:** Increase font sizes directly in the existing inline style literals. Do NOT extract to new token constants or create a scaling system.
+
+**Rationale:**
+1. The milestone scope is narrow -- increase readability, keep cell dimensions unchanged
+2. The sales board is a single standalone file with no shared font-size dependencies
+3. Adding a token layer for one component would be over-engineering
+4. The existing `typography.sizes` scale does not cover TV-optimized sizes (would need new entries like `tvLg`, `tvXl`, etc.) which pollutes the shared design system for a single consumer
+5. The values only need to change once, not dynamically
+
+### Integration Points
+
+All changes occur in a single file: `apps/sales-board/app/page.tsx`.
+
+**No new files. No new tokens. No new components. No API changes. No package changes.**
+
+| Integration Point | What Changes | Type |
+|-------------------|-------------|------|
+| PODIUM_CONFIG constant (lines 52-95) | Increase `nameSize` and `countSize` values | MODIFY literal values |
+| PodiumCard premium line (line 212) | Increase fontSize from 12 | MODIFY literal |
+| Remaining agent columns (lines 469, 481, 492) | Increase name, count, premium sizes | MODIFY literals |
+| WeeklyView TH constant (line 543) | Increase fontSize from 15 | MODIFY literal |
+| WeeklyView agent name cell (line 607) | Increase fontSize from 18 | MODIFY literal |
+| WeeklyView daily count (line 656) | Increase fontSize from 20 | MODIFY literal |
+| WeeklyView daily premium (line 668) | Increase fontSize from 12 | MODIFY literal |
+| WeeklyView total column (line 686) | Increase fontSize from 24 | MODIFY literal |
+| WeeklyView premium column (line 701) | Increase fontSize from 15 | MODIFY literal |
+| WeeklyView team total cells (lines 719-770) | Increase team total font sizes | MODIFY literals |
+| Stats bar KPI values (lines 1035, 1082, 1135, 1186) | Increase KPI value sizes | MODIFY literals |
+
+### Suggested Font Size Targets
+
+Based on TV viewing at 10-15 feet on a 1080p 50-65 inch display:
+
+| Element | Current | Target | Headroom in Cell |
+|---------|---------|--------|-----------------|
+| **WeeklyView** | | | |
+| Agent name | 18px | 22px | 14px padding each side = plenty |
+| Daily sale count | 20px | 26px | 14px vert padding absorbs this |
+| Daily premium | 12px | 16px | Currently tiny, still fits easily |
+| Total column | 24px | 32px | Same cell width, bold number only |
+| Premium column | 15px | 20px | Right-aligned, fits in padding |
+| Team total label | 14px | 18px | "Team Total" text, left cell |
+| Team total counts | 20px/28px | 26px/36px | Same cells as data rows |
+| Team total premiums | 12px/16px | 16px/22px | Same cells as data rows |
+| Table header | 15px | 18px | Sticky header, uppercase letters |
+| **DailyView** | | | |
+| Podium name (1st) | 17px | 22px | 200px card width |
+| Podium name (2nd) | 15px | 20px | 175px card width |
+| Podium name (3rd) | 14px | 18px | 165px card width |
+| Podium count (1st) | 36px | 44px | Ample vertical space |
+| Podium count (2nd) | 28px | 36px | Ample vertical space |
+| Podium count (3rd) | 26px | 32px | Ample vertical space |
+| Podium premium | 12px | 16px | Below count, fits easily |
+| Remaining agent name | 14px | 18px | flex column, word-break enabled |
+| Remaining agent count | 28px | 36px | Center-aligned, single digits |
+| Remaining agent premium | 12px | 16px | Below count |
+| **Stats Bar** | | | |
+| KPI label | 11px | 13px | Uppercase label, subtle increase |
+| KPI value | 26-30px | 32-36px | Card-based, no overflow risk |
+
+### Handling Variable Agent Counts (9-15 Agents)
+
+This is the primary layout challenge. The board must remain single-screen (no scrolling) for wall-mounted TV display.
+
+**DailyView (Leaderboard tab):**
+
+Current behavior: Top 3 agents get podium cards (fixed width), remaining agents get `flex: 1` columns with `maxWidth: 200px`. This already scales because `flex: 1` distributes space evenly.
+
+- **9 agents:** 3 podium + 6 flex columns = 6 columns sharing ~1200px = ~200px each (at maxWidth)
+- **15 agents:** 3 podium + 12 flex columns = 12 columns sharing ~1200px = ~100px each
+
+**Concern at 15 agents:** 100px per column with 18px agent names may truncate. Agent names are typically first names only (e.g., "Michael", "Jessica") which fit in ~80px at 18px font.
+
+**Recommendation:** Keep existing `flex: 1` layout. The `word-break: break-word` on agent names (line 474) handles long names. At 15 agents, columns compress gracefully. No code change needed for the flex layout itself.
+
+**WeeklyView (Table tab):**
+
+Current behavior: 10-column table (Agent + 7 days + Total + Premium) with `minWidth: 760px` and `overflowX: auto`. Agent count determines row count, not column count.
+
+- **9 agents:** 9 rows + 1 header + 1 team total = 11 rows
+- **15 agents:** 15 rows + 1 header + 1 team total = 17 rows
+
+**Concern at 15 agents:** At increased font sizes, row height will be ~50-54px (from current ~48px due to padding). 17 rows x 54px = 918px. A 1080p TV has ~980px usable height after browser chrome. This fits, but barely.
+
+**Recommendation:** Do NOT increase row padding. The font size increase within existing `14px 16px` padding is sufficient. The extra whitespace will reduce slightly but rows remain readable. If needed, the `padding` on table cells could be reduced from `14px 16px` to `12px 14px` to gain back vertical space, but try without this first.
+
+**Stats bar (header):**
+
+The 4-card stats bar uses `gridTemplateColumns: repeat(4, 1fr)` with `gap: 12px`. This is responsive to container width and unaffected by agent count.
+
+### Data Flow for Dynamic Sizing
+
+No dynamic sizing is needed. The current layout already handles variable agent counts through:
+
+1. **DailyView:** `flex: 1` columns auto-distribute width
+2. **WeeklyView:** Table rows stack vertically, 1080p has room for 17 rows
+3. **Stats bar:** CSS Grid `1fr` columns, agent-count independent
+
+If a truly dynamic approach were ever needed (e.g., supporting 20+ agents), the only change would be reducing font sizes via a computed multiplier:
 
 ```typescript
-// lib/roles.ts
-import type { AppRole } from "@ops/types";
-
-interface TabConfig {
-  path: string;
-  label: string;
-  iconKey: string; // resolved to React element in layout
-}
-
-const TAB_CONFIG: TabConfig[] = [
-  { path: "/manager", label: "Manager", iconKey: "users" },
-  { path: "/payroll", label: "Payroll", iconKey: "dollar" },
-  { path: "/owner",   label: "Owner",   iconKey: "chart" },
-  { path: "/cs",      label: "Customer Service", iconKey: "headphones" },
-];
-
-const ROLE_TO_TABS: Record<string, string[]> = {
-  MANAGER:          ["/manager"],
-  PAYROLL:          ["/payroll"],
-  OWNER_VIEW:       ["/owner"],
-  CUSTOMER_SERVICE: ["/cs"],
-  SUPER_ADMIN:      ["/manager", "/payroll", "/owner", "/cs"], // all tabs
-};
-
-export function getTabsForRoles(roles: string[]): TabConfig[] {
-  const allowed = new Set<string>();
-  for (const role of roles) {
-    for (const path of ROLE_TO_TABS[role] ?? []) {
-      allowed.add(path);
-    }
-  }
-  return TAB_CONFIG.filter(t => allowed.has(t.path));
-}
-
-export function getDefaultTab(roles: string[]): string {
-  // Priority: manager > payroll > owner > cs
-  const tabs = getTabsForRoles(roles);
-  return tabs[0]?.path ?? "/manager";
-}
+const scaleFactor = agents.length <= 12 ? 1 : 12 / agents.length;
+// Apply: fontSize: Math.round(baseSize * scaleFactor)
 ```
 
-### Two-Level Navigation Architecture
+**This is NOT recommended for the current milestone.** The 9-15 agent range fits without dynamic scaling. Adding computed sizing introduces complexity for a problem that does not exist.
 
-**Top level (route-based, in layout.tsx):** Manager | Payroll | Owner | CS
-- Implemented as Next.js `<Link>` navigation between routes
-- Role-gated: only tabs the user has access to appear
-- Persists across page transitions (layout does not remount)
+## Patterns to Follow
 
-**Sub level (state-based, in each page.tsx):** e.g., Entry | Tracker | Sales | Audits | Config
-- Implemented with `useState` inside each page component (unchanged from today)
-- Resets when navigating away and back (acceptable -- matches current behavior)
+### Pattern 1: Increase Font Size, Preserve Padding
 
-**PageShell modification:** The existing `PageShell` component renders a full sidebar with logo, title, and nav items. For the unified app:
+**What:** Change `fontSize` values in existing inline styles. Do not touch `padding`, `width`, `height`, `gap`, or `margin` values.
 
-**Recommended approach: Split PageShell into two components.**
+**When:** Every font size modification in this milestone.
 
-1. **`DashboardShell`** (new, in `@ops/ui` or in `apps/dashboard`): Renders the outer sidebar with top-level role-gated tabs, user info, logout button. This is the `(dashboard)/layout.tsx`.
+**Why:** The milestone constraint says "cell dimensions unchanged -- use existing whitespace." Padding defines cell dimensions. Font size uses space within the cell. A 14px font in a cell with 14px top/bottom padding has 28px of vertical space to grow into.
 
-2. **`SubTabBar`** (new, extracted from PageShell): Renders a horizontal tab bar for in-page sub-navigation. Each dashboard page uses this for its internal tabs.
+### Pattern 2: PODIUM_CONFIG as the Single Source for Podium Sizes
 
-This avoids nested sidebars and gives a clean separation. The existing `PageShell` continues to work for sales-board (which remains standalone).
+**What:** All podium font sizes are defined in the `PODIUM_CONFIG` constant (lines 52-95). Change them there, not in the JSX.
 
-## Migration Path (Detailed)
+**When:** Modifying podium card text sizes.
 
-### Phase 1: Create App Shell + Login
+**Why:** The `PodiumCard` component reads from `cfg.nameSize` and `cfg.countSize`. Changing the config object is the correct integration point. Hardcoding sizes in the JSX would create conflicting sources.
 
-**New files:**
-- `apps/dashboard/package.json` -- dependencies from auth-portal + any dashboard (union of all transpilePackages)
-- `apps/dashboard/next.config.js` -- standard config with `transpilePackages: ["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`
-- `apps/dashboard/tsconfig.json` -- extends `../../tsconfig.base.json`
-- `apps/dashboard/app/layout.tsx` -- root layout (html/body/metadata)
-- `apps/dashboard/app/page.tsx` -- login page (copy from auth-portal)
-- `apps/dashboard/app/api/login/route.ts` -- copy from auth-portal, change redirect from `/landing` to `/(dashboard)/[default-tab]`
-- `apps/dashboard/app/api/verify/route.ts` -- copy from auth-portal
-- `apps/dashboard/app/api/change-password/route.ts` -- copy from auth-portal
+### Pattern 3: Verify Changes at Both Breakpoints
 
-**Modified files:**
-- `package.json` (root) -- add `"dashboard:dev": "npm run dev -w apps/dashboard"`
+**What:** After changing sizes, verify the board looks correct with both 9 agents and 15 agents.
 
-**Validation:** Login works, redirects to a placeholder dashboard page.
+**When:** Testing the changes.
 
-### Phase 2: Auth Middleware + Dashboard Layout
-
-**New files:**
-- `apps/dashboard/middleware.ts` -- protect `/(dashboard)/*` routes, redirect to `/` if no valid JWT
-- `apps/dashboard/app/(dashboard)/layout.tsx` -- DashboardShell with role-gated top-level tabs
-- `apps/dashboard/lib/auth.ts` -- JWT verification helpers (from auth-portal)
-- `apps/dashboard/lib/roles.ts` -- role-to-tab mapping
-
-**New in @ops/ui (or local):**
-- `SubTabBar` component for in-page sub-navigation
-
-**Validation:** Login redirects to correct default tab. Sidebar shows role-appropriate tabs. Clicking tabs navigates between routes. Unauthorized users see only their permitted tabs.
-
-### Phase 3: Migrate CS Dashboard (simplest)
-
-**New files:**
-- `apps/dashboard/app/(dashboard)/cs/page.tsx` -- content from `apps/cs-dashboard/app/page.tsx`
-
-**Changes to content:**
-1. Remove `captureTokenFromUrl()` useEffect (layout handles it)
-2. Replace outer `<PageShell>` with `<SubTabBar>` for submissions/tracking sub-tabs
-3. Keep all internal state, fetch logic, Socket.IO connection unchanged
-4. Role-based tab visibility (`canManageCS`) stays in the page (reads JWT roles)
-
-**Validation:** CS tab works with submissions and tracking. Socket.IO real-time updates work.
-
-### Phase 4: Migrate Owner Dashboard
-
-**New files:**
-- `apps/dashboard/app/(dashboard)/owner/page.tsx`
-
-**Changes:** Same pattern as Phase 3. Owner has role-dependent sub-tabs (SUPER_ADMIN sees "Users" tab) -- this logic stays in the page.
-
-### Phase 5: Migrate Payroll Dashboard
-
-**New files:**
-- `apps/dashboard/app/(dashboard)/payroll/page.tsx`
-
-**Changes:** Same pattern. Payroll has badge counts on sub-tabs (approval needed) -- this stays in the page.
-
-### Phase 6: Migrate Manager Dashboard
-
-**New files:**
-- `apps/dashboard/app/(dashboard)/manager/page.tsx`
-
-**Changes:** Same pattern. Manager is the most complex with 5 sub-tabs and cross-tab shared state (agents, products, lead sources loaded once and used across tabs). All of this stays within the single page component.
-
-### Phase 7: Uniform Date Range Picker
-
-**Modified files:**
-- Each migrated page.tsx -- add `DateRangeFilter` component to KPI sections
-- `DateRangeFilter` already exists in `@ops/ui` (added in v1.2 for CSV exports)
-
-**New behavior:** The `DateRangeFilter` component gets applied to KPI counters/cards, not just CSV exports. Each page manages its own date range state. Options: Current Week, Last Week, 30 Days, Custom.
-
-The `DateRangeFilter` component and `DateRangeFilterValue` type already exist in `@ops/ui` -- they were added in v1.2. The work is wiring them to KPI fetch calls in each dashboard.
-
-### Phase 8: Update Deployment + Remove Old Apps
-
-**Modified files:**
-- `docker-compose.yml` -- replace 5 dashboard services with 1, update ALLOWED_ORIGINS
-- `.env.example` files -- remove dashboard URL vars
-- ops-api `ALLOWED_ORIGINS` -- reduce to 2 origins
-
-**Deleted:**
-- `apps/auth-portal/` (entire directory)
-- `apps/manager-dashboard/` (entire directory)
-- `apps/payroll-dashboard/` (entire directory)
-- `apps/owner-dashboard/` (entire directory)
-- `apps/cs-dashboard/` (entire directory)
-
-**Railway:** Delete 5 services, create 1 dashboard service.
+**Why:** The flex layout and table both behave differently at these extremes. Font sizes that look great with 9 agents may overflow with 15.
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Global State Manager for Auth
-**What:** Adding Redux/Zustand/Context to share auth state across tabs.
-**Why bad:** Over-engineered. Token is in localStorage; each page reads it via `getToken()`. The JWT contains roles. No synchronization needed.
-**Instead:** Keep `localStorage` + `getToken()` / `authFetch()`. Decode JWT for roles where needed.
+### Anti-Pattern 1: Adding New Typography Tokens for This
 
-### Anti-Pattern 2: Single Mega Page
-**What:** Putting all 4 dashboards into one giant page.tsx with top-level tab state.
-**Why bad:** 10,000+ line file. No code splitting. Every tab's code loads on first visit.
-**Instead:** Use Next.js file-based routing. Each dashboard is a separate route with automatic code splitting.
+**What:** Creating `typography.sizes.tvLg`, `tvXl`, etc. in `@ops/ui/tokens.ts`.
 
-### Anti-Pattern 3: Converting Sub-Tabs to Nested Routes
-**What:** Making manager/entry, manager/tracker, manager/sales into separate Next.js routes.
-**Why bad:** Each dashboard page has deeply shared state (agents list, products, lead sources loaded once and used across all sub-tabs). Breaking into routes forces lifting all shared state into a layout, which is far more complex than the current useState approach.
-**Instead:** Keep sub-tabs as React state within each page. Only top-level dashboard tabs use Next.js routing.
+**Why bad:** The sales board is the only consumer. Adding TV-specific tokens to the shared design system pollutes it for all 4 apps. The tokens would be misleading ("tvLg" implies TV-only usage when they are just "bigger" sizes). The existing token scale already covers the target sizes (e.g., `xl: 22`, `2xl: 28`, `3xl: 36`).
 
-### Anti-Pattern 4: Keeping Auth-Portal Separate
-**What:** Running auth-portal alongside the unified dashboard, redirecting between them.
-**Why bad:** Cross-origin token passing via URL params is fragile. Adds CORS complexity. Defeats the purpose of consolidation.
-**Instead:** Login is `app/page.tsx` in the unified app. Same origin throughout.
+**Instead:** Use raw number literals in the single page.tsx file, as the file already does.
 
-### Anti-Pattern 5: Dynamic Imports for Dashboard Pages
-**What:** Using `next/dynamic` to lazy-load each dashboard page component.
-**Why bad:** Next.js App Router already code-splits by route automatically. Dynamic imports add complexity and break the built-in splitting.
-**Instead:** Let file-based routing handle code splitting naturally.
+### Anti-Pattern 2: CSS Media Queries or Container Queries
 
-### Anti-Pattern 6: URL-Based Date Range State Across Top-Level Tabs
-**What:** Persisting date range selection in URL search params so it survives navigation between /manager and /payroll.
-**Why bad:** Different dashboards have different KPI sections with different date range semantics. A "Last Week" filter on payroll means payroll week; on manager it means sales week. Sharing creates confusion.
-**Instead:** Each page manages its own date range state. Navigating away resets it (matches current behavior where each app was independent).
+**What:** Adding `@media (min-width: 1920px)` rules or CSS files for TV-specific breakpoints.
 
-## New vs Modified vs Removed
+**Why bad:** The project constraint is "inline React.CSSProperties -- no Tailwind, no CSS files." Media queries require CSS files or `<style>` tags. The sales board uses `100vh` and fills the screen regardless of resolution. A 1080p TV and a 1080p monitor render identically.
 
-### New Components
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `DashboardShell` | `apps/dashboard/app/(dashboard)/layout.tsx` | Role-gated sidebar with top-level tabs |
-| `SubTabBar` | `@ops/ui` or `apps/dashboard/lib/` | Horizontal tab bar for in-page sub-navigation |
-| `useUserRoles` | `apps/dashboard/lib/roles.ts` | Decode JWT to extract roles array |
-| `getTabsForRoles` | `apps/dashboard/lib/roles.ts` | Map roles to permitted top-level tabs |
-| `getDefaultTab` | `apps/dashboard/lib/roles.ts` | Determine post-login redirect path |
+**Instead:** Increase the base font sizes so they read well on TV. The sizes should also look fine on a desktop monitor (the increase is moderate, not extreme).
 
-### Modified Components
-| Component | Change |
-|-----------|--------|
-| `@ops/auth/client` | Export `decodeTokenPayload` (currently private function) |
-| Each dashboard page.tsx | Remove `captureTokenFromUrl()`, remove outer `PageShell`, use `SubTabBar` for sub-tabs |
-| `apps/dashboard/app/api/login/route.ts` | Redirect to `/{default-tab}?session_token=TOKEN` instead of `/landing?...&roles=...` |
+### Anti-Pattern 3: Dynamic Font Scaling Based on Window Size
 
-### Removed
-| Component | Replaced By |
-|-----------|-------------|
-| `auth-portal/app/landing/page.tsx` | Role-gated tabs in dashboard layout |
-| `auth-portal/middleware.ts` | `dashboard/middleware.ts` |
-| All 4 dashboard `next.config.js` | Single `apps/dashboard/next.config.js` |
-| All 4 dashboard `package.json` | Single `apps/dashboard/package.json` |
-| `MANAGER_DASHBOARD_URL` env var | Not needed (same origin) |
-| `PAYROLL_DASHBOARD_URL` env var | Not needed |
-| `OWNER_DASHBOARD_URL` env var | Not needed |
-| `CS_DASHBOARD_URL` env var | Not needed |
-| `AUTH_PORTAL_URL` env var | Not needed |
+**What:** Using `window.innerHeight` or `ResizeObserver` to compute font sizes at runtime.
 
-### Unchanged
-| Component | Why |
-|-----------|-----|
-| `@ops/ui PageShell` | Still used by sales-board (standalone) |
-| `@ops/auth` (server) | JWT signing/verification unchanged |
-| `@ops/socket` | `useSocket` hook works identically per-page |
-| `@ops/utils` | No changes |
-| `@ops/types` | No changes (AppRole enum stays) |
-| `ops-api` | No API changes. Only CORS origin list simplified. |
-| `sales-board` | Remains standalone, unchanged |
+**Why bad:** Adds complexity, re-render cycles, and flash of unstyled text. The display target is known (1080p TV). The agent count range is known (9-15). Fixed sizes that work across this range are simpler and more reliable.
 
-## Deployment Impact
+### Anti-Pattern 4: Reducing Padding to Make Room for Larger Fonts
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Next.js services | 6 (auth + 4 dashboards + sales-board) | 2 (dashboard + sales-board) |
-| Docker containers | 8 (postgres + api + 6 Next.js) | 4 (postgres + api + 2 Next.js) |
-| Railway services | 7 | 3 |
-| CORS origins | 5-6 | 2 |
-| Cross-service env vars | 5 dashboard URLs | 0 |
-| Build time | 6 parallel Next.js builds | 2 builds (1 larger) |
-| Runtime memory | ~6 Node.js processes | ~2 Node.js processes |
-| Cold start surface | 6 independent cold starts | 2 cold starts |
+**What:** Changing `padding: "14px 16px"` to `padding: "8px 12px"` to accommodate larger text.
 
-### Docker Compose (After)
+**Why bad:** Violates the "cell dimensions unchanged" constraint. Padding defines the cell's visual breathing room. Smaller padding makes the table feel cramped even if cell outer dimensions are technically the same.
 
-```yaml
-dashboard:
-  build:
-    context: .
-    dockerfile: Dockerfile.nextjs
-    args:
-      APP_NAME: dashboard
-      NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
-  restart: unless-stopped
-  depends_on:
-    - ops-api
-  environment:
-    AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-  ports:
-    - "3011:3000"  # keep same port for minimal infra change
+**Instead:** The current padding provides sufficient room. A jump from 20px to 26px font in a cell with 14px top + 14px bottom padding (48px total cell height) still has 22px of padding. This is fine.
 
-# Remove: auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, cs-dashboard
+## Component Boundaries
+
+```
+apps/sales-board/app/page.tsx (ONLY FILE MODIFIED)
+  |
+  |-- PODIUM_CONFIG constant       <-- increase nameSize, countSize
+  |-- PodiumCard component         <-- increase premium fontSize
+  |-- DailyView component          <-- increase remaining-agent font sizes
+  |-- WeeklyView component         <-- increase TH, agent name, daily count,
+  |                                    daily premium, totals, team total sizes
+  |-- SalesBoard component         <-- increase stats bar KPI sizes
+  |
+  NO CHANGES:
+  |-- packages/ui/src/tokens.ts    <-- leave typography.sizes unchanged
+  |-- @ops/ui components           <-- no shared component changes
+  |-- apps/ops-api/                <-- no API changes
+  |-- Any other file               <-- single-file change set
 ```
 
-ops-api `ALLOWED_ORIGINS` changes to: `http://localhost:3011,http://localhost:3013`
+## Files Modified vs Created
 
-## Build Order Summary
+| File | Action | Lines Changed (est.) |
+|------|--------|---------------------|
+| `apps/sales-board/app/page.tsx` | MODIFY | ~30 fontSize value changes |
 
-| Step | What | Validates | Depends On |
-|------|------|-----------|------------|
-| 1 | App shell + login page | Login works on single origin | Nothing |
-| 2 | Middleware + dashboard layout + role nav | Auth boundary, tab navigation | Step 1 |
-| 3 | Migrate CS dashboard | Migration pattern works | Step 2 |
-| 4 | Migrate owner dashboard | Role-dependent sub-tabs work | Step 2 |
-| 5 | Migrate payroll dashboard | Complex sub-tabs + badges work | Step 2 |
-| 6 | Migrate manager dashboard | Full feature set works | Step 2 |
-| 7 | Uniform date range on all KPI sections | Date filtering works per-page | Steps 3-6 |
-| 8 | Deployment update + old app removal | Production-ready | Steps 1-7 |
-
-**Ordering rationale:** Steps 1-2 create the foundation. Steps 3-6 are independent of each other (can be done in any order) but CS is simplest so it validates the pattern first. Step 7 can be done incrementally as each page is migrated. Step 8 is last because old apps remain functional until all pages are migrated.
+**Total: 1 file modified. 0 files created. Estimated ~30 line changes (number literal swaps).**
 
 ## Sources
 
-- Direct codebase analysis of all 5 dashboard apps, auth flow, shared packages, and deployment config
-- Next.js App Router route groups documentation (HIGH confidence -- well-established pattern since Next.js 13)
-- Existing `@ops/auth/client` token handling pattern (direct code inspection)
-- Existing `@ops/ui` PageShell component API (direct code inspection)
-
----
-*Research completed: 2026-03-19 -- v1.3 Dashboard Consolidation & Uniform Date Ranges*
+- Direct code inspection of `apps/sales-board/app/page.tsx` (HIGH confidence)
+- Direct code inspection of `packages/ui/src/tokens.ts` (HIGH confidence)
+- Project requirements from `.planning/PROJECT.md` (HIGH confidence)
+- TV readability standards: 1080p at 10-15 feet viewing distance, minimum ~18px effective for body text (MEDIUM confidence, based on general UX guidelines)

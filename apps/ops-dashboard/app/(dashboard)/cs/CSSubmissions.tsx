@@ -13,9 +13,6 @@ import {
   baseInputStyle,
   baseThStyle,
   baseTdStyle,
-  baseCardStyle,
-  baseLabelStyle,
-  radius,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
@@ -230,18 +227,11 @@ function consolidateByMember(rows: ParsedRow[]): ConsolidatedRecord[] {
   }));
 }
 
-let _rrIndex = 0;
-
-function assignRoundRobin(
+function assignRoundRobinLocal(
   records: ConsolidatedRecord[],
-  activeReps: string[]
+  assignments: string[]
 ): ConsolidatedRecord[] {
-  if (activeReps.length === 0) return records.map((r) => ({ ...r, assignedTo: "" }));
-  return records.map((r) => {
-    const rep = activeReps[_rrIndex % activeReps.length];
-    _rrIndex++;
-    return { ...r, assignedTo: rep };
-  });
+  return records.map((r, i) => ({ ...r, assignedTo: assignments[i] ?? "" }));
 }
 
 /* -- Pending Terms Parser Functions -- */
@@ -349,16 +339,11 @@ function consolidatePendingByMember(rows: PendingParsedRow[]): ConsolidatedPendi
   }));
 }
 
-function assignPtRoundRobin(
+function assignPtRoundRobinLocal(
   records: ConsolidatedPendingRecord[],
-  activeReps: string[]
+  assignments: string[]
 ): ConsolidatedPendingRecord[] {
-  if (activeReps.length === 0) return records.map((r) => ({ ...r, assignedTo: "" }));
-  return records.map((r) => {
-    const rep = activeReps[_rrIndex % activeReps.length];
-    _rrIndex++;
-    return { ...r, assignedTo: rep };
-  });
+  return records.map((r, i) => ({ ...r, assignedTo: assignments[i] ?? "" }));
 }
 
 /* -- Style Constants -- */
@@ -445,42 +430,58 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
     authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
   }, [fetchReps, API]);
 
-  const handleTextChange = (text: string) => {
+  const fetchBatchAssign = async (type: "chargeback" | "pending_term", count: number): Promise<string[]> => {
+    try {
+      const res = await authFetch(`${API}/api/reps/batch-assign?type=${type}&count=${count}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.assignments ?? [];
+      }
+    } catch { /* fallback below */ }
+    console.warn(`[CSSubmissions] batch-assign API failed for type=${type}, using local fallback`);
+    // Fallback: local round-robin with random offset to avoid always-start-at-0 bias
+    const active = repsRef.current.filter((r) => r.active).map((r) => r.name);
+    if (active.length === 0) return Array(count).fill("");
+    const offset = Math.floor(Math.random() * active.length);
+    return Array.from({ length: count }, (_, i) => active[(offset + i) % active.length]);
+  };
+
+  const handleTextChange = async (text: string) => {
     setRawText(text);
     if (text.trim()) {
       const parsed = parseChargebackText(text);
       const consolidated = consolidateByMember(parsed);
-      const currentActive = repsRef.current.filter((r) => r.active).map((r) => r.name);
-      const assigned = assignRoundRobin(consolidated, currentActive);
-      setRecords(assigned);
+      const assignments = await fetchBatchAssign("chargeback", consolidated.length);
+      setRecords(assignRoundRobinLocal(consolidated, assignments));
     } else {
       setRecords([]);
     }
   };
 
-  const handlePtTextChange = (text: string) => {
+  const handlePtTextChange = async (text: string) => {
     setPtRawPaste(text);
     if (text.trim()) {
       const parsed = parsePendingTermsText(text);
       const consolidated = consolidatePendingByMember(parsed);
-      _rrIndex = 0;
-      const currentActive = repsRef.current.filter((r) => r.active).map((r) => r.name);
-      const assigned = assignPtRoundRobin(consolidated, currentActive);
-      setPtRecords(assigned);
+      const assignments = await fetchBatchAssign("pending_term", consolidated.length);
+      setPtRecords(assignPtRoundRobinLocal(consolidated, assignments));
     } else {
       setPtRecords([]);
     }
   };
 
-  // When reps change, re-assign existing records
+  // When reps change, re-assign existing records using persisted round-robin
   useEffect(() => {
-    const currentActive = reps.filter((r) => r.active).map((r) => r.name);
-    if (records.length > 0) {
-      setRecords((prev) => assignRoundRobin(prev, currentActive));
-    }
-    if (ptRecords.length > 0) {
-      setPtRecords((prev) => assignPtRoundRobin(prev, currentActive));
-    }
+    (async () => {
+      if (records.length > 0) {
+        const cbAssign = await fetchBatchAssign("chargeback", records.length);
+        setRecords((prev) => assignRoundRobinLocal(prev, cbAssign));
+      }
+      if (ptRecords.length > 0) {
+        const ptAssign = await fetchBatchAssign("pending_term", ptRecords.length);
+        setPtRecords((prev) => assignPtRoundRobinLocal(prev, ptAssign));
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reps]);
 
@@ -501,7 +502,10 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
         onSubmittingChange={setSubmitting}
         onNewRepNameChange={setNewRepName}
         onRawTextClear={() => { setRawText(""); setRecords([]); }}
-        rerunRoundRobin={assignRoundRobin}
+        rerunRoundRobin={async (recs, _activeReps) => {
+          const assignments = await fetchBatchAssign("chargeback", recs.length);
+          return assignRoundRobinLocal(recs, assignments);
+        }}
         ptRawPaste={ptRawPaste}
         ptRecords={ptRecords}
         ptSubmitting={ptSubmitting}
@@ -533,7 +537,7 @@ interface SubmissionsContentProps {
   onSubmittingChange: (v: boolean) => void;
   onNewRepNameChange: (v: string) => void;
   onRawTextClear: () => void;
-  rerunRoundRobin: (records: ConsolidatedRecord[], activeReps: string[]) => ConsolidatedRecord[];
+  rerunRoundRobin: (records: ConsolidatedRecord[], activeReps: string[]) => Promise<ConsolidatedRecord[]>;
   ptRawPaste: string;
   ptRecords: ConsolidatedPendingRecord[];
   ptSubmitting: boolean;
@@ -682,7 +686,7 @@ function SubmissionsContent({
         onNewRepNameChange("");
         if (records.length > 0) {
           const newActive = newReps.filter((r) => r.active).map((r) => r.name);
-          onRecordsChange(rerunRoundRobin(records, newActive));
+          onRecordsChange(await rerunRoundRobin(records, newActive));
         }
       }
     } catch { /* ignore */ }
@@ -701,7 +705,7 @@ function SubmissionsContent({
         onRepsChange(newReps);
         if (records.length > 0) {
           const newActive = newReps.filter((r) => r.active).map((r) => r.name);
-          onRecordsChange(rerunRoundRobin(records, newActive));
+          onRecordsChange(await rerunRoundRobin(records, newActive));
         }
       }
     } catch { /* ignore */ }
@@ -717,7 +721,7 @@ function SubmissionsContent({
         onRepsChange(newReps);
         if (records.length > 0) {
           const newActive = newReps.filter((r) => r.active).map((r) => r.name);
-          onRecordsChange(rerunRoundRobin(records, newActive));
+          onRecordsChange(await rerunRoundRobin(records, newActive));
         }
       }
     } catch { /* ignore */ }

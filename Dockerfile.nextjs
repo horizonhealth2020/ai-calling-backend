@@ -10,6 +10,8 @@ COPY apps/${APP_NAME}/package.json apps/${APP_NAME}/
 COPY packages/ui/package.json packages/ui/
 COPY packages/auth/package.json packages/auth/
 COPY packages/types/package.json packages/types/
+COPY packages/socket/package.json packages/socket/
+COPY packages/utils/package.json packages/utils/
 
 # Install dependencies
 RUN npm ci --include-workspace-root

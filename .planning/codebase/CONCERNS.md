@@ -1,214 +1,268 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-17
-
-## Tech Debt
-
-**Monolithic routes file:**
-- Issue: All ~1,907 lines of API logic live in a single file with no sub-routing
-- Files: `apps/ops-api/src/routes/index.ts`
-- Impact: Cognitive load is high; PRs always touch the same file causing merge conflicts; impossible to unit-test routes in isolation
-- Fix approach: Split by domain (auth, sales, payroll, clawbacks, callAudit, convoso, settings) into `apps/ops-api/src/routes/` subdirectory files, each exporting a `Router`
-
-**Monolithic frontend pages:**
-- Issue: `payroll-dashboard` page.tsx (2,770 lines) and `manager-dashboard` page.tsx (2,666 lines) contain all UI, state, handlers, and fetch logic in a single Client Component
-- Files: `apps/payroll-dashboard/app/page.tsx`, `apps/manager-dashboard/app/page.tsx`
-- Impact: No component reuse, re-renders entire page on any state change, very hard to test or modify safely
-- Fix approach: Extract sections into sub-components under `app/components/`; pull fetch logic into custom hooks
-
-**Committed backup file:**
-- Issue: `page.backup.tsx` is committed to the repository and tracked in git
-- Files: `apps/sales-board/app/page.backup.tsx` (1,234 lines)
-- Impact: Confuses tooling and developers; misleads code search
-- Fix approach: Delete file and commit removal; use git history for recovery if needed
-
-**`Sale.payrollStatus` and `Sale.clawbackStatus` denormalization never updated:**
-- Issue: The `Sale` model has `payrollStatus` and `clawbackStatus` fields that are set to defaults on creation but never updated by any route or service
-- Files: `prisma/schema.prisma` (lines 157-158), `apps/ops-api/src/routes/index.ts`
-- Impact: These fields always reflect their default values (PENDING / OPEN) regardless of actual state, making them unreliable for any UI or query that reads them
-- Fix approach: Either remove the denormalized fields and derive status from `PayrollEntry`/`Clawback` relations, or add update calls wherever `PayrollEntry.status` and `Clawback.status` are mutated
-
-**Week boundary inconsistency between payroll and sales board:**
-- Issue: `upsertPayrollEntryForSale` uses Sunday-to-Saturday weeks (via `getSundayWeekRange` in `payroll.ts`), while `sales-board/detailed` uses Monday-to-Sunday ISO weeks
-- Files: `apps/ops-api/src/services/payroll.ts` (lines 7-30), `apps/ops-api/src/routes/index.ts` (lines 1213-1219)
-- Impact: Sales appearing on Monday appear in the previous payroll week but the current sales-board week, creating a reporting discrepancy visible to agents on Mondays
-- Fix approach: Standardize sales board to use the same Sunday-week logic as payroll, or document the intentional difference prominently
-
-**`month` range is rolling 30 days, not a calendar month:**
-- Issue: The `dateRange` helper returns "last 30 days" for `range=month`, not the current calendar month
-- Files: `apps/ops-api/src/routes/index.ts` (lines 49-54)
-- Impact: Dashboard date ranges are inconsistent with `/reporting/periods` monthly view which uses calendar months; confuses users comparing the two
-- Fix approach: Define "month" as the current calendar month (first day to today + 1), or rename the parameter value to `last30` and add a true `month` option
-
-**Pervasive `any` typing in routes:**
-- Issue: 33 occurrences of `: any` or `as any` in `routes/index.ts` alone, including `updateData: any`, `(req.user as any)?.roles`, and `(parsed.data as any)[f]`
-- Files: `apps/ops-api/src/routes/index.ts`
-- Impact: Type errors in business logic are hidden at compile time; refactors can silently break data contracts
-- Fix approach: Create typed interfaces for update payloads (e.g., `SaleUpdateData`), use the Prisma-generated input types directly
-
-**Duplicate `extractConvosoResults` function:**
-- Issue: The helper function is defined identically in two places
-- Files: `apps/ops-api/src/routes/index.ts` (line 1799), `apps/ops-api/src/workers/convosoKpiPoller.ts` (line 20)
-- Impact: Bug fixes must be applied twice; functions can drift
-- Fix approach: Export from `apps/ops-api/src/services/convosoCallLogs.ts` and import in both locations
-
-**Bonus category breakdown logic duplicated:**
-- Issue: The breakdown calculation (split amounts by deduction category) appears in both `POST /payroll/service-entries` and `PATCH /payroll/service-entries/:id`
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1054-1065 and 1096-1107)
-- Impact: Logic must be kept in sync; currently identical but divergence risk is high
-- Fix approach: Extract to a `calculateServicePay(breakdown, basePay, fronted, cats)` helper function
-
-## Security Considerations
-
-**No rate limiting on authentication endpoints:**
-- Risk: `POST /api/auth/login` and `POST /api/auth/change-password` have no brute-force protection
-- Files: `apps/ops-api/src/routes/index.ts` (lines 57-88), `apps/ops-api/src/index.ts`
-- Current mitigation: None
-- Recommendations: Add `express-rate-limit` with a low limit (e.g., 10 req/15min per IP) on `/api/auth/login` and `/api/auth/change-password`
-
-**No HTTP security headers:**
-- Risk: No `helmet` middleware is applied; responses lack `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `Content-Security-Policy`
-- Files: `apps/ops-api/src/index.ts`
-- Current mitigation: None
-- Recommendations: Add `helmet()` as the first middleware before CORS
-
-**Webhook secret transmitted in query param:**
-- Risk: `requireWebhookSecret` accepts the secret via `req.query.api_key` (in addition to header), which logs to web server access logs and browser history
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1295-1300)
-- Current mitigation: Header-based secret also supported
-- Recommendations: Remove the `api_key` query param fallback; require header-only delivery
-
-**`SUPER_ADMIN` role bypass is implicit and undocumented per endpoint:**
-- Risk: `requireRole` silently passes all `SUPER_ADMIN` users through every role check. If a `SUPER_ADMIN` token is compromised, every protected endpoint is exposed
-- Files: `apps/ops-api/src/middleware/auth.ts` (line 29)
-- Current mitigation: Intentional per CLAUDE.md; auth token expiry is 12h
-- Recommendations: Add audit logging for all `SUPER_ADMIN` actions that bypass role-specific checks; consider issuing scoped tokens for automated tasks
-
-**Unvalidated `agentId` query param in call-audits endpoint:**
-- Risk: `req.query.agentId` is passed directly into a Prisma `where` clause without type validation
-- Files: `apps/ops-api/src/routes/index.ts` (line 1400)
-- Current mitigation: Prisma parameterization prevents SQL injection; authenticated endpoint
-- Recommendations: Validate with Zod (`z.string().cuid().optional()`) to prevent unexpected behavior from malformed input
-
-**`JSON.parse` on unchecked database string values:**
-- Risk: `salesBoardSetting.value` is parsed with `JSON.parse` without try/catch in two places
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1008, 1056, 1098)
-- Current mitigation: Data is only written through validated API endpoints
-- Recommendations: Wrap `JSON.parse` in try/catch with a fallback to `DEFAULT_BONUS_CATEGORIES` to prevent 500 errors from corrupted settings records
-
-**`z.parse` (throws) used on unauthenticated input in three routes:**
-- Risk: `z.object({...}).parse(req.body)` at lines 855, 884, and 910 throws a `ZodError` rather than returning a 400. This is caught by `asyncHandler` and forwarded to the global error handler which returns a 500 with "Internal server error" instead of a 400 with validation details
-- Files: `apps/ops-api/src/routes/index.ts` (lines 855, 884, 910)
-- Current mitigation: Only affects `PAYROLL` and `SUPER_ADMIN` roles
-- Recommendations: Replace `.parse()` with `.safeParse()` and return `zodErr(parsed.error)` with a 400 status, consistent with every other route
-
-## Performance Bottlenecks
-
-**`GET /payroll/periods` loads all periods with all entries:**
-- Problem: Single query fetches every payroll period with all entries (each including sale details, product, addons, agent) with no pagination, no time limit
-- Files: `apps/ops-api/src/routes/index.ts` (lines 832-849)
-- Cause: No `take` or `where` filter; as data grows, this becomes a multi-MB response
-- Improvement path: Add a `take: 12` or date-based filter; paginate from the frontend; or fetch period metadata separately from entries
-
-**`GET /call-counts` and `GET /tracker/summary` load all call logs into memory:**
-- Problem: Both routes fetch all `convosoCallLog` records matching the date range into Node.js memory, then aggregate in JavaScript
-- Files: `apps/ops-api/src/routes/index.ts` (lines 783-830, 1464-1498)
-- Cause: Per-lead-source buffer filtering requires row-level logic; Prisma `groupBy` cannot express conditional counting
-- Improvement path: Pre-filter buffer-compliant calls at write time (set a `bufferPassed` boolean on the call log); then groupBy can work in the database
-
-**In-memory audit job queue lost on process restart:**
-- Problem: The `pendingJobs` array and `activeJobs` set in `auditQueue.ts` exist only in process memory; any server restart drops all queued audio audit jobs silently
-- Files: `apps/ops-api/src/services/auditQueue.ts` (lines 8-9)
-- Cause: No persistence layer for the queue
-- Improvement path: Persist queue state to the database (`convosoCallLog.auditStatus = 'queued'`) and re-hydrate on server boot; or migrate to BullMQ with Redis
-
-**`GET /sales-board/detailed` iterates all week's sales in JS:**
-- Problem: All RAN sales for the current week are fetched and aggregated per-day per-agent in JavaScript loops
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1227-1291)
-- Cause: Dynamic day labeling requires client-side grouping
-- Improvement path: Move grouping to a `groupBy` with `_sum` aggregation; compute day labels from aggregated date values
-
-## Fragile Areas
-
-**Clawback logic uses `payrollEntries[0]` without ordering:**
-- Files: `apps/ops-api/src/routes/index.ts` (lines 911-936)
-- Why fragile: `prisma.sale.findFirst({ include: { payrollEntries: true } })` returns entries in default insertion order. A sale with multiple payroll entries (e.g., after a period reassignment) will have the wrong entry targeted — the clawback operates on the first inserted entry, not the most recent
-- Safe modification: Add `orderBy: { createdAt: 'desc' }` to the `payrollEntries` include
-- Test coverage: No test covers multi-entry clawback scenarios
-
-**`handleSaleEditApproval` has ambiguous "same period finalized" branch:**
-- Files: `apps/ops-api/src/services/payroll.ts` (lines 290-300)
-- Why fragile: When a sale's edit lands in the same finalized period, the code comments "upsertPayrollEntryForSale already created new entry in correct period" but the new period is determined by the (possibly unchanged) `paymentType` and `saleDate`, meaning the "new entry in correct period" may be the same finalized period. The clawback is applied and a new entry overwrites the same finalized period entry
-- Safe modification: Check if the upserted entry lands in the original finalized period before deciding the adjustment strategy
-- Test coverage: Partially covered in `status-commission.test.ts` but the same-period finalized case is not tested
-
-**Convoso KPI poller `agentMap` built from email only:**
-- Files: `apps/ops-api/src/workers/convosoKpiPoller.ts` (lines 174-177)
-- Why fragile: Agents without an email address are silently excluded from KPI attribution; the filter `agents.filter(a => a.email)` discards them without logging. Any Convoso call attributed to a non-email agent will never link to an internal agent
-- Safe modification: Log excluded agents; alert when an unmatched `agent_user` appears repeatedly
-
-**Sales board weekly/daily boundaries use server local time:**
-- Files: `apps/ops-api/src/routes/index.ts` (lines 1197-1199, 1214-1224)
-- Why fragile: `new Date(Date.now() - 86400000)` and `new Date(now.getFullYear(), ...)` use server local time, while `payroll.ts` explicitly converts to Eastern (`America/New_York`) via Luxon. If the server runs in UTC (Railway/Docker), the daily/weekly cutoffs for the sales board will differ from the payroll week boundaries by the Eastern UTC offset (4-5 hours)
-- Safe modification: Use Luxon's `DateTime.now().setZone('America/New_York')` for all boundary calculations
-
-## Scaling Limits
-
-**`AgentCallKpi` table grows unbounded:**
-- Current capacity: One row per agent per lead source per poll cycle (every 10 minutes)
-- Limit: With 10 agents and 5 lead sources, this adds ~300 rows/hour / ~7,200/day; no cleanup or archival logic exists for this table
-- Scaling path: Add a retention policy (e.g., delete records older than 90 days) in the poller's cleanup step alongside `processedConvosoCall` cleanup
-
-**Socket.IO has no authentication on connection:**
-- Current capacity: Any browser on an allowed CORS origin can open a persistent WebSocket connection to ops-api
-- Limit: With no auth handshake, connections accumulate from unauthenticated clients; no per-connection rate limiting
-- Scaling path: Add a `socket.io` auth middleware that validates the JWT on the `connection` event
-
-## Dependencies at Risk
-
-**`bcryptjs` instead of `bcrypt`:**
-- Risk: `bcryptjs` is a pure-JavaScript implementation of bcrypt; it is significantly slower than the native `bcrypt` package (which uses C++ bindings). Under load, password hashing/comparison on every login adds latency
-- Impact: Login endpoint latency; under high auth load, Node.js event loop is blocked during hash comparison
-- Migration plan: Replace with `bcrypt` (native) or `argon2` for both better performance and stronger key derivation
-
-## Missing Critical Features
-
-**No refresh of `isBundleQualifier` status on product edit:**
-- Problem: When `PATCH /products/:id` changes `isBundleQualifier` on an existing product, no commission recalculation is triggered on historical sales that used that product
-- Blocks: Commission accuracy after product configuration changes
-- Files: `apps/ops-api/src/routes/index.ts` (lines 252-274)
-
-**No input sanitization on `notes` and `managerSummary` free-text fields:**
-- Problem: Arbitrary text is stored and rendered in dashboards with no HTML sanitization
-- Blocks: Any future move to HTML rendering in dashboards; current risk is low since all dashboards use React (which escapes by default)
-- Files: Multiple `notes` and `coachingNotes` fields across sale, audit, and payroll routes
-
-## Test Coverage Gaps
-
-**No integration or E2E tests for any API routes:**
-- What's not tested: Authentication, RBAC enforcement, sale creation, payroll period state machine, clawback creation, webhook ingestion
-- Files: `apps/ops-api/src/routes/index.ts` (1,907 lines of untested route handlers)
-- Risk: Any refactor of routes or middleware can break live behavior without any automated signal
-- Priority: High
-
-**No tests for frontend dashboards:**
-- What's not tested: All `.tsx` pages — `payroll-dashboard`, `manager-dashboard`, `owner-dashboard`, `sales-board`, `auth-portal`
-- Files: `apps/payroll-dashboard/app/page.tsx`, `apps/manager-dashboard/app/page.tsx`, `apps/owner-dashboard/app/page.tsx`
-- Risk: UI regressions are caught only manually
-- Priority: Medium
-
-**`callAudit.ts` service has no tests:**
-- What's not tested: Whisper transcription, Claude audit call, OpenAI scoring, DB persistence flow, `reAuditCall` function
-- Files: `apps/ops-api/src/services/callAudit.ts` (368 lines)
-- Risk: Changes to AI prompts or model parameters can silently break audit output structure
-- Priority: High
-
-**Clawback creation flow is not tested:**
-- What's not tested: `POST /clawbacks` with `memberId`, `memberName`, multi-entry scenarios, `PAID` vs non-paid status branching
-- Files: `apps/ops-api/src/routes/index.ts` (lines 909-938)
-- Risk: Incorrect entry targeting (see `payrollEntries[0]` concern above) could silently corrupt payroll data
-- Priority: High
+**Analysis Date:** 2026-03-24
 
 ---
 
-*Concerns audit: 2026-03-17*
+## Tech Debt
+
+**`sales.ts` is 795 lines -- largest route file:**
+- Issue: Contains sales CRUD, commission preview, status changes, tracker summary, owner summary, reporting periods, and sales board endpoints -- multiple unrelated domains.
+- Files: `apps/ops-api/src/routes/sales.ts`
+- Impact: Difficult to navigate and maintain. Multiple unrelated concerns in one file.
+- Fix approach: Extract `tracker/summary`, `owner/summary`, `reporting/periods`, and `sales-board/*` into dedicated route files.
+
+**Duplicated Socket.IO emit boilerplate:**
+- Issue: The `emitSaleChanged` payload construction is copy-pasted across multiple route handlers with identical ~30-line blocks.
+- Files: `apps/ops-api/src/routes/sales.ts` (lines 54-99), `apps/ops-api/src/routes/change-requests.ts` (lines 50-97)
+- Impact: Any change to the payload shape must be updated in multiple places. Easy to introduce inconsistencies.
+- Fix approach: Extract a `buildSaleChangedPayload(saleId)` helper function in `apps/ops-api/src/socket.ts` that fetches the sale + payroll entries and builds the payload.
+
+**Legacy Morgan service is plain JS with no types:**
+- Issue: Root-level Morgan service (`index.js` ~500+ lines) is CommonJS with zero TypeScript. Business logic lives alongside webhook handlers and debug endpoints.
+- Files: `index.js`, `voiceGateway.js`, `morganToggle.js`, `rateLimitState.js`, `timeUtils.js`
+- Impact: No compile-time safety. Two different module systems in the same repo. No shared type safety with the Ops Platform.
+- Fix approach: Migrate to TypeScript; extract slot management into a stateful class or Redis-backed store.
+
+**`as any` type escapes throughout routes:**
+- Issue: Multiple `as any` casts used to work around Prisma include type mismatches, especially around addon premium calculations.
+- Files: `apps/ops-api/src/routes/sales.ts` (lines 177, 281, 567, 593, 632-634, 692-693, 750-751, 768-770, 781-782), `apps/ops-api/src/routes/change-requests.ts` (line 14), `apps/ops-api/src/routes/chargebacks.ts` (line 139)
+- Impact: Bypasses TypeScript safety. Type errors can slip through undetected.
+- Fix approach: Create proper Prisma result types or use `satisfies` / generic helpers for included relations.
+
+**Hardcoded commission constants:**
+- Issue: Enrollment fee thresholds ($125 bonus, $99 half-commission, $50 standalone) are hardcoded in service logic.
+- Files: `apps/ops-api/src/services/payroll.ts` (lines 8-9, 72-77)
+- Impact: Changing business rules requires a code deployment. Cannot be configured by admin users.
+- Fix approach: Move thresholds to `SalesBoardSetting` or a dedicated config table.
+
+**AI model name hardcoded as string literal:**
+- Issue: `"claude-sonnet-4-20250514"` is hardcoded in two places with no env var override.
+- Files: `apps/ops-api/src/services/callAudit.ts` (line 164), `apps/ops-api/src/services/auditQueue.ts` (line 135)
+- Impact: Upgrading the model requires a code deploy rather than a config change.
+- Fix approach: Extract to env var `ANTHROPIC_MODEL_ID` with a fallback default.
+
+**AI cost estimates are hardcoded with stale pricing:**
+- Issue: Claude Sonnet cost is hardcoded as `$3/M input, $15/M output` in a function. Actual pricing changes without any code signal.
+- Files: `apps/ops-api/src/services/callAudit.ts` (lines 252-260)
+- Impact: Cost tracking in `ai_usage_log` silently drifts from actual billing as model pricing changes.
+- Fix approach: Pull cost rates from a settings table or env vars.
+
+**Integration tests entirely stubbed out:**
+- Issue: Every integration test is a `TODO` placeholder with no actual implementation -- 40+ TODO comments.
+- Files: `__tests__/integration.test.js`
+- Impact: Zero integration test coverage for the Morgan voice service. Suite passes vacuously.
+- Fix approach: Implement tests using supertest and mocked external APIs (Convoso, Vapi).
+
+**`startAutoScorePolling` not called on boot:**
+- Issue: `startAutoScorePolling()` is only called from the `POST /ai/auto-score` route handler. The Convoso KPI poller starts at boot, but the audit queue poller does not.
+- Files: `apps/ops-api/src/services/auditQueue.ts`, `apps/ops-api/src/index.ts` (line 68)
+- Impact: If ops-api restarts while calls are in `queued` status, they remain stuck until a human manually POSTs `/ai/auto-score`.
+- Fix approach: Call `startAutoScorePolling()` at boot in `apps/ops-api/src/index.ts` alongside `startConvosoKpiPoller()`.
+
+---
+
+## Known Bugs
+
+**`upsertPayrollEntryForSale` netAmount calculation uses stale values on update:**
+- Symptoms: The `update` branch of the payroll entry upsert sets `netAmount` based on the newly calculated `payoutAmount` plus the fetched `existing` bonus/fronted/hold values, but then only passes `payoutAmount` and `netAmount` to the update -- discarding the existing adjustment context.
+- Files: `apps/ops-api/src/services/payroll.ts` (lines 310-331)
+- Trigger: Edit a sale that already has a bonus or fronted amount applied.
+- Workaround: Manually re-enter bonus/fronted after editing.
+
+**`handleSaleEditApproval` may double-clawback in same-period edits:**
+- Symptoms: Lines 372-395 mark the finalized entry as `CLAWBACK_APPLIED` in both the "different period" and "same period" branches. In the same-period case, `upsertPayrollEntryForSale` already updated the entry in place, so the subsequent clawback marks an already-updated entry.
+- Files: `apps/ops-api/src/services/payroll.ts` (lines 345-396)
+- Trigger: Approve a sale edit when the sale's payroll period is finalized and the sale date/paymentType does not change periods.
+
+**Clawback creation uses `sale.payrollEntries[0]` without ordering:**
+- Symptoms: When creating a clawback via `POST /clawbacks`, the code takes `sale.payrollEntries[0]` without specifying an `orderBy`. Prisma returns entries in undefined order, so the "last entry" used for zeroing/deducting may not be the most recent.
+- Files: `apps/ops-api/src/routes/payroll.ts` (lines 147-151)
+- Trigger: Sale with multiple payroll entries across different periods.
+- Workaround: None -- requires adding `orderBy: { createdAt: 'desc' }` to the include.
+
+---
+
+## Security Considerations
+
+**JWT has an insecure fallback secret:**
+- Risk: `packages/auth/src/index.ts` line 11 falls back to `"dev-secret"` if `AUTH_JWT_SECRET` is missing. Any deployment without the env var set will silently accept tokens signed with a predictable key.
+- Files: `packages/auth/src/index.ts` (line 11)
+- Current mitigation: `apps/ops-api/src/index.ts` validates `AUTH_JWT_SECRET` at startup and exits if missing. However, Next.js apps importing `@ops/auth` do not have this check.
+- Recommendations: Remove the `"dev-secret"` fallback entirely. Throw if no key is configured.
+
+**Socket.IO has no authentication:**
+- Risk: Any client can connect to the Socket.IO server and receive all real-time events (sales, payroll, chargebacks, audit results).
+- Files: `apps/ops-api/src/index.ts` (lines 58-63)
+- Current mitigation: CORS restricts origins, but this is not authentication.
+- Recommendations: Add Socket.IO middleware that validates the JWT token on connection via `io.use()`.
+
+**No rate limiting on any API endpoint:**
+- Risk: Login endpoint (`POST /api/auth/login`) and all other endpoints have no rate limiting. No `express-rate-limit` or similar package detected.
+- Files: `apps/ops-api/src/index.ts`, `apps/ops-api/src/routes/auth.ts`
+- Current mitigation: None.
+- Recommendations: Add rate limiting on `/api/auth/login` (brute force protection), `/api/auth/change-password`, and expensive endpoints.
+
+**No request body size limit configured:**
+- Risk: `express.json()` is called with default settings (100kb limit). The `rawPaste` field for chargebacks/pending-terms can contain large CSV pastes.
+- Files: `apps/ops-api/src/index.ts` (line 20)
+- Current mitigation: Express default 100kb limit applies, but may be too low for bulk paste imports or too high for normal endpoints.
+- Recommendations: Set explicit `express.json({ limit: '2mb' })` for paste endpoints, lower for others.
+
+**JWT token passed via URL query parameter:**
+- Risk: Session tokens appear in `?session_token=<jwt>` on redirect from auth-portal to dashboards. Tokens are visible in browser history, server access logs, and referrer headers.
+- Files: `packages/auth/src/client.ts` (lines 11-24)
+- Current mitigation: `captureTokenFromUrl()` removes the token via `history.replaceState`. However, the token has already been logged.
+- Recommendations: Switch to a server-side cookie-only auth flow for dashboard redirects.
+
+**JWT token stored in localStorage -- XSS accessible:**
+- Risk: Tokens stored in `localStorage` under key `ops_session_token` are accessible to any JavaScript on the page, including injected scripts.
+- Files: `packages/auth/src/client.ts` (lines 6, 16, 29)
+- Current mitigation: HttpOnly session cookie is also set by the API.
+- Recommendations: Migrate to httpOnly-only cookie flow and remove localStorage token storage.
+
+**Change password endpoint has no auth middleware:**
+- Risk: `POST /api/auth/change-password` does not require an authenticated session -- it accepts email + current password in the body. Combined with no rate limiting, vulnerable to brute-force.
+- Files: `apps/ops-api/src/routes/auth.ts` (line 31)
+- Recommendations: Add rate limiting on this endpoint.
+
+---
+
+## Performance Bottlenecks
+
+**`GET /payroll/periods` loads all periods with deeply nested includes -- no pagination:**
+- Problem: Fetches ALL payroll periods with all entries, each entry including sale details + agent + addons + service entries.
+- Files: `apps/ops-api/src/routes/payroll.ts` (lines 10-27)
+- Cause: `findMany` with no `take` or `where` filter, deep `include` tree.
+- Improvement path: Add `orderBy: { weekStart: "desc" }, take: 12` as default; expose a `year` query param for historical access.
+
+**`GET /sales` fetches all sales without pagination:**
+- Problem: Returns all sales matching a date range with full includes. If no date range is provided, returns ALL sales.
+- Files: `apps/ops-api/src/routes/sales.ts` (lines 209-232)
+- Cause: No `take`/`skip` pagination.
+- Improvement path: Enforce a default date range or add cursor-based pagination.
+
+**Chargeback auto-matching does individual DB queries per record (N+1):**
+- Problem: When creating chargebacks in batch, each chargeback individually queries `prisma.sale.findMany` for matching sales, then individually updates.
+- Files: `apps/ops-api/src/routes/chargebacks.ts` (lines 67-97)
+- Cause: Loop with individual queries and updates per chargeback record.
+- Improvement path: Batch the member ID lookups into a single query, then batch update all matches.
+
+**N+1 pattern in chargeback alert creation:**
+- Problem: After batch chargeback creation, iterates over each chargeback calling `createAlertFromChargeback` individually.
+- Files: `apps/ops-api/src/routes/chargebacks.ts` (lines 100-109)
+- Improvement path: Batch alert creation using `createMany`.
+
+**`/tracker/summary` aggregates all call logs in memory:**
+- Problem: Fetches all agents with sales, all lead sources, and all call logs for a date range, then aggregates in JavaScript.
+- Files: `apps/ops-api/src/routes/sales.ts` (lines 525-578)
+- Cause: In-memory aggregation instead of database-level grouping.
+- Improvement path: Use `groupBy` or raw SQL for call log aggregation by agent.
+
+**`handleCommissionZeroing` updates entries one at a time:**
+- Problem: Fetches all payroll entries for a sale, then updates each individually in a loop.
+- Files: `apps/ops-api/src/services/payroll.ts` (lines 247-270)
+- Improvement path: Use `updateMany` for OPEN period entries, batch the finalized entries.
+
+---
+
+## Scaling Limits
+
+**In-memory Morgan queue -- lost on restart:**
+- Current capacity: Max 10,000 queued IDs with LRU eviction.
+- Files: `index.js` (lines 39-68)
+- Limit: Queue is lost on process restart. Cannot scale to multiple instances. Slot state (`morganSlots`, `morganCallToSlot`) is plain `Map` objects -- any restart orphans active call slots permanently.
+- Scaling path: Migrate to a persistent queue (Redis, BullMQ) for durability and multi-instance support.
+
+**Single-process in-memory audit queue:**
+- Current capacity: 3 concurrent audit jobs; queue state lives in `activeJobs` Set.
+- Files: `apps/ops-api/src/services/auditQueue.ts` (lines 5-12)
+- Limit: Horizontal scaling (multiple ops-api instances) will result in duplicate job processing since both instances pick the same `queued` records.
+- Scaling path: Use a distributed lock (e.g., `pg_advisory_lock`) or a proper job queue (BullMQ with Redis).
+
+**Single Prisma client instance with default connection pool:**
+- Files: `packages/db/src/client.ts`
+- Limit: Default Prisma connection pool is `num_cpus * 2 + 1`. Under heavy load, connection contention could occur.
+- Scaling path: Configure explicit connection pool size via `DATABASE_URL` query params.
+
+---
+
+## Missing Database Indexes
+
+**No index on `PayrollEntry.agentId`:**
+- Problem: Queries that filter payroll entries by agent (used in tracker, groupBy) have no index.
+- Files: `prisma/schema.prisma` (lines 282-305)
+- Fix: Add `@@index([agentId])` to `PayrollEntry` model.
+
+**No index on `Clawback.saleId` or `Clawback.agentId`:**
+- Problem: Clawback queries filter by sale or agent but have no indexes.
+- Files: `prisma/schema.prisma` (lines 362-380)
+- Fix: Add `@@index([saleId])` and `@@index([agentId])`.
+
+**No index on `ChargebackSubmission` for common query patterns:**
+- Problem: Chargebacks are queried by `submittedAt`, `batchId`, and `memberId` but none are indexed.
+- Files: `prisma/schema.prisma` (lines 537-573)
+- Fix: Add `@@index([submittedAt])`, `@@index([batchId])`, `@@index([memberId])`.
+
+**No index on `PendingTerm` for common query patterns:**
+- Problem: Pending terms have no indexes at all.
+- Files: `prisma/schema.prisma` (lines 610-649)
+- Fix: Add `@@index([submittedAt])` and `@@index([memberId])`.
+
+**`AppAuditLog` has no index on `actorUserId` or `createdAt`:**
+- Problem: No foreign key to User and no index for efficient querying. Cannot join audit logs to user records.
+- Files: `prisma/schema.prisma` (lines 445-455)
+- Fix: Add relation to User and `@@index([actorUserId, createdAt])`.
+
+---
+
+## Dependencies at Risk
+
+**Morgan service uses `node-fetch` alongside native fetch:**
+- Risk: Node 18+ has native `fetch`. The Morgan service imports `node-fetch` (CommonJS v2) while the Ops Platform uses native fetch.
+- Files: `index.js` (line 10)
+- Impact: Unnecessary dependency, potential version conflicts, security patches may not arrive for v2.
+- Migration plan: Remove `node-fetch` and use native `fetch`.
+
+**Dual AI provider dependency (Anthropic + OpenAI):**
+- Risk: OpenAI is the fallback path but produces a different data shape (no `issues`/`wins` arrays). The structured audit display will break if the fallback is invoked.
+- Files: `apps/ops-api/src/services/callAudit.ts` (lines 218-242, 324-341)
+- Migration plan: Standardize on one provider or ensure fallback produces the same structured output.
+
+---
+
+## Test Coverage Gaps
+
+**Morgan service -- zero functional tests:**
+- What's not tested: Slot management, Convoso lead enqueueing, Vapi call initiation, webhook handling, end-of-call processing.
+- Files: `index.js`, `voiceGateway.js`, `morganToggle.js`, `rateLimitState.js`
+- Risk: Any refactor has no regression safety net. This is the core AI calling system.
+- Priority: High
+
+**No tests for route-level authorization:**
+- What's not tested: RBAC middleware behavior -- whether specific roles are correctly granted/denied access to each endpoint.
+- Files: All route files in `apps/ops-api/src/routes/`
+- Risk: Permission escalation bugs could go undetected.
+- Priority: High
+
+**`handleSaleEditApproval` -- finalized same-period edge case:**
+- What's not tested: Scenario where a sale is edited but the new sale date stays in the same finalized payroll period.
+- Files: `apps/ops-api/src/services/payroll.ts` (lines 345-396)
+- Risk: Commission double-counting or incorrect clawback.
+- Priority: High
+
+**No tests for chargeback matching logic:**
+- What's not tested: Auto-matching chargebacks to sales by memberId, including the MULTIPLE match scenario.
+- Files: `apps/ops-api/src/routes/chargebacks.ts` (lines 67-97)
+- Risk: Incorrect sale matching or missed matches.
+- Priority: Medium
+
+**No end-to-end tests for any dashboard:**
+- What's not tested: Full user flows across auth-portal, payroll-dashboard, manager-dashboard, owner-dashboard.
+- Files: All `apps/` Next.js applications
+- Risk: UI regressions, broken auth flows, broken redirects.
+- Priority: Medium
+
+---
+
+*Concerns audit: 2026-03-24*

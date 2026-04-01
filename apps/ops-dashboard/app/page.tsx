@@ -11,7 +11,7 @@ import {
   motion,
   baseLabelStyle,
 } from "@ops/ui";
-import { captureTokenFromUrl, getToken } from "@ops/auth/client";
+import { captureTokenFromUrl, getToken, clearToken, decodeTokenPayload } from "@ops/auth/client";
 import { decodeRolesFromToken } from "@/lib/auth";
 import { getDefaultTab } from "@/lib/roles";
 
@@ -229,24 +229,28 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [checking, setChecking] = useState(true);
 
   // On mount: check for existing token and auto-redirect returning users
   useEffect(() => {
     const token = captureTokenFromUrl();
-    if (!token) {
-      const stored = getToken();
-      if (stored) {
+    const stored = token || getToken();
+
+    if (stored) {
+      const payload = decodeTokenPayload(stored);
+      const isExpired = !payload?.exp || typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now();
+
+      if (isExpired) {
+        clearToken(); // remove expired token from localStorage
+      } else {
         const roles = decodeRolesFromToken(stored);
         if (roles.length > 0) {
           window.location.href = getDefaultTab(roles);
+          return; // stay in checking state during redirect
         }
       }
-      return;
     }
-    const roles = decodeRolesFromToken(token);
-    if (roles.length > 0) {
-      window.location.href = getDefaultTab(roles);
-    }
+    setChecking(false);
   }, []);
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
@@ -350,6 +354,17 @@ export default function LoginPage() {
   }
 
   const isLogin = mode === "login";
+
+  if (checking) {
+    return (
+      <main style={BG}>
+        <div style={BG_MESH} aria-hidden="true" />
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading...</div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={BG}>

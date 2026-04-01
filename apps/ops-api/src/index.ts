@@ -3,9 +3,11 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
+import { Prisma } from "@prisma/client";
 import routes from "./routes";
 import { setIO } from "./socket";
 import { startConvosoKpiPoller } from "./workers/convosoKpiPoller";
+import { startAutoScorePolling } from "./services/auditQueue";
 
 // ── Validate required environment variables ─────────────────────
 const required = ["DATABASE_URL", "AUTH_JWT_SECRET"];
@@ -36,13 +38,30 @@ app.get("/health", (_req, res) => res.json({ ok: true, service: "ops-api" }));
 app.use("/api", routes);
 
 // Global error handler for async route errors
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: Error & { statusCode?: number; status?: number; expose?: boolean }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled error:", err);
-  if (!res.headersSent) {
-    const status = typeof err.statusCode === "number" ? err.statusCode : typeof err.status === "number" ? err.status : 500;
-    const message = err.expose && err.message ? err.message : "Internal server error";
-    res.status(status).json({ error: message });
+  if (res.headersSent) return;
+
+  // Prisma connection/initialization errors -> 503
+  if (
+    err instanceof Prisma.PrismaClientInitializationError ||
+    err instanceof Prisma.PrismaClientRustPanicError ||
+    (err instanceof Prisma.PrismaClientKnownRequestError && err.code.startsWith("P1"))
+  ) {
+    return res.status(503).json({ error: "Database temporarily unavailable" });
   }
+
+  // Prisma known request errors
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2025") return res.status(404).json({ error: "Record not found" });
+    if (err.code === "P2002") return res.status(409).json({ error: "Record already exists" });
+    return res.status(500).json({ error: "Internal server error" });
+  }
+
+  // Generic errors (HTTP errors from middleware, etc.)
+  const status = typeof err.statusCode === "number" ? err.statusCode : typeof err.status === "number" ? err.status : 500;
+  const message = err.expose && err.message ? err.message : "Internal server error";
+  res.status(status).json({ error: message });
 });
 
 // ── HTTP server + Socket.IO ─────────────────────────────────────
@@ -56,14 +75,23 @@ const io = new Server(server, {
 setIO(io);
 
 io.on("connection", (socket) => {
-  console.log(`[socket.io] Client connected: ${socket.id}`);
-  socket.on("disconnect", () => {
-    console.log(`[socket.io] Client disconnected: ${socket.id}`);
-  });
+  try {
+    console.log(`[socket.io] Client connected: ${socket.id}`);
+    socket.on("disconnect", () => {
+      try {
+        console.log(`[socket.io] Client disconnected: ${socket.id}`);
+      } catch (err) {
+        console.error("[socket.io] Error in disconnect handler:", err);
+      }
+    });
+  } catch (err) {
+    console.error("[socket.io] Error in connection handler:", err);
+  }
 });
 
 const port = Number(process.env.PORT || 8080);
 server.listen(port, () => {
   console.log(`ops-api listening on ${port}`);
   startConvosoKpiPoller();
+  startAutoScorePolling();
 });

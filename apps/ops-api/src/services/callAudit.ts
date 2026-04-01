@@ -1,4 +1,5 @@
 import { prisma } from "@ops/db";
+import type { Prisma } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { emitAuditStatus, emitAuditComplete } from "../socket";
@@ -150,8 +151,10 @@ async function transcribeRecording(audioBuffer: Buffer): Promise<string> {
 
   const formData = new FormData();
   formData.append("file", new Blob([audioBuffer as unknown as BlobPart]), "recording.mp3");
+  formData.append("model", process.env.WHISPER_MODEL ?? "Systran/faster-whisper-small");
 
-  const whisperRes = await fetch(whisperUrl, { method: "POST", body: formData });
+  // 10-minute timeout — long audio (30+ min) can take several minutes to transcribe
+  const whisperRes = await fetch(whisperUrl, { method: "POST", body: formData, signal: AbortSignal.timeout(600_000) });
   if (!whisperRes.ok) throw new Error(`Whisper transcription failed: ${whisperRes.status}`);
 
   const result = await whisperRes.json();
@@ -314,10 +317,10 @@ export async function processCallRecording(callLogId: string, audioBuffer: Buffe
           // New structured fields
           callOutcome: result.call_outcome,
           callDurationEstimate: result.call_duration_estimate,
-          issues: result.issues as any,
-          wins: result.wins as any,
-          missedOpportunities: result.missed_opportunities as any,
-          suggestedCoaching: result.suggested_coaching as any,
+          issues: result.issues as unknown as Prisma.InputJsonValue,
+          wins: result.wins as unknown as Prisma.InputJsonValue,
+          missedOpportunities: result.missed_opportunities as unknown as Prisma.InputJsonValue,
+          suggestedCoaching: result.suggested_coaching as unknown as Prisma.InputJsonValue,
           managerSummary: result.manager_summary,
         },
       });
@@ -351,7 +354,7 @@ export async function processCallRecording(callLogId: string, audioBuffer: Buffe
       where: { id: callAudit.id },
       include: { agent: { select: { name: true } } },
     });
-    emitAuditComplete(auditForDashboard);
+    if (auditForDashboard) emitAuditComplete(auditForDashboard as unknown as Record<string, unknown>);
 
     console.log(`[callAudit] Audit complete for call log ${callLogId} (${useClaude ? "Claude" : "OpenAI"})`);
     return usageInfo;
@@ -392,10 +395,10 @@ export async function reAuditCall(callAuditId: string): Promise<void> {
       coachingNotes: flattenCoaching(result),
       callOutcome: result.call_outcome,
       callDurationEstimate: result.call_duration_estimate,
-      issues: result.issues as any,
-      wins: result.wins as any,
-      missedOpportunities: result.missed_opportunities as any,
-      suggestedCoaching: result.suggested_coaching as any,
+      issues: result.issues as unknown as Prisma.InputJsonValue,
+      wins: result.wins as unknown as Prisma.InputJsonValue,
+      missedOpportunities: result.missed_opportunities as unknown as Prisma.InputJsonValue,
+      suggestedCoaching: result.suggested_coaching as unknown as Prisma.InputJsonValue,
       managerSummary: result.manager_summary,
     },
   });

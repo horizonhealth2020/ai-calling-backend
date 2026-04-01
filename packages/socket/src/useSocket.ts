@@ -7,7 +7,7 @@ export function useSocket(
   apiUrl: string,
   onSaleChanged: (payload: SaleChangedPayload) => void,
   onReconnect?: () => void,
-  additionalHandlers?: Record<string, (data: any) => void>,
+  additionalHandlers?: Record<string, (data: unknown) => void>,
 ) {
   const [disconnected, setDisconnected] = useState(false);
   const socketRef = useRef<SocketClient | null>(null);
@@ -32,8 +32,8 @@ export function useSocket(
       });
 
       if (handlersRef.current) {
-        for (const [event, handler] of Object.entries(handlersRef.current)) {
-          socket.on(event, (data: any) => {
+        for (const [event] of Object.entries(handlersRef.current)) {
+          socket.on(event, (data: unknown) => {
             handlersRef.current?.[event]?.(data);
           });
         }

@@ -1,375 +1,224 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** Dashboard Consolidation & Uniform Date Ranges (v1.3) — Merging 5 Next.js apps into 1 unified app with role-gated tabs and adding uniform date range filtering to all KPI sections
-**Researched:** 2026-03-19
-**Applies to:** Major architectural change to an existing 6-dashboard + Express API + PostgreSQL/Prisma platform
+**Domain:** TV-readable sales board leaderboard (optimizing existing Next.js dark-theme dashboard for wall-mounted TV viewing distance)
+**Researched:** 2026-03-31
+**Confidence:** HIGH (based on direct codebase analysis + established display/typography best practices)
 
 ## Critical Pitfalls
 
-### P1: Monster Page File — All Dashboards Merged Into One Component Tree
+### Pitfall 1: Increasing font sizes causes cell height expansion, breaking 9-15 agent fit
 
-**What goes wrong:** The 4 dashboard page files total ~10,000 lines of TSX (manager: 2702, payroll: 3030, CS: 2377, owner: 1957). Plus auth-portal at 502 lines. The temptation is to create a single `page.tsx` with a tab state variable that conditionally renders the right dashboard content. This produces a 10,000+ line file that is impossible to maintain, slow to compile, and loads all code for all roles on initial page load regardless of which tab is active.
+**What goes wrong:**
+The weekly table uses `padding: "14px 16px"` on every `<td>`. Bumping font sizes from 18px/20px to TV-readable sizes (24px+) increases the line box height, which adds to the existing 28px of vertical padding per cell. With 15 agents + header + team total row = 17 rows, each gaining even 8px of height totals 136px of extra vertical space. The table overflows the viewport on a 1080p TV.
 
-**Why it happens:** Each existing dashboard is a single `page.tsx` with inline types, style constants, helper functions, and the main component. Copy-pasting these into tabs within one file is the path of least resistance.
+**Why it happens:**
+Developers increase `fontSize` but leave `padding` untouched, assuming "cell dimensions unchanged" means only padding stays the same. In reality, the browser computes cell height as `padding-top + line-height * fontSize + padding-bottom`. Bigger font = taller cell regardless of padding.
 
-**Consequences:**
-- Next.js dev server becomes noticeably slow (HMR recompiles the entire mega-file on any change)
-- Browser downloads JavaScript for all 4 dashboards even when user only has access to one tab
-- Initial load time degrades significantly — the current per-app bundle only contains that dashboard's code
-- Style constant names will collide (every dashboard has `const CARD`, `const BTN`, `const HEADER`, etc.)
-- Type name collisions across dashboards (`Tab`, `Entry`, `Product` are defined differently in each)
+**How to avoid:**
+Reduce vertical padding proportionally as font size increases. The constraint is "keep cell dimensions unchanged," which means the total rendered height per row must stay the same. If font goes from 18px to 24px (6px taller), reduce top+bottom padding by 6px (e.g., 14px -> 11px each side). Test with exactly 15 agents at 1080p to verify no overflow.
 
-**Prevention:**
-- Each dashboard becomes its own directory under `app/` with lazy-loaded components: `app/(dashboard)/manager/page.tsx`, `app/(dashboard)/payroll/page.tsx`, etc.
-- Use Next.js route groups `(dashboard)` with a shared layout that provides the tab navigation shell
-- Each page keeps its own types, styles, and state — no merging of component internals
-- The tab navigation is in the shared layout; the tab content is in separate route segments
-- This means the URL changes with the tab (`/manager`, `/payroll`, `/owner`, `/cs`) which is actually better for bookmarking and refresh behavior
-- Use `next/dynamic` with `ssr: false` if any dashboard component is particularly heavy
+**Warning signs:**
+- Vertical scrollbar appears on the table container (it has `overflowX: "auto"` but no `overflowY`)
+- Team total row disappears below the fold
+- Page requires scrolling when more than 12 agents are active
 
-**Detection:** After consolidation, check the compiled JS bundle sizes per route. If `/manager` downloads payroll code, the splitting failed.
-
-**Phase:** This is THE foundational decision. Must be settled before any code is written. Getting this wrong means rewriting the entire consolidation.
+**Phase to address:**
+Phase 1 (font size changes) -- must be validated simultaneously with size increases, not as a follow-up fix.
 
 ---
 
-### P2: Auth Flow Rewrite — URL Token Passing Breaks When Apps Merge
+### Pitfall 2: Dark theme contrast ratios that pass on monitors fail on TVs
 
-**What goes wrong:** The current auth flow works like this:
-1. User logs in at auth-portal (`localhost:3011`)
-2. Auth-portal's `/api/login` route calls ops-api, gets a JWT
-3. Auth-portal redirects to landing page with `?session_token=TOKEN&roles=ROLE1,ROLE2`
-4. Landing page calls `captureTokenFromUrl()` which stores token in localStorage
-5. Landing page shows dashboard cards, each links to a different origin with `?session_token=TOKEN`
-6. Each dashboard calls `captureTokenFromUrl()` on load to grab the token from URL
+**What goes wrong:**
+The current theme uses `--text-tertiary: #64748b` (slate-500) and `--text-muted: #475569` (slate-600) on backgrounds like `#070a0a` and `#0c1414`. On a backlit monitor at 60cm viewing distance, these pass WCAG AA. On a consumer-grade TV at 3-6 meters with ambient office lighting, lower-contrast elements become invisible. Specifically: the "dash" placeholders (`&mdash;` in `colors.borderStrong`), the premium sub-text (`colors.textTertiary`), and the rank badges on non-top-3 agents (`colors.textMuted`) will disappear.
 
-When all dashboards merge into one app, step 5-6 becomes unnecessary (no cross-origin redirect needed). But the login flow still needs to work. The auth-portal's `/api/login` and `/api/verify` route handlers are Next.js API routes that proxy to ops-api. If these are naively merged, the login page and the dashboard share the same Next.js app, but the middleware (`middleware.ts`) that protects dashboard routes must NOT protect the login page.
+**Why it happens:**
+TV panels have lower native contrast ratios than IPS monitors (especially in bright rooms), and viewing distance means the eye integrates text with surrounding background more aggressively. A color that "looks dim but readable" on a monitor becomes "invisible" on a TV from across the room.
 
-**Why it happens:** The auth-portal was designed as a separate app specifically because it needed different middleware rules than the dashboards. Merging it in requires rethinking which routes are public vs protected.
+**How to avoid:**
+Promote all text elements by one contrast tier: `textTertiary` -> `textSecondary`, `textMuted` -> `textTertiary`. For the sales board specifically, nothing should use `textMuted` or `borderStrong` for any visible text or numbers. The minimum should be `textTertiary` (#64748b) for truly secondary info, and `textSecondary` (#94a3b8) for anything a manager needs to read from across the room.
 
-**Consequences:**
-- If middleware protects `/`, users can't reach the login page (infinite redirect loop)
-- If middleware is removed entirely, all dashboard routes are unprotected
-- The `DASHBOARD_MAP` in landing page references external URLs (`MANAGER_DASHBOARD_URL`, `PAYROLL_DASHBOARD_URL`) that no longer exist
-- The `AUTH_PORTAL_URL` env var that other dashboards used for token verification becomes self-referential
-- `captureTokenFromUrl()` still works but the cross-origin token passing via URL params is no longer needed (and is a security concern — tokens in URLs get logged)
+**Warning signs:**
+- Any text element using `colors.textMuted` or `colors.borderStrong` for content that should be readable
+- Premium dollar amounts using `colors.textTertiary` at small font sizes
+- Placeholder dashes using border colors instead of text colors
 
-**Prevention:**
-- The unified app login is at `/login` (public route)
-- Login success stores token in localStorage via `captureTokenFromUrl()` and redirects to the user's default tab route (e.g., `/manager`)
-- Next.js middleware matcher protects `/manager/:path*`, `/payroll/:path*`, `/owner/:path*`, `/cs/:path*` but NOT `/login`, `/api/login`, `/api/verify`, `/api/change-password`
-- Remove all external dashboard URL env vars (`MANAGER_DASHBOARD_URL`, etc.) — tabs are internal routes now
-- Remove the landing page entirely — login redirects directly to the appropriate tab based on role
-- Keep `captureTokenFromUrl()` for backward compatibility but the primary flow is: login -> store token -> redirect to route
-
-**Detection:** Log in as each role type and verify you land on the correct tab. Try accessing `/manager` without a token and verify redirect to `/login`. Try accessing `/login` with a valid token and verify no redirect loop.
-
-**Phase:** Must be designed and implemented as the very first step. Every other feature depends on auth working correctly in the unified app.
+**Phase to address:**
+Phase 1 -- contrast adjustments must ship with font size changes. Bigger text at low contrast is still unreadable.
 
 ---
 
-### P3: CORS and Socket.IO Origin Whitelist — Stale Origins Cause Silent Failures
+### Pitfall 3: The podium section on DailyView consumes too much vertical space for TV
 
-**What goes wrong:** The ops-api CORS whitelist currently contains 5 origins:
-```
-http://localhost:3011,http://localhost:3012,http://localhost:3013,http://localhost:3019,http://localhost:3026
-```
-The Socket.IO server uses the same whitelist. After consolidation, the unified app runs on a single port (e.g., 3000 or 3011). The old origins for individual dashboards no longer exist. If the CORS whitelist is not updated, the unified app's requests to ops-api are rejected with CORS errors. Socket.IO connections fail silently (the `useSocket` hook shows the disconnect banner after 10 seconds but doesn't explain why).
+**What goes wrong:**
+The DailyView has a podium section with cards at heights 160px, 180px, 220px plus a 48px platform base, plus "Top Performers" header, plus day/week toggle, plus "All Agents" section below. This layout assumes vertical scrolling is acceptable. On a TV, the entire board must fit in one viewport with no scrolling -- nobody can scroll a wall-mounted TV.
 
-**Why it happens:** CORS configuration is in ops-api's `index.ts` as an env var default, in `docker-compose.yml` as a service environment variable, and potentially in Railway service variables. All three must be updated.
+**Why it happens:**
+The existing design was built for desktop browser use where scrolling is natural. The podium is a visual showpiece that prioritizes engagement over information density. TV use inverts this: information density and zero-scroll are paramount.
 
-**Consequences:**
-- All API calls from the unified app fail with CORS errors in the browser console
-- Socket.IO real-time updates stop working across all dashboards
-- The disconnect banner shows permanently but gives no useful diagnostic
-- If only the dev default is updated but not Docker/Railway, it works locally but breaks in production
+**How to avoid:**
+Either (a) compress the podium section significantly (reduce card heights by 30-40%, shrink gaps), or (b) when in "weekly" tab mode the table already has no podium -- consider making weekly the default/only view for TV mode, or (c) add a TV-specific layout that removes the podium entirely and shows all agents in a flat ranked list. The milestone requirements focus on the table (font sizes, 9-15 agents), so the weekly table view is likely the primary TV target.
 
-**Prevention:**
-- Update the `ALLOWED_ORIGINS` default in `apps/ops-api/src/index.ts` to include the unified app's origin
-- Update `docker-compose.yml` `ALLOWED_ORIGINS` to remove old dashboard origins and add the unified app origin
-- Keep the sales-board origin (`localhost:3013`) since it remains standalone
-- The unified app needs exactly ONE origin in the whitelist (plus sales-board)
-- Add a startup log line in ops-api that prints the allowed origins so misconfiguration is immediately visible
-- Consider: if the unified app proxies API calls through Next.js API routes (server-to-server), CORS doesn't apply — but the current architecture uses direct browser-to-API calls via `authFetch()`
+**Warning signs:**
+- DailyView content extends below 1080px viewport height
+- "All Agents" section gets compressed or cut off below the podium
+- Users report needing to scroll on the TV
 
-**Detection:** Open browser DevTools Network tab after deploying the unified app. Any red CORS error is immediately visible.
-
-**Phase:** Must be done simultaneously with deployment configuration. Cannot be deferred.
+**Phase to address:**
+Phase 1 -- decide early whether DailyView or WeeklyView is the TV target. If both, podium compression is Phase 1 work.
 
 ---
 
-### P4: Style Constant Name Collisions When Merging Dashboard Code
+### Pitfall 4: Fixed pixel widths in podium cards break on non-1080p TV resolutions
 
-**What goes wrong:** Every dashboard defines local style constants with generic names. For example:
-- Manager dashboard: `const CARD`, `const BTN`, `const HEADER`, `const FIELD`, `const INPUT_WRAP`
-- Payroll dashboard: `const CARD`, `const BTN`, `const HEADER` (different values)
-- CS dashboard: `const CARD`, `const BTN` (different values again)
-- Owner dashboard: `const CARD` (different values)
+**What goes wrong:**
+Podium cards use fixed pixel widths: 200px, 175px, 165px. The platform base mirrors these. If the TV is 4K (3840x2160) running at native resolution, these cards will look tiny. If the TV is 720p, they may overlap or overflow. The weekly table has `minWidth: 760` which is fine for most TVs, but the inline pixel dimensions throughout are resolution-fragile.
 
-If components from different dashboards are ever imported into the same scope (e.g., a shared layout component), these constants shadow each other. Even if they are in separate files, IDE auto-import can grab the wrong one.
+**Why it happens:**
+The codebase uses inline `React.CSSProperties` exclusively (project constraint: no Tailwind, no CSS files beyond theme/responsive). Fixed pixel values work well when the target viewport is known (desktop browser). TVs vary wildly: 720p, 1080p, 4K, and browsers on TV sticks may or may not honor device-pixel-ratio.
 
-**Why it happens:** The inline CSSProperties pattern uses short, generic names because each file was historically isolated. There was never a naming conflict because each app was its own Next.js process.
+**How to avoid:**
+For the weekly table (the primary TV view), column widths are already flexible (`width: "100%"` on the table). Font sizes are the main concern. Use `clamp()` in font-size values so they scale between a floor and ceiling: e.g., `fontSize: "clamp(18px, 2vw, 28px)"`. This keeps things readable across resolutions without media queries. Note: `clamp()` works in inline styles as a string value.
 
-**Consequences:**
-- Subtle visual bugs: wrong padding, wrong colors, wrong border radius on components that "look almost right"
-- Extremely hard to debug because the style values are close but not identical across dashboards
-- If a shared component (like the tab navigation shell) imports a `CARD` constant, it gets whichever file's `CARD` the bundler resolves
+**Warning signs:**
+- Testing only on one resolution (e.g., only 1080p)
+- Podium cards overlapping or having large gaps on non-standard resolutions
+- Text that looks perfect on 1080p but is too small on 4K or too large on 720p
 
-**Prevention:**
-- Since each dashboard becomes its own route/page file under separate directories, the local constants stay local — this is inherently handled by the route-segment-per-dashboard approach from P1
-- For the shared layout/navigation shell, prefix shared style constants clearly: `const NAV_TAB`, `const NAV_SHELL`, `const NAV_INDICATOR`
-- Do NOT create a "merged styles" file that combines all dashboard styles — keep them scoped to their files
-- If extracting shared styles, put them in `@ops/ui` with explicit, non-colliding names
-
-**Detection:** After consolidation, visually compare each dashboard tab against the current standalone version. Any spacing, color, or layout difference indicates a style collision.
-
-**Phase:** Addressed implicitly by the file structure decision in P1. But must be explicitly verified during UI testing.
+**Phase to address:**
+Phase 1 -- if using fixed pixel font sizes, document the target resolution explicitly. If using clamp(), implement it from the start.
 
 ---
 
-### P5: Deployment Topology Change — Docker and Railway Both Need Reconfiguration
+### Pitfall 5: Animated numbers cause visual jitter at TV viewing distance
 
-**What goes wrong:** Currently there are 6 Docker services (5 frontends + API) and correspondingly 6 Railway services. After consolidation, there should be 3 services: unified-dashboard, sales-board, ops-api. If the old services are not removed and the new unified service is not added, Docker Compose builds stale containers and Railway runs (and bills for) phantom services.
+**What goes wrong:**
+The board uses `<AnimatedNumber>` throughout for sales counts and premiums. These animate on value changes (real-time Socket.IO updates). At TV viewing distance, a number flickering from "4" to "5" with a counting animation creates momentary visual noise that draws the eye unnecessarily. Worse, if multiple cells update simultaneously (a sale triggers cascade), the entire table appears to shimmer.
 
-**Why it happens:** Deployment configuration is easy to forget because it's not tested during local development (where `npm run dev` just starts one app).
+**Why it happens:**
+Animation that feels polished at arm's length feels chaotic from across a room. The eye can't track the transition -- it just sees "something changed" without catching the before/after. This defeats the purpose of the leaderboard: quick at-a-glance status.
 
-**Consequences:**
-- Docker: old containers start on old ports, consuming resources but serving nothing (or worse, serving stale code that conflicts with the unified app)
-- Railway: 5 frontend services billed at $5/month each when only 2 are needed, plus the old services may still be accessible at their old URLs
-- The `Dockerfile.nextjs` with `APP_NAME` build arg needs to reference the new unified app name
-- The auth-portal Docker service passes `MANAGER_DASHBOARD_URL`, `PAYROLL_DASHBOARD_URL`, etc. as environment variables — these no longer exist in the unified app
+**How to avoid:**
+Keep AnimatedNumber but ensure the animation duration is very short (under 200ms) so it reads as a snap rather than a count-up. Alternatively, for TV mode, replace AnimatedNumber with static rendering and use a brief background flash (cell background pulses green for 1 second) to signal "this value just changed." This is more TV-appropriate: the number is always statically readable, and the flash provides change notification.
 
-**Prevention:**
-- Update `docker-compose.yml` in the same PR as the consolidation:
-  - Remove `auth-portal`, `manager-dashboard`, `payroll-dashboard`, `owner-dashboard`, `cs-dashboard` services
-  - Add `unified-dashboard` service with `APP_NAME: unified-dashboard` (or whatever the new app directory is named)
-  - Keep `sales-board` and `ops-api` unchanged
-- Update Railway configuration (document in PR description):
-  - Remove old frontend services
-  - Create new unified dashboard service
-  - Update `ALLOWED_ORIGINS` on the ops-api service
-- Update the `Dockerfile.nextjs` if the new app name doesn't match the expected `apps/${APP_NAME}` path pattern
-- Remove dashboard URL env vars from all configurations
+**Warning signs:**
+- Multiple cells animating simultaneously when a sale is entered
+- Numbers mid-animation being unreadable (showing intermediate values)
+- Users reporting the board "flickers" or is "always moving"
 
-**Detection:** Run `docker-compose up` after consolidation and verify exactly 3 services start (postgres + ops-api + unified-dashboard + sales-board = 4 containers). Check Railway dashboard for orphaned services.
-
-**Phase:** Must be part of the consolidation PR. Not a follow-up task.
-
-## Moderate Pitfalls
-
-### P6: Role-Gated Tab Visibility Mismatch Between Client and Server
-
-**What goes wrong:** The tab navigation must show/hide tabs based on the user's roles. The user's roles come from the JWT token (decoded client-side or via middleware). If the client-side role check uses different logic than the server-side `requireRole()` middleware, a user might see a tab they can't actually use (API calls return 403) or not see a tab they should have access to.
-
-**Why it happens:** The current `ROLE_ACCESS` map in `auth-portal/lib/auth.ts` uses lowercase role names (`"owner"`, `"super_admin"`) while the `@ops/types` `AppRole` enum uses uppercase (`"SUPER_ADMIN"`, `"OWNER_VIEW"`, `"MANAGER"`). The auth-portal middleware was a separate implementation that doesn't use the shared types.
-
-**Consequences:**
-- User sees a tab, clicks it, and every API call returns 403 — broken experience
-- SUPER_ADMIN bypasses all server-side role checks but the client-side tab filter might not show all tabs if the mapping is wrong
-- Roles like `CUSTOMER_SERVICE` vs `CS` vs `CUSTOMER_SERVICE` — any inconsistency means a role falls through the cracks
-
-**Prevention:**
-- Define the tab-to-role mapping once in a shared constant (e.g., in `@ops/types` or a new `@ops/auth/roles.ts`):
-  ```typescript
-  export const TAB_ROLES = {
-    manager: ["MANAGER", "SUPER_ADMIN"],
-    payroll: ["PAYROLL", "SUPER_ADMIN"],
-    owner: ["OWNER_VIEW", "SUPER_ADMIN"],
-    cs: ["CUSTOMER_SERVICE", "SUPER_ADMIN"],
-  } as const;
-  ```
-- Both the tab navigation component and the Next.js middleware use this same constant
-- SUPER_ADMIN always sees all tabs (already the pattern on the server side)
-- Decode the JWT client-side to get roles — the `@ops/auth/client` package already stores the token, just needs a `getRoles()` helper that decodes it
-
-**Detection:** Log in as each role type (MANAGER, PAYROLL, OWNER_VIEW, CUSTOMER_SERVICE, SUPER_ADMIN) and verify the correct tabs appear and all API calls within each tab succeed.
-
-**Phase:** Must be implemented alongside the tab navigation component. Test with every role.
+**Phase to address:**
+Phase 2 (polish) -- functional but not critical. Font sizes and contrast are Phase 1; animation tuning is refinement.
 
 ---
 
-### P7: Multiple Socket.IO Connections — One Per Dashboard Instead of One Per App
+### Pitfall 6: Agent name truncation when font size increases
 
-**What goes wrong:** Each current dashboard page calls `useSocket(API, onSaleChanged)` which creates a new Socket.IO connection on mount. In the unified app, if the user navigates between tabs (route segments), each tab mount creates a new connection and each tab unmount disconnects. This means:
-- Switching from Manager to Payroll tab: disconnect + reconnect (visible disconnect banner flashes)
-- If tabs are rendered simultaneously (unlikely but possible with prefetching): multiple connections from one browser
+**What goes wrong:**
+Agent names in the weekly table use `whiteSpace: "nowrap"` and `fontSize: 18`. Increasing to 24px+ means names like "Christopher M." or "Alejandra Rodriguez" may overflow the agent column, pushing day columns off-screen or causing horizontal scroll. The table has `overflowX: "auto"` which will add a scrollbar -- unusable on a TV.
 
-**Why it happens:** The `useSocket` hook creates the connection in a `useEffect` with `[apiUrl]` as the dependency. Each page component that uses it gets its own connection lifecycle tied to mount/unmount.
+**Why it happens:**
+The agent column has no `maxWidth` or `overflow: hidden` constraint. At 18px the names fit. At 24px they may not, especially with the rank badge (24px wide + 12px gap) eating into available space.
 
-**Consequences:**
-- Brief disconnect banner flash on every tab switch (10-second timer in `useSocket` before showing, but if switch takes >10s on slow network, it shows)
-- Server sees rapid connect/disconnect churn in logs
-- If a sale event fires during the ~100ms between disconnect and reconnect, the dashboard misses it
-- The `onReconnect` callback triggers a full data refresh — so every tab switch causes an unnecessary full refresh
+**How to avoid:**
+Add `overflow: hidden`, `textOverflow: "ellipsis"`, and a `maxWidth` on the agent name cell. Better: use first name + last initial format for TV display (server-side or client-side formatting). "Christopher M." is 30% shorter than "Christopher Martinez" and equally identifiable in a sales office where everyone knows each other.
 
-**Prevention:**
-- Lift the Socket.IO connection to the shared layout component, not the individual tab pages
-- Create a `SocketProvider` context that wraps all tabs and maintains a single persistent connection
-- Individual tabs subscribe to specific events via context (e.g., `useSocketEvent("sale:changed", handler)`) without owning the connection lifecycle
-- The connection persists across tab switches — only created once on app mount, destroyed on app unmount (page close/navigate away)
-- This is a small refactor of `@ops/socket` to add a provider pattern alongside the existing hook
+**Warning signs:**
+- Horizontal scrollbar appearing on the table
+- Agent column consuming more than 20% of table width
+- Day columns getting compressed to accommodate long names
 
-**Detection:** Switch between tabs rapidly while watching the server logs. If you see connect/disconnect pairs, the connection is not shared.
-
-**Phase:** Should be done during the unified layout creation phase, before individual dashboards are wired in.
+**Phase to address:**
+Phase 1 -- must be handled when font sizes increase, not after.
 
 ---
 
-### P8: Date Range Filter State Not Preserved Across Tab Switches
+### Pitfall 7: `fmt$whole` dollar formatting becomes ambiguous at large font sizes
 
-**What goes wrong:** The user sets a custom date range (e.g., "Last 30 days") on the Manager tab, switches to Payroll tab, and the date range resets to default. They then switch back to Manager and the date range resets again. Each tab manages its own `DateRangeFilterValue` state, and React unmounts the component on tab switch, losing the state.
+**What goes wrong:**
+The `fmt$whole` function rounds premiums to whole dollars: "$1,234". At 12px this is fine as supplementary info. At TV-readable sizes (18px+), "$1,234" without cents reads as authoritative. When the total on the payroll dashboard shows "$1,234.50", users may perceive a discrepancy. More critically, "$0" for agents with no sales is large and prominent, creating visual clutter.
 
-**Why it happens:** If tabs are implemented as separate Next.js route segments (which they should be per P1), navigating between routes unmounts the previous page component and mounts the new one. Local `useState` is lost on unmount.
+**Why it happens:**
+The formatting was designed for a supplementary/secondary display context. Increasing font size promotes it to primary information, changing user perception.
 
-**Consequences:**
-- User frustration: they set a date range, switch tabs to compare data, and have to re-set it
-- The "uniform" date range requirement implies the same date range should apply across all tabs, but without shared state, each tab is independent
-- If date ranges are independent per tab (acceptable alternative), users still lose their selection when switching away and back
+**How to avoid:**
+Keep `fmt$whole` (no cents is correct for TV readability -- fewer characters = more readable at distance). But suppress the "$0" case entirely: show a dash or nothing for zero-premium agents, same as the zero-sales treatment. This reduces visual noise.
 
-**Prevention:**
-- Decision required: should the date range be **global** (same across all tabs) or **per-tab** (independent but preserved)?
-  - **Global** (recommended for "uniform" requirement): Store date range in a React context provider in the shared layout. All tabs read from the same context. Changing the date range on any tab changes it for all tabs.
-  - **Per-tab**: Store date range in URL search params (`?range=30d&from=2026-03-01&to=2026-03-19`). URL params survive navigation because they're part of the route. Each tab has its own params.
-- Either way, do NOT rely on `useState` alone — it will be lost on tab switch
-- The global approach is simpler and matches the "uniform" language in the requirements
-- If global: the `DateRangeFilter` component should be in the shared layout (above the tabs), not in each tab's content
+**Warning signs:**
+- Large "$0" values drawing attention to inactive agents
+- Users comparing board totals to payroll and finding "mismatches" due to rounding
 
-**Detection:** Set a custom date range, switch tabs, switch back. If the range reset, state preservation failed.
+**Phase to address:**
+Phase 1 -- part of the font size change pass.
 
-**Phase:** Must be decided during the uniform date range picker implementation. Affects where the component lives in the component tree.
+## Technical Debt Patterns
 
----
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Hardcoding TV-specific font sizes inline | Quick to implement, matches codebase pattern | If the board is ever viewed on desktop again, sizes are wrong | Acceptable if the sales board is TV-only. If dual-use, use clamp() or a CSS class toggle. |
+| Duplicating style objects for TV sizes | No need to refactor existing styles | Two sets of magic numbers to maintain | Never -- use a multiplier or scale factor applied to existing values. |
+| Removing animations entirely for TV | Simplest fix for jitter | Loses the "living dashboard" feel | Only if animation tuning proves too complex. Prefer reducing duration first. |
 
-### P9: Next.js Middleware Matcher Conflict With API Routes
+## Performance Traps
 
-**What goes wrong:** The auth-portal currently has a Next.js middleware that intercepts requests and verifies tokens. The matcher is:
-```typescript
-export const config = {
-  matcher: ["/owner/:path*", "/payroll/:path*", "/manager/:path*"],
-};
-```
-In the unified app, the login API routes (`/api/login`, `/api/verify`, `/api/change-password`) must be accessible without authentication. If the middleware matcher is too broad (e.g., `/((?!api|_next|login).*)`) it can accidentally intercept API routes or static assets, causing login to break.
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| 30-second polling + Socket.IO both active | Duplicate data fetches, flash of stale data on poll then immediate Socket.IO correction | Not a TV-specific issue, but more visible on TV because the "flash" is large-font and prominent | With 15+ agents, visible now |
+| Large AnimatedNumber re-renders on every poll | Every cell re-renders even if value unchanged | Memoize agent rows or use React.memo with comparison on count+premium | Noticeable with 15 agents x 9 columns = 135 cells re-rendering every 30s |
 
-**Why it happens:** Middleware matchers in Next.js are regex-based and it's easy to accidentally match too much or too little. The existing auth-portal middleware was simple because it only had 3 protected path prefixes.
+## UX Pitfalls
 
-**Consequences:**
-- Login page loads but `/api/login` POST returns 401 (middleware intercepts it and finds no token)
-- Static assets (fonts, images) blocked by middleware, causing visual breakage
-- `_next/` prefetch requests blocked, breaking client-side navigation
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Day/Week toggle buttons too small for TV | Nobody can switch modes -- buttons are 12px font, 6px padding | Increase toggle size proportionally, or auto-detect TV mode and default to weekly |
+| "Top Performers" and "All Agents" section labels invisible at distance | Users can't parse the visual hierarchy | Either remove labels (the podium speaks for itself) or increase to 16px+ |
+| Theme toggle (light/dark) visible on TV | Someone accidentally clicks it, board goes white in a dark sales office | Hide ThemeToggle in TV mode -- the board should always be dark on a TV |
+| Team total row not visually distinct enough at distance | The gold background at 0.07 opacity is barely visible on TV | Increase opacity to 0.15-0.20, or add a thicker top border (current 2px may need 3-4px) |
+| Column header abbreviations (Mon, Tue...) at 15px may be too small | Headers are reference text -- need to be readable but not dominant | Increase to 18px minimum for TV, keep uppercase + letter-spacing for distinction |
 
-**Prevention:**
-- Use an explicit positive matcher that lists only the protected route prefixes:
-  ```typescript
-  export const config = {
-    matcher: ["/manager/:path*", "/payroll/:path*", "/owner/:path*", "/cs/:path*"],
-  };
-  ```
-- Do NOT use a negative matcher (exclude everything except...) — it's fragile and hard to reason about
-- The `/login`, `/api/*`, `/_next/*`, and `/` (root) routes are implicitly unprotected because they're not in the matcher
-- Test the middleware by accessing every route type: login page, API routes, dashboard routes (with and without token), static assets
+## "Looks Done But Isn't" Checklist
 
-**Detection:** After implementing middleware, open browser DevTools and check for any unexpected 401/307 responses on page load.
+- [ ] **Font sizes increased:** Verify padding was reduced to compensate -- total row height must not exceed original
+- [ ] **Tested at 1080p:** Also test at 720p and 4K -- font sizes must remain readable at all three
+- [ ] **Tested with 15 agents:** Not just 5 or 9 -- the table must fit 15 rows + header + team total without scrolling
+- [ ] **Tested with long names:** Use "Christopher Rodriguez" as a test name -- if it overflows, add text-overflow handling
+- [ ] **Tested with ambient light:** View the TV in a lit room, not a dark dev setup -- contrast issues only appear in real conditions
+- [ ] **Tested at actual distance:** Stand 3-4 meters from the screen -- what looks readable at your desk may not be
+- [ ] **Zero-sales agents tested:** An agent with 0 sales and $0 premium should look clean, not cluttered with large "0" and "$0"
+- [ ] **Team total row visible:** The gold highlight must be distinct enough to separate team totals from last agent at a glance
+- [ ] **No horizontal scroll:** The table must never trigger horizontal overflow on a 1080p or higher TV
+- [ ] **Socket.IO updates don't cause layout shift:** When a sale comes in, the row should update in-place without the table reflowing
 
-**Phase:** Part of the auth flow rewrite (P2). Test immediately after implementing.
+## Recovery Strategies
 
----
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Cell height overflow (too many agents) | LOW | Reduce padding values and re-test. Pure CSS change, no logic affected. |
+| Contrast too low on TV | LOW | Bump color tokens one tier. Search-and-replace in the single page.tsx file. |
+| Podium won't fit on TV | MEDIUM | Must either compress or remove podium. If DailyView is the TV target, this requires layout restructuring. |
+| Agent names overflowing | LOW | Add textOverflow + ellipsis. 2-line change per cell. |
+| Animations jarring on TV | LOW | Reduce duration prop on AnimatedNumber or swap to static rendering. |
+| Fixed pixels wrong on non-1080p TV | MEDIUM | Retrofitting clamp() across all font-size values after shipping px values. Tedious but mechanical. |
 
-### P10: Sales Board Isolation — Accidentally Breaking the Standalone App
+## Pitfall-to-Phase Mapping
 
-**What goes wrong:** The sales board remains standalone (per requirements), but it shares `@ops/ui`, `@ops/auth`, `@ops/socket`, and `@ops/utils` packages with the dashboards being consolidated. If the consolidation modifies shared packages (e.g., adding a `SocketProvider` for P7, or changing `captureTokenFromUrl` behavior), the sales board breaks even though it's not being touched.
-
-**Why it happens:** Shared packages serve both the unified app and the standalone sales board. Changes to shared code have cross-cutting impact.
-
-**Consequences:**
-- Sales board stops connecting to Socket.IO (if the `useSocket` hook API changes)
-- Sales board auth breaks (if `captureTokenFromUrl` changes)
-- Sales board build fails (if new dependencies are added to shared packages that aren't in sales-board's `transpilePackages`)
-
-**Prevention:**
-- Any changes to `@ops/socket`, `@ops/auth/client`, `@ops/ui`, or `@ops/utils` must be backward-compatible
-- If adding a `SocketProvider` pattern, keep the existing `useSocket` hook working as-is — the provider is additive, not a replacement
-- After consolidation changes, explicitly test the sales board: `npm run salesboard:dev` and verify it loads, displays data, and receives real-time updates
-- Add sales-board verification to the testing checklist for every PR in the consolidation work
-
-**Detection:** Run the sales board after every shared package change.
-
-**Phase:** Ongoing throughout all consolidation phases. Add to PR checklist.
-
-## Minor Pitfalls
-
-### P11: Duplicate `transpilePackages` and Config Consolidation
-
-**What goes wrong:** Each current app has its own `next.config.js` with slightly different `transpilePackages` arrays. Auth-portal transpiles `["@ops/ui", "@ops/auth"]`. Manager transpiles `["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`. The unified app needs the union of all packages: `["@ops/ui", "@ops/auth", "@ops/socket", "@ops/utils"]`. If any package is missing from `transpilePackages`, builds fail with cryptic "Cannot use import statement outside a module" errors.
-
-**Prevention:**
-- The unified app's `next.config.js` must include ALL shared packages: `@ops/ui`, `@ops/auth`, `@ops/socket`, `@ops/utils`
-- Copy the most complete config (manager or payroll dashboard) as the starting point
-- Keep the conditional `output: "standalone"` pattern for Docker compatibility
-
-**Phase:** First step of creating the unified app. Quick to get right, annoying to debug if missed.
-
----
-
-### P12: Package.json Workspace Configuration for New App
-
-**What goes wrong:** The monorepo uses npm workspaces. Each app has its own `package.json` with `workspace:*` dependencies. The new unified app needs a `package.json` that includes all dependencies from all 5 merged apps. Missing a dependency causes runtime errors that only appear when navigating to a specific tab (e.g., the CS tab uses `lucide-react` icons that the other tabs don't).
-
-**Prevention:**
-- Merge all `dependencies` from auth-portal, manager, payroll, owner, and CS dashboard `package.json` files
-- Run `npm install` from monorepo root after creating the new app
-- Test all tabs, not just the first one that loads
-
-**Phase:** Part of initial app scaffolding.
-
----
-
-### P13: Loss of Independent Deployability and Rollback Granularity
-
-**What goes wrong:** Currently, if the payroll dashboard has a bug, only the payroll service needs to be redeployed/rolled back. After consolidation, any bug in any dashboard requires redeploying the entire unified app, which affects all users across all roles.
-
-**Prevention:**
-- Accept this tradeoff explicitly — it's inherent to consolidation
-- Ensure comprehensive testing of all tabs before deploying
-- Consider feature flags for new date range functionality so it can be disabled per-tab if issues arise
-- Keep the ability to quickly revert to the previous multi-app architecture by not deleting the old app directories until the unified app is stable in production (tag the last multi-app commit)
-
-**Phase:** Deployment planning. No code change needed, just awareness and process.
-
----
-
-### P14: Metadata and Title Per Tab
-
-**What goes wrong:** Each current app has its own `<title>` via Next.js `metadata` export (e.g., "Manager Dashboard", "Payroll Dashboard"). In the unified app with route segments, each route can export its own metadata. But if this is missed, all tabs show "Unified Dashboard" or whatever the root layout sets, making it hard for users to identify which tab they're on from their browser tab bar.
-
-**Prevention:**
-- Each route segment (`/manager/page.tsx`, `/payroll/page.tsx`, etc.) must export its own `metadata`:
-  ```typescript
-  export const metadata: Metadata = { title: "Manager Dashboard" };
-  ```
-- This is a Next.js App Router feature that works automatically with route segments
-
-**Phase:** During tab/route creation. Easy to overlook, quick to fix.
-
-## Phase-Specific Warnings
-
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| App scaffolding & file structure | P1 (monster file), P11 (transpilePackages), P12 (dependencies) | Route-segment-per-dashboard, union of all transpile packages, merge all deps |
-| Auth flow rewrite | P2 (token passing breaks), P9 (middleware matcher) | Positive matcher for protected routes, remove external URL env vars, test every role |
-| Deployment config | P3 (CORS origins), P5 (Docker/Railway topology) | Update all 3 config locations, remove old services, single unified origin |
-| Tab navigation & layout | P4 (style collisions), P6 (role mismatch), P7 (socket connections), P14 (metadata) | Scoped styles per route, shared role constant, SocketProvider context, per-route metadata |
-| Uniform date range | P8 (state lost on tab switch) | Global context in shared layout OR URL search params |
-| Throughout consolidation | P10 (sales board regression), P13 (rollback granularity) | Test sales-board after every shared package change, tag pre-consolidation commit |
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Cell height overflow | Phase 1 (font sizes) | Render with 15 agents at 1080p -- no scrollbar, team total visible |
+| Dark theme contrast on TV | Phase 1 (font sizes) | View on actual TV in lit room -- all text readable from 3m |
+| Podium vertical space | Phase 1 (layout) | DailyView fits in single viewport at 1080p with 12 agents |
+| Fixed pixel resolution fragility | Phase 1 (font sizes) | Test at 720p, 1080p, 4K -- text remains proportional |
+| AnimatedNumber jitter | Phase 2 (polish) | Watch board for 5 minutes during active sales -- no distracting flicker |
+| Agent name truncation | Phase 1 (font sizes) | Test with "Christopher Rodriguez" at max font size -- no horizontal overflow |
+| Dollar format visual noise | Phase 1 (font sizes) | Zero-premium agents show dash, not "$0" at large size |
 
 ## Sources
 
-- Direct codebase analysis of all 6 app directories, shared packages, Docker/Railway configuration
-- Auth flow traced through: `auth-portal/app/api/login/route.ts` -> `auth-portal/app/landing/page.tsx` -> `@ops/auth/client.ts` `captureTokenFromUrl()`
-- CORS configuration in `apps/ops-api/src/index.ts` line 23 and `docker-compose.yml` line 34
-- Socket.IO connection lifecycle in `packages/socket/src/useSocket.ts`
-- Style constant patterns observed across all dashboard `page.tsx` files
-- Next.js App Router middleware documentation (HIGH confidence — well-established pattern)
-- Existing middleware in `apps/auth-portal/middleware.ts` with route matcher pattern
+- Direct codebase analysis: `apps/sales-board/app/page.tsx` (current layout, font sizes, padding values, table structure)
+- Direct codebase analysis: `packages/ui/src/tokens.ts` and `packages/ui/src/theme.css` (color values, contrast ratios)
+- Direct codebase analysis: `packages/ui/src/responsive.css` (existing breakpoints, no TV-specific rules)
+- WCAG 2.1 contrast ratio guidelines (4.5:1 minimum for normal text, 3:1 for large text)
+- TV display best practices: minimum 24px font for body text at 3m viewing distance on 1080p (widely cited in digital signage industry)
 
 ---
-*Research completed: 2026-03-19*
+*Pitfalls research for: TV-readable sales board leaderboard*
+*Researched: 2026-03-31*

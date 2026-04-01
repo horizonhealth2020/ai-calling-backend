@@ -10,6 +10,5 @@ export { StatCard } from "./StatCard";
 export { AnimatedNumber } from "./AnimatedNumber";
 export { EmptyState } from "./EmptyState";
 export { ProgressRing } from "./ProgressRing";
-export { Tooltip } from "./Tooltip";
 export { DateRangeFilter, KPI_PRESETS } from "./DateRangeFilter";
 export type { DateRangeFilterValue, DateRangeFilterProps } from "./DateRangeFilter";

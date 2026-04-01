@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { PageShell, SkeletonCard, ToastProvider, useToast } from "@ops/ui";
+import { useState, useEffect, useCallback } from "react";
+import { PageShell, SkeletonCard, ToastProvider } from "@ops/ui";
 import type { NavItem } from "@ops/ui";
 import { spacing } from "@ops/ui";
-import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
+import { authFetch } from "@ops/auth/client";
 import { useSocketContext } from "@/lib/SocketProvider";
 import type { SaleChangedPayload } from "@ops/socket";
 import { DISCONNECT_BANNER } from "@ops/socket";
@@ -66,11 +66,20 @@ type StatusChangeRequest = {
 type SaleEditRequest = {
   id: string;
   saleId: string;
-  changes: Record<string, { old: any; new: any }>;
+  changes: Record<string, { old: unknown; new: unknown }>;
   status: string;
   requestedAt: string;
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
+};
+
+type Alert = {
+  id: string;
+  agentId: string | null;
+  agentName: string | null;
+  customerName: string | null;
+  amount: number | null;
+  createdAt: string;
 };
 
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";
@@ -98,9 +107,15 @@ function LoadingSkeleton() {
 /* ── Orchestrator inner (needs toast context) ───────────────── */
 
 function PayrollInner() {
-  const { toast } = useToast();
   const { socket, disconnected } = useSocketContext();
-  const [tab, setTab] = useState<Tab>("periods");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (["periods", "chargebacks", "exports", "products", "service"].includes(hash)) return hash as Tab;
+    }
+    return "periods";
+  });
+  useEffect(() => { window.location.hash = tab; }, [tab]);
 
   /* ── Shared state ─────────────────────────────────────────── */
   const [periods, setPeriods] = useState<Period[]>([]);
@@ -110,7 +125,7 @@ function PayrollInner() {
   const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([]);
   const [pendingRequests, setPendingRequests] = useState<StatusChangeRequest[]>([]);
   const [pendingEditRequests, setPendingEditRequests] = useState<SaleEditRequest[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loading, setLoading] = useState(true);
   const [highlightedAlertIds, setHighlightedAlertIds] = useState<Set<string>>(new Set());
@@ -164,7 +179,7 @@ function PayrollInner() {
             commissionApproved: false,
             status: payload.sale.status,
             product: payload.sale.product,
-            addons: payload.sale.addons?.map((a: any) => ({ productId: a.product?.id ?? "", premium: a.premium ?? null, product: a.product })),
+            addons: payload.sale.addons?.map((a) => ({ productId: a.product?.id ?? "", premium: (a as { premium?: number | null }).premium ?? null, product: a.product })),
           },
           agent: { name: payload.sale.agent.name },
         };
@@ -184,12 +199,13 @@ function PayrollInner() {
 
     const onSaleChanged = (payload: SaleChangedPayload) => handleSaleChanged(payload);
     const onReconnect = () => { refreshPeriods(); fetchAlerts(); };
-    const onAlertCreated = (data: any) => {
+    const onAlertCreated = (data: { alertId?: string }) => {
       fetchAlerts();
-      if (data?.alertId) {
-        setHighlightedAlertIds(prev => new Set(prev).add(data.alertId));
+      const aid = data?.alertId;
+      if (aid) {
+        setHighlightedAlertIds(prev => new Set(prev).add(aid));
         setTimeout(() => {
-          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(data.alertId); return next; });
+          setHighlightedAlertIds(prev => { const next = new Set(prev); next.delete(aid); return next; });
         }, 100);
       }
     };
@@ -215,7 +231,7 @@ function PayrollInner() {
   useEffect(() => {
     Promise.all([
       authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).catch(() => []),
-      authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${API}/api/products?all=true`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/service-agents`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/settings/service-bonus-categories`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
@@ -250,6 +266,7 @@ function PayrollInner() {
   if (loading) {
     return (
       <PageShell
+        compact
         title="Payroll Dashboard"
         subtitle="Loading data..."
         navItems={NAV_ITEMS}
@@ -263,6 +280,7 @@ function PayrollInner() {
 
   return (
     <PageShell
+      compact
       title="Payroll Dashboard"
       subtitle="Commission, payroll periods & service management"
       navItems={navItemsWithBadges}

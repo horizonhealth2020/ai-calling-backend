@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Badge,
   Button,
@@ -9,7 +9,6 @@ import {
   colors,
   spacing,
   radius,
-  typography,
   motion,
   baseInputStyle,
   baseLabelStyle,
@@ -23,9 +22,8 @@ import { HIGHLIGHT_GLOW } from "@ops/socket";
 import {
   Edit3,
   Trash2,
-  Save,
-  X,
   BarChart3,
+  FileText,
 } from "lucide-react";
 
 /* -- Types -- */
@@ -37,7 +35,7 @@ type Product = {
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
-type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; leadPhone?: string | null; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 export interface ManagerSalesProps {
   API: string;
@@ -48,6 +46,20 @@ export interface ManagerSalesProps {
   setSalesList: React.Dispatch<React.SetStateAction<Sale[]>>;
   highlightedSaleIds: Set<string>;
   onSalesChanged?: () => void;
+}
+
+/* -- Helpers -- */
+
+function formatPhone(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === "1") {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return raw;
 }
 
 /* -- Constants -- */
@@ -123,13 +135,16 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
   const [salesDay, setSalesDay] = useState<string>("all");
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const msgTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [expandedNoteIds, setExpandedNoteIds] = useState<Set<string>>(new Set());
 
   /* -- Inline sale editing state -- */
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- form state with dynamic keys for inline sale editing
   const [editForm, setEditForm] = useState<Record<string, any>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- original values for diff comparison
   const [editOriginal, setEditOriginal] = useState<Record<string, any>>({});
   const [editPreview, setEditPreview] = useState<{ commission: number; periodStart: string; periodEnd: string } | null>(null);
-  const [editPreviewLoading, setEditPreviewLoading] = useState(false);
+  const [, setEditPreviewLoading] = useState(false);
   const editPreviewTimer = useRef<ReturnType<typeof setTimeout>>();
   const editPreviewAbort = useRef<AbortController>();
   const [editSaving, setEditSaving] = useState(false);
@@ -166,18 +181,20 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         return;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic form original for diff comparison
       const original: Record<string, any> = {
         productId: sale.productId,
         premium: Number(sale.premium),
         enrollmentFee: sale.enrollmentFee !== null ? Number(sale.enrollmentFee) : null,
         paymentType: sale.paymentType,
         agentId: sale.agentId,
-        addonProductIds: sale.addons ? sale.addons.map((a: any) => a.product.id) : [],
-        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: any) => [a.product.id, Number(a.premium ?? 0)])) : {},
+        addonProductIds: sale.addons ? sale.addons.map((a: { product: { id: string }; premium?: number | null }) => a.product.id) : [],
+        addonPremiums: sale.addons ? Object.fromEntries(sale.addons.map((a: { product: { id: string }; premium?: number | null }) => [a.product.id, Number(a.premium ?? 0)])) : {},
         carrier: sale.carrier,
         memberName: sale.memberName,
         memberId: sale.memberId || "",
         memberState: sale.memberState || "",
+        leadPhone: sale.leadPhone || "",
         saleDate: sale.saleDate ? sale.saleDate.slice(0, 10) : "",
         effectiveDate: sale.effectiveDate ? sale.effectiveDate.slice(0, 10) : "",
         leadSourceId: sale.leadSourceId,
@@ -187,8 +204,9 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       setEditForm({ ...original });
       setEditingSaleId(saleId);
       setEditPreview(null);
-    } catch (e: any) {
-      toast("error", `Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: ${message}`);
     }
   }
 
@@ -216,8 +234,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
           signal: editPreviewAbort.current.signal,
         });
         if (res.ok) setEditPreview(await res.json());
-      } catch (e: any) {
-        if (e.name !== "AbortError") console.warn("Edit preview failed", e);
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name !== "AbortError") console.warn("Edit preview failed", e);
       } finally {
         setEditPreviewLoading(false);
       }
@@ -228,6 +246,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
     if (!editingSaleId) return;
     setEditSaving(true);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic changes payload for PATCH
     const changes: Record<string, any> = {};
     for (const key of Object.keys(editForm)) {
       if (JSON.stringify(editForm[key]) !== JSON.stringify(editOriginal[key])) {
@@ -261,8 +280,9 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: ${message}`);
     } finally {
       setEditSaving(false);
     }
@@ -292,8 +312,9 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to update status (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) {
-      setMsg({ text: `Unable to reach API \u2014 ${e.message ?? "network error"}`, type: "error" });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setMsg({ text: `Unable to reach API \u2014 ${message}`, type: "error" });
     }
   }
 
@@ -311,7 +332,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to delete sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) { setMsg({ text: `Unable to reach API \u2014 ${e.message ?? "network error"}`, type: "error" }); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setMsg({ text: `Unable to reach API \u2014 ${message}`, type: "error" }); }
   }
 
   const getDayOfWeek = (dateStr: string) => {
@@ -381,7 +402,11 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       )}
 
       {[...byAgent.entries()].map(([agentName, sales], agentIdx) => {
-        const premiumTotal = sales.reduce((s, x) => s + Number(x.premium), 0);
+        const premiumTotal = sales.reduce((s, x) => {
+          const saleWithAddons = x as Sale & { addons?: { premium?: number | null }[] };
+          const addonTotal = saleWithAddons.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0;
+          return s + Number(x.premium ?? 0) + addonTotal;
+        }, 0);
         return (
           <Card key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${colors.borderSubtle}`, flexWrap: "wrap", gap: 8 }}>
@@ -397,8 +422,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["Date", "Member", "Carrier", "Product", "Lead Source", "Premium", "Status", "", ""].map((h, i) => (
-                      <th key={h || `col-${i}`} style={{ ...baseThStyle, textAlign: i === 5 ? "right" : i === 6 ? "center" : "left" }}>{h}</th>
+                    {["Date", "Member", "Carrier", "Product", "Lead Source", "Phone", "Premium", "Status", "", "", ""].map((h, i) => (
+                      <th key={h || `col-${i}`} style={{ ...baseThStyle, textAlign: i === 6 ? "right" : i === 7 ? "center" : "left", ...(i === 5 ? { minWidth: 130 } : {}) }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -411,7 +436,17 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                       <td style={baseTdStyle}>{s.carrier}</td>
                       <td style={baseTdStyle}>{s.product.name}</td>
                       <td style={baseTdStyle}>{s.leadSource.name}</td>
-                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{formatDollar(Number(s.premium))}</td>
+                      <td style={baseTdStyle}>
+                        {s.leadPhone
+                          ? formatPhone(s.leadPhone)
+                          : <span style={{ color: colors.textMuted }}>&mdash;</span>}
+                      </td>
+                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{(() => {
+                        const saleWithAddons = s as Sale & { addons?: { premium?: number | null }[] };
+                        const addonTotal = saleWithAddons.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0;
+                        const rowTotal = Number(s.premium ?? 0) + addonTotal;
+                        return formatDollar(rowTotal);
+                      })()}</td>
                       <td style={{ ...baseTdStyle, textAlign: "center" }}>
                         {s.hasPendingStatusChange ? (
                           <StatusBadge status="PENDING_RAN" />
@@ -436,6 +471,26 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                             <option value="DECLINED">Declined</option>
                             <option value="DEAD">Dead</option>
                           </select>
+                        )}
+                      </td>
+                      <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                        {s.notes ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedNoteIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                              return next;
+                            })}
+                            aria-label="Toggle notes"
+                            title="View notes"
+                            style={{ color: expandedNoteIds.has(s.id) ? colors.primary400 : colors.textMuted }}
+                          >
+                            <FileText size={14} />
+                          </Button>
+                        ) : (
+                          <span style={{ color: colors.borderSubtle }}>&mdash;</span>
                         )}
                       </td>
                       <td style={{ ...baseTdStyle, textAlign: "center" }}>
@@ -465,9 +520,27 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                         </Button>
                       </td>
                     </tr>
+                    {expandedNoteIds.has(s.id) && s.notes && (
+                      <tr>
+                        <td colSpan={11} style={{ padding: 0 }}>
+                          <div className="animate-slide-down" style={{
+                            padding: "10px 20px",
+                            background: "rgba(45,212,191,0.04)",
+                            borderTop: `1px solid ${colors.borderSubtle}`,
+                            borderBottom: `1px solid ${colors.borderSubtle}`,
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 8,
+                          }}>
+                            <FileText size={13} style={{ color: colors.textMuted, flexShrink: 0, marginTop: 1 }} />
+                            <span style={{ fontSize: 13, color: colors.textSecondary, whiteSpace: "pre-wrap" }}>{s.notes}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     {editingSaleId === s.id && (
                       <tr>
-                        <td colSpan={9} style={{ padding: 0 }}>
+                        <td colSpan={11} style={{ padding: 0 }}>
                           <div style={EDIT_ROW_EXPANSION} className="animate-slide-down">
                             {editOriginal._blocked ? (
                               <div style={{ fontSize: 14, color: "#f59e0b", padding: spacing[4] }}>
@@ -548,8 +621,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                     </div>
                                   </div>
 
-                                  {/* Row 5: Carrier | Member Name | Member State (3 cols) */}
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
+                                  {/* Row 5: Carrier | Member Name | Member State | Phone (4 cols) */}
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
                                     <div>
                                       <label style={LBL}>Carrier</label>
                                       <input className="input-focus" style={baseInputStyle} value={editForm.carrier ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, carrier: e.target.value }))} />
@@ -561,6 +634,19 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                     <div>
                                       <label style={LBL}>Member State</label>
                                       <input className="input-focus" style={baseInputStyle} maxLength={2} value={editForm.memberState ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, memberState: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                      <label style={LBL}>Phone</label>
+                                      <input
+                                        className="input-focus"
+                                        style={{ ...baseInputStyle, width: "100%" }}
+                                        placeholder="(555) 123-4567"
+                                        value={formatPhone(editForm.leadPhone ?? "")}
+                                        onChange={e => {
+                                          const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                                          setEditForm((f: Record<string, any>) => ({ ...f, leadPhone: digits }));
+                                        }}
+                                      />
                                     </div>
                                   </div>
 

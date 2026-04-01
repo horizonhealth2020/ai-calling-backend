@@ -1,206 +1,168 @@
 # Project Research Summary
 
-**Project:** v1.3 Dashboard Consolidation & Uniform Date Ranges
-**Domain:** Multi-app to single-app Next.js consolidation with role-gated navigation
-**Researched:** 2026-03-19
+**Project:** Sales Board TV Readability (v2.0)
+**Domain:** TV-mounted sales leaderboard — font scaling and contrast optimization within an existing Next.js dashboard
+**Researched:** 2026-03-31
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This milestone consolidates five separate Next.js dashboard apps (auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, cs-dashboard) into a single unified Next.js app (`apps/dashboard`). The approach is well-understood: use Next.js App Router route groups to create one auth boundary with separate route segments per role-gated tab. The consolidation is predominantly mechanical — ~10,568 lines of existing TSX move from five `page.tsx` files into five route segments — but the migration carries meaningful regression risk across all role types. No new npm dependencies are required.
+This milestone is a narrow, focused improvement to an existing working product. The sales board at `apps/sales-board/app/page.tsx` already delivers the core functionality; the v2.0 goal is to make it legible from across a sales floor on a wall-mounted TV. Research across all four domains converges on the same recommendation: increase font sizes using hardcoded `px` values within the existing inline `React.CSSProperties` pattern, bump low-contrast secondary text one tier up the color scale, and validate against 15 agents at 1080p before shipping. No new dependencies, no new files, no architectural changes.
 
-The recommended architecture replaces the current fragile cross-origin token-passing pattern (auth-portal opens dashboards in new tabs via URL query params) with a single same-origin app. Login becomes `/` in the unified app, the dashboard shell sits at `/(dashboard)/layout.tsx` with role-gated sidebar navigation, and each dashboard occupies its own route: `/manager`, `/payroll`, `/owner`, `/cs`. The sales board stays standalone at port 3013. This eliminates five dashboard-URL environment variables, reduces CORS origins from five to two, and cuts Railway services from seven to three.
+The recommended approach treats this as a surgical pass on a single file. All ~30 font-size literals in `apps/sales-board/app/page.tsx` need to increase by 20-40%, following a TV-readability tier system: glanceable numbers (sale counts, totals) at 30-42px, key labels (agent names, headers) at 20-26px, and supporting text (premiums, section labels) at 16-20px. Font weight (already 800 on key numbers) and negative letter-spacing (already applied to large counts) should be preserved — they contribute more to readability than raw size alone. Dollar amounts should drop cents and use `fmt$whole` consistently across both views.
 
-The primary risks are architectural, not technological. The monster-file anti-pattern (merging all dashboards into a single component) must be rejected up front by committing to route-segment-per-dashboard. Auth middleware must use a positive matcher to protect only dashboard routes without intercepting login or API routes. Socket.IO connections should be lifted to a shared layout-level provider to avoid connect/disconnect churn on tab switches. Date range state must be managed in a context provider in the shared layout rather than local state in each tab page, or selections will reset on every tab switch.
+The primary risk is cell height overflow with 15 agents at 1080p: increasing font sizes also increases computed row height, which can push the team total row off-screen. The pixel budget analysis shows 741px available for 15 agent rows — approximately 49px per row — which is tight but workable if vertical padding is reduced from 14px to 11-12px per side to compensate for larger type. The secondary risk is contrast failure on actual TVs: colors passing WCAG AA on a backlit monitor can wash out on a consumer TV in a bright office. Both risks must be addressed in Phase 1, not deferred.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new dependencies are required. The unified app uses the exact same dependency surface as the existing dashboards: Next.js 15.3.9, React 18.3.1, and the internal `@ops/*` packages. The `DateRangeFilter` component in `@ops/ui` already exists (added in v1.2 for CSV exports) and needs only a new `presets` prop to support the KPI-specific preset set (Current Week / Last Week / 30 Days / Custom). Luxon is already present in the root package for date calculation using the existing `America/New_York` Sun-Sat week boundary logic. See [STACK.md](.planning/research/STACK.md) for the full component-by-component analysis.
+No new technologies are needed. The existing stack (Next.js 15, React, Inter font via `next/font/google`, inline `React.CSSProperties`) is entirely sufficient for this milestone. The Inter font at weight 800 renders well at display sizes, and the project's numeric `fontSize` convention (e.g., `fontSize: 18`) should be preserved — introducing CSS string values like `clamp()` would break this convention and solve a problem that does not exist on a single known-resolution display.
 
-**Core technologies (no changes):**
-- Next.js 15.3.9 App Router: Single unified app with route groups and file-based code splitting per dashboard — already in use across all apps
-- `@ops/ui` PageShell + TabNav: Role-gated top-level sidebar; sub-tab navigation within each dashboard page — no changes to PageShell required
-- `@ops/auth/client`: Token capture, `authFetch`, JWT decode for roles — needs `decodeTokenPayload` exported publicly, otherwise unchanged
-- `@ops/socket` `useSocket` hook: Lifted to layout-level `SocketProvider` to maintain one connection across tab switches
-- `DateRangeFilter` (`@ops/ui`): Minor extension with a `presets` prop; backward-compatible; KPI preset keys map to the existing `dateRange()` server utility
-- Luxon 3.4.4: Already used for payroll week boundaries; reused for Current Week / Last Week date range calculation
-
-**What NOT to add:** next-auth, react-router, react-datepicker, zustand, Tailwind, react-query. All impose full rewrites of working patterns for zero user-facing benefit at this milestone.
+**Core technologies:**
+- **React inline CSSProperties (existing):** All font size changes stay as numeric literals — keeps consistency with the 1,240-line file convention and avoids introducing string-typed fontSize values
+- **Next.js 15 (existing):** No config changes needed; the sales board is already a standalone Next.js app
+- **Inter at weight 800 (already loaded):** Renders well at display sizes; negative letter-spacing already applied to large counts should be preserved
+- **`fmt$whole` helper (existing):** Whole-dollar formatting already exists — consistency pass only, no new helper needed
 
 ### Expected Features
 
-See [FEATURES.md](.planning/research/FEATURES.md) for the full feature table with complexity ratings and dependency mapping.
+Research confirmed all table-stakes items are low-complexity changes to existing inline styles. The highest-value differentiators (auto-scaling by agent count, podium card enlargement) should be deferred until base font sizes are validated on a real TV.
 
-**Must have (table stakes):**
-- Role-gated tab navigation — users currently see only their dashboard; consolidation must preserve this isolation with no visible regression
-- Login lands on correct default tab — replaces current cross-origin URL redirect with same-origin route navigation
-- Preserved feature parity per tab — every feature in every current dashboard works identically in its tab (~11k LOC across four dashboards)
-- Shared auth state across tabs — single token capture in root layout; simpler than current cross-domain token passing
-- URL-based tab routing — browser back/forward and direct links to `/manager`, `/payroll`, `/owner`, `/cs`
-- Date range picker on all KPI sections — `DateRangeFilter` wired to KPI data fetches, not just CSV exports
-- Current Week / Last Week presets — replaces "Last 7 days / This month" presets in `DateRangeFilter`
-- Date range persists across tab switches — lifted to shared layout context, not local page state
-- Sales board remains standalone — explicitly excluded from consolidation per PROJECT.md
+**Must have (table stakes — v2.0):**
+- Enlarged table fonts in WeeklyView (agent names to ~22px, daily counts to ~26px, premiums to ~16px, totals to ~32px) — currently 12-24px range
+- Enlarged KPI card numbers in stats bar (32-36px) — currently 26-30px
+- Enlarged team total row (grand total to 36px) — currently 14-28px; this is the most-glanced row
+- Minimum fontWeight 700 on all data-bearing text — currently some premium sub-text uses weight 600
+- Contrast promotion for secondary/tertiary text — promote `textTertiary` to `textSecondary` for anything a manager reads from 3+ meters
+- `fmt$whole` consistency across both WeeklyView and DailyView — suppress "$0" for zero-premium agents
 
-**Should have (differentiators, post-MVP):**
-- Tab badges with live counts — PageShell `NavItem` already has `badge?: number`; wire to Socket.IO events; low effort, high polish
-- Cross-tab KPI summary header — aggregated numbers across all role-visible dashboards in a top-level bar
-- Deep link support with date range in URL — `?range=week` search param for sharing specific views
-- Keyboard shortcuts for tab switching — Ctrl+1/2/3/4; approximately 20 lines of code
+**Should have (competitive — v2.x, after TV validation):**
+- Auto-scaling font sizes based on agent count using `Math.max(MIN, BASE - (count - 9) * STEP)` pattern
+- Podium card size increase in DailyView (~1.5x nameSize and countSize) for dramatic leaderboard impact
 
-**Defer to v2+:**
-- Multi-tab split view
-- Custom dashboard layout or drag-and-drop widgets
-- Tab customization and ordering preferences
-- Global search across all tabs
-- Real-time date range auto-refresh
+**Defer (v3+):**
+- TV-specific URL parameter (`?tv=1`) to toggle between TV and desktop sizing — only if the board must serve both contexts simultaneously
+- Configurable default view persistence — only if offices disagree on weekly vs. daily default
+- Abbreviated K/M suffixes — only if full dollar amounts remain noisy after the font increase
 
 ### Architecture Approach
 
-The unified app uses a Next.js route group `(dashboard)` to establish an auth boundary in `layout.tsx` without adding a URL segment. Each dashboard becomes its own page route (`/manager`, `/payroll`, `/owner`, `/cs`), enabling automatic code splitting so a MANAGER user never downloads payroll code. Login lives at `/` (the root page). The auth middleware uses a positive matcher covering only the four dashboard route prefixes. The login API routes (`/api/login`, `/api/verify`, `/api/change-password`) are copied from auth-portal and remain public. Role-to-tab mapping is defined once in `lib/roles.ts` and consumed by both the middleware and the layout navigation to prevent client/server mismatch. See [ARCHITECTURE.md](.planning/research/ARCHITECTURE.md) for the full data flow, migration phase breakdown, and deployment comparison table.
+All changes land in a single file: `apps/sales-board/app/page.tsx`. No shared package changes, no API changes, no new components. The correct integration points are: `PODIUM_CONFIG` constant for podium nameSize and countSize values, direct literal changes for WeeklyView and stats bar elements, and the `PodiumCard` component's inline premium fontSize. A centralized `TV` constant object at the top of the file (following the existing `TH`, `PODIUM_CONFIG` pattern) is recommended as an optional organizational improvement but is not required for correctness.
 
-**Major components:**
-1. `app/page.tsx` (login) — login form, same-origin; posts to `/api/login` which redirects to `/{default-tab}?session_token=TOKEN`
-2. `middleware.ts` — protects `/manager/*`, `/payroll/*`, `/owner/*`, `/cs/*` with positive matcher; redirects to `/` if JWT missing or invalid
-3. `app/(dashboard)/layout.tsx` (DashboardShell) — role-gated sidebar via PageShell; hosts `SocketProvider` context and `DateRangeContext` for shared state across tabs
-4. `app/(dashboard)/[tab]/page.tsx` (four routes) — each dashboard's existing page content, stripped of its outer `PageShell` and `captureTokenFromUrl()` call; sub-tabs remain `useState`-driven as today
-5. `lib/roles.ts` — single source of truth for role-to-tab mapping (`getTabsForRoles`, `getDefaultTab`)
-6. Updated `DateRangeFilter` (`@ops/ui`) — new `presets` prop with backward-compatible default; KPI preset keys for all dashboard tabs
+**Major components (all within `page.tsx`):**
+1. `PODIUM_CONFIG` constant — entry point for podium nameSize and countSize; change values here, not in JSX downstream
+2. `WeeklyView` component — ~12 font-size literals across TH, agent name cells, daily count/premium cells, total column, team total row
+3. `SalesBoard` / stats bar — 4 KPI card value sizes (labels can stay small at 11-13px)
 
 ### Critical Pitfalls
 
-See [PITFALLS.md](.planning/research/PITFALLS.md) for all 14 pitfalls with phase assignments and detection strategies.
+1. **Cell height overflow at 15 agents** — Increasing fontSize raises computed row height. At 17 rows in ~741px of available space, each row gets ~49px. Reduce vertical padding from `14px` to `11-12px` per side as font sizes grow. Verify with exactly 15 agents that no vertical scrollbar appears and the team total row stays visible.
 
-1. **Monster file with no code splitting (P1)** — putting all four dashboards in one `page.tsx` with a tab state variable produces a 10,000+ line file with constant name collisions (`CARD`, `BTN`, `HEADER` defined differently in all four dashboards) and zero per-route code splitting. Prevention: commit to route-segment-per-dashboard before writing any code; this is the foundational structural decision.
+2. **Dark theme contrast fails on actual TV** — `textTertiary: #64748b` on `#070a0a` passes WCAG AA on a monitor but can become invisible on a consumer TV in ambient office light. Promote all content text at least one tier: `textTertiary` → `textSecondary`, `textMuted` → `textTertiary`. Nothing readable on a TV should use `colors.textMuted` or `colors.borderStrong`.
 
-2. **Auth middleware intercepting login or API routes (P2, P9)** — a negative matcher or overly broad matcher causes infinite redirect loops on the login page and 401s on `POST /api/login`. Prevention: use an explicit positive matcher listing only `/manager/:path*`, `/payroll/:path*`, `/owner/:path*`, `/cs/:path*`.
+3. **Agent name truncation with larger fonts** — Agent names use `whiteSpace: "nowrap"`. At 22-24px, long names like "Christopher Rodriguez" overflow the agent column and trigger the table's `overflowX: auto` scrollbar — unusable on a wall TV. Add `overflow: hidden`, `textOverflow: "ellipsis"`, and a `maxWidth` on agent name cells before shipping.
 
-3. **Stale CORS origins after consolidation (P3)** — the ops-api `ALLOWED_ORIGINS` currently contains five dashboard origins; if not updated the unified app's `authFetch` calls and Socket.IO connections fail silently. Must be updated in `apps/ops-api/src/index.ts`, `docker-compose.yml`, and Railway env vars simultaneously with deployment.
+4. **Podium vertical overflow on DailyView** — The podium cards (160-220px tall) plus the "All Agents" section below may exceed 1080px. If DailyView is a TV target, card heights must be compressed by 30-40%. The milestone spec focuses on the weekly table, so this may be out of Phase 1 scope — confirm with stakeholders.
 
-4. **Socket.IO connect/disconnect churn on tab switches (P7)** — each current dashboard owns its own `useSocket` connection; in the unified app, route navigation causes mount/unmount cycles that disconnect and reconnect the socket on every tab switch. Prevention: lift `useSocket` to a `SocketProvider` in the shared layout; individual tabs subscribe to events via context.
-
-5. **Date range state lost on tab navigation (P8)** — local `useState` in each tab page is destroyed when navigating to another route. Prevention: store `DateRangeFilterValue` in a React context provider in `(dashboard)/layout.tsx` so it persists across tab switches. This also satisfies the "uniform date range" requirement since all tabs share the same selection.
+5. **`$0` visual noise at large font sizes** — Promoting `fmt$whole` output to 16-18px makes large "$0" prominent for zero-sales agents. Suppress to a dash or empty string for the zero case to prevent visual clutter drawing the eye to inactive agents.
 
 ## Implications for Roadmap
 
-Based on combined research, the migration has clear sequential dependencies. Phases 1-2 create the foundation that everything else depends on. Phases 3-6 are independent of each other but follow CS-first as the simplest validation pass. Phase 7 is additive on top of working tab content. Phase 8 is cleanup only after production confirmation.
+The work naturally separates into two phases: a core readability pass (all table-stakes features + critical pitfall prevention) followed by a polish/validation pass after real-world TV testing.
 
-### Phase 1: App Shell, Login, and Auth Middleware
+### Phase 1: Core TV Readability
 
-**Rationale:** Every other phase depends on a working unified app with a functional login flow and auth boundary. This must come first.
-**Delivers:** New `apps/dashboard` Next.js app, login at `/`, API routes copied from auth-portal, middleware protecting dashboard routes, redirect to default tab after login, `lib/roles.ts` with `getTabsForRoles` and `getDefaultTab`.
-**Addresses:** Table stakes for role-gated navigation and shared auth state; P2 (auth flow rewrite) and P9 (middleware matcher conflict).
-**Avoids:** P11 (missing transpilePackages — use union of all dashboard configs), P12 (missing workspace deps — merge all dashboard package.json deps).
+**Rationale:** All table-stakes features and all critical pitfalls must ship atomically. Increasing font sizes without simultaneously fixing row height budget, contrast, name truncation, and dollar formatting leaves the board in a broken intermediate state — improved in some conditions, broken in others (15 agents, long names, bright room).
 
-### Phase 2: Dashboard Shell and Role-Gated Navigation
+**Delivers:** A production-ready TV-readable sales board at 1080p for 9-15 agents, using the weekly table as the primary TV view.
 
-**Rationale:** The `(dashboard)/layout.tsx` with PageShell sidebar, role-to-tab mapping, `SocketProvider`, and `DateRangeContext` must exist before any dashboard content is migrated.
-**Delivers:** Working tab navigation between placeholder pages; role filtering confirmed for all five role types (MANAGER, PAYROLL, OWNER_VIEW, CUSTOMER_SERVICE, SUPER_ADMIN); single Socket.IO connection persisting across tab switches; `DateRangeContext` available to all tab pages.
-**Addresses:** Two-level navigation architecture, shared Socket.IO connection, shared date range state.
-**Avoids:** P6 (role mismatch between client and server — single `TAB_ROLES` constant used by both middleware and layout), P7 (socket connection churn — `SocketProvider` created once in layout), P8 (date range reset on tab switch — `DateRangeContext` in layout).
+**Addresses:**
+- Enlarged WeeklyView table fonts (agent names to ~22px, daily counts to ~26px, premiums to ~16px, totals to ~32px)
+- Enlarged KPI card numbers (32-36px) in stats bar
+- Enlarged team total row (grand total to 36px)
+- Font weight minimum 700 on all data text
+- Contrast promotion (textTertiary to textSecondary for readable content)
+- `fmt$whole` consistency + suppress "$0" for zero-premium agents
+- Day/week toggle buttons and section labels enlarged for TV readability
 
-### Phase 3: CS Dashboard Migration (pattern validation)
+**Avoids:**
+- Cell height overflow — reduce vertical padding 14px → 11-12px while increasing font
+- Contrast failure on TV — promote all readable text one color tier
+- Agent name overflow — add textOverflow ellipsis + maxWidth to agent name cells
+- Dollar format noise — suppress zero-premium agents to dash
 
-**Rationale:** CS is the simplest dashboard (2,377 lines, 2 sub-tabs) and is the lowest-risk way to validate the migration pattern before tackling larger dashboards.
-**Delivers:** CS tab fully functional with submissions and tracking sub-tabs; Socket.IO real-time updates confirmed; migration playbook proven for phases 4-6.
-**Addresses:** Feature parity for CUSTOMER_SERVICE role.
-**Avoids:** P4 (style collisions — confirmed scoped by route file), P10 (sales board regression — run `npm run salesboard:dev` after any shared package change).
+**Research flag:** No additional research needed. All patterns are well-documented, scope is a single file, implementation path is unambiguous. Execute directly.
 
-### Phase 4: Owner Dashboard Migration
+### Phase 2: Polish and TV Validation
 
-**Rationale:** Second simplest (1,957 lines, 4 sub-tabs). Validates role-dependent sub-tab visibility (SUPER_ADMIN sees Users sub-tab).
-**Delivers:** Owner tab fully functional including SUPER_ADMIN-gated Users sub-tab.
-**Addresses:** Feature parity for OWNER_VIEW role.
+**Rationale:** After Phase 1 ships and is tested on an actual office TV, real-world feedback will reveal whether podium view needs work, whether agent counts cause overflow at extremes, and whether animation duration needs tuning. These cannot be validated without the Phase 1 baseline.
 
-### Phase 5: Payroll Dashboard Migration
+**Delivers:** A refined TV experience with dynamic agent count scaling, enlarged podium cards for DailyView, and animation behavior appropriate for peripheral display.
 
-**Rationale:** Third in complexity (3,030 lines, 5 sub-tabs). Validates sub-tab badge counts wired to approval state.
-**Delivers:** Payroll tab fully functional including chargebacks, exports, service, and products sub-tabs.
-**Addresses:** Feature parity for PAYROLL role.
+**Addresses:**
+- Auto-scaling font sizes based on agent count (P2 feature)
+- Podium card size increase in DailyView (P2 feature)
+- AnimatedNumber duration reduction for TV (under 200ms, or switch to static + background pulse)
+- DailyView podium vertical fit at 1080p (if DailyView is confirmed as TV-facing view)
 
-### Phase 6: Manager Dashboard Migration
+**Avoids:**
+- AnimatedNumber jitter causing distraction during active sales periods
+- Fixed pixel resolution fragility if TVs vary (consider clamp() post-validation if 4K TVs are in use)
 
-**Rationale:** Most complex (2,702 lines, 5 sub-tabs with deeply shared state for agents, products, and lead sources loaded once and shared across sub-tabs). Saved for last to apply learnings from phases 3-5.
-**Delivers:** Manager tab fully functional including entry, tracker, sales, audits, and config sub-tabs.
-**Addresses:** Feature parity for MANAGER role; highest regression risk of all migrations.
-
-### Phase 7: Uniform Date Range Filtering
-
-**Rationale:** Depends on having all four dashboard tabs migrated (phases 3-6) because it wires `DateRangeFilter` to KPI fetches in each tab. The shared `DateRangeContext` from Phase 2 is already in place, so this phase is purely about updating component presets and wiring KPI API calls.
-**Delivers:** `DateRangeFilter` extended with `presets` prop (Current Week / Last Week / 30 Days / Custom); `dateRange()` utility extended with `last_week` case; KPI endpoints updated to accept optional `range`/`from`/`to` query params; date range selection persists across all tab switches.
-**Addresses:** Uniform date range filtering requirement; `DateRangeFilter` backward compatibility for sales-board.
-**Avoids:** P8 already solved by Phase 2 context; avoids introducing per-tab `useState` for date range.
-
-### Phase 8: Deployment Cleanup
-
-**Rationale:** Old apps must remain functional during migration validation. Only remove them once the unified app is confirmed stable in production.
-**Delivers:** Updated `docker-compose.yml` (remove five old services, add unified dashboard), updated `ALLOWED_ORIGINS` in ops-api, Railway services reduced from 7 to 3, cross-service env vars removed (`MANAGER_DASHBOARD_URL`, `PAYROLL_DASHBOARD_URL`, `OWNER_DASHBOARD_URL`, `CS_DASHBOARD_URL`, `AUTH_PORTAL_URL`), old app directories deleted.
-**Addresses:** Deployment topology simplification, CORS cleanup, Railway billing reduction.
-**Avoids:** P3 (stale CORS origins — update all three config locations), P5 (Docker/Railway topology drift — done in same PR as go-live confirmation).
+**Research flag:** Podium resizing requires a brief layout analysis before implementation — the 3-card fixed-width geometry (165/175/200px) is the most resolution-sensitive part of the layout. Verify cards + remaining-agents flex section fit at 1920px with increased widths before committing to specific values.
 
 ### Phase Ordering Rationale
 
-- Phases 1-2 are strictly sequential prerequisites; no other phase can proceed without them.
-- Phases 3-6 can run in any order but CS-first (simplest) validates the migration pattern before investing in larger dashboards.
-- Phase 7 must follow all content migrations because it modifies KPI fetches in all four tabs and needs each tab's fetch logic present.
-- Phase 8 must be last; old apps serve as the rollback target until the unified app is production-confirmed. Tag the last multi-app commit before Phase 1 begins.
-- The `dateRange()` server utility already handles `week`, `7d`, `30d`, `month`, and `custom`. Only a `last_week` case is missing — one additional switch branch.
+- Phase 1 before Phase 2 because: auto-scaling fonts depend on establishing correct base sizes; podium work is isolated to DailyView and does not affect the weekly table; animation tuning is non-blocking polish that requires watching the board during live sales activity.
+- All Phase 1 items must ship atomically: font sizes, padding adjustments, contrast promotion, and text overflow handling are co-dependent — partial application creates a broken intermediate state.
+- DailyView (podium) work is intentionally deferred: the milestone spec targets the weekly breakdown table, and podium geometry is more complex to change without overflow risks across agent counts.
 
 ### Research Flags
 
-Phases that need a brief planning check before implementation:
-- **Phase 7 (Uniform Date Range):** Each KPI-producing endpoint in `ops-api/src/routes/index.ts` needs an audit to confirm which are currently date-range-blind before wiring the filter. FEATURES.md identified `/api/agent-kpis` as hardcoded 30-day via `getAgentRetentionKpis()`. Other KPI endpoints need the same verification before the work is scoped.
-- **Phase 2 (SocketProvider):** Confirm the existing `useSocket` hook in `@ops/socket` stays backward-compatible for sales-board before adding the provider pattern. Any change to the hook API breaks the standalone sales board.
+Phases needing deeper research during planning:
+- **Phase 2 (podium resizing):** Podium card geometry involves fixed pixel widths for 3 side-by-side cards at 1920px. Resizing requires verifying the 3-card layout still fits with increased widths and that the "All Agents" flex section below remains usable. A brief layout analysis before implementation is warranted.
 
 Phases with standard patterns (skip research-phase):
-- **Phases 1 and 3-6:** App scaffolding and dashboard migration follow well-established Next.js App Router patterns. Auth-portal login routes are being copied, not rewritten. Each dashboard migration follows a repeatable three-step playbook (remove `captureTokenFromUrl`, replace outer `PageShell` with `SubTabBar`, keep internal state unchanged).
-- **Phase 8:** Docker and Railway configuration changes are mechanical; no design unknowns.
+- **Phase 1 (font size + contrast pass):** Entirely within established inline CSSProperties pattern. Target values are documented in STACK.md. Implementation is mechanical number substitution with one layout constraint (row height budget). No research needed — execute directly.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All decisions based on direct codebase inspection of all 5 apps and shared packages. Zero ambiguity on dependencies — no new packages required. |
-| Features | HIGH | Requirements come from `PROJECT.md` plus direct codebase analysis. Feature inventory is complete. Anti-features are explicit. Line counts per dashboard verified. |
-| Architecture | HIGH | Route group pattern is well-established Next.js 13+. All component interfaces (PageShell NavItem, DateRangeFilter, useSocket, authFetch) confirmed via source inspection. |
-| Pitfalls | HIGH | All 14 pitfalls derived from direct code inspection of auth flow, CORS config, Socket.IO lifecycle, and style patterns — not speculative. Detection strategies reference specific files and line numbers. |
+| Stack | HIGH | Direct codebase analysis; no new dependencies means zero uncertainty about library compatibility or version conflicts |
+| Features | HIGH | Features are well-scoped to CSS property changes; priority tiers based on multiple corroborating industry sources (Klipfolio, Spinify, Android TV guidelines) |
+| Architecture | HIGH | Single-file change set confirmed by direct code inspection; component boundaries are unambiguous; integration points explicitly identified |
+| Pitfalls | HIGH | Primary pitfalls derived from direct pixel budget calculation (not estimation) and confirmed color token analysis against known hex values |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **KPI endpoint date-range audit (Phase 7 planning):** Before wiring `DateRangeFilter` to KPI fetches, each KPI-producing endpoint in `ops-api/src/routes/index.ts` needs to be catalogued for current date scope (hardcoded vs. accepts params vs. needs update). `/api/agent-kpis` is flagged as hardcoded 30-day; others are unknown.
-- **`last_week` range case in server `dateRange()` utility:** The utility handles `week` (current Sun-Sat) but not `last_week`. One additional case needed before Phase 7 KPI wiring. Confirm Sunday start aligns with existing payroll week logic.
-- **`decodeTokenPayload` export status in `@ops/auth/client`:** The function exists but may be private. Confirm it is or can be exported before the dashboard layout depends on it for client-side role decoding.
-- **Rollback plan:** Tag the last multi-app commit before Phase 1 begins. Do not delete old app directories until Phase 8 post-production confirmation. Keep old Railway services running in parallel during the transition window.
+- **Exact padding reduction values:** Research recommends reducing vertical padding from 14px to 11-12px, but the precise amount depends on the font sizes chosen. Implementation must measure actual rendered row height at chosen sizes and adjust padding to stay within the ~49px row budget. This is a test-and-adjust step during Phase 1, not a pre-calculable value.
+- **DailyView as TV target:** Research is ambiguous on whether DailyView (podium + remaining agents) is expected to fit on a TV. The milestone spec focuses on weekly table readability. If the office uses DailyView on the TV, Phase 1 scope expands significantly. Confirm with stakeholders before starting Phase 1 implementation.
+- **Actual TV hardware:** Research assumes a 50-65 inch 1080p TV at 10-15 feet. If the specific TV is smaller (40 inch) or the room is deeper, font size targets may need upward adjustment. Verify Phase 1 output on the actual hardware before declaring done.
 
 ## Sources
 
-### Primary (HIGH confidence — direct codebase inspection)
+### Primary (HIGH confidence)
+- `apps/sales-board/app/page.tsx` — direct code audit; all font sizes, padding values, layout structure, ~1,240 lines inspected
+- `packages/ui/src/tokens.ts` — color token values, typography scale
+- `packages/ui/src/theme.css` — CSS custom properties, actual hex values for contrast analysis
+- `.planning/PROJECT.md` — milestone requirements and constraints
 
-- `packages/ui/src/index.tsx` — PageShell NavItem interface, sidebar/bottom nav patterns, badge support
-- `packages/ui/src/components/DateRangeFilter.tsx` — existing presets, `DateRangeFilterValue` interface (97 lines; presets at lines 50-55)
-- `packages/ui/src/components/TabNav.tsx` — sub-tab component API
-- `packages/auth/src/client.ts` — token management, JWT decode, authFetch with auto-refresh
-- `packages/types/src/index.ts` — AppRole enum (7 roles), SessionUser type
-- `packages/socket/src/useSocket.ts` — Socket.IO connection lifecycle, mount/unmount behavior
-- `apps/auth-portal/app/api/login/route.ts` — login flow, SUPER_ADMIN role expansion, cross-origin redirect with session_token
-- `apps/auth-portal/app/landing/page.tsx` — DASHBOARD_MAP with role-to-URL mapping (to be replaced)
-- `apps/auth-portal/middleware.ts` — existing route matcher pattern
-- `apps/manager-dashboard/app/page.tsx` — Tab type, PageShell usage, 5 sub-tabs, shared state pattern
-- `apps/cs-dashboard/app/page.tsx` — role-gated tab visibility (`canManageCS`, lines 505-523)
-- `apps/ops-api/src/routes/index.ts` — `dateRange()` utility (lines 33-82), existing range handling
-- `apps/ops-api/src/middleware/auth.ts` — `requireAuth`, `requireRole`, SUPER_ADMIN bypass
-- `apps/ops-api/src/index.ts` — CORS configuration and ALLOWED_ORIGINS
-- `docker-compose.yml` — service topology, ALLOWED_ORIGINS env
+### Secondary (MEDIUM confidence)
+- [Klipfolio: Best Practices for Displaying Dashboards on Large Screens](https://www.klipfolio.com/resources/articles/best-practices-large-screen-wallboard-tv-dashboard) — abbreviate numbers, design for glancing, avoid data density
+- [DigitalSignage.com: Typography & Viewing Distance Guide](https://digitalsignage.com/digital_signage/docs/guides/typography-viewing-distance/) — font size formulas by viewing distance
+- [Pascal Potvin: Designing a 10ft UI](https://pascalpotvin.medium.com/designing-a-10ft-ui-ae2ca0da08b7) — 24px minimum body text at 10ft on 1080p
+- [Android TV Style Guide](https://spot.pcc.edu/~mgoodman/developer.android.com/preview/tv/design/style.html) — 28px minimum on 1080p display
+- [Spinify: Sales Leaderboard Best Practices](https://spinify.com/blog/top-10-sales-leaderboard-best-practices/) — motivation through visibility, avoid ranking-based public shaming
+- [Ambition: Wallboards and Leaderboards Best Practices](https://ambition.com/blog/entry/2017-09-26-how-use-wallboards-and-leaderboards-close-out-year-strong/) — keep metrics simple, multiple recognition opportunities
+- [RiseVision: Digital Signage Best Practices](https://www.risevision.com/blog/digital-signage-best-practices) — sans-serif bold, limit text density, test at distance
 
-### Secondary (HIGH confidence — established framework patterns)
-
-- Next.js App Router route groups documentation — `(dashboard)` group pattern, route-based code splitting, middleware matcher syntax (well-established since Next.js 13)
-- Next.js 15 `metadata` export per route segment — standard pattern for per-tab browser titles
+### Tertiary (LOW confidence)
+- General TV contrast research — consumer TV panels have lower native contrast than IPS monitors; ambient light worsens perceived contrast; specific contrast degradation values vary by TV model and cannot be precisely predicted without testing on target hardware
 
 ---
-*Research completed: 2026-03-19*
+*Research completed: 2026-03-31*
 *Ready for roadmap: yes*

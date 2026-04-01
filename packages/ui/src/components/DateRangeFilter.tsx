@@ -56,6 +56,7 @@ const DEFAULT_PRESETS = [
 ];
 
 export const KPI_PRESETS = [
+  { key: "today", label: "Today" },
   { key: "week", label: "Current Week" },
   { key: "last_week", label: "Last Week" },
   { key: "30d", label: "30 Days" },

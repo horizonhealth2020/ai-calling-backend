@@ -1,16 +1,14 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
-import { PageShell, Badge, AnimatedNumber, SkeletonCard, Button, useToast, Card, EmptyState, DateRangeFilter } from "@ops/ui";
-import type { DateRangeFilterValue } from "@ops/ui";
-import { colors, spacing, radius, shadows, motion, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
+import { useState, useEffect, useMemo } from "react";
+import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
+import { colors, spacing, radius, shadows, motion, baseInputStyle, baseThStyle, baseTdStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
-import type { SaleChangedPayload } from "@ops/socket";
 import {
-  Calendar, AlertTriangle, FileDown, Package, Users,
-  ChevronDown, ChevronUp, Lock, Unlock, CheckCircle,
-  XCircle, Download, Printer, Plus, Edit3, Trash2,
-  Save, X, Check, RefreshCw, Clock,
+  Calendar, AlertTriangle, Users,
+  ChevronDown, CheckCircle,
+  XCircle, Printer, Plus, Edit3, Trash2,
+  Save, X, Check, Clock, FileText,
 } from "lucide-react";
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -19,13 +17,14 @@ type SaleAddonInfo = { productId: string; premium: number | null; product: { id:
 type SaleInfo = {
   id: string; memberName: string; memberId?: string; carrier: string;
   premium: number; enrollmentFee: number | null; commissionApproved: boolean;
-  status: string; notes?: string;
-  product: { id: string; name: string; type: string };
+  status: string; notes?: string; memberCount?: number | null;
+  product: { id: string; name: string; type: string; flatCommission?: number | null };
   addons?: SaleAddonInfo[];
 };
 type Entry = {
   id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number;
   frontedAmount: number; holdAmount: number; netAmount: number; status: string;
+  halvingReason?: string | null;
   sale?: SaleInfo; agent?: { name: string };
 };
 type BonusCategory = { name: string; isDeduction: boolean };
@@ -59,12 +58,23 @@ type StatusChangeRequest = {
 type SaleEditRequest = {
   id: string;
   saleId: string;
-  changes: Record<string, { old: any; new: any }>;
+  changes: Record<string, { old: unknown; new: unknown }>;
   status: string;
   requestedAt: string;
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
 };
+
+type Alert = {
+  id: string;
+  agentId: string | null;
+  agentName: string | null;
+  customerName: string | null;
+  amount: number | null;
+  createdAt: string;
+};
+
+type AlertPeriod = { id: string; weekStart: string; weekEnd: string };
 
 type SocketClient = import("socket.io-client").Socket;
 
@@ -89,8 +99,6 @@ const SMALL_INP: React.CSSProperties = {
   textAlign: "right",
   boxSizing: "border-box",
 };
-
-const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 const thStyle: React.CSSProperties = {
   ...baseThStyle,
@@ -143,6 +151,20 @@ const ENROLLMENT_BADGE: React.CSSProperties = {
   marginLeft: 4,
 };
 
+const ACA_BADGE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  fontSize: 11,
+  fontWeight: 600,
+  color: C.info,
+  background: C.infoBg,
+  padding: "4px 8px",
+  borderRadius: 9999,
+  marginLeft: 8,
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
+};
+
 /* ── Helpers ─────────────────────────────────────────────────── */
 
 function fmtDate(iso: string): string {
@@ -182,16 +204,14 @@ function EditableSaleRow({
   const [addonItems, setAddonItems] = useState<{ productId: string; premium: string }[]>(
     () => (entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") }))
   );
-  const [bonus, setBonus] = useState(String(entry.bonusAmount ?? 0));
-  const [fronted, setFronted] = useState(String(entry.frontedAmount ?? 0));
-  const [hold, setHold] = useState(String(entry.holdAmount ?? 0));
   const [saving, setSaving] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const hasNotes = !!entry.sale?.notes;
 
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
   const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
   const isApproved = entry.sale?.commissionApproved && fee !== null && fee < 99;
   const saleStatus = entry.sale?.status ?? "RAN";
-  const isZeroed = !isActiveEntry(entry);
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
   const rowBg: React.CSSProperties = entry.status === "CLAWBACK_APPLIED"
@@ -203,6 +223,7 @@ function EditableSaleRow({
     : { borderLeft: "3px solid transparent" };
 
   return (
+    <>
     <tr
       className="row-hover"
       style={{
@@ -320,6 +341,7 @@ function EditableSaleRow({
             {/* Core product */}
             <div style={{ display: "flex", flexDirection: "column" }}>
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
+              {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.sale.premium))}
@@ -366,9 +388,20 @@ function EditableSaleRow({
       </td>
 
       <td style={tdRight}>
-        <span style={{ color: C.textPrimary, fontWeight: 700 }}>
-          {formatDollar(Number(entry.payoutAmount))}
-        </span>
+        {entry.sale?.product?.type === "ACA_PL" && entry.sale?.memberCount ? (
+          <span style={{ color: C.textPrimary, fontWeight: 700 }}>
+            ${(Number(entry.sale.product.flatCommission ?? 0)).toFixed(2)} x {entry.sale.memberCount} members = {formatDollar(Number(entry.payoutAmount))}
+          </span>
+        ) : (
+          <span style={{ color: C.textPrimary, fontWeight: 700 }}>
+            {formatDollar(Number(entry.payoutAmount))}
+          </span>
+        )}
+        {entry.halvingReason && (
+          <div style={{ fontSize: 11, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
+            {entry.halvingReason}
+          </div>
+        )}
       </td>
 
       {/* Actions */}
@@ -414,6 +447,17 @@ function EditableSaleRow({
           </div>
         ) : (
           <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center" }}>
+            {hasNotes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNotes(n => !n)}
+                title="View notes"
+                style={{ color: showNotes ? C.primary400 : C.textMuted }}
+              >
+                <FileText size={12} />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -454,6 +498,25 @@ function EditableSaleRow({
         )}
       </td>
     </tr>
+    {showNotes && hasNotes && (
+      <tr>
+        <td colSpan={7} style={{ padding: 0 }}>
+          <div style={{
+            padding: "10px 20px",
+            background: "rgba(45,212,191,0.04)",
+            borderTop: `1px solid ${C.borderSubtle}`,
+            borderBottom: `1px solid ${C.borderSubtle}`,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+          }}>
+            <FileText size={13} style={{ color: C.textMuted, flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 13, color: C.textSecondary, whiteSpace: "pre-wrap" }}>{entry.sale?.notes}</span>
+          </div>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 
@@ -527,10 +590,27 @@ function AgentPayCard({
   const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
   const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
 
+  const sortedEntries = useMemo(() => {
+    return [...entries].sort((a, b) => {
+      const aId = a.sale?.memberId;
+      const bId = b.sale?.memberId;
+      // Entries without member ID sort to top (D-06)
+      if (!aId && !bId) return 0;
+      if (!aId) return -1;
+      if (!bId) return 1;
+      // Numeric sort by member ID when both are numbers
+      const aNum = parseInt(aId, 10);
+      const bNum = parseInt(bId, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      // Fallback to string comparison for non-numeric IDs
+      return aId.localeCompare(bId);
+    });
+  }, [entries]);
+
   const [showAllEntries, setShowAllEntries] = useState(false);
   const COLLAPSED_LIMIT = 5;
-  const visibleEntries = showAllEntries ? entries : entries.slice(0, COLLAPSED_LIMIT);
-  const hiddenCount = entries.length - COLLAPSED_LIMIT;
+  const visibleEntries = showAllEntries ? sortedEntries : sortedEntries.slice(0, COLLAPSED_LIMIT);
+  const hiddenCount = sortedEntries.length - COLLAPSED_LIMIT;
 
   const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED");
   const hasPaidSiblings = entries.some(e => e.status === "PAID");
@@ -911,8 +991,8 @@ export interface PayrollPeriodsProps {
   setPendingRequests: React.Dispatch<React.SetStateAction<StatusChangeRequest[]>>;
   pendingEditRequests: SaleEditRequest[];
   setPendingEditRequests: React.Dispatch<React.SetStateAction<SaleEditRequest[]>>;
-  alerts: any[];
-  setAlerts: React.Dispatch<React.SetStateAction<any[]>>;
+  alerts: Alert[];
+  setAlerts: React.Dispatch<React.SetStateAction<Alert[]>>;
   loadingAlerts: boolean;
   highlightedAlertIds: Set<string>;
   refreshPeriods: () => Promise<void>;
@@ -932,16 +1012,9 @@ export default function PayrollPeriods({
   const [approvingEditId, setApprovingEditId] = useState<string | null>(null);
   const [rejectingEditId, setRejectingEditId] = useState<string | null>(null);
   const [printMenuPeriod, setPrintMenuPeriod] = useState<string | null>(null);
-  const [highlightedEntryIds, setHighlightedEntryIds] = useState<Set<string>>(new Set());
+  const [highlightedEntryIds] = useState<Set<string>>(new Set());
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
   const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
-
-  const highlightEntry = (id: string) => {
-    setHighlightedEntryIds(prev => new Set(prev).add(id));
-    setTimeout(() => {
-      setHighlightedEntryIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-    }, 100);
-  };
 
   async function fetchAgentPeriods(agentId: string, alertId: string) {
     if (!agentId) return;
@@ -999,8 +1072,9 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: Unable to reach API \u2014 ${message}`);
     } finally {
       setApprovingId(null);
     }
@@ -1016,8 +1090,9 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: Unable to reach API \u2014 ${message}`);
     } finally {
       setRejectingId(null);
     }
@@ -1040,8 +1115,9 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: Unable to reach API \u2014 ${message}`);
     } finally {
       setApprovingEditId(null);
     }
@@ -1058,8 +1134,9 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: Unable to reach API \u2014 ${message}`);
     } finally {
       setRejectingEditId(null);
     }
@@ -1084,8 +1161,9 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -1101,8 +1179,9 @@ export default function PayrollPeriods({
         toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
       await refreshPeriods();
-    } catch (e: any) {
-      toast("error", `Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Error: Unable to reach API \u2014 ${message}`);
       await refreshPeriods();
     }
   }
@@ -1139,8 +1218,9 @@ export default function PayrollPeriods({
         const err = await res.json().catch(() => ({}));
         toast("error", err.error ?? `Request failed (${res.status})`);
       }
-    } catch (e: any) {
-      toast("error", `Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      toast("error", `Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -1183,6 +1263,9 @@ export default function PayrollPeriods({
   .addon { color: #0d9488; font-weight: 600; }
   .add { color: #d97706; font-weight: 600; }
   .subtotal td { border-top: 2px solid #cbd5e1; font-weight: 700; border-bottom: none; }
+  .flag { font-size: 10px; font-style: italic; margin-top: 2px; }
+  .flag-warn { color: #d97706; }
+  .flag-bonus { color: #059669; }
   @media print { body { padding: 0; } .agent-card { padding: 16px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
@@ -1206,7 +1289,7 @@ export default function PayrollPeriods({
   <table>
     <thead><tr>
       <th>Member ID</th><th>Member Name</th><th class="center">Core</th><th class="center">Add-on</th><th class="center">AD&D</th>
-      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Bonus</th><th class="right">Net</th>
+      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Net</th>
     </tr></thead>
     <tbody>` +
           entries.map(e => {
@@ -1217,22 +1300,25 @@ export default function PayrollPeriods({
               ? items.map(p => p.name + (p.premium != null ? `<br><span style="font-size:10px;color:#64748b">$${p.premium.toFixed(2)}</span>` : "")).join(", ")
               : "\u2014";
             const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
+            const flags: string[] = [];
+            if (e.halvingReason) flags.push(`<div class="flag flag-warn">${e.halvingReason}</div>`);
+            const enrollFee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee) : 0;
+            if (enrollFee >= 125) flags.push(`<div class="flag flag-bonus">+$10 enrollment bonus</div>`);
+            const flagHtml = flags.length > 0 ? flags.join("") : "";
             return `<tr>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
-        <td>${e.sale?.memberName ?? "\u2014"}</td>
+        <td>${e.sale?.memberName ?? "\u2014"}${flagHtml}</td>
         <td class="center core">${printProd(byType.CORE)}</td>
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}</td>
         <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
-        <td class="right green">${Number(e.bonusAmount) > 0 ? "$" + Number(e.bonusAmount).toFixed(2) : "$0.00"}</td>
         <td class="right green" style="font-weight:700">$${Number(e.netAmount).toFixed(2)}</td>
       </tr>`;
           }).join("") +
           `<tr class="subtotal">
         <td colspan="6" class="right">SUBTOTAL</td>
         <td class="right">$${agentGross.toFixed(2)}</td>
-        <td class="right green">$${agentBonus.toFixed(2)}</td>
         <td class="right green">$${agentNet.toFixed(2)}</td>
       </tr>
     </tbody></table></div>`;
@@ -1344,7 +1430,7 @@ export default function PayrollPeriods({
                               onChange={e => { if (e.target.value) handleApproveAlert(alert.id, e.target.value); }}
                             >
                               <option value="" disabled>Select period...</option>
-                              {(alertPeriods[alert.id] || []).map((p: any) => (
+                              {(alertPeriods[alert.id] || []).map((p: AlertPeriod) => (
                                 <option key={p.id} value={p.id}>
                                   {fmtDate(p.weekStart)} {"\u2013"} {fmtDate(p.weekEnd)}
                                 </option>
@@ -1366,7 +1452,7 @@ export default function PayrollPeriods({
                                   fetchAgentPeriods(alert.agentId, alert.id);
                                 } else {
                                   authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).then(data => {
-                                    const openPeriods = (data || []).filter((p: any) => p.status === "OPEN").map((p: any) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
+                                    const openPeriods = ((data || []) as (AlertPeriod & { status?: string })[]).filter((p) => p.status === "OPEN").map((p) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
                                     setAlertPeriods(prev => ({ ...prev, [alert.id]: openPeriods }));
                                   });
                                 }
@@ -1540,6 +1626,27 @@ export default function PayrollPeriods({
                     )}
                   </div>
                 )}
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={async (ev) => {
+                    ev.stopPropagation();
+                    const entryCount = p.entries.length + (p.serviceEntries ?? []).length;
+                    const msg = entryCount > 0
+                      ? `Delete this period and its ${entryCount} payroll entries? This cannot be undone.`
+                      : `Delete this empty period?`;
+                    if (!window.confirm(msg)) return;
+                    const res = await authFetch(`${API}/api/payroll/periods/${p.id}`, { method: "DELETE" });
+                    if (res.ok) refreshPeriods();
+                    else {
+                      const err = await res.json().catch(() => ({}));
+                      alert(err.error ?? `Delete failed (${res.status})`);
+                    }
+                  }}
+                  title="Delete period"
+                >
+                  <Trash2 size={12} />
+                </Button>
                 {(() => {
                   const allEntries = [...p.entries, ...(p.serviceEntries ?? [])];
                   const allPaid = allEntries.length > 0 && allEntries.every(e => e.status === "PAID");
@@ -1603,10 +1710,16 @@ export default function PayrollPeriods({
                       activeCount: active.length,
                     };
                   });
-                  const sorted = [...agentEntries].sort((a, b) => b.net - a.net);
+                  // Agents with sales sort by premium desc; agents without sort alphabetically
+                  const sorted = [...agentEntries].sort((a, b) => {
+                    if (a.activeCount > 0 && b.activeCount > 0) return b.gross - a.gross;
+                    if (a.activeCount > 0) return -1;
+                    if (b.activeCount > 0) return 1;
+                    return a.name.localeCompare(b.name);
+                  });
                   const top3 = new Set(sorted.slice(0, 3).filter(a => a.net > 0).map(a => a.name));
 
-                  return agentEntries.map(({ name: agentName, entries, net: agentNet, gross: agentGross, activeCount }, agentIdx) => {
+                  return sorted.map(({ name: agentName, entries, net: agentNet, gross: agentGross, activeCount }, agentIdx) => {
                     const isTopEarner = top3.has(agentName);
                     return (
                       <div
@@ -1667,8 +1780,6 @@ export default function PayrollPeriods({
                     {p.serviceEntries.map((se, seIdx) => {
                       const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
                       const seFronted = Number(se.frontedAmount ?? 0);
-                      const bonusTotal = bonusCategories.filter(c => !c.isDeduction).reduce((s, c) => s + (bd[c.name] ?? 0), 0);
-                      const deductionTotal = bonusCategories.filter(c => c.isDeduction).reduce((s, c) => s + (bd[c.name] ?? 0), 0);
                       return (
                         <div
                           key={se.id}

@@ -10,32 +10,29 @@ npm install
 
 # Dev servers (each in separate terminal)
 npm run ops:dev          # ops-api         → localhost:8080
-npm run auth:dev         # auth-portal     → localhost:3011
-npm run payroll:dev      # payroll-dashboard → localhost:3012
+npm run dashboard:dev    # ops-dashboard   → localhost:3000
 npm run salesboard:dev   # sales-board     → localhost:3013
-npm run manager:dev      # manager-dashboard → localhost:3019
-npm run owner:dev        # owner-dashboard → localhost:3026
 
 # Database
 npm run db:migrate       # prisma migrate deploy
 npm run db:seed          # runs prisma/seed.ts (default password: ChangeMe123!)
 
-# Tests (Jest — covers root Morgan service only)
-npm test                         # run all
+# Tests (Jest — covers Morgan service at apps/morgan/)
+npm test                         # run all Morgan tests
 npm test -- helpers.test.js      # single file
 npm test -- -t "test name"       # by name
 npm run test:watch               # watch mode
 npm run test:coverage            # with coverage
 
 # Docker (full stack)
-docker-compose up                # postgres + ops-api + all 5 frontends
+docker-compose up                # postgres + ops-api + ops-dashboard + sales-board
 ```
 
 ## Architecture
 
 This monorepo contains **two independent workloads**:
 
-1. **Morgan voice service** — legacy AI calling system at repo root (`index.js`). Has its own dependencies and should remain independently deployable.
+1. **Morgan voice service** — AI calling system at `apps/morgan/` (`apps/morgan/index.js`). Has its own dependencies and should remain independently deployable.
 2. **Ops Platform** — sales operations suite under `apps/` and `packages/`.
 
 ### Apps
@@ -43,11 +40,9 @@ This monorepo contains **two independent workloads**:
 | App | Port | Purpose |
 |-----|------|---------|
 | `ops-api` | 8080 | Express.js REST API — auth, RBAC, sales, payroll, clawbacks, exports |
-| `auth-portal` | 3011 | Login UX + role-based redirect to dashboards |
-| `payroll-dashboard` | 3012 | Payroll periods, commission approval, service staff, clawbacks, exports |
+| `ops-dashboard` | 3000 | Unified dashboard — role-based views (manager, payroll, owner, CS, admin) |
 | `sales-board` | 3013 | Read-only sales leaderboard (no auth required for board endpoints) |
-| `manager-dashboard` | 3019 | Sales entry, agent tracker, call audits, config management |
-| `owner-dashboard` | 3026 | KPI summary and operational overview |
+| `morgan` | 3001 | AI voice calling service (Convoso + Vapi integration) |
 
 All Next.js apps are v15 and use `transpilePackages` for shared `@ops/*` imports.
 
@@ -108,7 +103,7 @@ See `apps/ops-api/.env.example` for API vars and root `.env.example` for all var
 - **`output: "standalone"` breaks Railway.** Next.js `next start` is incompatible with `output: "standalone"`. The config is conditional: `process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined`. Only the Docker build sets this env var. **Never hardcode `output: "standalone"` in next.config.js** — it will crash all Railway services.
 - **Zod errors must use `zodErr()` wrapper.** Raw `parsed.error.flatten()` returns `{ formErrors, fieldErrors }` with no `error` key. Dashboards check `err.error` for display. Always use `zodErr(parsed.error)` which returns `{ error: "message", details: {...} }`.
 - **Dashboard error handlers must show status codes.** Use `` `Request failed (${res.status})` `` as the fallback, not a generic "Failed to add" string. This makes debugging possible when the API returns unexpected responses (e.g., 502 from Railway proxy when a service is down).
-- **Port assignments are fixed.** auth-portal:3011, payroll:3012, sales-board:3013, manager:3019, owner:3026. These must match the `ALLOWED_ORIGINS` CORS whitelist in ops-api.
+- **Port assignments are fixed.** ops-api:8080, ops-dashboard:3000, sales-board:3013, morgan:3001. These must match the `ALLOWED_ORIGINS` CORS whitelist in ops-api.
 - **`adjustmentAmount` allows negatives.** Chargebacks deduct from the current week's payroll when the original sale's period was already marked paid. Do not add `.min(0)` to this field.
 - **Dockerfile.nextjs CMD must use shell form.** Docker exec form (`CMD ["node", "..."]`) does not expand `${APP_NAME}`. Use shell form (`CMD node apps/${APP_NAME}/server.js`) and persist the build ARG as `ENV APP_NAME=${APP_NAME}` so it's available at runtime.
 - **`NEXT_PUBLIC_*` vars are baked at build time.** Setting them in docker-compose `environment` (runtime) has no effect on Next.js. Pass them as build `args` in docker-compose and as `ARG`/`ENV` in the Dockerfile so they're present during `next build`.

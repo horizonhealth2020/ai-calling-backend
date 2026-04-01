@@ -49,66 +49,97 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Service agent sync between payroll and CS with round-robin assignment — v1.2
 - ✓ Permission override matrix in owner dashboard — v1.2
 - ✓ Sales board leaderboard with day/week toggle and addon-inclusive premium — v1.2
+- ✓ Unified dashboard app consolidating 5 standalone apps into single Next.js app — v1.3
+- ✓ Role-gated tab navigation (Manager, Payroll, Owner, CS) with SUPER_ADMIN seeing all — v1.3
+- ✓ Login lands directly on user's default tab based on role — v1.3
+- ✓ Uniform date range filtering (Current Week / Last Week / 30 Days / Custom) on all KPI sections — v1.3
+- ✓ Shared Socket.IO provider at layout level — no reconnection on tab switches — v1.3
+- ✓ Docker consolidated from 5 dashboard containers to 1 — v1.3
+- ✓ Addon premium aggregation in all KPI endpoints and client socket patches — v1.3
+- ✓ Sales board CORS fix and error logging — v1.3
+- ✓ State-aware bundle commission: configurable required/fallback addon per state, half commission when unmet — v1.4
+- ✓ Bundle requirement config UI in payroll Products tab (primary product, state availability, fallback) — v1.4
+- ✓ Client state field on sales entry form with US state dropdown — v1.4
+- ✓ Commission engine dual-path: state-aware bundle check + legacy isBundleQualifier — v1.4
+- ✓ Halving reason display on payroll entries — v1.4
+- ✓ Role dashboard selector 400ms collapse delay fix — v1.4
+
+- ✓ Route file splitting into 17 focused domain modules — v1.5
+- ✓ Owner dashboard CS payroll totals with Socket.IO real-time updates — v1.5
+- ✓ Agent-grouped detailed CSV export matching print card layout — v1.5
+- ✓ AI scoring dashboard with aggregate KPIs, per-agent breakdown, weekly trends — v1.5
+- ✓ Chargeback auto-matching to sales by memberId with MATCHED/MULTIPLE/UNMATCHED status — v1.5
+- ✓ Commission-based clawback auto-creation on chargeback approval with dedupe guard — v1.5
+- ✓ Data archival for 3 high-volume log tables with batch operations and restore — v1.5
+- ✓ Archive management UI in owner Config tab with preview counts and batch history — v1.5
+
+- ✓ Morgan voice service relocated to apps/morgan/ (zero behavior change) — v1.6
+- ✓ Stale standalone apps and docs deleted, consolidated into README — v1.6
+- ✓ Dead code removed: unused imports, exports, commented-out code, unused dependencies — v1.6
+- ✓ Error handling hardened: asyncHandler, Zod validation on all inputs, Prisma 503 responses, Socket.IO try/catch — v1.6
+- ✓ Type safety audit: zero `any` in application code, explicit return types on all package exports — v1.6
+
+- ✓ Manager Agent Sales premium column includes addon premiums per row — v1.7
+- ✓ Lead source create form includes Buffer (seconds) field with POST API support — v1.7
+- ✓ Manager Config Products section is read-only with commission rates and bundle config — v1.7
+- ✓ Convoso KPI poller writes individual call records to ConvosoCallLog table with dedup — v1.7
+- ✓ Cost per sale and lead spend display in Manager Tracker and Owner Dashboard with three-state logic — v1.7
+- ✓ CS Resolved Log audit tab for OWNER_VIEW/SUPER_ADMIN with type/date/agent filtering — v1.7
+- ✓ Luxon-based DST-correct Convoso timestamp parsing replacing month-based approximation — v1.8
+- ✓ Lead timing analytics API endpoints (heatmap, sparklines, recommendation) with timezone-aware aggregation — v1.8
+- ✓ Source x Hour heatmap with diverging color scale, grouping toggle (dow/wom/moy), tooltips, and low-sample de-emphasis — v1.8
+- ✓ Best Source Right Now recommendation card with trend arrows and sample size guards — v1.8
+- ✓ Inline SVG sparklines for 7-day close rate trends by daypart (morning/afternoon/evening) — v1.8
+- ✓ Performance Tracker tab rename, Today column, call count ticker badges — v1.8
+- ✓ Lead timing analytics visible on Manager and Owner dashboards — v1.8
+- ✓ Commission fallback guard: half commission when primary addon available but missing from sale — v1.8
+- ✓ JWT expiry check in Edge middleware with stale cookie deletion — v1.9
+- ✓ Login page clears expired localStorage token before auto-redirect — v1.9
+- ✓ Lead phone number capture from Convoso API with database storage — v1.9
+- ✓ Phone column in Manager Audits and Sales tables with (XXX) XXX-XXXX formatting — v1.9
+- ✓ Auto-formatting phone input on sales edit form with raw digit storage — v1.9
+
+- ✓ Sales board font sizes increased for TV-distance readability — v2.0 (Phase 33, 34)
+- ✓ Layout scales for 9-15 agents without overflowing the screen — v2.0 (Phase 34)
+- ✓ Cell dimensions unchanged — increased fonts use existing whitespace — v2.0 (Phase 33, 34)
+- ✓ Convoso KPI poller timezone fix (Pacific not UTC) and per-dashboard date ranges — v2.0 (Phase 35)
+- ✓ Receipt parser hardened for product names with special characters ($, commas) — v2.0 (Phase 36)
+- ✓ Stable payroll agent pay card ordering by member ID — v2.0 (Phase 36)
+- ✓ ACA PL flat-commission product type with bundled/standalone entry and sales board exclusion — v2.0 (Phase 36)
+- ✓ Self-healing audit queue with orphan recovery, exponential backoff retry, categorized failures — v2.0 (Phase 37)
+- ✓ Composite performance scoring (40% premium + 60% cost efficiency) for agent ranking — v2.0 (Phase 37)
+- ✓ Audit UI overhaul: date+time display, cursor pagination, agent filter, dual-field ordering — v2.0 (Phase 37)
 
 ### Active
 
-<!-- Current milestone: v1.3 Dashboard Consolidation & Uniform Date Ranges -->
-
-- [ ] Consolidate auth-portal, manager, payroll, owner, and CS dashboards into a single unified Next.js app
-- [ ] Role-gated tab navigation (Manager, Payroll, Owner, CS) with SUPER_ADMIN seeing all tabs
-- [ ] Login lands directly on user's default tab based on role
-- [ ] Uniform date range picker component (Current Week / Last Week / 30 Days / Custom) for all KPI sections
-- [ ] Apply date range filtering to CS tracker KPIs
-- [ ] Apply date range filtering to manager tracker KPIs
-- [ ] Apply date range filtering to owner performance overview KPIs
-- [ ] Apply date range filtering to payroll dashboard KPIs
-- [ ] Sales board remains standalone (unchanged)
+<!-- Next milestone requirements will be defined via /gsd:new-milestone -->
 
 ### Out of Scope
 
-- Morgan voice service changes — separate workload, not part of this initiative
+- Morgan voice service logic changes — relocating files is in scope, but no behavior changes to the voice service itself
 - Mobile app — web-first, desktop is primary use case for internal ops
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
-- Data archival with restore capability — beyond simple CSV export (deferred from v1.2)
-- AI scoring dashboard with trend analysis — deferred from v1.2
-- Chargeback → payroll clawback auto-creation — beyond alerts (deferred from v1.2)
-
-## Current Milestone: v1.3 Dashboard Consolidation & Uniform Date Ranges
-
-**Goal:** Merge all internal dashboards into a single unified app with role-gated tabs and add uniform date range filtering to all KPI sections.
-
-**Target features:**
-- Unified dashboard app (auth + manager + payroll + owner + CS → single Next.js app)
-- Role-gated tab navigation with login → default tab routing
-- Uniform date range picker (Current Week / Last Week / 30 Days / Custom) on all KPI counters
-- Sales board remains standalone
 
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-03-17) + v1.1 Customer Service (2026-03-18) + v1.2 Platform Polish (2026-03-19)
-**Total:** 18 phases, 54 plans, 114 requirements across 6 days
-**LOC:** ~124,000 TypeScript/TSX
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31)
+**Total:** 11 milestones, 37 phases, 113 plans across 18 days
+**LOC:** ~130,000 TypeScript/TSX
 
-The platform is fully operational with 6 dashboards, 1 API, and shared @ops/* packages:
-- **Manager dashboard** — sales entry with paste-to-parse, agent tracker, call audits, config management
-- **Payroll dashboard** — payroll periods with Open/Closed toggle, commission approval, chargeback alerts, service staff, exports
-- **Sales board** — leaderboard with day/week toggle, real-time WebSocket updates
-- **Owner dashboard** — KPI summary, agent retention metrics, AI config, permission matrix
-- **Auth portal** — login UX + role-based redirect
-- **CS dashboard** — chargeback/pending terms submission with agent dropdown, tracking with filters
-
-**Known areas for future work:**
-- Bulk sale import from CSV
-- AI scoring dashboard with trend analysis
-- Chargeback → payroll clawback auto-creation
-- Data archival with restore capability
-- Route file splitting (tech debt)
+The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
+- **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs, lead source timing analytics
+- **Sales board** — standalone leaderboard with day/week toggle, real-time WebSocket updates
+- **ops-api** — Express REST API with auth, RBAC, sales, payroll, clawbacks, exports, AI scoring, lead timing analytics
+- **@ops/* packages** — shared auth, db, types, ui (PageShell, DateRangeFilter, design tokens), utils
 
 ## Context
 
-Shipped 3 milestones in 6 days (18 phases, 54 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO. Monorepo with 6 dashboards, 1 API, and shared @ops/* packages.
+Shipped 11 milestones in 18 days (37 phases, 113 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence. Phone numbers flow from Convoso API through to manager dashboard views. Sales board is TV-readable at 10-15ft with dynamic agent scaling. Self-healing audit queue handles orphaned jobs and retries with exponential backoff. ACA PL flat-commission product type supports bundled and standalone entry modes.
+
+**Known areas for future work:**
+- Bulk sale import from CSV
 
 ## Constraints
 
@@ -142,7 +173,32 @@ Shipped 3 milestones in 6 days (18 phases, 54 plans). Tech stack: Next.js 15, Ex
 | AI prompt auto-seeds default on first access | No seed dependency — prompt available immediately | ✓ Good |
 | Period status toggle (Open ↔ Closed) | Simple pill click to close periods, red highlight when agents unpaid | ✓ Good |
 | Convoso polling over webhooks | More reliable than webhooks for call log integration | ✓ Good |
+| Luxon IANA timezone for Convoso timestamps | Eliminates DST edge cases vs month-based offset calculation | ✓ Good |
+| Inline SVG sparklines over charting library | Consistent with codebase's no-external-library pattern | ✓ Good |
+| Application-level join for heatmap | Separate call/sale queries joined in JS; simpler than SQL JOINs | ✓ Good |
 | Parse auto-fills form directly | No preview step needed — user edits fields after parse | ✓ Good |
+| Unified dashboard consolidation | 5 standalone apps → 1 app with role-gated tabs | ✓ Good |
+| Layout-level Socket.IO provider | Single connection shared across all tabs — no reconnect on switch | ✓ Good |
+| Uniform date range via React context | Date range persists across tab switches, 4 presets match payroll week | ✓ Good |
+| Sub-component extraction during migration | Each dashboard tab split into named components for debuggability | ✓ Good |
+| Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-03-19 after v1.3 milestone started*
+*Last updated: 2026-03-31 after v2.0 milestone complete*

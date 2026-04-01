@@ -31,7 +31,7 @@ services:
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       PORT: "8080"
       NODE_ENV: production
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3011,http://localhost:3013}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3011,http://localhost:3012,http://localhost:3013,http://localhost:3019,http://localhost:3026}
     ports:
       - "8080:8080"
 

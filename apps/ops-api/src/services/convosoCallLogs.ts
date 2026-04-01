@@ -75,16 +75,14 @@ export async function fetchConvosoCallLogs(params: Record<string, string>): Prom
   }
 
   const url = new URL("https://api.convoso.com/v1/log/retrieve");
+  url.searchParams.set("auth_token", token);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
   });
 
   if (!response.ok) {
@@ -100,10 +98,15 @@ export async function fetchConvosoCallLogs(params: Record<string, string>): Prom
 // ---------------------------------------------------------------------------
 
 export function enrichWithTiers(records: ConvosoCallLog[]): EnrichedCallLog[] {
-  return records.map((record) => ({
-    ...record,
-    call_length_tier: classifyTier(record.call_length),
-  }));
+  return records.map((record) => {
+    // Convoso returns call_length as string — coerce to number
+    const callLength = record.call_length != null ? Number(record.call_length) : null;
+    return {
+      ...record,
+      call_length: callLength,
+      call_length_tier: classifyTier(callLength),
+    };
+  });
 }
 
 export function filterByCallLength(

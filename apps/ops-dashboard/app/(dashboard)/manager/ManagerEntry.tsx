@@ -1,11 +1,10 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback, FormEvent } from "react";
+import React, { useState, useEffect, useRef, FormEvent } from "react";
 import {
   Badge,
   Button,
   Input,
   Select,
-  Card,
   colors,
   spacing,
   radius,
@@ -14,11 +13,10 @@ import {
   motion,
   baseInputStyle,
   baseLabelStyle,
-  baseButtonStyle,
 } from "@ops/ui";
-import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
+import { US_STATES } from "@ops/types";
 import {
   Plus,
   Check,
@@ -34,7 +32,7 @@ import {
 
 type Agent = { id: string; name: string; email?: string; userId?: string; extension?: string; displayOrder: number; active?: boolean; auditEnabled?: boolean };
 type Product = {
-  id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D";
+  id: string; name: string; active: boolean; type: "CORE" | "ADDON" | "AD_D" | "ACA_PL";
   premiumThreshold?: number | null; commissionBelow?: number | null; commissionAbove?: number | null;
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
@@ -89,6 +87,22 @@ const PREVIEW_LABEL: React.CSSProperties = {
   textTransform: "uppercase" as const,
   letterSpacing: "0.06em",
   marginBottom: spacing[2],
+};
+
+const ACA_FIELDS: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 120px",
+  gap: 16,
+  marginTop: 8,
+  padding: 12,
+  background: "rgba(255,255,255,0.03)",
+  borderRadius: 8,
+  border: `1px solid ${colors.borderSubtle}`,
+};
+const ACA_FORM_GRID: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 16,
 };
 
 /* -- Receipt parser -- */
@@ -160,7 +174,7 @@ function parseReceipt(text: string): ParseResult {
     }
     for (const block of blocks) {
       const bt = block.text.trim();
-      const nameMatch = bt.match(/^([A-Za-z][A-Za-z0-9&\s/+'.()-]+?)(?:\s+(?:Individual|Family|Employee|Member)\b|\s+-\s+ID:)/i);
+      const nameMatch = bt.match(/^([A-Za-z][A-Za-z0-9&$\s/+'.()-]+?)(?:\s+(?:Individual|Family|Employee|Member)\b|\s+-\s+ID:)/i);
       if (nameMatch) {
         const rawName = nameMatch[1].trim();
         const isAddon = /[-\u2013]\s*Add-on/i.test(rawName) || /\bAdd-on\b/i.test(rawName);
@@ -211,21 +225,21 @@ function parseReceipt(text: string): ParseResult {
 }
 
 function matchProduct(name: string, products: Product[]): Product | undefined {
-  const lower = name.toLowerCase();
+  const lower = name.toLowerCase().trim();
+  // 1. Exact match
   const exact = products.find(p => p.name.toLowerCase() === lower);
   if (exact) return exact;
-  const wordMatch = products.find(p => {
-    const pn = p.name.toLowerCase();
-    const re1 = new RegExp(`\\b${pn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    const re2 = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    return re1.test(lower) || re2.test(pn);
-  });
-  if (wordMatch) return wordMatch;
+
+  // 2. Containment with length guard (prevents "AME" matching "AmeriCare")
+  // Uses includes() instead of regex \b to handle special chars ($, ,) in product names
   const subs = products.filter(p => {
     const pn = p.name.toLowerCase();
-    return pn.includes(lower) || lower.includes(pn);
+    const shorter = Math.min(pn.length, lower.length);
+    const longer = Math.max(pn.length, lower.length);
+    return shorter / longer > 0.5 && (pn.includes(lower) || lower.includes(pn));
   });
   if (subs.length > 0) return subs.sort((a, b) => b.name.length - a.name.length)[0];
+
   return undefined;
 }
 
@@ -249,6 +263,16 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
   const [receipt, setReceipt] = useState("");
   const [parsed, setParsed] = useState(false);
 
+  /* ACA state */
+  const [includeAca, setIncludeAca] = useState(false);
+  const [acaMode, setAcaMode] = useState<"bundled" | "standalone">("bundled");
+  const [acaCarrier, setAcaCarrier] = useState("");
+  const [acaMemberCount, setAcaMemberCount] = useState("1");
+  const [acaStandaloneAgent, setAcaStandaloneAgent] = useState("");
+  const [acaStandaloneMemberName, setAcaStandaloneMemberName] = useState("");
+  const [acaStandaloneCarrier, setAcaStandaloneCarrier] = useState("");
+  const [acaStandaloneMemberCount, setAcaStandaloneMemberCount] = useState("1");
+
   const [parsedInfo, setParsedInfo] = useState<{
     enrollmentFee?: string; premium?: string; totalPremium?: string; coreProduct?: string;
     parsedProducts: ParsedProduct[];
@@ -262,7 +286,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
     commission: number;
     periodStart: string;
     periodEnd: string;
-    breakdown: { hasBundleQualifier: boolean; hasCore: boolean; enrollmentFee: number | null; paymentType: string };
+    halvingReason: string | null;
+    breakdown: { hasBundleRequirement: boolean; hasCore: boolean; enrollmentFee: number | null; paymentType: string };
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(false);
@@ -294,6 +319,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             paymentType: form.paymentType || "CC",
             status: form.status || "RAN",
             saleDate: form.saleDate || undefined,
+            memberState: form.memberState || null,
           }),
           signal: previewAbort.current.signal,
         });
@@ -303,8 +329,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         } else {
           setPreviewError(true);
         }
-      } catch (e: any) {
-        if (e.name !== "AbortError") setPreviewError(true);
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name !== "AbortError") setPreviewError(true);
       } finally {
         setPreviewLoading(false);
       }
@@ -384,7 +410,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
     setReceipt("");
     setParsed(false);
     setAddonPremiums({});
-    setForm(f => ({ ...blankForm(), agentId: f.agentId, productId: f.productId, leadSourceId: f.leadSourceId }));
+    setForm(blankForm());
   }
 
   async function submitSale(e: FormEvent) {
@@ -418,6 +444,33 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         }),
       });
       if (res.ok) {
+        const sale = await res.json();
+        /* If ACA checkbox is checked, create linked ACA sale */
+        if (includeAca && acaCarrier.trim()) {
+          const acaProduct = products.find(p => p.type === "ACA_PL");
+          if (acaProduct) {
+            try {
+              await authFetch(`${API}/api/sales/aca`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  agentId: form.agentId,
+                  memberName: form.memberName,
+                  carrier: acaCarrier,
+                  memberCount: parseInt(acaMemberCount, 10) || 1,
+                  productId: acaProduct.id,
+                  saleDate: form.saleDate || undefined,
+                  acaCoveringSaleId: sale.id,
+                }),
+              });
+            } catch (err) {
+              console.error("ACA entry failed:", err);
+            }
+          }
+          setIncludeAca(false);
+          setAcaCarrier("");
+          setAcaMemberCount("1");
+        }
         setFieldErrors({});
         setMsg({ text: "Sale submitted successfully", type: "success" });
         clearTimeout(msgTimerRef.current);
@@ -428,8 +481,9 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         const err = await res.json().catch(() => ({}));
         setMsg({ text: `Failed to create sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
       }
-    } catch (e: any) {
-      setMsg({ text: `Unable to reach API server \u2014 ${e.message ?? "network error"}`, type: "error" });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setMsg({ text: `Unable to reach API server \u2014 ${message}`, type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -492,7 +546,12 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
           <div className="animate-fade-in-up stagger-3">
             <label style={LBL}>Member State</label>
-            <input className="input-focus" style={baseInputStyle} value={form.memberState} maxLength={2} placeholder="e.g. FL" onChange={e => setForm(f => ({ ...f, memberState: e.target.value.toUpperCase() }))} />
+            <select className="input-focus" style={{ ...baseInputStyle, height: 42 }}
+              value={form.memberState}
+              onChange={e => setForm(f => ({ ...f, memberState: e.target.value }))}>
+              <option value="">Select state...</option>
+              {US_STATES.map(s => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
+            </select>
           </div>
           <div className="animate-fade-in-up stagger-3">
             <Input label="Sale Date" error={fieldErrors.saleDate} type="date" value={form.saleDate} required onChange={e => { setForm(f => ({ ...f, saleDate: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.saleDate; return n; }); }} />
@@ -628,11 +687,13 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                   <div style={{ marginTop: spacing[3], display: "flex", flexDirection: "column", gap: spacing[1] }}>
                     <div style={PREVIEW_LINE}>
                       <span>Bundle</span>
-                      <span>{previewData.breakdown.hasBundleQualifier
-                            ? "Compass VAB included"
-                            : previewData.breakdown.hasCore
-                              ? "No qualifier — half rate applied"
-                              : "Standalone"}</span>
+                      <span>{!previewData.breakdown.hasCore
+                            ? "Standalone"
+                            : previewData.halvingReason
+                              ? previewData.halvingReason
+                              : previewData.breakdown.hasBundleRequirement
+                                ? "Bundle requirement met"
+                                : "No bundle requirement"}</span>
                     </div>
 
                     {previewData.breakdown.enrollmentFee !== null && previewData.breakdown.enrollmentFee >= 125 && (
@@ -651,6 +712,187 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                   </div>
                 )}
               </>
+            )}
+          </div>
+
+          {/* ACA Plan */}
+          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${includeAca ? "rgba(20,184,166,0.3)" : colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={includeAca}
+                onChange={(e) => setIncludeAca(e.target.checked)}
+                style={{ accentColor: colors.primary400 }}
+              />
+              <label style={{ ...LBL, fontSize: 13, margin: 0, cursor: "pointer" }} onClick={() => setIncludeAca(!includeAca)}>
+                Include ACA Plan
+              </label>
+            </div>
+
+            {includeAca && (
+              <div style={{ marginTop: 12 }}>
+                {/* Bundled / Standalone toggle */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {(["bundled", "standalone"] as const).map(mode => (
+                    <label
+                      key={mode}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        padding: "8px 12px",
+                        borderRadius: radius.lg,
+                        border: acaMode === mode
+                          ? `2px solid ${colors.primary500}`
+                          : `2px solid ${colors.borderDefault}`,
+                        background: acaMode === mode ? "rgba(20,184,166,0.1)" : "transparent",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        fontWeight: acaMode === mode ? 700 : 500,
+                        color: acaMode === mode ? colors.primary300 : colors.textSecondary,
+                        transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="acaMode"
+                        value={mode}
+                        checked={acaMode === mode}
+                        onChange={() => setAcaMode(mode)}
+                        style={{ accentColor: colors.primary500 }}
+                      />
+                      {mode === "bundled" ? "Bundled" : "Standalone"}
+                    </label>
+                  ))}
+                </div>
+
+                {acaMode === "bundled" ? (
+                  <>
+                    <div style={ACA_FIELDS}>
+                      <div>
+                        <label style={LBL}>Carrier</label>
+                        <input
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="Enter carrier name"
+                          value={acaCarrier}
+                          onChange={(e) => setAcaCarrier(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={LBL}>Members</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="1"
+                          value={acaMemberCount}
+                          onChange={(e) => setAcaMemberCount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.textTertiary }}>
+                      ACA will be submitted with the sale above — meets bundle requirement
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div style={ACA_FORM_GRID}>
+                      <div>
+                        <label style={LBL}>Agent</label>
+                        <select
+                          className="input-focus"
+                          style={{ ...baseInputStyle, height: 42 }}
+                          value={acaStandaloneAgent}
+                          onChange={(e) => setAcaStandaloneAgent(e.target.value)}
+                        >
+                          <option value="">Select agent...</option>
+                          {agents.filter(a => a.active !== false).map(a => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Input
+                          label="Member Name"
+                          placeholder="Member full name"
+                          value={acaStandaloneMemberName}
+                          onChange={(e) => setAcaStandaloneMemberName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={LBL}>Carrier</label>
+                        <input
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="Enter carrier name"
+                          value={acaStandaloneCarrier}
+                          onChange={(e) => setAcaStandaloneCarrier(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={LBL}>Members</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input-focus"
+                          style={baseInputStyle}
+                          placeholder="1"
+                          value={acaStandaloneMemberCount}
+                          onChange={(e) => setAcaStandaloneMemberCount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+                      <Button
+                        variant="primary"
+                        onClick={async () => {
+                          if (!acaStandaloneAgent) { setMsg({ text: "Select an agent", type: "error" }); return; }
+                          if (!acaStandaloneMemberName.trim()) { setMsg({ text: "Member name is required", type: "error" }); return; }
+                          if (!acaStandaloneCarrier.trim()) { setMsg({ text: "Carrier name is required for ACA entries", type: "error" }); return; }
+                          const count = parseInt(acaStandaloneMemberCount, 10);
+                          if (!count || count < 1) { setMsg({ text: "Member count must be at least 1", type: "error" }); return; }
+                          const acaProduct = products.find(p => p.type === "ACA_PL");
+                          if (!acaProduct) { setMsg({ text: "No ACA product configured", type: "error" }); return; }
+                          try {
+                            const resp = await authFetch(`${API}/api/sales/aca`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                agentId: acaStandaloneAgent,
+                                memberName: acaStandaloneMemberName,
+                                carrier: acaStandaloneCarrier,
+                                memberCount: count,
+                                productId: acaProduct.id,
+                              }),
+                            });
+                            if (!resp.ok) {
+                              const err = await resp.json().catch(() => ({}));
+                              throw new Error(err.error || `Request failed (${resp.status})`);
+                            }
+                            setMsg({ text: "ACA entry submitted", type: "success" });
+                            clearTimeout(msgTimerRef.current);
+                            msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
+                            setAcaStandaloneAgent("");
+                            setAcaStandaloneMemberName("");
+                            setAcaStandaloneCarrier("");
+                            setAcaStandaloneMemberCount("1");
+                            onSaleCreated?.();
+                          } catch (err: unknown) {
+                            const message = err instanceof Error ? err.message : "Request failed. Check connection and try again.";
+                            setMsg({ text: message, type: "error" });
+                          }
+                        }}
+                      >
+                        Submit ACA Entry
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
 
@@ -805,6 +1047,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               </div>
             );
           })()}
+
         </div>
         {/* -- END RIGHT COLUMN -- */}
 

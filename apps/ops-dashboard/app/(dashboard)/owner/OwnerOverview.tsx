@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { formatDollar } from "@ops/utils";
 import {
   StatCard,
   Badge,
@@ -19,7 +18,6 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { useDateRange } from "@/lib/DateRangeContext";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
 import {
@@ -29,6 +27,7 @@ import {
   Award,
   Clock,
 } from "lucide-react";
+import LeadTimingSection from "../manager/LeadTimingSection";
 
 type SocketClient = import("socket.io-client").Socket;
 
@@ -37,7 +36,7 @@ type Summary = {
   trends: { salesCount: { priorWeek: number; priorMonth: number }; premiumTotal: { priorWeek: number; priorMonth: number }; clawbacks: { priorWeek: number; priorMonth: number } } | null;
 };
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
-type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; periodStatus?: string };
+type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; csPayrollTotal: number; periodStatus?: string };
 
 function computeTrend(current: number, prior: number): { value: number; direction: "up" | "down" | "flat" } {
   if (prior === 0) return current > 0 ? { value: 100, direction: "up" } : { value: 0, direction: "flat" };
@@ -104,6 +103,7 @@ function DashboardSection({
   periods,
   periodView,
   onPeriodViewChange,
+  convosoConfigured,
 }: {
   summary: Summary | null;
   tracker: TrackerEntry[];
@@ -113,6 +113,7 @@ function DashboardSection({
   periods: PeriodSummary[];
   periodView: "weekly" | "monthly";
   onPeriodViewChange: (v: "weekly" | "monthly") => void;
+  convosoConfigured: boolean;
 }) {
   const sortedTracker = [...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal);
 
@@ -191,6 +192,7 @@ function DashboardSection({
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Avg / Sale</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Lead Spend</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Cost / Sale</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
               </tr>
@@ -198,7 +200,7 @@ function DashboardSection({
             <tbody>
               {sortedTracker.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <EmptyState
                       icon={<BarChart3 size={32} />}
                       title="No agent data yet"
@@ -257,8 +259,19 @@ function DashboardSection({
                     <td style={{ ...baseTdStyle, textAlign: "right", color: colors.textTertiary }}>
                       {row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "\u2014"}
                     </td>
+                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.semibold }}>
+                      {!convosoConfigured
+                        ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
+                        : row.totalLeadCost > 0
+                          ? <span style={{ color: colors.textPrimary }}>${Number(row.totalLeadCost).toFixed(2)}</span>
+                          : <span style={{ color: colors.textSecondary }}>$0.00</span>}
+                    </td>
                     <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
-                      {row.costPerSale > 0 ? fmt.format(row.costPerSale) : "\u2014"}
+                      {!convosoConfigured
+                        ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
+                        : row.salesCount > 0 && row.totalLeadCost > 0
+                          ? <span style={{ color: colors.textPrimary }}>${Number(row.costPerSale).toFixed(2)}</span>
+                          : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                     </td>
                     <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold, color: colors.accentTeal }}>
                       {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
@@ -306,12 +319,13 @@ function DashboardSection({
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
                 <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
+                <th style={{ ...baseThStyle, textAlign: "right" }}>Service Payroll</th>
                 {periodView === "weekly" && <th style={baseThStyle}>Status</th>}
               </tr>
             </thead>
             <tbody>
               {periods.length === 0 && (
-                <tr><td colSpan={periodView === "weekly" ? 5 : 4}><EmptyState icon={<Clock size={32} />} title="No period data" description="Period summaries appear once sales are entered." /></td></tr>
+                <tr><td colSpan={periodView === "weekly" ? 6 : 5}><EmptyState icon={<Clock size={32} />} title="No period data" description="Period summaries appear once sales are entered." /></td></tr>
               )}
               {periods.map(p => (
                 <tr key={p.period} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
@@ -319,6 +333,7 @@ function DashboardSection({
                   <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold }}>{p.salesCount}</td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning }}>{fmt.format(p.csPayrollTotal ?? 0)}</td>
                   {periodView === "weekly" && <td style={baseTdStyle}><Badge color={p.periodStatus === "OPEN" ? colors.success : colors.textMuted} variant="subtle" size="sm">{p.periodStatus}</Badge></td>}
                 </tr>
               ))}
@@ -333,13 +348,14 @@ function DashboardSection({
 /* -- OwnerOverview -- */
 
 export default function OwnerOverview({ socket, API }: { socket: SocketClient | null; API: string }) {
-  const { value: dateRange, onChange: setDateRange } = useDateRange();
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
   const [summary, setSummary] = useState<Summary | null>(null);
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
   const [periods, setPeriods] = useState<PeriodSummary[]>([]);
   const [highlightedCards, setHighlightedCards] = useState<Set<string>>(new Set());
+  const [convosoConfigured, setConvosoConfigured] = useState(false);
   const dateRangeRef = useRef(dateRange);
   dateRangeRef.current = dateRange;
 
@@ -356,11 +372,12 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     const qs = dp ? `?${dp}` : "";
     Promise.all([
       authFetch(`${API}/api/owner/summary${qs}`).then((res) => res.ok ? res.json() : null).catch(() => null),
-      authFetch(`${API}/api/tracker/summary${qs}`).then((res) => res.ok ? res.json() : []).catch(() => []),
+      authFetch(`${API}/api/tracker/summary${qs}`).then((res) => res.ok ? res.json() : { agents: [] }).catch(() => ({ agents: [] })),
       authFetch(`${API}/api/reporting/periods?view=${periodView}`).then(res => res.ok ? res.json() : { periods: [] }).catch(() => ({ periods: [] })),
     ]).then(([s, t, periodData]) => {
       setSummary(s);
-      setTracker(t);
+      setTracker(t?.agents ?? t ?? []);
+      setConvosoConfigured(!!t?.convosoConfigured);
       setPeriods(periodData.periods ?? []);
       setLoading(false);
     });
@@ -383,10 +400,13 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     highlightCard("salesCount");
     highlightCard("premiumTotal");
 
+    const addonPrem = payload.sale.addons?.reduce((s: number, a) => s + Number((a as { premium?: number | null }).premium ?? 0), 0) ?? 0;
+    const totalPrem = payload.sale.premium + addonPrem;
+
     setSummary(prev => prev ? {
       ...prev,
       salesCount: (prev.salesCount || 0) + 1,
-      premiumTotal: (prev.premiumTotal || 0) + payload.sale.premium,
+      premiumTotal: (prev.premiumTotal || 0) + totalPrem,
     } : prev);
 
     setTracker(prev => {
@@ -396,13 +416,13 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
         return prev.map(t => t.agent === agentName ? {
           ...t,
           salesCount: t.salesCount + 1,
-          premiumTotal: t.premiumTotal + payload.sale.premium,
+          premiumTotal: t.premiumTotal + totalPrem,
         } : t);
       }
       return [...prev, {
         agent: agentName,
         salesCount: 1,
-        premiumTotal: payload.sale.premium,
+        premiumTotal: totalPrem,
         totalLeadCost: 0,
         costPerSale: 0,
         commissionTotal: 0,
@@ -415,6 +435,19 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     socket.on("sale:changed", handleSaleChanged);
     return () => { socket.off("sale:changed", handleSaleChanged); };
   }, [socket, handleSaleChanged]);
+
+  // Socket.IO: refetch periods when service payroll changes
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () => {
+      authFetch(`${API}/api/reporting/periods?view=${periodView}`)
+        .then(res => res.ok ? res.json() : { periods: [] })
+        .then(data => setPeriods(data.periods ?? []))
+        .catch(() => {});
+    };
+    socket.on("service-payroll:changed", handler);
+    return () => { socket.off("service-payroll:changed", handler); };
+  }, [socket, API, periodView]);
 
   // Refetch on reconnect
   useEffect(() => {
@@ -438,8 +471,10 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
           periods={periods}
           periodView={periodView}
           onPeriodViewChange={setPeriodView}
+          convosoConfigured={convosoConfigured}
         />
       )}
+      <LeadTimingSection API={API} />
     </div>
   );
 }

@@ -1,266 +1,176 @@
 # Technology Stack
 
-**Project:** v1.3 Dashboard Consolidation & Uniform Date Ranges
-**Researched:** 2026-03-19
+**Project:** Sales Board TV Readability (v2.0)
+**Researched:** 2026-03-31
 
-## Executive Summary
+## Recommendation: No New Dependencies
 
-This milestone requires **zero new npm dependencies**. The existing stack already contains every library needed for consolidation and date range filtering. The work is architectural (merging 5 Next.js apps into 1) and component-level (extending the existing `DateRangeFilter` with KPI-specific presets), not a technology adoption exercise.
+This milestone requires zero new libraries. The existing stack (Next.js 15, React, inline CSSProperties, Inter font via next/font/google) provides everything needed. The work is purely CSS font-size and layout tuning within the existing pattern.
 
-The key decision is creating a new unified Next.js app (`apps/unified-dashboard`) that absorbs auth-portal, manager-dashboard, payroll-dashboard, owner-dashboard, and cs-dashboard -- while sales-board remains standalone.
+## Current Font Size Inventory
 
-## Recommended Stack (Changes Only)
+Understanding what exists is critical before changing anything. All values are in `px` (hardcoded integers in inline styles).
 
-### No New Dependencies Required
+### Weekly View (table layout -- primary TV view)
 
-The unified app uses the exact same dependency set as the existing dashboards:
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| Table header (day labels) | 15px | `TH` style object, line 542 |
+| Agent name | 18px | Agent name `<td>`, line 606 |
+| Rank badge number | 11px | Rank `<span>`, line 623 |
+| Daily cell count | 20px | Sale count per day, line 656 |
+| Daily cell premium | 12px | Premium per day, line 668 |
+| Empty cell dash | 14px | `&mdash;` placeholder, line 673 |
+| Agent total count | 24px | Weekly total column, line 685 |
+| Agent total premium | 15px | Premium total, line 702 |
+| Team Total label | 14px | Footer row label, line 719 |
+| Team Total daily count | 20px | Footer daily counts, line 740 |
+| Team Total daily premium | 12px | Footer daily premiums, line 743 |
+| Team Total grand count | 28px | Grand total number, line 758 |
+| Team Total grand premium | 16px | Grand total premium, line 771 |
 
-| Technology | Version | Already In Use | Role in v1.3 |
-|------------|---------|----------------|---------------|
-| Next.js | 15.3.9 | Yes (all apps) | Single unified app with App Router |
-| React | 18.3.1 | Yes (all apps) | Component rendering |
-| @ops/ui (PageShell) | internal | Yes | Sidebar nav with role-gated items |
-| @ops/ui (DateRangeFilter) | internal | Yes (CSV exports) | Extended for KPI sections |
-| @ops/ui (TabNav) | internal | Yes (CS dashboard) | Sub-tab navigation within sections |
-| @ops/auth/client | internal | Yes | Token capture, authFetch, role decoding |
-| @ops/socket | internal | Yes | Real-time updates (unchanged) |
-| @ops/utils | internal | Yes | formatDollar, formatDate |
-| @ops/types | internal | Yes | AppRole, SessionUser types |
-| Luxon | 3.4.4 | Yes (root) | Date range calculation (week boundaries, 30-day) |
-| lucide-react | 0.577.0 | Yes | Icons for nav items |
-| socket.io-client | 4.8.3 | Yes | WebSocket connection |
+### Daily View (podium + columns)
 
-### What NOT to Add
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| 1st place name | 17px | `PODIUM_CONFIG[0].nameSize`, line 61 |
+| 1st place count | 36px | `PODIUM_CONFIG[0].countSize`, line 62 |
+| 2nd place name | 15px | `PODIUM_CONFIG[1].nameSize`, line 75 |
+| 2nd place count | 28px | `PODIUM_CONFIG[1].countSize`, line 76 |
+| 3rd place name | 14px | `PODIUM_CONFIG[2].nameSize`, line 89 |
+| 3rd place count | 26px | `PODIUM_CONFIG[2].countSize`, line 90 |
+| Podium premium | 12px | Below count, line 212 |
+| Remaining agent name | 14px | Column name, line 469 |
+| Remaining agent count | 28px | Column count, line 481 |
+| Remaining agent premium | 12px | Column premium, line 492 |
+| Rank badge number | 11px | Rank circle, line 440 |
 
-| Library | Why Tempting | Why Wrong |
-|---------|-------------|-----------|
-| next-auth / auth.js | "Proper" auth for Next.js | Auth already handled via @ops/auth with JWT + localStorage. Adding next-auth would require rewriting the entire auth flow for zero user-facing benefit. |
-| react-router | Client-side routing for tabs | Next.js App Router already handles this. Use file-system routes for top-level sections, `useState` for sub-tabs. |
-| react-datepicker / date-fns | Date picker component | `DateRangeFilter` already exists in @ops/ui with native HTML date inputs. It works, matches the design system, and needs only preset changes. |
-| zustand / jotai | State management for shared date range | React Context is sufficient for a single date range value shared across KPI sections within one page. |
-| tailwindcss | Faster styling | Violates project constraint. All styling is inline React.CSSProperties. |
-| @tanstack/react-query | Data fetching with caching | Each dashboard page already manages its own fetch + state pattern with authFetch. Adding react-query for one milestone is churn. |
-| next/navigation middleware | Auth guards | A layout-level `useEffect` with `getToken()` already works across all dashboards. Server-side middleware would require `edge` runtime and cookie-based auth -- a full rewrite of the auth strategy. |
+### Header / Stats Bar
 
-## Architecture Decisions for Stack
+| Element | Current Size | Location |
+|---------|-------------|----------|
+| "Sales Board" title | 36px | `<h1>`, line 917 |
+| Stats card label | 11px | "TODAY'S SALES" etc., lines 1022/1070/1122/1174 |
+| Stats card value | 20-30px | Varies by data magnitude, lines 1034/1082/1134/1186 |
 
-### 1. New App: `apps/unified-dashboard`
+## Techniques for TV-Distance Readability
 
-**Why a new app instead of expanding auth-portal:**
-- Auth-portal has a fundamentally different structure (login form + landing page, no PageShell sidebar)
-- Starting fresh avoids breaking the existing apps during migration
-- Can run both old and new in parallel during transition
-- Clean `next.config.js` inheriting the same pattern as other dashboards
+### Use Static `px` Values (Not `clamp()` or `vw`)
 
-**Package.json -- superset of all dashboard dependencies:**
-```json
-{
-  "name": "@ops/unified-dashboard",
-  "dependencies": {
-    "@ops/auth": "*",
-    "@ops/socket": "*",
-    "@ops/ui": "*",
-    "@ops/utils": "*",
-    "lucide-react": "^0.577.0",
-    "next": "15.3.9",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "socket.io-client": "^4.8.3"
-  }
-}
-```
+**Recommendation: Keep using hardcoded `px` values. Do NOT introduce `clamp()`, `vw`, or responsive font techniques.**
 
-### 2. Role-Gated Navigation via PageShell
+**Why:**
+1. The sales board runs on a single known display: a wall-mounted TV, typically 1080p (1920x1080). The viewport does not change.
+2. `clamp()` and viewport units solve a problem that does not exist here -- adapting to unknown screen sizes. A TV is a fixed target.
+3. CSS `clamp()` cannot be expressed as a React `CSSProperties` `fontSize` number -- it requires a string value like `"clamp(18px, 2vw, 28px)"`. This would break the existing pattern of `fontSize: 18` (number) and create inconsistency across the codebase.
+4. Viewport units (`2vw` = ~38px on 1920px wide) are harder to reason about than explicit pixel values when the target resolution is known.
 
-The existing `PageShell` component already supports:
-- `navItems: NavItem[]` -- sidebar navigation items with icon, label, key, badge
-- `activeNav: string` -- which item is selected
-- `onNavChange: (key: string) => void` -- callback for tab switching
-- Desktop sidebar (240px fixed) + mobile bottom nav (< 1024px breakpoint)
+**Bottom line:** When you know the screen, pick the right number. `fontSize: 24` is clearer than `fontSize: "clamp(18px, 1.25vw, 24px)"` and produces identical results on the target TV.
 
-**No new component needed.** The unified app's dashboard layout reads the user's roles from the JWT (via `@ops/auth/client` `getToken()` + manual base64 decode, already patterned in `ensureTokenFresh`) and filters `navItems` to only show role-permitted sections.
+### Font Size Scaling Strategy
 
-**Role-to-tab mapping:**
+For a 1080p TV viewed from 10-15 feet (typical sales floor):
 
-| Role | Visible Tabs |
-|------|-------------|
-| SUPER_ADMIN | Manager, Payroll, Owner, CS (all) |
-| MANAGER | Manager |
-| PAYROLL | Payroll |
-| OWNER_VIEW | Owner |
-| CUSTOMER_SERVICE | CS |
+| Readability Tier | Minimum Size | Purpose |
+|-----------------|-------------|---------|
+| Glanceable numbers | 28-36px | Sale counts, totals -- the numbers agents care about most |
+| Key labels | 20-24px | Agent names, day headers, premium amounts |
+| Supporting text | 14-16px | Section labels, secondary metrics |
+| Decorative/metadata | 11-12px | Rank labels, timestamps -- fine to stay small |
 
-### 3. Date Range Picker Enhancement
+**Confidence:** MEDIUM -- based on TV typography best practices (minimum 24px for body text at 10ft viewing distance on 1080p). The exact sweet spots will need real-world testing on the actual TV.
 
-The existing `DateRangeFilter` uses presets: `7d`, `30d`, `month`, `custom`.
+### Font Weight as a Readability Multiplier
 
-**v1.3 requires:** `Current Week`, `Last Week`, `30 Days`, `Custom`.
+The codebase already uses `fontWeight: 800` for key numbers. This is correct. Bold text is more legible at distance than increasing font size alone. The Inter font (already loaded via `next/font/google`) renders well at heavy weights.
 
-This is a preset change + Luxon-powered date calculation. The `DateRangeFilterValue` interface (`{ preset: string; from?: string; to?: string }`) already supports this -- just change the preset keys.
+**Key insight:** Going from 700 to 800 weight on a number gains more perceived readability than adding 2px of font size, at no layout cost.
 
-**Approach:** Add a new variant or prop to `DateRangeFilter` for KPI presets rather than modifying the existing CSV export presets. Both use cases coexist:
+### Letter Spacing for Large Numbers
+
+Current: `letterSpacing: "-0.03em"` on large counts. This tight tracking works well for display-size numbers and should be preserved. At large sizes, negative letter spacing prevents numbers from looking spaced-out.
+
+### Row Cell Padding Constraints
+
+The milestone requirement states "cell dimensions unchanged -- use existing whitespace, not bigger rows." Current cell padding is `14px 16px`. The existing whitespace within cells can absorb larger font sizes because:
+
+- Agent name cells have `whiteSpace: "nowrap"` and adequate horizontal padding (`14px + spacing[5]px`)
+- Daily cells center-align content with `16px` horizontal padding
+- The table has `minWidth: 760` which is far below 1920px, leaving generous horizontal space
+
+Increasing fonts within cells will consume vertical whitespace but the current `14px` top/bottom padding provides buffer.
+
+## What NOT to Add
+
+| Library/Technique | Why Skip It |
+|-------------------|-------------|
+| `clamp()` / CSS functions | Fixed viewport; adds string-type fontSize breaking numeric pattern |
+| Viewport units (`vw`, `vh`) | Harder to reason about than explicit px for known screen |
+| `@media` queries | Single target resolution; no breakpoints needed |
+| CSS Container Queries | Overkill for static TV layout |
+| `react-responsive` / `react-use` | Zero benefit over hardcoded values for single-screen target |
+| Custom font (e.g., `Roboto Mono`) | Inter at weight 800 is excellent for numbers; monospace not needed |
+| `fitty` / `textFit` libraries | Auto-sizing libraries solve dynamic content; agent counts are 1-3 digits |
+| CSS Grid `auto-fit`/`auto-fill` | The table already handles column distribution; podium uses flex |
+
+## What to Change (Implementation Guidance)
+
+### Approach: Bump Static Values
+
+Create a font size constant object at the top of `page.tsx` to centralize TV-optimized values:
 
 ```typescript
-// New KPI presets (add alongside existing export presets)
-const KPI_PRESETS = [
-  { key: "current-week", label: "Current Week" },
-  { key: "last-week", label: "Last Week" },
-  { key: "30d", label: "30 Days" },
-  { key: "custom", label: "Custom" },
-];
+const TV = {
+  // Weekly table
+  tableHeader: 18,      // was 15
+  agentName: 22,        // was 18
+  dailyCount: 24,       // was 20
+  dailyPremium: 15,     // was 12
+  totalCount: 30,       // was 24
+  totalPremium: 20,     // was 15
+  teamLabel: 18,        // was 14
+  teamDailyCount: 24,   // was 20
+  teamDailyPremium: 15, // was 12
+  teamGrandCount: 34,   // was 28
+  teamGrandPremium: 20, // was 16
+
+  // Daily podium
+  podium1Name: 22,      // was 17
+  podium1Count: 42,     // was 36
+  podium2Name: 19,      // was 15
+  podium2Count: 34,     // was 28
+  podium3Name: 17,      // was 14
+  podium3Count: 30,     // was 26
+  podiumPremium: 15,    // was 12
+
+  // Remaining agents
+  restName: 18,         // was 14
+  restCount: 34,        // was 28
+  restPremium: 15,      // was 12
+} as const;
 ```
 
-**Date calculation uses Luxon (already in root package.json):**
-- Current Week: `DateTime.now().setZone('America/New_York').startOf('week')` to `.endOf('week')` -- Sun-Sat, matching existing payroll week logic
-- Last Week: Same, minus 7 days
-- 30 Days: `DateTime.now().minus({ days: 30 })` to now
-- Custom: User-selected `from`/`to` dates
+This keeps the inline CSSProperties pattern (`fontSize: TV.agentName`) while making all TV-optimized values discoverable and tunable in one place.
 
-**API integration:** The `dateRange()` helper in `ops-api/src/routes/index.ts` already accepts query params. Each KPI fetch just passes `from` and `to` ISO strings. No API changes needed if the existing `dateRange()` helper already supports custom dates (added in v1.2).
+### Agent Count Scaling (9-15 agents)
 
-### 4. Login Flow Change
+The weekly table handles variable agent counts naturally -- rows stack vertically with no overflow concern at 9-15 rows on a 1080px tall screen (each row ~50-60px = 450-900px total, well within budget with header/footer).
 
-**Current flow:** Login (auth-portal:3011) -> Landing page -> Opens dashboard in new browser tab (different port/app)
+The daily view's "remaining agents" section uses `flex: 1` columns with `minWidth: 0` and `maxWidth: 200`. For 6-12 remaining agents (after top 3 podium), this distributes evenly across 1920px width. No changes needed to the flex layout -- just the font sizes within columns.
 
-**New flow:** Login page (unified-dashboard:3020) -> JWT decoded -> Client-side redirect to `/dashboard` -> App reads roles from token, renders default tab
+## Integration with Existing Patterns
 
-The unified app absorbs the login page directly. The auth-portal landing page with its multi-dashboard card grid is no longer needed -- the role-gated sidebar replaces it entirely.
+All changes stay within the existing pattern:
 
-**Token handling stays identical:** `captureTokenFromUrl()` on mount, `localStorage` storage, `authFetch()` for API calls.
-
-### 5. Next.js App Router Structure
-
-```
-apps/unified-dashboard/
-  app/
-    layout.tsx              -- ThemeProvider, global inline styles, font
-    page.tsx                -- Login page (absorbed from auth-portal)
-    api/
-      login/route.ts        -- Proxy to ops-api (from auth-portal)
-      verify/route.ts       -- Token verification
-      change-password/route.ts
-    dashboard/
-      layout.tsx            -- Auth guard + PageShell with role-gated nav
-      page.tsx              -- Redirect to default tab based on role
-      manager/page.tsx      -- Manager dashboard content (from manager-dashboard/app/page.tsx)
-      payroll/page.tsx      -- Payroll dashboard content
-      owner/page.tsx        -- Owner dashboard content
-      cs/page.tsx           -- CS dashboard content
-    access-denied/page.tsx  -- Unauthorized access page
-  next.config.js            -- Same transpilePackages pattern
-```
-
-**Why file-system routing for top-level sections (not useState):**
-- Browser back/forward navigation between sections
-- Direct URL sharing (`/dashboard/payroll`)
-- Code splitting per section (each page.tsx is a separate chunk)
-- Auth guard in `dashboard/layout.tsx` protects all sections uniformly
-- Role checking can happen at the layout level before rendering any section
-
-**Within each section**, existing sub-tab navigation (e.g., manager's entry/tracker/sales/audits/config tabs) remains as `useState`-driven, exactly as today. No change to the inner page logic.
-
-### 6. Auth Guard Pattern
-
-The `dashboard/layout.tsx` will:
-1. Call `captureTokenFromUrl()` on mount
-2. Decode the JWT to extract roles
-3. If no token, redirect to `/` (login)
-4. If token but no roles for current route, redirect to `/access-denied`
-5. Pass roles via React Context to child pages for conditional rendering
-
-This matches how each dashboard currently guards itself, just centralized in one layout.
-
-## Existing Components Reused Without Changes
-
-| Component | Source | Reuse |
-|-----------|--------|-------|
-| `PageShell` | @ops/ui | Wraps entire dashboard with sidebar nav |
-| `TabNav` | @ops/ui | Sub-tabs within each section (e.g., CS submissions/tracking) |
-| `DateRangeFilter` | @ops/ui | Extended with KPI presets via new `presets` prop |
-| `Card`, `Button`, `Input`, `Select` | @ops/ui | All form elements |
-| `AnimatedNumber`, `Badge`, `StatCard` | @ops/ui | KPI display |
-| `ToastProvider` | @ops/ui | Notifications |
-| `SkeletonCard` | @ops/ui | Loading states |
-| `EmptyState` | @ops/ui | No-data states |
-| `authFetch`, `captureTokenFromUrl`, `getToken`, `clearToken` | @ops/auth/client | Auth flow |
-| `useSocket` | @ops/socket | Real-time updates |
-| `formatDollar`, `formatDate` | @ops/utils | Display formatting |
-
-## Components Needing Modification
-
-| Component | Change | Scope |
-|-----------|--------|-------|
-| `DateRangeFilter` | Add `presets` prop to allow custom preset arrays (currently hardcoded). Default to existing `7d/30d/month/custom` for backward compatibility. | @ops/ui -- minor, backward-compatible |
-| `PageShell` | No changes needed. NavItem array is already dynamic. | None |
-| `@ops/types` | No changes needed. `AppRole` and `SessionUser` already cover all roles. | None |
-
-## Port Assignment
-
-| App | Port | Status |
-|-----|------|--------|
-| unified-dashboard | 3020 | NEW -- replaces auth(3011) + manager(3019) + payroll(3012) + owner(3026) + cs(3014) |
-| sales-board | 3013 | UNCHANGED -- remains standalone |
-| ops-api | 8080 | UNCHANGED |
-
-The old dashboard apps remain in the repo but are no longer deployed after v1.3 is validated.
-
-## Deployment Impact
-
-### Railway
-- **Reduction:** 6 services (5 dashboards + auth-portal) down to 2 (unified-dashboard + sales-board) + 1 API
-- Same build/start pattern: `next build && next start`
-- `NEXT_PUBLIC_OPS_API_URL` still baked at build time
-- `ALLOWED_ORIGINS` in ops-api needs the unified dashboard URL; old dashboard URLs can be removed post-migration
-
-### Docker
-- Same `Dockerfile.nextjs` with `APP_NAME=unified-dashboard`
-- Removes 4-5 service definitions from `docker-compose.yml`
-- Significant resource reduction (4 fewer Node.js processes)
-
-### CORS
-- ops-api `ALLOWED_ORIGINS` needs new unified dashboard origin added
-- Old origins can be kept during parallel-running transition, then removed
-
-## Installation
-
-```bash
-# No new packages to install -- all deps already in workspace
-# Just create the app directory and package.json, then:
-npm install  # Workspace linking picks up the new app automatically
-```
-
-Add to root `package.json` scripts:
-```json
-{
-  "dashboard:dev": "npm --prefix apps/unified-dashboard run dev"
-}
-```
-
-## Confidence Assessment
-
-| Decision | Confidence | Rationale |
-|----------|------------|-----------|
-| No new dependencies | HIGH | Inspected all existing packages, component code, and feature requirements |
-| PageShell for nav | HIGH | Already supports navItems, activeNav, onNavChange -- inspected source |
-| DateRangeFilter extension | HIGH | Component exists with flexible interface, only presets change |
-| App Router file routing for sections | HIGH | Standard Next.js 15 pattern, each dashboard is a single page.tsx today |
-| Luxon for date calc | HIGH | Already used for payroll week boundaries (America/New_York, Sun-Sat) |
-| Port 3020 | MEDIUM | Arbitrary -- any unused port works, avoids conflicts with existing 3011-3026 range |
-| No next-auth | HIGH | Existing JWT + localStorage pattern is simple and working; migration cost far exceeds benefit |
+- **Inline `React.CSSProperties`** -- fontSize remains a number, not a string
+- **Constant objects** -- the `TV` constant follows the existing `TH`, `PODIUM_CONFIG` pattern
+- **No CSS files** -- no `@media`, no `clamp()`, no global styles
+- **No new imports** -- zero new dependencies
+- **Inter font** -- already loaded, already used at weight 800
 
 ## Sources
 
-- Inspected: `packages/ui/src/index.tsx` -- PageShell with NavItem interface, sidebar/bottom nav patterns
-- Inspected: `packages/ui/src/components/DateRangeFilter.tsx` -- existing presets (`7d`, `30d`, `month`, `custom`) and `DateRangeFilterValue` interface
-- Inspected: `packages/ui/src/components/TabNav.tsx` -- sub-tab component with indicator animation
-- Inspected: `packages/auth/src/client.ts` -- token management, JWT decode, authFetch with auto-refresh
-- Inspected: `packages/types/src/index.ts` -- AppRole enum (7 roles), SessionUser type
-- Inspected: `apps/auth-portal/app/api/login/route.ts` -- login flow, SUPER_ADMIN role expansion, redirect with session_token
-- Inspected: `apps/auth-portal/app/landing/page.tsx` -- role-based dashboard routing via DASHBOARD_MAP, token passing
-- Inspected: `apps/manager-dashboard/next.config.js` -- transpilePackages pattern, conditional standalone output
-- Inspected: `apps/manager-dashboard/app/page.tsx` -- Tab type, existing imports showing full dependency surface
-- Inspected: `apps/ops-api/src/middleware/auth.ts` -- requireAuth + requireRole with SUPER_ADMIN bypass
-- Inspected: All dashboard `package.json` files -- confirmed identical dependency patterns
-
----
-*Research completed: 2026-03-19*
+- Direct analysis of `apps/sales-board/app/page.tsx` (current font sizes, layout structure, styling patterns)
+- Direct analysis of `apps/sales-board/app/layout.tsx` (Inter font, ThemeProvider)
+- TV typography guidelines: 24px minimum for body text at 10ft on 1080p (MEDIUM confidence -- general industry guidance, not verified against a specific standard)
+- CSS `clamp()` incompatibility with `React.CSSProperties` number type: verified via TypeScript type definition (`fontSize` accepts `number | string`, but project convention is numbers only)

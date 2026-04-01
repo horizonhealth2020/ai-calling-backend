@@ -12,9 +12,10 @@ import {
   motion,
   baseInputStyle,
   baseLabelStyle,
+  baseThStyle,
+  baseTdStyle,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { formatDollar } from "@ops/utils";
 import {
   Users,
   Filter,
@@ -76,7 +77,7 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 function AgentRow({ agent, onSave, onDelete }: {
   agent: Agent;
   onSave: (id: string, data: Partial<Agent>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, permanent: boolean) => Promise<void>;
 }) {
   const [edit, setEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -129,10 +130,11 @@ function AgentRow({ agent, onSave, onDelete }: {
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {confirmDelete ? (
-          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
+          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove agent?</span>
-            <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id); setConfirmDelete(false); }}>Yes</Button>
-            <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px", borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24" }} onClick={() => { onDelete(agent.id, false); setConfirmDelete(false); }}>Deactivate</Button>
+            <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id, true); setConfirmDelete(false); }}>Delete Permanently</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>Cancel</Button>
           </div>
         ) : (
           <>
@@ -216,103 +218,11 @@ function LeadSourceRow({ ls, onSave, onDelete }: {
   );
 }
 
-/* -- ProductRow component -- */
-
-function ProductRow({ product, onSave }: { product: Product; onSave: (id: string, data: Partial<Product>) => Promise<void> }) {
-  const [edit, setEdit] = useState(false);
-  const [d, setD] = useState({
-    name: product.name, type: product.type, active: product.active,
-    premiumThreshold: product.premiumThreshold != null ? String(product.premiumThreshold) : "",
-    commissionBelow: product.commissionBelow != null ? String(product.commissionBelow) : "",
-    commissionAbove: product.commissionAbove != null ? String(product.commissionAbove) : "",
-    bundledCommission: product.bundledCommission != null ? String(product.bundledCommission) : "",
-    standaloneCommission: product.standaloneCommission != null ? String(product.standaloneCommission) : "",
-    enrollFeeThreshold: product.enrollFeeThreshold != null ? String(product.enrollFeeThreshold) : "",
-    notes: product.notes ?? "",
-  });
-  const [saving, setSaving] = useState(false);
-  const isCore = d.type === "CORE";
-
-  if (!edit) return (
-    <div className="row-hover" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: colors.textPrimary }}>{product.name}</span>
-          <Badge color={TYPE_COLORS[product.type]} variant="subtle" size="sm">{TYPE_LABELS[product.type]}</Badge>
-          {!product.active && <Badge color={colors.danger} variant="subtle" size="sm">Inactive</Badge>}
-        </div>
-        <div style={{ fontSize: 12, color: colors.textTertiary, marginTop: 3 }}>
-          {product.type === "CORE" && product.premiumThreshold != null && (
-            <span>Threshold: {formatDollar(Number(product.premiumThreshold))} {"\u00b7"} Below: {product.commissionBelow ?? "\u2014"}% {"\u00b7"} Above: {product.commissionAbove ?? "\u2014"}%</span>
-          )}
-          {product.type !== "CORE" && (
-            <span>Bundled: {product.bundledCommission ?? "\u2014"}% {"\u00b7"} Standalone: {product.standaloneCommission ?? "\u2014"}%</span>
-          )}
-          {product.notes && <span style={{ marginLeft: 8, fontStyle: "italic", color: colors.textMuted }}>{product.notes}</span>}
-        </div>
-      </div>
-      <Button variant="ghost" size="sm" style={{ flexShrink: 0, marginLeft: 12 }} onClick={() => setEdit(true)}>
-        <Edit3 size={13} />
-      </Button>
-    </div>
-  );
-
-  return (
-    <div className="animate-fade-in" style={{ padding: "16px 0", borderBottom: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "end" }}>
-        <div><label style={LBL}>Name</label><input className="input-focus" style={baseInputStyle} value={d.name} onChange={e => setD(x => ({ ...x, name: e.target.value }))} /></div>
-        <div><label style={LBL}>Type</label>
-          <select className="input-focus" style={{ ...baseInputStyle, height: 42 }} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as Product["type"] }))}>
-            <option value="CORE">Core</option><option value="ADDON">Add-on</option><option value="AD_D">AD&D</option>
-          </select>
-        </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, paddingBottom: 4, color: colors.textSecondary, cursor: "pointer" }}>
-          <input type="checkbox" checked={d.active} onChange={e => setD(x => ({ ...x, active: e.target.checked }))} /> Active
-        </label>
-      </div>
-      {isCore ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <div><label style={LBL}>Premium Threshold ($)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.premiumThreshold} placeholder="e.g. 300" onChange={e => setD(x => ({ ...x, premiumThreshold: e.target.value }))} /></div>
-          <div><label style={LBL}>Commission Below (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.commissionBelow} placeholder="e.g. 25" onChange={e => setD(x => ({ ...x, commissionBelow: e.target.value }))} /></div>
-          <div><label style={LBL}>Commission Above (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.commissionAbove} placeholder="e.g. 30" onChange={e => setD(x => ({ ...x, commissionAbove: e.target.value }))} /></div>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <div><label style={LBL}>Bundled Commission (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "e.g. 30"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
-          <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
-          <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={baseInputStyle} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
-        </div>
-      )}
-      <div><label style={LBL}>Notes</label><input className="input-focus" style={baseInputStyle} value={d.notes} placeholder="Optional notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <Button variant="success" size="sm" disabled={saving} onClick={async () => {
-          setSaving(true);
-          await onSave(product.id, {
-            name: d.name, type: d.type, active: d.active, notes: d.notes || null,
-            premiumThreshold: d.premiumThreshold ? Number(d.premiumThreshold) : null,
-            commissionBelow: d.commissionBelow ? Number(d.commissionBelow) : null,
-            commissionAbove: d.commissionAbove ? Number(d.commissionAbove) : null,
-            bundledCommission: d.bundledCommission ? Number(d.bundledCommission) : null,
-            standaloneCommission: d.standaloneCommission ? Number(d.standaloneCommission) : null,
-            enrollFeeThreshold: d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null,
-          } as Partial<Product>);
-          setEdit(false); setSaving(false);
-        }}>
-          <Save size={14} />{saving ? "Saving..." : "Save"}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => setEdit(false)}>
-          <X size={14} />Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 /* -- Component -- */
 
 export default function ManagerConfig({ API, agents, products, leadSources, refreshAgents, refreshProducts, refreshLeadSources, setAgents, setLeadSources }: ManagerConfigProps) {
   const [newAgent, setNewAgent] = useState({ name: "", email: "", extension: "" });
-  const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "" });
+  const [newLS, setNewLS] = useState({ name: "", listId: "", costPerLead: "", callBufferSeconds: "0" });
   const [cfgMsg, setCfgMsg] = useState("");
   const [cfgFieldErrors, setCfgFieldErrors] = useState<Record<string, string>>({});
 
@@ -321,15 +231,26 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/agents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data } : a)); setCfgMsg("Agent updated"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setCfgMsg(`Error: Unable to reach API \u2014 ${message}`); }
   }
 
-  async function deleteAgent(id: string) {
+  async function deleteAgent(id: string, permanent: boolean) {
     try {
-      const res = await authFetch(`${API}/api/agents/${id}`, { method: "DELETE" });
-      if (res.ok) { setAgents(prev => prev.filter(a => a.id !== id)); setCfgMsg("Agent deleted"); }
-      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+      const url = permanent ? `${API}/api/agents/${id}?permanent=true` : `${API}/api/agents/${id}`;
+      const res = await authFetch(url, { method: "DELETE" });
+      if (res.ok) {
+        if (permanent) {
+          setAgents(prev => prev.filter(a => a.id !== id));
+          setCfgMsg("Agent permanently deleted");
+        } else {
+          setAgents(prev => prev.map(a => a.id === id ? { ...a, active: false } : a));
+          setCfgMsg("Agent deactivated");
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setCfgMsg(`Error: Unable to reach API \u2014 ${message}`); }
   }
 
   async function addAgent(e: FormEvent) {
@@ -342,15 +263,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/agents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newAgent.name, email: newAgent.email || undefined, extension: newAgent.extension || undefined }) });
       if (res.ok) { const a = await res.json(); setAgents(prev => [...prev, a]); setNewAgent({ name: "", email: "", extension: "" }); setCfgFieldErrors({}); setCfgMsg("Agent added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
-  }
-
-  async function saveProduct(id: string, data: Partial<Product>) {
-    try {
-      const res = await authFetch(`${API}/api/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      if (res.ok) { refreshProducts(); setCfgMsg("Product updated"); }
-      else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setCfgMsg(`Error: Unable to reach API \u2014 ${message}`); }
   }
 
   async function saveLeadSource(id: string, data: Partial<LeadSource>) {
@@ -358,7 +271,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { setLeadSources(prev => prev.map(ls => ls.id === id ? { ...ls, ...data } : ls)); setCfgMsg("Lead source updated"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setCfgMsg(`Error: Unable to reach API \u2014 ${message}`); }
   }
 
   async function deleteLeadSource(id: string) {
@@ -366,7 +279,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       const res = await authFetch(`${API}/api/lead-sources/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) { setLeadSources(prev => prev.filter(x => x.id !== id)); setCfgMsg("Lead source deleted"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setCfgMsg(`Error: Unable to reach API \u2014 ${message}`); }
   }
 
   async function addLeadSource(e: FormEvent) {
@@ -376,10 +289,10 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
     setCfgFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
     try {
-      const res = await authFetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0 }) });
-      if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "" }); setCfgFieldErrors({}); setCfgMsg("Lead source added"); }
+      const res = await authFetch(`${API}/api/lead-sources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newLS.name, listId: newLS.listId || undefined, costPerLead: Number(newLS.costPerLead) || 0, callBufferSeconds: Number(newLS.callBufferSeconds) || 0 }) });
+      if (res.ok) { const ls = await res.json(); setLeadSources(prev => [...prev, ls]); setNewLS({ name: "", listId: "", costPerLead: "", callBufferSeconds: "0" }); setCfgFieldErrors({}); setCfgMsg("Lead source added"); }
       else { const err = await res.json().catch(() => ({})); setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`); }
-    } catch (e: any) { setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`); }
+    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setCfgMsg(`Error: Unable to reach API \u2014 ${message}`); }
   }
 
   return (
@@ -424,6 +337,10 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
             <Input label="Name" error={cfgFieldErrors.lsName} value={newLS.name} onChange={e => { setNewLS(x => ({ ...x, name: e.target.value })); setCfgFieldErrors(fe => { const n = { ...fe }; delete n.lsName; return n; }); }} />
             <Input label="CRM List ID" value={newLS.listId} onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
             <Input label="Cost per lead ($)" type="number" step="0.01" value={newLS.costPerLead} onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />
+            <div>
+              <label style={LBL}>BUFFER (S)</label>
+              <input className="input-focus" style={baseInputStyle} type="number" min="0" value={newLS.callBufferSeconds} onChange={e => setNewLS(x => ({ ...x, callBufferSeconds: e.target.value }))} />
+            </div>
             <Button type="submit" variant="success" size="sm" fullWidth>
               <Plus size={14} />Add Lead Source
             </Button>
@@ -432,14 +349,46 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
 
       </div>
 
-      {/* Products section */}
+      {/* Products section (read-only) */}
       <Card style={{ marginTop: 20 }}>
         <SectionHeader icon={<Settings size={18} />} title="Products" count={products.length} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {products.map(p => (
-            <ProductRow key={p.id} product={p} onSave={saveProduct} />
-          ))}
-        </div>
+        {products.length === 0 ? (
+          <div style={{ fontSize: 13, color: colors.textMuted }}>No products configured.</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={baseThStyle}>Product</th>
+                  <th style={baseThStyle}>Type</th>
+                  <th style={baseThStyle}>Commission</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map(p => {
+                  const typeColors: Record<string, { text: string; bg: string }> = {
+                    CORE: { text: colors.primary500, bg: colors.infoBg },
+                    ADDON: { text: colors.success, bg: colors.successBg },
+                    AD_D: { text: colors.warning, bg: colors.warningBg },
+                  };
+                  const tc = typeColors[p.type] ?? typeColors.CORE;
+                  const commission = p.type === "CORE"
+                    ? (p.commissionAbove != null ? `${p.commissionAbove}%` : "\u2014")
+                    : (p.bundledCommission != null ? `${p.bundledCommission}%` : (p.standaloneCommission != null ? `${p.standaloneCommission}%` : "\u2014"));
+                  return (
+                    <tr key={p.id}>
+                      <td style={baseTdStyle}>{p.name}</td>
+                      <td style={baseTdStyle}>
+                        <Badge color={tc.text} variant="subtle" size="sm">{TYPE_LABELS[p.type]}</Badge>
+                      </td>
+                      <td style={baseTdStyle}>{commission}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {/* Config status message */}

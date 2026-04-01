@@ -1,9 +1,10 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { Badge, Button, useToast, Card, EmptyState } from "@ops/ui";
+import { Badge, Button, Card, EmptyState } from "@ops/ui";
 import { colors, spacing, radius, motion, baseInputStyle, baseLabelStyle } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { Package, Plus, Edit3, Trash2, Save, X } from "lucide-react";
+import { US_STATES } from "@ops/types";
+import { Package, Plus, Edit3, Trash2, Save, ChevronDown, ChevronUp, MapPin, Link2 } from "lucide-react";
 
 const C = colors;
 const S = spacing;
@@ -22,6 +23,10 @@ type Product = {
   commissionAbove?: number | null; bundledCommission?: number | null;
   standaloneCommission?: number | null; enrollFeeThreshold?: number | null;
   notes?: string;
+  requiredBundleAddonId?: string | null;
+  requiredBundleAddon?: { id: string; name: string } | null;
+  fallbackAddons?: { fallbackProduct: { id: string; name: string } }[];
+  stateAvailability?: { stateCode: string }[];
 };
 
 const TYPE_LABELS: Record<ProductType, string> = {
@@ -35,11 +40,13 @@ const TYPE_COLORS: Record<ProductType, string> = {
 /* ── Product Card ─────────────────────────────────────────────── */
 
 function ProductCard({
-  product, onSave, onDelete,
+  product, onSave, onDelete, onReactivate, allProducts,
 }: {
   product: Product;
   onSave: (id: string, data: Partial<Product>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, permanent: boolean) => Promise<void>;
+  onReactivate: (id: string) => Promise<void>;
+  allProducts: Product[];
 }) {
   const [edit, setEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -51,8 +58,16 @@ function ProductCard({
     bundledCommission: String(product.bundledCommission ?? ""),
     standaloneCommission: String(product.standaloneCommission ?? ""),
     enrollFeeThreshold: String(product.enrollFeeThreshold ?? ""),
+    requiredBundleAddonId: product.requiredBundleAddonId ?? null as string | null,
+    fallbackAddonIds: (product.fallbackAddons ?? []).map(fa => fa.fallbackProduct.id),
   });
   const [saving, setSaving] = useState(false);
+  const [bundleOpen, setBundleOpen] = useState(false);
+  const [statesOpen, setStatesOpen] = useState(false);
+  const [stateSearch, setStateSearch] = useState("");
+  const [selectedStates, setSelectedStates] = useState<string[]>(
+    (product.stateAvailability ?? []).map(s => s.stateCode)
+  );
   const col = TYPE_COLORS[product.type];
 
   const cardStyle: React.CSSProperties = {
@@ -61,6 +76,7 @@ function ProductCard({
     borderRadius: R.xl,
     overflow: "hidden",
     transition: `box-shadow ${motion.duration.fast} ${motion.easing.out}, transform ${motion.duration.fast} ${motion.easing.out}`,
+    ...(product.active ? {} : { opacity: 0.5, filter: "grayscale(0.6)" }),
   };
 
   const topBorderStyle: React.CSSProperties = {
@@ -71,7 +87,7 @@ function ProductCard({
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(product.id, {
+    const saveData: Record<string, unknown> = {
       name: d.name, active: d.active, type: d.type as ProductType, notes: d.notes || undefined,
       premiumThreshold: d.premiumThreshold ? Number(d.premiumThreshold) : null,
       commissionBelow: d.commissionBelow ? Number(d.commissionBelow) : null,
@@ -79,7 +95,21 @@ function ProductCard({
       bundledCommission: d.bundledCommission ? Number(d.bundledCommission) : null,
       standaloneCommission: d.standaloneCommission ? Number(d.standaloneCommission) : null,
       enrollFeeThreshold: d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null,
-    });
+    };
+    if (d.type === "CORE") {
+      saveData.requiredBundleAddonId = d.requiredBundleAddonId || null;
+      saveData.fallbackAddonIds = d.fallbackAddonIds;
+    }
+    // Save state availability BEFORE product PATCH so the PATCH response reflects updated states
+    if (d.type === "ADDON" || d.type === "AD_D") {
+      const OPS = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
+      await authFetch(`${OPS}/api/products/${product.id}/state-availability`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stateCodes: selectedStates }),
+      });
+    }
+    await onSave(product.id, saveData as Partial<Product>);
     setEdit(false); setSaving(false);
   };
 
@@ -135,6 +165,44 @@ function ProductCard({
               {product.notes ? <span> {"\u00B7"} {product.notes}</span> : ""}
             </div>
 
+            {/* Completeness indicator for CORE products with bundle requirements */}
+            {product.type === "CORE" && product.requiredBundleAddonId && (() => {
+              const requiredAddon = allProducts.find(p => p.id === product.requiredBundleAddonId);
+              const fallbackAddons = (product.fallbackAddons ?? []).map(fa => fa.fallbackProduct);
+              const coveredStates = new Set<string>();
+              if (requiredAddon?.stateAvailability) requiredAddon.stateAvailability.forEach(s => coveredStates.add(s.stateCode));
+              for (const fb of fallbackAddons) {
+                const fbProduct = allProducts.find(p => p.id === fb.id);
+                if (fbProduct?.stateAvailability) fbProduct.stateAvailability.forEach(s => coveredStates.add(s.stateCode));
+              }
+              const uncoveredCount = 51 - coveredStates.size;
+              return (
+                <div style={{ marginTop: S[2], fontSize: 12 }}>
+                  <span style={{ color: C.textMuted }}>
+                    Bundle: {product.requiredBundleAddon?.name ?? "?"}
+                    {fallbackAddons.length > 0 ? ` / fallbacks: ${fallbackAddons.map(f => f.name).join(", ")}` : ""}
+                  </span>
+                  {uncoveredCount > 0 && (
+                    <span style={{ background: C.warning, color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 11, marginLeft: 8 }}>
+                      {uncoveredCount} state{uncoveredCount !== 1 ? "s" : ""} uncovered
+                    </span>
+                  )}
+                  {uncoveredCount === 0 && (
+                    <span style={{ background: C.success, color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 11, marginLeft: 8 }}>
+                      All states covered
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* State count for ADDON/AD_D products */}
+            {(product.type === "ADDON" || product.type === "AD_D") && product.stateAvailability && product.stateAvailability.length > 0 && (
+              <div style={{ marginTop: S[1], fontSize: 12, color: C.textMuted }}>
+                Available in {product.stateAvailability.length} state{product.stateAvailability.length !== 1 ? "s" : ""}
+              </div>
+            )}
+
             {showDeleteConfirm && (
               <div
                 className="animate-slide-down"
@@ -143,24 +211,48 @@ function ProductCard({
                   background: "rgba(239,68,68,0.08)",
                   border: "1px solid rgba(239,68,68,0.2)",
                   borderRadius: R.lg,
-                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: S[3],
                 }}
               >
-                <span style={{ fontSize: 13, color: C.danger }}>
-                  Delete &ldquo;{product.name}&rdquo;? This will deactivate it.
+                <span style={{ fontSize: 13, color: C.danger, display: "block", marginBottom: S[2] }}>
+                  Remove &ldquo;{product.name}&rdquo;?
                 </span>
-                <div style={{ display: "flex", gap: S[2], flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: S[2], flexWrap: "wrap" }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { onDelete(product.id, false); setShowDeleteConfirm(false); }}
+                    style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24" }}
+                  >
+                    Deactivate
+                  </Button>
                   <Button
                     variant="danger"
                     size="sm"
-                    onClick={() => { onDelete(product.id); setShowDeleteConfirm(false); }}
+                    onClick={() => { onDelete(product.id, true); setShowDeleteConfirm(false); }}
                   >
-                    <Trash2 size={11} /> Delete
+                    <Trash2 size={11} /> Delete Permanently
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)}>
                     Cancel
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {!product.active && (
+              <div
+                style={{
+                  marginTop: S[3], padding: "8px 14px",
+                  background: "rgba(251,191,36,0.08)",
+                  border: "1px solid rgba(251,191,36,0.2)",
+                  borderRadius: R.lg,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 13, color: "#fbbf24" }}>Deactivated</span>
+                <Button variant="ghost" size="sm" onClick={() => onReactivate(product.id)} style={{ color: "#34d399" }}>
+                  Reactivate
+                </Button>
               </div>
             )}
           </>
@@ -194,6 +286,101 @@ function ProductCard({
                 <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
+              </div>
+            )}
+
+            {/* Bundle Requirements section for CORE products */}
+            {d.type === "CORE" && (
+              <div style={{ borderTop: `1px solid ${C.borderSubtle}`, paddingTop: S[3], marginTop: S[2] }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: S[2], cursor: "pointer", marginBottom: S[2] }}
+                  onClick={() => setBundleOpen(!bundleOpen)}
+                >
+                  <Link2 size={14} style={{ color: C.primary400 }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textSecondary }}>Bundle Requirements</span>
+                  {bundleOpen ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
+                </div>
+                {bundleOpen && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: S[2] }}>
+                    <div>
+                      <label style={LBL}>Required Addon for Full Commission</label>
+                      <select className="input-focus" style={{ ...inputStyle, height: 42 }}
+                        value={d.requiredBundleAddonId ?? ""}
+                        onChange={e => setD(x => ({ ...x, requiredBundleAddonId: e.target.value || null }))}>
+                        <option value="">None (use legacy qualifier)</option>
+                        {allProducts.filter(p => (p.type === "ADDON" || p.type === "AD_D") && p.id !== product.id && p.active).map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ marginTop: S[2] }}>
+                      <label style={LBL}>Fallback Addons (any qualifies)</label>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, maxHeight: 150, overflowY: "auto", marginTop: 4 }}>
+                        {allProducts.filter(p => (p.type === "ADDON" || p.type === "AD_D") && p.id !== product.id && p.active && p.id !== d.requiredBundleAddonId).map(p => (
+                          <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.textSecondary, cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={d.fallbackAddonIds.includes(p.id)}
+                              onChange={e => {
+                                if (e.target.checked) setD(x => ({ ...x, fallbackAddonIds: [...x.fallbackAddonIds, p.id] }));
+                                else setD(x => ({ ...x, fallbackAddonIds: x.fallbackAddonIds.filter(id => id !== p.id) }));
+                              }}
+                            />
+                            {p.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* State Availability section for ADDON/AD_D products */}
+            {(d.type === "ADDON" || d.type === "AD_D") && (
+              <div style={{ borderTop: `1px solid ${C.borderSubtle}`, paddingTop: S[3], marginTop: S[2] }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: S[2], cursor: "pointer", marginBottom: S[2] }}
+                  onClick={() => setStatesOpen(!statesOpen)}
+                >
+                  <MapPin size={14} style={{ color: C.accentTeal }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textSecondary }}>
+                    State Availability ({selectedStates.length}/51)
+                  </span>
+                  {statesOpen ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
+                </div>
+                {statesOpen && (
+                  <div>
+                    <input
+                      className="input-focus"
+                      style={{ ...inputStyle, marginBottom: S[2] }}
+                      placeholder="Search states..."
+                      value={stateSearch}
+                      onChange={e => setStateSearch(e.target.value)}
+                    />
+                    <div style={{ display: "flex", gap: S[2], marginBottom: S[2] }}>
+                      <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: 12 }} onClick={() => setSelectedStates(US_STATES.map(s => s.code))}>Select All</button>
+                      <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: 12 }} onClick={() => setSelectedStates([])}>Clear All</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, maxHeight: 200, overflowY: "auto" }}>
+                      {US_STATES.filter(s =>
+                        !stateSearch || s.name.toLowerCase().includes(stateSearch.toLowerCase()) || s.code.toLowerCase().includes(stateSearch.toLowerCase())
+                      ).map(s => (
+                        <label key={s.code} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.textSecondary, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedStates.includes(s.code)}
+                            onChange={e => {
+                              if (e.target.checked) setSelectedStates(prev => [...prev, s.code]);
+                              else setSelectedStates(prev => prev.filter(c => c !== s.code));
+                            }}
+                          />
+                          {s.code}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -255,23 +442,48 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
-  async function deleteProduct(id: string) {
+  async function deleteProduct(id: string, permanent: boolean) {
     try {
-      const res = await authFetch(`${API}/api/products/${id}`, { method: "DELETE" });
+      const url = permanent ? `${API}/api/products/${id}?permanent=true` : `${API}/api/products/${id}`;
+      const res = await authFetch(url, { method: "DELETE" });
       if (res.ok) {
-        setProducts(prev => prev.filter(p => p.id !== id));
-        setCfgMsg("Product deleted");
+        if (permanent) {
+          setProducts(prev => prev.filter(p => p.id !== id));
+          setCfgMsg("Product permanently deleted");
+        } else {
+          setProducts(prev => prev.map(p => p.id === id ? { ...p, active: false } : p));
+          setCfgMsg("Product deactivated");
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
+    }
+  }
+
+  async function reactivateProduct(id: string) {
+    try {
+      const res = await authFetch(`${API}/api/products/${id}/reactivate`, { method: "PATCH" });
+      if (res.ok) {
+        const updated = await res.json();
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updated, active: true } : p));
+        setCfgMsg("Product reactivated");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -307,8 +519,9 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         const err = await res.json().catch(() => ({}));
         setCfgMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
-    } catch (e: any) {
-      setCfgMsg(`Error: Unable to reach API \u2014 ${e.message ?? "network error"}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "network error";
+      setCfgMsg(`Error: Unable to reach API \u2014 ${message}`);
     }
   }
 
@@ -384,12 +597,29 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
           />
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[4] }} className="grid-mobile-1">
-          {products.map((p, i) => (
-            <div key={p.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 10)}`}>
-              <ProductCard product={p} onSave={saveProduct} onDelete={deleteProduct} />
-            </div>
-          ))}
+        <div style={{ display: "grid", gap: S[6] }}>
+          {(["CORE", "ADDON", "AD_D"] as ProductType[]).map(type => {
+            const group = products.filter(p => p.type === type);
+            if (group.length === 0) return null;
+            return (
+              <div key={type}>
+                <div style={{ display: "flex", alignItems: "center", gap: S[2], marginBottom: S[3] }}>
+                  <div style={{ height: 2, width: 16, background: TYPE_COLORS[type], borderRadius: 1 }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: TYPE_COLORS[type], textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    {TYPE_LABELS[type]} Products
+                  </span>
+                  <Badge color={TYPE_COLORS[type]} size="sm">{group.length}</Badge>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[4] }} className="grid-mobile-1">
+                  {group.map((p, i) => (
+                    <div key={p.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 10)}`}>
+                      <ProductCard product={p} onSave={saveProduct} onDelete={deleteProduct} onReactivate={reactivateProduct} allProducts={products} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -1,4 +1,4 @@
-# Dependencies
+--dangerousl# Dependencies
 node_modules/
 
 # Environment variables
@@ -43,3 +43,4 @@ next-env.d.ts
 # Temp files
 tmp/
 temp/
+.claude/worktrees/
