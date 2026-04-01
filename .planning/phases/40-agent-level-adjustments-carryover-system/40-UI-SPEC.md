@@ -34,13 +34,11 @@ Declared values from `@ops/ui` spacing tokens (already established):
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | S[1] | 4px | Gap between carryover source text and input edge |
-| S[2] | 8px | Gap between inline label and edit icon hint |
-| S[3] | 12px | Gap between header action buttons |
-| S[4] | 16px | Agent card header vertical padding |
-| S[5] | 20px | Agent card header horizontal padding |
-| S[6] | 24px | Not used in this phase |
+| S[2] | 8px | Gap between header action buttons, gap between inline label and edit icon hint |
+| S[3] | 16px | Agent card header vertical padding, agent card header horizontal padding |
+| S[4] | 24px | Not used in this phase |
 
-Exceptions: none — all spacing follows the existing `spacing` token map from `@ops/ui`.
+Exceptions: none — all spacing follows the standard 8-point set {4, 8, 16, 24, 32, 48, 64}.
 
 ---
 
@@ -58,7 +56,7 @@ Existing tokens from `typography.sizes` in `@ops/ui`. This phase uses these spec
 | Print pill | 11px | 700 | 1 | Approved/Half-commission pills in print view (existing) |
 | Net amount | 16px | 700 | 1.5 | Commission and net display in financial strip (existing) |
 
-New additions are limited to the carryover hint text (11px/400) — everything else reuses existing typographic patterns.
+4 font sizes used: 11px, 13px, 15px, 16px. New additions are limited to the carryover hint text (11px/400) — everything else reuses existing typographic patterns.
 
 ---
 
@@ -129,7 +127,7 @@ Accent reserved for: Print button, Top Earner badge, Approve action button, focu
 - Color when from carryover (bonus): `colors.success` (#34d399)
 - Color when from carryover (hold): `colors.warning` (#fbbf24)
 - Color when default label: `colors.textMuted` (#475569) -- matches existing HEADER_LBL
-- Edit input: `{ ...SMALL_INP, width: 100, fontSize: 11, padding: "2px 6px" }`
+- Edit input: `{ ...SMALL_INP, width: 100, fontSize: 11, padding: "2px 8px" }`
 - Transition: none (instant swap between display and edit)
 
 **Accessibility:**
@@ -145,7 +143,7 @@ Accent reserved for: Print button, Top Earner badge, Approve action button, focu
 
 **Visual spec:**
 - Text: "Carried from prev week"
-- Style: `{ fontSize: 11, fontWeight: 400, color: colors.textMuted, fontStyle: "italic", marginTop: 2, lineHeight: "1.45" }`
+- Style: `{ fontSize: 11, fontWeight: 400, color: colors.textMuted, fontStyle: "italic", marginTop: 4, lineHeight: "1.45" }`
 - No icon, no background -- pure text annotation
 
 ### Approve/Unapprove Buttons (MODIFIED)
@@ -170,8 +168,8 @@ Accent reserved for: Print button, Top Earner badge, Approve action button, focu
 ```
 
 Pills render as `inline-block` with existing styles:
-- Approved: `{ background: "rgba(52,211,153,0.12)", color: "#34d399", fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "1px 6px", marginRight: 4 }`
-- Half commission: `{ background: "rgba(251,191,36,0.12)", color: "#fbbf24", fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "1px 6px", marginRight: 4 }`
+- Approved: `{ background: "rgba(52,211,153,0.12)", color: "#34d399", fontSize: 11, fontWeight: 700, borderRadius: 4, padding: "1px 8px", marginRight: 4 }`
+- Half commission: `{ background: "rgba(251,191,36,0.12)", color: "#fbbf24", fontSize: 11, fontWeight: 700, borderRadius: 4, padding: "1px 8px", marginRight: 4 }`
 
 The `marginRight: 4` ensures a 4px gap between the pill and the dollar amount.
 
