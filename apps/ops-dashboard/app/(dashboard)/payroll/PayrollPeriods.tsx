@@ -636,13 +636,21 @@ function AgentPayCard({
     if (Math.abs(newTotal - currentTotal) < 0.005) return;
 
     const delta = newTotal - currentTotal;
-    const firstActive = activeEntries[0] ?? entries[0];
-    if (!firstActive) return;
+    // Pick the entry that holds the largest value for this field so negative deltas actually apply
+    const pool = activeEntries.length ? activeEntries : entries;
+    const target = delta < 0
+      ? pool.reduce((best, e) => {
+          const val = field === "bonus" ? Number(e.bonusAmount) : field === "fronted" ? Number(e.frontedAmount) : Number(e.holdAmount ?? 0);
+          const bestVal = field === "bonus" ? Number(best.bonusAmount) : field === "fronted" ? Number(best.frontedAmount) : Number(best.holdAmount ?? 0);
+          return val > bestVal ? e : best;
+        })
+      : pool[0];
+    if (!target) return;
 
-    const newBonus = Math.max(0, field === "bonus" ? Number(firstActive.bonusAmount) + delta : Number(firstActive.bonusAmount));
-    const newFronted = Math.max(0, field === "fronted" ? Number(firstActive.frontedAmount) + delta : Number(firstActive.frontedAmount));
-    const newHold = Math.max(0, field === "hold" ? Number(firstActive.holdAmount ?? 0) + delta : Number(firstActive.holdAmount ?? 0));
-    await onBonusFrontedUpdate(firstActive.id, newBonus, newFronted, newHold);
+    const newBonus = Math.max(0, field === "bonus" ? Number(target.bonusAmount) + delta : Number(target.bonusAmount));
+    const newFronted = Math.max(0, field === "fronted" ? Number(target.frontedAmount) + delta : Number(target.frontedAmount));
+    const newHold = Math.max(0, field === "hold" ? Number(target.holdAmount ?? 0) + delta : Number(target.holdAmount ?? 0));
+    await onBonusFrontedUpdate(target.id, newBonus, newFronted, newHold);
   };
 
   const HEADER_LBL: React.CSSProperties = {
