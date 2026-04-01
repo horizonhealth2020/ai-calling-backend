@@ -1,168 +1,151 @@
 # Project Research Summary
 
-**Project:** Sales Board TV Readability (v2.0)
-**Domain:** TV-mounted sales leaderboard — font scaling and contrast optimization within an existing Next.js dashboard
-**Researched:** 2026-03-31
+**Project:** Ops Platform v2.1 — Payroll Card Overhaul & Carryover System
+**Domain:** Internal payroll management — agent commission tracking, period management, print formatting
+**Researched:** 2026-04-01
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This milestone is a narrow, focused improvement to an existing working product. The sales board at `apps/sales-board/app/page.tsx` already delivers the core functionality; the v2.0 goal is to make it legible from across a sales floor on a wall-mounted TV. Research across all four domains converges on the same recommendation: increase font sizes using hardcoded `px` values within the existing inline `React.CSSProperties` pattern, bump low-contrast secondary text one tier up the color scale, and validate against 15 agents at 1080p before shipping. No new dependencies, no new files, no architectural changes.
+This milestone is a focused improvement to the existing payroll subsystem with no new dependencies required. All 10 features map to changes in existing files using established patterns: Prisma migrations for schema additions, Express route hooks for carryover logic, React component refactoring for card restructuring, and template string edits for print enhancements. The recommended approach is to sequence work in dependency order — deliver unblocked quick wins first, then the carryover system with its schema migration, and finally the large UI restructure once the data shape is stable.
 
-The recommended approach treats this as a surgical pass on a single file. All ~30 font-size literals in `apps/sales-board/app/page.tsx` need to increase by 20-40%, following a TV-readability tier system: glanceable numbers (sale counts, totals) at 30-42px, key labels (agent names, headers) at 20-26px, and supporting text (premiums, section labels) at 16-20px. Font weight (already 800 on key numbers) and negative letter-spacing (already applied to large counts) should be preserved — they contribute more to readability than raw size alone. Dollar amounts should drop cents and use `fmt$whole` consistently across both views.
+The highest-risk feature is the fronted/hold auto-carryover system. It introduces cross-period data dependencies that interact with clawbacks, mark-paid logic, and period status toggling. The primary structural challenge is that PayrollEntry requires a non-nullable `saleId` FK, but carryover is an agent-level concept with no natural sale to attach to. This must be resolved before Phase 3 implementation — either via a sentinel $0 sale per agent or by making `saleId` nullable. Additionally, carryover must be idempotent: payroll staff routinely unlock and re-lock periods, and duplicate carryover entries would silently corrupt agent net amounts.
 
-The primary risk is cell height overflow with 15 agents at 1080p: increasing font sizes also increases computed row height, which can push the team total row off-screen. The pixel budget analysis shows 741px available for 15 agent rows — approximately 49px per row — which is tight but workable if vertical padding is reduced from 14px to 11-12px per side to compensate for larger type. The secondary risk is contrast failure on actual TVs: colors passing WCAG AA on a backlit monitor can wash out on a consumer TV in a bright office. Both risks must be addressed in Phase 1, not deferred.
+The card restructure (agent-level collapsible cards with week-by-week entries) is the largest UI change, touching roughly 800 lines of the 1,800-line PayrollPeriods.tsx component. It should come last, after carryover logic stabilizes, to avoid double-refactoring. The print template lives outside the React component tree as a template literal, meaning it must be updated in the same phase as screen layout changes or the two will diverge.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new technologies are needed. The existing stack (Next.js 15, React, Inter font via `next/font/google`, inline `React.CSSProperties`) is entirely sufficient for this milestone. The Inter font at weight 800 renders well at display sizes, and the project's numeric `fontSize` convention (e.g., `fontSize: 18`) should be preserved — introducing CSS string values like `clamp()` would break this convention and solve a problem that does not exist on a single known-resolution display.
+No new libraries or packages are required for this milestone. Every feature maps to the existing stack. Prisma handles the two schema additions; Express routes and Zod schemas handle the carryover endpoint and bonus label patch; all UI work uses React with inline CSSProperties. The print system continues to use the `window.open` + template literal pattern. The only infrastructure change is one Prisma migration.
 
 **Core technologies:**
-- **React inline CSSProperties (existing):** All font size changes stay as numeric literals — keeps consistency with the 1,240-line file convention and avoids introducing string-typed fontSize values
-- **Next.js 15 (existing):** No config changes needed; the sales board is already a standalone Next.js app
-- **Inter at weight 800 (already loaded):** Renders well at display sizes; negative letter-spacing already applied to large counts should be preserved
-- **`fmt$whole` helper (existing):** Whole-dollar formatting already exists — consistency pass only, no new helper needed
+- Next.js 15 / React 18: Dashboard UI — no change, all features are component refactors using existing patterns
+- Express 4 + Zod 3: API layer — extend existing PATCH endpoints and Zod schemas only; new carryover service function added
+- Prisma 5 + PostgreSQL: Data layer — one migration adding `bonusLabel` (String, nullable) and `isCarryover` (Boolean, default false) to PayrollEntry
+- Luxon 3: Date math for next-period calculation in carryover service — already used for `getSundayWeekRange`
+- Socket.IO 4: Real-time push after carryover entries are created — already wired to payroll:updated event
 
 ### Expected Features
 
-Research confirmed all table-stakes items are low-complexity changes to existing inline styles. The highest-value differentiators (auto-scaling by agent count, podium card enlargement) should be deferred until base font sizes are validated on a real TV.
+**Must have (table stakes):**
+- Zero-value validation bug fix — staff cannot zero out bonus/fronted/hold once set; blocks daily payroll workflow
+- Fronted displayed as positive — negative display confuses readers; net formula unchanged, display-only change
+- Net column removed from print card sale rows — per-sale net is misleading when bonus/fronted/hold are agent-level
+- Approved pill on half-commission deals in print view — payroll needs visibility on which half-commission overrides were approved
+- Addon name formatting cleanup — long addon names with parenthetical details overflow print table cells
+- ACA editable in Products tab — ACA_PL products exist in DB but are excluded from Products UI type maps; staff cannot configure flat commissions
 
-**Must have (table stakes — v2.0):**
-- Enlarged table fonts in WeeklyView (agent names to ~22px, daily counts to ~26px, premiums to ~16px, totals to ~32px) — currently 12-24px range
-- Enlarged KPI card numbers in stats bar (32-36px) — currently 26-30px
-- Enlarged team total row (grand total to 36px) — currently 14-28px; this is the most-glanced row
-- Minimum fontWeight 700 on all data-bearing text — currently some premium sub-text uses weight 600
-- Contrast promotion for secondary/tertiary text — promote `textTertiary` to `textSecondary` for anything a manager reads from 3+ meters
-- `fmt$whole` consistency across both WeeklyView and DailyView — suppress "$0" for zero-premium agents
+**Should have (differentiators):**
+- Fronted/hold auto-carryover between pay periods — eliminates error-prone manual re-entry each period; highest complexity feature
+- Editable bonus label — distinguishes "Bonus" from "Hold Payout" on pay cards; auto-set by carryover, manually editable otherwise
+- Bonus/fronted/hold inputs moved to agent-level only — per-sale inputs imply wrong semantics; agent card header is correct home
+- Payroll cards restructured as agent-level collapsible cards — week-by-week grouping inside collapsible agent sections
 
-**Should have (competitive — v2.x, after TV validation):**
-- Auto-scaling font sizes based on agent count using `Math.max(MIN, BASE - (count - 9) * STEP)` pattern
-- Podium card size increase in DailyView (~1.5x nameSize and countSize) for dramatic leaderboard impact
-
-**Defer (v3+):**
-- TV-specific URL parameter (`?tv=1`) to toggle between TV and desktop sizing — only if the board must serve both contexts simultaneously
-- Configurable default view persistence — only if offices disagree on weekly vs. daily default
-- Abbreviated K/M suffixes — only if full dollar amounts remain noisy after the font increase
+**Defer (v2+):**
+- Carryover reversal automation — cascading audit complexity; manual adjustment covers the need
+- Carryover chain tracking (linked-list provenance) — bonusLabel + audit log is sufficient for current requirements
+- Custom print templates — internal tool does not need a configurable template editor
 
 ### Architecture Approach
 
-All changes land in a single file: `apps/sales-board/app/page.tsx`. No shared package changes, no API changes, no new components. The correct integration points are: `PODIUM_CONFIG` constant for podium nameSize and countSize values, direct literal changes for WeeklyView and stats bar elements, and the `PodiumCard` component's inline premium fontSize. A centralized `TV` constant object at the top of the file (following the existing `TH`, `PODIUM_CONFIG` pattern) is recommended as an optional organizational improvement but is not required for correctness.
+The system follows a service-layer pattern: business logic lives in `payroll.ts` service, exposed via Express routes, consumed by a single large React dashboard component. The carryover feature is best implemented as a new `processCarryover(periodId)` service function called as a hook inside the existing `PATCH /payroll/periods/:id/status` route on LOCKED transitions, wrapped in a Prisma transaction for atomicity. Agent-level grouping in the UI is achieved via a `useMemo` reduce over period entries, using the existing expand/collapse state pattern already present for period cards. The print template must be updated in lockstep with card restructuring because it is separate template literal code, not React.
 
-**Major components (all within `page.tsx`):**
-1. `PODIUM_CONFIG` constant — entry point for podium nameSize and countSize; change values here, not in JSX downstream
-2. `WeeklyView` component — ~12 font-size literals across TH, agent name cells, daily count/premium cells, total column, team total row
-3. `SalesBoard` / stats bar — 4 KPI card value sizes (labels can stay small at 11-13px)
+**Major components:**
+1. `payroll.ts` service — Commission calc, period management, entry upsert; new `processCarryover()` added here with idempotency guard
+2. `payroll.ts` routes — CRUD endpoints, status transitions; carryover hook on LOCKED transition and bonus label patch extension
+3. `PayrollPeriods.tsx` — Full payroll UI targeting agent grouping refactor, input relocation, and print template updates; sub-components extracted before restructuring
+4. `PayrollProducts.tsx` — Product CRUD; extend TYPE_LABELS and TYPE_COLORS maps to include ACA_PL
+5. Prisma schema + migration — Add `bonusLabel` String? and `isCarryover` Boolean to PayrollEntry
 
 ### Critical Pitfalls
 
-1. **Cell height overflow at 15 agents** — Increasing fontSize raises computed row height. At 17 rows in ~741px of available space, each row gets ~49px. Reduce vertical padding from `14px` to `11-12px` per side as font sizes grow. Verify with exactly 15 agents that no vertical scrollbar appears and the team total row stays visible.
-
-2. **Dark theme contrast fails on actual TV** — `textTertiary: #64748b` on `#070a0a` passes WCAG AA on a monitor but can become invisible on a consumer TV in ambient office light. Promote all content text at least one tier: `textTertiary` → `textSecondary`, `textMuted` → `textTertiary`. Nothing readable on a TV should use `colors.textMuted` or `colors.borderStrong`.
-
-3. **Agent name truncation with larger fonts** — Agent names use `whiteSpace: "nowrap"`. At 22-24px, long names like "Christopher Rodriguez" overflow the agent column and trigger the table's `overflowX: auto` scrollbar — unusable on a wall TV. Add `overflow: hidden`, `textOverflow: "ellipsis"`, and a `maxWidth` on agent name cells before shipping.
-
-4. **Podium vertical overflow on DailyView** — The podium cards (160-220px tall) plus the "All Agents" section below may exceed 1080px. If DailyView is a TV target, card heights must be compressed by 30-40%. The milestone spec focuses on the weekly table, so this may be out of Phase 1 scope — confirm with stakeholders.
-
-5. **`$0` visual noise at large font sizes** — Promoting `fmt$whole` output to 16-18px makes large "$0" prominent for zero-sales agents. Suppress to a dash or empty string for the zero case to prevent visual clutter drawing the eye to inactive agents.
+1. **Carryover duplication on period re-lock** — Add `isCarryover` boolean flag to PayrollEntry; check for existing carryover entries before creating new ones on each LOCKED transition. Without idempotency, agents receive double holds or double bonus payouts with no visible indicator.
+2. **Agent with no sales in next period blocks carryover** — PayrollEntry has non-nullable `saleId` with unique constraint on `(payrollPeriodId, saleId)`. Carryover for salesless agents fails unless: (A) sentinel $0 sale is created, or (B) `saleId` is made nullable. Choose one approach before Phase 3 begins; mixing creates inconsistent data.
+3. **Zero-value bug is client-side, not API-side** — Zod schema correctly allows `.min(0)`. The bug is a falsy check in the save handler (`if (value)` excludes `0`). Fix: use `value !== undefined` and always include zero-value fields in the PATCH body.
+4. **PeriodCard refactor regressions** — The 1,800-line component has interleaved concerns: period rendering, sale editing, bonus/fronted/hold inputs, mark paid, print, status requests, chargeback alerts. Extract AgentCard, SaleRow, AgentSummary before restructuring. Test with manual checklist: sale editing, mark paid, print, chargeback alerts, status change requests.
+5. **Print template diverges from screen layout** — Print HTML is separate template literal code. If card restructure and print updates are in different phases, they will diverge silently. Always update print in the same phase as screen layout changes.
 
 ## Implications for Roadmap
 
-The work naturally separates into two phases: a core readability pass (all table-stakes features + critical pitfall prevention) followed by a polish/validation pass after real-world TV testing.
+Based on combined research, the feature dependency graph and risk profile suggest four phases:
 
-### Phase 1: Core TV Readability
+### Phase 1: Quick Fixes
+**Rationale:** All six items are independent, require no migration, touch only display and validation logic, and unblock daily payroll workflow immediately.
+**Delivers:** Fully functional current payroll workflow without display bugs or blocked inputs.
+**Addresses:** Zero-value validation bug, fronted positive display, net column removed from print, approved pill on print, addon name formatting, fronted label clarity.
+**Avoids:** Zero-value client-side falsy pitfall — fix requires `value !== undefined` check in save handler, not a Zod or API change.
 
-**Rationale:** All table-stakes features and all critical pitfalls must ship atomically. Increasing font sizes without simultaneously fixing row height budget, contrast, name truncation, and dollar formatting leaves the board in a broken intermediate state — improved in some conditions, broken in others (15 agents, long names, bright room).
+### Phase 2: ACA Product Configuration
+**Rationale:** Independent of carryover and card restructure. Medium effort contained to PayrollProducts.tsx and type maps. Best completed before the larger refactors to avoid merge conflicts on type map additions.
+**Delivers:** Staff can view and configure ACA_PL products and their flat commissions via the Products tab.
+**Addresses:** ACA_PL missing from TYPE_LABELS, TYPE_COLORS, product form field conditionals.
+**Avoids:** Pitfall 8 — search entire codebase for all ProductType hardcodes before declaring done, not just PayrollProducts.tsx.
 
-**Delivers:** A production-ready TV-readable sales board at 1080p for 9-15 agents, using the weekly table as the primary TV view.
+### Phase 3: Agent-Level Adjustments + Carryover System
+**Rationale:** Carryover depends on agent-level input structure being finalized first (bonus/fronted/hold on agent header only). Bonus label field uses the same migration. Isolating this from the card restructure keeps the blast radius small and allows the carryover data shape to stabilize before the UI is rebuilt around it.
+**Delivers:** Fronted/hold amounts auto-carry to next period on lock; bonus label field distinguishes payout types; per-sale adjustment inputs removed.
+**Uses:** Prisma migration (bonusLabel, isCarryover), new `processCarryover()` service, PATCH entry bonus label extension, Socket.IO payroll:updated emission.
+**Implements:** Carryover as period-lock hook with Prisma transaction, idempotency via isCarryover flag, sentinel sale or nullable saleId for agents without sales.
+**Avoids:** Pitfall 1 (duplication on re-lock), Pitfall 3 (no-sale agents), Pitfall 5 (clawback orphaning hold entries on CLAWBACK_APPLIED status).
 
-**Addresses:**
-- Enlarged WeeklyView table fonts (agent names to ~22px, daily counts to ~26px, premiums to ~16px, totals to ~32px)
-- Enlarged KPI card numbers (32-36px) in stats bar
-- Enlarged team total row (grand total to 36px)
-- Font weight minimum 700 on all data text
-- Contrast promotion (textTertiary to textSecondary for readable content)
-- `fmt$whole` consistency + suppress "$0" for zero-premium agents
-- Day/week toggle buttons and section labels enlarged for TV readability
-
-**Avoids:**
-- Cell height overflow — reduce vertical padding 14px → 11-12px while increasing font
-- Contrast failure on TV — promote all readable text one color tier
-- Agent name overflow — add textOverflow ellipsis + maxWidth to agent name cells
-- Dollar format noise — suppress zero-premium agents to dash
-
-**Research flag:** No additional research needed. All patterns are well-documented, scope is a single file, implementation path is unambiguous. Execute directly.
-
-### Phase 2: Polish and TV Validation
-
-**Rationale:** After Phase 1 ships and is tested on an actual office TV, real-world feedback will reveal whether podium view needs work, whether agent counts cause overflow at extremes, and whether animation duration needs tuning. These cannot be validated without the Phase 1 baseline.
-
-**Delivers:** A refined TV experience with dynamic agent count scaling, enlarged podium cards for DailyView, and animation behavior appropriate for peripheral display.
-
-**Addresses:**
-- Auto-scaling font sizes based on agent count (P2 feature)
-- Podium card size increase in DailyView (P2 feature)
-- AnimatedNumber duration reduction for TV (under 200ms, or switch to static + background pulse)
-- DailyView podium vertical fit at 1080p (if DailyView is confirmed as TV-facing view)
-
-**Avoids:**
-- AnimatedNumber jitter causing distraction during active sales periods
-- Fixed pixel resolution fragility if TVs vary (consider clamp() post-validation if 4K TVs are in use)
-
-**Research flag:** Podium resizing requires a brief layout analysis before implementation — the 3-card fixed-width geometry (165/175/200px) is the most resolution-sensitive part of the layout. Verify cards + remaining-agents flex section fit at 1920px with increased widths before committing to specific values.
+### Phase 4: Payroll Card Restructure
+**Rationale:** Depends on Phase 3 being complete so new agent-level collapsible cards can correctly display carryover metadata and bonusLabel. Restructuring before carryover is stable risks building the card layout twice. This is the largest UI refactor.
+**Delivers:** Agent-level collapsible cards with week-by-week sale grouping; print template aligned to new layout; formatAddonName shared utility used by both screen and print.
+**Uses:** React useMemo groupBy pattern, existing ChevronDown expand/collapse, formatAddonName shared utility.
+**Implements:** AgentCard, SaleRow, AgentSummary sub-components extracted first, then PeriodCard restructured to compose them.
+**Avoids:** Pitfall 4 (1,800-line component regression — extract first, restructure second), Pitfall 6 (print template divergence — update print in this same phase), Pitfall 9 (addon formatting inconsistency — shared utility covers both screen and print).
 
 ### Phase Ordering Rationale
 
-- Phase 1 before Phase 2 because: auto-scaling fonts depend on establishing correct base sizes; podium work is isolated to DailyView and does not affect the weekly table; animation tuning is non-blocking polish that requires watching the board during live sales activity.
-- All Phase 1 items must ship atomically: font sizes, padding adjustments, contrast promotion, and text overflow handling are co-dependent — partial application creates a broken intermediate state.
-- DailyView (podium) work is intentionally deferred: the milestone spec targets the weekly breakdown table, and podium geometry is more complex to change without overflow risks across agent counts.
+- Quick fixes first: all six are independent with no schema changes; unblock payroll staff with zero regression risk
+- ACA second: independent of everything; completing before larger refactors avoids merge conflicts on type maps
+- Carryover third: schema migration and service logic isolated from UI restructure; idempotency and saleId issues are easier to test without simultaneous UI churn
+- Card restructure last: built on stable carryover data; print template updated in same phase; sub-component extraction reduces regression risk significantly
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2 (podium resizing):** Podium card geometry involves fixed pixel widths for 3 side-by-side cards at 1920px. Resizing requires verifying the 3-card layout still fits with increased widths and that the "All Agents" flex section below remains usable. A brief layout analysis before implementation is warranted.
+Phases with standard patterns (research-phase not needed):
+- **Phase 1:** All fixes are display/validation changes with clear root causes identified from direct codebase analysis
+- **Phase 2:** ACA product type addition follows the existing ProductCard CRUD pattern exactly
+- **Phase 4:** Expand/collapse pattern and agent groupBy are established React patterns already present in the codebase
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (font size + contrast pass):** Entirely within established inline CSSProperties pattern. Target values are documented in STACK.md. Implementation is mechanical number substitution with one layout constraint (row height budget). No research needed — execute directly.
+Phases likely needing deeper design decisions during planning:
+- **Phase 3 (Carryover):** The `saleId` nullability decision requires auditing all downstream code paths that assume `saleId` is non-null before choosing between sentinel sale vs nullable saleId. The clawback interaction with orphaned hold entries also needs a concrete policy resolution before implementation.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Direct codebase analysis; no new dependencies means zero uncertainty about library compatibility or version conflicts |
-| Features | HIGH | Features are well-scoped to CSS property changes; priority tiers based on multiple corroborating industry sources (Klipfolio, Spinify, Android TV guidelines) |
-| Architecture | HIGH | Single-file change set confirmed by direct code inspection; component boundaries are unambiguous; integration points explicitly identified |
-| Pitfalls | HIGH | Primary pitfalls derived from direct pixel budget calculation (not estimation) and confirmed color token analysis against known hex values |
+| Stack | HIGH | Directly verified against package.json, schema.prisma, and all source files. No inference — no new dependencies means no compatibility uncertainty. |
+| Features | HIGH | Features derived from direct codebase analysis of PayrollPeriods.tsx, PayrollProducts.tsx, and payroll service. Bug root causes confirmed with line-level references. |
+| Architecture | HIGH | Carryover pattern, groupBy approach, and print template structure all directly verified in source. Edge cases identified with concrete mitigation options. |
+| Pitfalls | HIGH | All pitfalls grounded in specific code locations (line numbers cited). No speculation — schema constraints and operator behavior verified directly. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Exact padding reduction values:** Research recommends reducing vertical padding from 14px to 11-12px, but the precise amount depends on the font sizes chosen. Implementation must measure actual rendered row height at chosen sizes and adjust padding to stay within the ~49px row budget. This is a test-and-adjust step during Phase 1, not a pre-calculable value.
-- **DailyView as TV target:** Research is ambiguous on whether DailyView (podium + remaining agents) is expected to fit on a TV. The milestone spec focuses on weekly table readability. If the office uses DailyView on the TV, Phase 1 scope expands significantly. Confirm with stakeholders before starting Phase 1 implementation.
-- **Actual TV hardware:** Research assumes a 50-65 inch 1080p TV at 10-15 feet. If the specific TV is smaller (40 inch) or the room is deeper, font size targets may need upward adjustment. Verify Phase 1 output on the actual hardware before declaring done.
+- **saleId nullable vs sentinel sale:** Both options for handling agents with no sales in the next period are viable. The choice affects migration scope and downstream code assumptions. Requires auditing all `entry.saleId` and `entry.sale` references before Phase 3 planning to make a firm decision.
+- **Carryover UI indicators:** Research describes the data flow for carryover but does not prescribe the exact UI treatment for indicating a carryover entry on the pay card (badge, label, icon, or tooltip). This is a design decision for Phase 3 planning.
+- **Fronted positive display treatment:** The fronted-as-positive change (Phase 1) needs a specific label and visual treatment decided upfront to avoid the mental model mismatch where readers might expect fronted to add to net. Recommendation: use `$200.00 (advanced, deducted from net)` with a distinct color.
+- **Carryover with pre-paid entries in next period:** If an agent's entries in the next period are already PAID when carryover runs, the carryover amounts cannot be applied without first un-paying. This edge case needs a policy decision before Phase 3 implementation.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `apps/sales-board/app/page.tsx` — direct code audit; all font sizes, padding values, layout structure, ~1,240 lines inspected
-- `packages/ui/src/tokens.ts` — color token values, typography scale
-- `packages/ui/src/theme.css` — CSS custom properties, actual hex values for contrast analysis
-- `.planning/PROJECT.md` — milestone requirements and constraints
+
+- `prisma/schema.prisma` — PayrollEntry model, ProductType enum, saleId uniqueness constraint
+- `apps/ops-api/src/services/payroll.ts` — Commission calculation, getSundayWeekRange, upsertPayrollEntryForSale
+- `apps/ops-api/src/routes/payroll.ts` — PATCH endpoints, Zod schemas, period status toggle, net formula (line 206), PATCH handler `??` operator (lines 186-214)
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` — 1,800-line component, print template strings, expand/collapse state pattern
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` — Product type maps, CRUD pattern
+- `package.json`, `apps/ops-api/package.json`, `apps/ops-dashboard/package.json` — Dependency versions confirmed
 
 ### Secondary (MEDIUM confidence)
-- [Klipfolio: Best Practices for Displaying Dashboards on Large Screens](https://www.klipfolio.com/resources/articles/best-practices-large-screen-wallboard-tv-dashboard) — abbreviate numbers, design for glancing, avoid data density
-- [DigitalSignage.com: Typography & Viewing Distance Guide](https://digitalsignage.com/digital_signage/docs/guides/typography-viewing-distance/) — font size formulas by viewing distance
-- [Pascal Potvin: Designing a 10ft UI](https://pascalpotvin.medium.com/designing-a-10ft-ui-ae2ca0da08b7) — 24px minimum body text at 10ft on 1080p
-- [Android TV Style Guide](https://spot.pcc.edu/~mgoodman/developer.android.com/preview/tv/design/style.html) — 28px minimum on 1080p display
-- [Spinify: Sales Leaderboard Best Practices](https://spinify.com/blog/top-10-sales-leaderboard-best-practices/) — motivation through visibility, avoid ranking-based public shaming
-- [Ambition: Wallboards and Leaderboards Best Practices](https://ambition.com/blog/entry/2017-09-26-how-use-wallboards-and-leaderboards-close-out-year-strong/) — keep metrics simple, multiple recognition opportunities
-- [RiseVision: Digital Signage Best Practices](https://www.risevision.com/blog/digital-signage-best-practices) — sans-serif bold, limit text density, test at distance
 
-### Tertiary (LOW confidence)
-- General TV contrast research — consumer TV panels have lower native contrast than IPS monitors; ambient light worsens perceived contrast; specific contrast degradation values vary by TV model and cannot be precisely predicted without testing on target hardware
+- `.planning/PROJECT.md` — Project scope and milestone description
 
 ---
-*Research completed: 2026-03-31*
+*Research completed: 2026-04-01*
 *Ready for roadmap: yes*

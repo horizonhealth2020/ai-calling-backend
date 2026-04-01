@@ -1,176 +1,172 @@
 # Technology Stack
 
-**Project:** Sales Board TV Readability (v2.0)
-**Researched:** 2026-03-31
+**Project:** Ops Platform v2.1 -- Payroll Card Overhaul & Carryover System
+**Researched:** 2026-04-01
 
-## Recommendation: No New Dependencies
+## Key Finding: No New Dependencies Required
 
-This milestone requires zero new libraries. The existing stack (Next.js 15, React, inline CSSProperties, Inter font via next/font/google) provides everything needed. The work is purely CSS font-size and layout tuning within the existing pattern.
+Every feature in this milestone is achievable with the existing stack. The carryover system is a backend data-flow concern (Prisma queries + payroll service logic). The pay card restructuring and print view enhancements are pure React component refactoring with inline styles. The ACA product editing reuses the existing Products tab CRUD pattern.
 
-## Current Font Size Inventory
+**Do NOT add any libraries for this milestone.** Adding a print library, PDF generator, or UI component library would violate the project's established patterns and create maintenance burden.
 
-Understanding what exists is critical before changing anything. All values are in `px` (hardcoded integers in inline styles).
+## Current Stack (No Changes)
 
-### Weekly View (table layout -- primary TV view)
+### Core Framework
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| Next.js | 15.3.9 | Dashboard app framework | Keep as-is |
+| Express | 4.19.2 | REST API server | Keep as-is |
+| React | 18.3.1 | UI components | Keep as-is |
+| TypeScript | 5.6.2 | Type safety | Keep as-is |
+| Node.js | 20.x | Runtime | Keep as-is |
 
-| Element | Current Size | Location |
-|---------|-------------|----------|
-| Table header (day labels) | 15px | `TH` style object, line 542 |
-| Agent name | 18px | Agent name `<td>`, line 606 |
-| Rank badge number | 11px | Rank `<span>`, line 623 |
-| Daily cell count | 20px | Sale count per day, line 656 |
-| Daily cell premium | 12px | Premium per day, line 668 |
-| Empty cell dash | 14px | `&mdash;` placeholder, line 673 |
-| Agent total count | 24px | Weekly total column, line 685 |
-| Agent total premium | 15px | Premium total, line 702 |
-| Team Total label | 14px | Footer row label, line 719 |
-| Team Total daily count | 20px | Footer daily counts, line 740 |
-| Team Total daily premium | 12px | Footer daily premiums, line 743 |
-| Team Total grand count | 28px | Grand total number, line 758 |
-| Team Total grand premium | 16px | Grand total premium, line 771 |
+### Database
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| PostgreSQL | (Docker/Railway) | Primary datastore | Keep as-is |
+| Prisma | 5.20.0 | ORM, migrations, client | Keep as-is -- new migration needed for carryover fields |
 
-### Daily View (podium + columns)
+### Real-Time
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| Socket.IO | 4.8.3 (server) / 4.8.3 (client) | Real-time dashboard cascade | Keep as-is |
 
-| Element | Current Size | Location |
-|---------|-------------|----------|
-| 1st place name | 17px | `PODIUM_CONFIG[0].nameSize`, line 61 |
-| 1st place count | 36px | `PODIUM_CONFIG[0].countSize`, line 62 |
-| 2nd place name | 15px | `PODIUM_CONFIG[1].nameSize`, line 75 |
-| 2nd place count | 28px | `PODIUM_CONFIG[1].countSize`, line 76 |
-| 3rd place name | 14px | `PODIUM_CONFIG[2].nameSize`, line 89 |
-| 3rd place count | 26px | `PODIUM_CONFIG[2].countSize`, line 90 |
-| Podium premium | 12px | Below count, line 212 |
-| Remaining agent name | 14px | Column name, line 469 |
-| Remaining agent count | 28px | Column count, line 481 |
-| Remaining agent premium | 12px | Column premium, line 492 |
-| Rank badge number | 11px | Rank circle, line 440 |
+### Validation & Utilities
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| Zod | 3.23.8 | API input validation | Keep as-is -- new schemas for carryover endpoints |
+| Luxon | 3.4.4 | Timezone-aware date handling | Keep as-is -- used for period week calculations |
 
-### Header / Stats Bar
+### UI
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| lucide-react | 0.577.0 | Icon library | Keep as-is |
+| @ops/ui | workspace | Design system (Badge, Button, Card, etc.) | Keep as-is |
+| Inline CSSProperties | n/a | All styling | Keep as-is |
 
-| Element | Current Size | Location |
-|---------|-------------|----------|
-| "Sales Board" title | 36px | `<h1>`, line 917 |
-| Stats card label | 11px | "TODAY'S SALES" etc., lines 1022/1070/1122/1174 |
-| Stats card value | 20-30px | Varies by data magnitude, lines 1034/1082/1134/1186 |
+## Feature-to-Stack Mapping
 
-## Techniques for TV-Distance Readability
+### 1. Fronted/Hold Auto-Carryover Between Pay Periods
 
-### Use Static `px` Values (Not `clamp()` or `vw`)
+**Stack used:** Prisma + Express + Zod
 
-**Recommendation: Keep using hardcoded `px` values. Do NOT introduce `clamp()`, `vw`, or responsive font techniques.**
+**What's needed:**
+- Prisma migration to add `bonusLabel` (String, nullable) and potentially `carryoverSourcePeriodId` (String, nullable) to PayrollEntry for tracking carryover origin
+- New payroll service function: when a period transitions to LOCKED/FINALIZED, scan for agents with nonzero fronted/hold amounts and create corresponding entries in the next period
+- New API endpoint or hook on period status change to trigger carryover
+- Zod schema for carryover configuration
 
-**Why:**
-1. The sales board runs on a single known display: a wall-mounted TV, typically 1080p (1920x1080). The viewport does not change.
-2. `clamp()` and viewport units solve a problem that does not exist here -- adapting to unknown screen sizes. A TV is a fixed target.
-3. CSS `clamp()` cannot be expressed as a React `CSSProperties` `fontSize` number -- it requires a string value like `"clamp(18px, 2vw, 28px)"`. This would break the existing pattern of `fontSize: 18` (number) and create inconsistency across the codebase.
-4. Viewport units (`2vw` = ~38px on 1920px wide) are harder to reason about than explicit pixel values when the target resolution is known.
+**Why no new library:** This is a database write triggered by a period status change. The existing `getSundayWeekRange` function already calculates next-period dates. Prisma transactions handle the atomic multi-row writes.
 
-**Bottom line:** When you know the screen, pick the right number. `fontSize: 24` is clearer than `fontSize: "clamp(18px, 1.25vw, 24px)"` and produces identical results on the target TV.
+### 2. Editable Bonus Labels
 
-### Font Size Scaling Strategy
+**Stack used:** Prisma + React (inline styles)
 
-For a 1080p TV viewed from 10-15 feet (typical sales floor):
+**What's needed:**
+- Prisma migration to add `bonusLabel` field to PayrollEntry (String, nullable, defaults to "Bonus")
+- API patch endpoint already exists (`PATCH /payroll/entries/:id`) -- extend Zod schema to accept `bonusLabel`
+- Client-side: inline text input or dropdown in the agent card header
 
-| Readability Tier | Minimum Size | Purpose |
-|-----------------|-------------|---------|
-| Glanceable numbers | 28-36px | Sale counts, totals -- the numbers agents care about most |
-| Key labels | 20-24px | Agent names, day headers, premium amounts |
-| Supporting text | 14-16px | Section labels, secondary metrics |
-| Decorative/metadata | 11-12px | Rank labels, timestamps -- fine to stay small |
+**Why no new library:** A text input or select dropdown. The existing `SMALL_INP` style constant covers this pattern.
 
-**Confidence:** MEDIUM -- based on TV typography best practices (minimum 24px for body text at 10ft viewing distance on 1080p). The exact sweet spots will need real-world testing on the actual TV.
+### 3. Pay Card Restructure (Agent-Level Collapsible Cards)
 
-### Font Weight as a Readability Multiplier
+**Stack used:** React + inline CSSProperties
 
-The codebase already uses `fontWeight: 800` for key numbers. This is correct. Bold text is more legible at distance than increasing font size alone. The Inter font (already loaded via `next/font/google`) renders well at heavy weights.
+**What's needed:**
+- Refactor `PeriodCard` component to group entries by agent first, then show individual sale rows nested inside
+- Reuse existing `ChevronDown` icon and expand/collapse state pattern (already used for period expansion)
+- Move bonus/fronted/hold inputs from individual sale rows to agent-level summary row
 
-**Key insight:** Going from 700 to 800 weight on a number gains more perceived readability than adding 2px of font size, at no layout cost.
+**Why no new library:** The codebase already implements collapsible cards with expand/collapse state for periods. The same pattern (boolean state + conditional render) applies to agent-level grouping. No accordion library needed.
 
-### Letter Spacing for Large Numbers
+### 4. Print View Enhancements
 
-Current: `letterSpacing: "-0.03em"` on large counts. This tight tracking works well for display-size numbers and should be preserved. At large sizes, negative letter spacing prevents numbers from looking spaced-out.
+**Stack used:** Template literal HTML + `window.open` + `window.print()`
 
-### Row Cell Padding Constraints
+**What's needed:**
+- Modify the existing print HTML template strings (lines ~1270-1370 in PayrollPeriods.tsx) to:
+  - Remove net column from individual sale rows
+  - Add "Approved" pill (green badge) on half-commission deals where `commissionApproved === true`
+  - Clean up addon name formatting (strip prefixes, normalize casing)
+- All changes are to the template string HTML, not React components
 
-The milestone requirement states "cell dimensions unchanged -- use existing whitespace, not bigger rows." Current cell padding is `14px 16px`. The existing whitespace within cells can absorb larger font sizes because:
+**Why no new library:** The print system uses raw HTML strings rendered in a new window. This is the simplest possible print approach and works well. Adding a PDF library (like jsPDF or react-to-print) would be over-engineering for what is already a working pattern. The changes are string template edits.
 
-- Agent name cells have `whiteSpace: "nowrap"` and adequate horizontal padding (`14px + spacing[5]px`)
-- Daily cells center-align content with `16px` horizontal padding
-- The table has `minWidth: 760` which is far below 1920px, leaving generous horizontal space
+### 5. ACA Editable in Products Tab
 
-Increasing fonts within cells will consume vertical whitespace but the current `14px` top/bottom padding provides buffer.
+**Stack used:** Existing PayrollProducts.tsx CRUD pattern
+
+**What's needed:**
+- Extend the `ProductCard` component to handle `ACA_PL` product type (currently handles CORE, ADDON, AD_D)
+- Add `ACA_PL` to the `TYPE_LABELS` and `TYPE_COLORS` maps
+- Ensure the product edit form shows `flatCommission` field for ACA_PL type
+- API product routes already support all product types via Prisma
+
+**Why no new library:** The Products tab already has full CRUD. ACA_PL products exist in the database. The UI just needs the type added to display maps and the flat commission field shown conditionally.
+
+### 6. Zero-Value Validation Bug Fix
+
+**Stack used:** Zod
+
+**What's needed:**
+- The current Zod schema uses `.min(0)` which rejects `0`. Change to `.min(0)` with explicit zero allowance, or the issue may be that `0` is being treated as falsy in JavaScript conditionals
+- Inspect the PATCH `/payroll/entries/:id` handler -- the bug is likely in `parsed.data.bonusAmount ?? Number(entry.bonusAmount)` where `0` is not nullish but may be treated as "no change" somewhere in the UI
+
+**Why no new library:** This is a validation logic fix, not a technology gap.
+
+## Alternatives Considered
+
+| Category | Considered | Why NOT |
+|----------|-----------|---------|
+| Print/PDF | react-to-print, jsPDF | Existing window.open+print pattern works. Adding a library for cosmetic print changes is over-engineering. |
+| Accordion UI | @radix-ui/react-accordion | Project uses zero external UI libraries. Inline expand/collapse with useState is the established pattern. |
+| State management | zustand, jotai | Not needed. Component-level useState + authFetch is the pattern. Carryover is server-side logic. |
+| Form library | react-hook-form | Project uses manual form state with useState + Zod on the API. Consistent with 130K LOC of existing code. |
+| Migration tool | Other than Prisma | Prisma is the established tool. No reason to change for schema additions. |
+
+## Schema Changes Required (Prisma Migration)
+
+```prisma
+// Add to PayrollEntry model:
+bonusLabel           String?  @map("bonus_label")        // "Bonus", "Hold Payout", custom
+carryoverFromPeriodId String? @map("carryover_from_period_id")  // Track carryover origin
+
+// Optional: Add carryover relation
+carryoverFromPeriod  PayrollPeriod? @relation("CarryoverSource", fields: [carryoverFromPeriodId], references: [id])
+```
+
+**Alternative approach (simpler):** Instead of tracking carryover at the PayrollEntry level (which is per-sale), create a separate agent-level summary model or use the existing entry fields. Since bonus/fronted/hold are being moved to agent-level only, the carryover could be implemented as:
+
+1. When period locks, for each agent with nonzero fronted/hold: find or create a PayrollEntry in the next period and add the carryover amounts
+2. Track origin via audit log rather than a schema field (simpler, no migration for relation)
+
+The roadmap phase should decide which approach based on how visible carryover provenance needs to be in the UI.
+
+## Installation
+
+No new packages to install. Existing `npm install` from monorepo root is sufficient.
+
+```bash
+# Only migration needed
+npm run db:migrate
+```
 
 ## What NOT to Add
 
-| Library/Technique | Why Skip It |
-|-------------------|-------------|
-| `clamp()` / CSS functions | Fixed viewport; adds string-type fontSize breaking numeric pattern |
-| Viewport units (`vw`, `vh`) | Harder to reason about than explicit px for known screen |
-| `@media` queries | Single target resolution; no breakpoints needed |
-| CSS Container Queries | Overkill for static TV layout |
-| `react-responsive` / `react-use` | Zero benefit over hardcoded values for single-screen target |
-| Custom font (e.g., `Roboto Mono`) | Inter at weight 800 is excellent for numbers; monospace not needed |
-| `fitty` / `textFit` libraries | Auto-sizing libraries solve dynamic content; agent counts are 1-3 digits |
-| CSS Grid `auto-fit`/`auto-fill` | The table already handles column distribution; podium uses flex |
-
-## What to Change (Implementation Guidance)
-
-### Approach: Bump Static Values
-
-Create a font size constant object at the top of `page.tsx` to centralize TV-optimized values:
-
-```typescript
-const TV = {
-  // Weekly table
-  tableHeader: 18,      // was 15
-  agentName: 22,        // was 18
-  dailyCount: 24,       // was 20
-  dailyPremium: 15,     // was 12
-  totalCount: 30,       // was 24
-  totalPremium: 20,     // was 15
-  teamLabel: 18,        // was 14
-  teamDailyCount: 24,   // was 20
-  teamDailyPremium: 15, // was 12
-  teamGrandCount: 34,   // was 28
-  teamGrandPremium: 20, // was 16
-
-  // Daily podium
-  podium1Name: 22,      // was 17
-  podium1Count: 42,     // was 36
-  podium2Name: 19,      // was 15
-  podium2Count: 34,     // was 28
-  podium3Name: 17,      // was 14
-  podium3Count: 30,     // was 26
-  podiumPremium: 15,    // was 12
-
-  // Remaining agents
-  restName: 18,         // was 14
-  restCount: 34,        // was 28
-  restPremium: 15,      // was 12
-} as const;
-```
-
-This keeps the inline CSSProperties pattern (`fontSize: TV.agentName`) while making all TV-optimized values discoverable and tunable in one place.
-
-### Agent Count Scaling (9-15 agents)
-
-The weekly table handles variable agent counts naturally -- rows stack vertically with no overflow concern at 9-15 rows on a 1080px tall screen (each row ~50-60px = 450-900px total, well within budget with header/footer).
-
-The daily view's "remaining agents" section uses `flex: 1` columns with `minWidth: 0` and `maxWidth: 200`. For 6-12 remaining agents (after top 3 podium), this distributes evenly across 1920px width. No changes needed to the flex layout -- just the font sizes within columns.
-
-## Integration with Existing Patterns
-
-All changes stay within the existing pattern:
-
-- **Inline `React.CSSProperties`** -- fontSize remains a number, not a string
-- **Constant objects** -- the `TV` constant follows the existing `TH`, `PODIUM_CONFIG` pattern
-- **No CSS files** -- no `@media`, no `clamp()`, no global styles
-- **No new imports** -- zero new dependencies
-- **Inter font** -- already loaded, already used at weight 800
+| Library | Why Tempting | Why Wrong |
+|---------|-------------|-----------|
+| `react-to-print` | "Clean print integration" | Print already works via window.open. The changes are template string edits. |
+| `@radix-ui/*` | "Accessible accordion for agent cards" | 130K LOC of inline CSSProperties + useState. Adding a component library now creates two patterns. |
+| `zustand` | "Complex state for carryover tracking" | Carryover is server-side. Client just fetches and displays. |
+| `react-query` / `swr` | "Better data fetching" | `authFetch` with `useEffect` is the universal pattern. Changing it means refactoring every component. |
+| `decimal.js` | "Precise financial math" | Prisma Decimal fields + server-side calculation already handle precision. Client displays only. |
 
 ## Sources
 
-- Direct analysis of `apps/sales-board/app/page.tsx` (current font sizes, layout structure, styling patterns)
-- Direct analysis of `apps/sales-board/app/layout.tsx` (Inter font, ThemeProvider)
-- TV typography guidelines: 24px minimum for body text at 10ft on 1080p (MEDIUM confidence -- general industry guidance, not verified against a specific standard)
-- CSS `clamp()` incompatibility with `React.CSSProperties` number type: verified via TypeScript type definition (`fontSize` accepts `number | string`, but project convention is numbers only)
+- Prisma schema: `prisma/schema.prisma` (direct codebase inspection)
+- Payroll service: `apps/ops-api/src/services/payroll.ts` (direct codebase inspection)
+- Payroll routes: `apps/ops-api/src/routes/payroll.ts` (direct codebase inspection)
+- Dashboard components: `apps/ops-dashboard/app/(dashboard)/payroll/` (direct codebase inspection)
+- Package manifests: `package.json`, `apps/ops-api/package.json`, `apps/ops-dashboard/package.json` (direct codebase inspection)
+- Project context: `.planning/PROJECT.md` (direct codebase inspection)
