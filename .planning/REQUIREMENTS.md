@@ -17,7 +17,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### ACA Product
 
-- [ ] **ACA-01**: ACA PL product is editable in the Products tab with configurable commission amount
+- [x] **ACA-01**: ACA PL product is editable in the Products tab with configurable commission amount
 
 ### Carryover System
 
@@ -61,7 +61,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-03 | Phase 38 | Complete |
 | FIX-04 | Phase 38 | Complete |
 | FIX-05 | Phase 38 | Complete |
-| ACA-01 | Phase 39 | Pending |
+| ACA-01 | Phase 39 | Complete |
 | CARRY-01 | Phase 40 | Pending |
 | CARRY-02 | Phase 40 | Pending |
 | CARRY-03 | Phase 40 | Pending |
