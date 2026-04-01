@@ -76,7 +76,7 @@ function applyEnrollmentFee(commission: number, enrollmentFee: number | null, co
     halfThreshold = 50;
   }
 
-  if (fee < halfThreshold && !commissionApproved) {
+  if (fee < halfThreshold) {
     return { finalCommission: commission, enrollmentBonus, feeHalvingReason: `Half commission - waived enrollment fee` };
   }
 
@@ -174,7 +174,7 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     }
 
     // --- BUNDLE QUALIFIER CHECK (collect reason, don't halve yet) ---
-    if (bundleCtx && !bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable && !sale.commissionApproved) {
+    if (bundleCtx && !bundleCtx.requiredAddonAvailable && !bundleCtx.fallbackAddonAvailable) {
       halvingReason = bundleCtx.halvingReason;
     }
   } else {
@@ -200,9 +200,10 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
   );
 
   // Combine halving reasons — halve only once regardless of how many reasons
+  // Reasons are ALWAYS collected; halving is ONLY applied when NOT approved
   const reasons = [halvingReason, feeHalvingReason].filter(Boolean);
   const combinedReason = reasons.length > 0 ? reasons.join("; ") : null;
-  const halvedCommission = combinedReason ? finalCommission / 2 : finalCommission;
+  const halvedCommission = (combinedReason && !sale.commissionApproved) ? finalCommission / 2 : finalCommission;
 
   return {
     commission: Math.round((halvedCommission + enrollmentBonus) * 100) / 100,
@@ -351,7 +352,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   const fronted = existing ? Number(existing.frontedAmount) : 0;
   const hold = existing ? Number(existing.holdAmount) : 0;
   const adjustment = existing ? Number(existing.adjustmentAmount) : 0;
-  const netAmount = payoutAmount + adjustment + bonus - fronted - hold;
+  const netAmount = payoutAmount + adjustment + bonus + fronted - hold;
 
   return prisma.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },

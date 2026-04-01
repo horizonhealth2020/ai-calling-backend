@@ -203,7 +203,7 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
   const hold = parsed.data.holdAmount ?? Number(entry.holdAmount);
-  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted - hold;
+  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus + fronted - hold;
   const updated = await prisma.payrollEntry.update({
     where: { id: pp.data.id },
     data: { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net },

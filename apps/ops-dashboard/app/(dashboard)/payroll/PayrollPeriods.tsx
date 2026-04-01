@@ -209,8 +209,8 @@ function EditableSaleRow({
   const hasNotes = !!entry.sale?.notes;
 
   const fee = entry.sale?.enrollmentFee != null ? Number(entry.sale.enrollmentFee) : null;
-  const needsApproval = fee !== null && fee < 99 && !entry.sale?.commissionApproved;
-  const isApproved = entry.sale?.commissionApproved && fee !== null && fee < 99;
+  const needsApproval = !!entry.halvingReason && !entry.sale?.commissionApproved;
+  const isApproved = !!entry.halvingReason && !!entry.sale?.commissionApproved;
   const saleStatus = entry.sale?.status ?? "RAN";
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
@@ -786,7 +786,7 @@ function AgentPayCard({
         <div style={{ marginLeft: "auto" }}>
           <div style={HEADER_LBL}>Net</div>
           {(() => {
-            const liveNet = agentGross + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
+            const liveNet = agentGross + (Number(headerBonus) || 0) + (Number(headerFronted) || 0) - (Number(headerHold) || 0);
             return (
               <div style={{ fontSize: 16, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
                 <AnimatedNumber value={liveNet} prefix="$" decimals={2} />
@@ -1278,7 +1278,7 @@ export default function PayrollPeriods({
   .prod-block { display: inline-flex; flex-direction: column; align-items: center; }
   .prod-name { font-size: 11px; font-weight: 600; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
   .prod-premium { font-size: 10px; color: #64748b; }
-  .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-top: 2px; }
+  .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-right: 4px; }
   .pill-approved { background: #d1fae5; color: #059669; }
   .pill-warn { background: #fef3c7; color: #d97706; }
   @media print { body { padding: 0; } .agent-card { padding: 2px 0; } }
@@ -1334,7 +1334,7 @@ export default function PayrollPeriods({
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}${enrollBonusHtml}</td>
-        <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}${commFlagHtml}</td>
+        <td class="right" style="font-weight:700">${commFlagHtml}$${Number(e.payoutAmount).toFixed(2)}</td>
       </tr>`;
           }).join("") +
           `<tr class="subtotal">
@@ -1523,7 +1523,7 @@ export default function PayrollPeriods({
         const expanded     = expandedPeriod === p.id;
         const statusCfg    = STATUS_BADGE[p.status] ?? { color: C.textSecondary, label: p.status };
         const needsApproval = p.entries.filter(
-          e => e.sale && e.sale.enrollmentFee !== null && Number(e.sale.enrollmentFee) < 99 && !e.sale.commissionApproved
+          e => e.halvingReason && !e.sale?.commissionApproved
         );
 
         const byAgent = new Map<string, Entry[]>();
