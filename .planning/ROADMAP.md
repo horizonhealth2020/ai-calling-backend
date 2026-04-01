@@ -55,7 +55,11 @@ Plans:
   7. Bonus label shows "Hold Payout" when from carryover, editable inline
   8. Agent cards appear even with zero sales when carryover exists
   9. Carryover is idempotent — lock/unlock does not duplicate
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 40-01-PLAN.md -- Schema + migration + net formula fix + approval logic + print pills (CARRY-01, NET-01, FIX-06, FIX-07, FIX-08)
+- [ ] 40-02-PLAN.md -- Carryover service + tests + adjustment CRUD endpoints (CARRY-02, CARRY-03, CARRY-04, CARRY-06, CARRY-07)
+- [ ] 40-03-PLAN.md -- Dashboard integration: EditableLabel, CarryoverHint, zero-sales cards (CARRY-05, CARRY-08, CARRY-09)
 
 ### Phase 41: Payroll Card Restructure
 **Goal**: Payroll view uses agent-level collapsible cards with week-by-week sale grouping, and print template matches screen layout
@@ -73,7 +77,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
 | 39. ACA Product Configuration | 1/1 | Complete    | 2026-04-01 |
-| 40. Agent-Level Adjustments + Carryover | 0/? | Not started | - |
+| 40. Agent-Level Adjustments + Carryover | 0/3 | Not started | - |
 | 41. Payroll Card Restructure | 0/? | Not started | - |
 
 ---
