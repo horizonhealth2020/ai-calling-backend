@@ -25,7 +25,7 @@
   3. Print card sale rows show commission per row with no Net column
   4. Addon names on pay cards display as shortened labels that fit within their cells without overflow
   5. Half-commission deals show "Approved" pill when approved or the specific halving reason (e.g., "Waived Fee", "Missing Add-on") in print view
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 38-01-PLAN.md -- Fix zero-value input validation and fronted positive orange display (FIX-01, FIX-02)
 - [x] 38-02-PLAN.md -- Fix print view: Net column removal, addon badge layout, half-commission indicators (FIX-03, FIX-04, FIX-05)
@@ -65,7 +65,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 38. Quick Fixes | 2/2 | Complete | 2026-04-01 |
+| 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
 | 39. ACA Product Configuration | 0/? | Not started | - |
 | 40. Agent-Level Adjustments + Carryover | 0/? | Not started | - |
 | 41. Payroll Card Restructure | 0/? | Not started | - |
