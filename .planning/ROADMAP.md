@@ -42,15 +42,19 @@ Plans:
 - [x] 39-01-PLAN.md -- Add flatCommission to API PATCH schema and extend Products tab UI with ACA PL support (ACA-01)
 
 ### Phase 40: Agent-Level Adjustments + Carryover System
-**Goal**: Bonus/fronted/hold live at agent level only, and fronted/hold amounts auto-carry to the next period on lock
+**Goal**: Fix approval logic, correct net formula (fronted is positive), move adjustments to agent-level storage, and implement auto-carryover on period lock
 **Depends on**: Phase 38 (zero-value fix and display corrections must be in place before restructuring inputs)
-**Requirements**: CARRY-01, CARRY-02, CARRY-03, CARRY-04, CARRY-05, CARRY-06
+**Requirements**: FIX-06, FIX-07, FIX-08, NET-01, CARRY-01, CARRY-02, CARRY-03, CARRY-04, CARRY-05, CARRY-06, CARRY-07, CARRY-08, CARRY-09
 **Success Criteria** (what must be TRUE):
-  1. Bonus, fronted, and hold inputs appear only on the agent card header -- not on individual sale rows
-  2. Locking a period auto-populates the next period: current fronted becomes next hold, current hold becomes next bonus
-  3. Auto-populated carryover amounts are editable by payroll staff after population
-  4. Bonus label shows "Hold Payout" when sourced from carryover and "Bonus" otherwise, and the label is manually editable
-  5. Locking and unlocking a period multiple times does not create duplicate carryover entries
+  1. Approve/Unapprove buttons appear based on halvingReason, not enrollment fee threshold
+  2. Print pills (Approved/Half commission) appear left of commission amount for column alignment
+  3. Net formula is Commission + Bonus + Fronted - Hold (fronted is cash advance, added not subtracted)
+  4. Bonus/fronted/hold stored at agent+period level (AgentPeriodAdjustment table)
+  5. On period lock, fronted carries as hold in next period; negative net carries as hold
+  6. Carryover amounts are editable and add to existing values (no overwrite)
+  7. Bonus label shows "Hold Payout" when from carryover, editable inline
+  8. Agent cards appear even with zero sales when carryover exists
+  9. Carryover is idempotent — lock/unlock does not duplicate
 **Plans**: TBD
 
 ### Phase 41: Payroll Card Restructure

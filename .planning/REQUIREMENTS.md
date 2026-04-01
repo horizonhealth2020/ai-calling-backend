@@ -19,14 +19,24 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **ACA-01**: ACA PL product is editable in the Products tab with configurable commission amount
 
+### Approval & Display Fixes
+
+- [ ] **FIX-06**: Approve/Unapprove button based on halvingReason (not enrollment fee threshold)
+- [ ] **FIX-07**: Print view pills (Approved/Half commission) positioned left of commission amount for column alignment
+- [ ] **FIX-08**: Approved sales show green Approved pill in print view (fix missing pill bug)
+- [ ] **NET-01**: Net formula changed to Commission + Bonus + Fronted - Hold (fronted is cash advance, positive on current check)
+
 ### Carryover System
 
-- [ ] **CARRY-01**: Bonus/fronted/hold amounts live at agent level only — not deducted from individual sale rows
-- [ ] **CARRY-02**: Fronted amount from current period auto-populates as hold in the next period on lock
-- [ ] **CARRY-03**: Hold amount from current period auto-populates as bonus in the next period on lock
+- [ ] **CARRY-01**: Bonus/fronted/hold stored at agent+period level (new AgentPeriodAdjustment table) — not on individual sale entries
+- [ ] **CARRY-02**: Fronted amount from current period auto-carries as hold in next period on lock (cash advance repayment)
+- [ ] **CARRY-03**: If net goes negative (hold > income), unpaid portion carries as hold in next period
 - [ ] **CARRY-04**: Carryover amounts are editable after auto-population (payroll can adjust as agents pay down)
-- [ ] **CARRY-05**: Bonus box label is editable — shows "Hold Payout" when sourced from carryover, "Bonus" otherwise
+- [ ] **CARRY-05**: Bonus label shows "Hold Payout" when sourced from carryover; hold label shows source. Labels editable inline.
 - [ ] **CARRY-06**: Carryover is idempotent — locking/unlocking a period does not create duplicate carryover entries
+- [ ] **CARRY-07**: Carryover adds to existing values in next period (does not overwrite)
+- [ ] **CARRY-08**: Agent cards appear even with zero sales if carryover exists (shows negative net if applicable)
+- [ ] **CARRY-09**: Subtle "Carried from prev week" text below inputs when values are from carryover
 
 ### Payroll Card Restructure
 
@@ -62,18 +72,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-04 | Phase 38 | Complete |
 | FIX-05 | Phase 38 | Complete |
 | ACA-01 | Phase 39 | Complete |
+| FIX-06 | Phase 40 | Pending |
+| FIX-07 | Phase 40 | Pending |
+| FIX-08 | Phase 40 | Pending |
+| NET-01 | Phase 40 | Pending |
 | CARRY-01 | Phase 40 | Pending |
 | CARRY-02 | Phase 40 | Pending |
 | CARRY-03 | Phase 40 | Pending |
 | CARRY-04 | Phase 40 | Pending |
 | CARRY-05 | Phase 40 | Pending |
 | CARRY-06 | Phase 40 | Pending |
+| CARRY-07 | Phase 40 | Pending |
+| CARRY-08 | Phase 40 | Pending |
+| CARRY-09 | Phase 40 | Pending |
 | CARD-01 | Phase 41 | Pending |
 | CARD-02 | Phase 41 | Pending |
 
 **Coverage:**
-- v2.1 requirements: 14 total
-- Mapped to phases: 14
+- v2.1 requirements: 21 total
+- Mapped to phases: 21
 - Unmapped: 0
 
 ---
