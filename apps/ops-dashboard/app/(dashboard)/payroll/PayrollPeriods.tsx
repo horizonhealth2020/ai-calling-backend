@@ -1266,6 +1266,13 @@ export default function PayrollPeriods({
   .flag { font-size: 10px; font-style: italic; margin-top: 2px; }
   .flag-warn { color: #d97706; }
   .flag-bonus { color: #059669; }
+  .prod-group { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+  .prod-block { display: inline-flex; flex-direction: column; align-items: center; }
+  .prod-name { font-size: 11px; font-weight: 600; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+  .prod-premium { font-size: 10px; color: #64748b; }
+  .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-top: 2px; }
+  .pill-approved { background: #d1fae5; color: #059669; }
+  .pill-warn { background: #fef3c7; color: #d97706; }
   @media print { body { padding: 0; } .agent-card { padding: 16px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
@@ -1297,22 +1304,30 @@ export default function PayrollPeriods({
             if (e.sale?.product?.type) byType[e.sale.product.type]?.push({ name: e.sale.product.name, premium: Number(e.sale.premium) });
             if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push({ name: ad.product.name, premium: ad.premium != null ? Number(ad.premium) : undefined });
             const printProd = (items: { name: string; premium?: number }[]) => items.length
-              ? items.map(p => p.name + (p.premium != null ? `<br><span style="font-size:10px;color:#64748b">$${p.premium.toFixed(2)}</span>` : "")).join(", ")
+              ? `<div class="prod-group">${items.map(p => `<div class="prod-block"><span class="prod-name">${p.name}</span>${p.premium != null ? `<span class="prod-premium">$${p.premium.toFixed(2)}</span>` : ""}</div>`).join("")}</div>`
               : "\u2014";
-            const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
-            const flags: string[] = [];
-            if (e.halvingReason) flags.push(`<div class="flag flag-warn">${e.halvingReason}</div>`);
+            // Build commission indicators (below commission amount)
+            const commFlags: string[] = [];
+            if (e.halvingReason && e.sale?.commissionApproved) {
+              commFlags.push(`<div class="pill pill-approved">Approved</div>`);
+            } else if (e.halvingReason) {
+              commFlags.push(`<div class="pill pill-warn">${e.halvingReason}</div>`);
+            }
+            const commFlagHtml = commFlags.length > 0 ? commFlags.join("") : "";
+
+            // Enrollment bonus goes below enrollment fee, not in member name
             const enrollFee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee) : 0;
-            if (enrollFee >= 125) flags.push(`<div class="flag flag-bonus">+$10 enrollment bonus</div>`);
-            const flagHtml = flags.length > 0 ? flags.join("") : "";
+            const enrollBonusHtml = enrollFee >= 125 ? `<div class="flag flag-bonus">+$10</div>` : "";
+            const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
+
             return `<tr>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
-        <td>${e.sale?.memberName ?? "\u2014"}${flagHtml}</td>
+        <td>${e.sale?.memberName ?? "\u2014"}</td>
         <td class="center core">${printProd(byType.CORE)}</td>
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
-        <td class="right">${fee}</td>
-        <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
+        <td class="right">${fee}${enrollBonusHtml}</td>
+        <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}${commFlagHtml}</td>
       </tr>`;
           }).join("") +
           `<tr class="subtotal">
