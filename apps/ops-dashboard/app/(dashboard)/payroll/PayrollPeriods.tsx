@@ -639,9 +639,9 @@ function AgentPayCard({
     const firstActive = activeEntries[0] ?? entries[0];
     if (!firstActive) return;
 
-    const newBonus = field === "bonus" ? Number(firstActive.bonusAmount) + delta : Number(firstActive.bonusAmount);
-    const newFronted = field === "fronted" ? Number(firstActive.frontedAmount) + delta : Number(firstActive.frontedAmount);
-    const newHold = field === "hold" ? Number(firstActive.holdAmount ?? 0) + delta : Number(firstActive.holdAmount ?? 0);
+    const newBonus = Math.max(0, field === "bonus" ? Number(firstActive.bonusAmount) + delta : Number(firstActive.bonusAmount));
+    const newFronted = Math.max(0, field === "fronted" ? Number(firstActive.frontedAmount) + delta : Number(firstActive.frontedAmount));
+    const newHold = Math.max(0, field === "hold" ? Number(firstActive.holdAmount ?? 0) + delta : Number(firstActive.holdAmount ?? 0));
     await onBonusFrontedUpdate(firstActive.id, newBonus, newFronted, newHold);
   };
 
@@ -1311,7 +1311,7 @@ export default function PayrollPeriods({
             if (e.halvingReason && e.sale?.commissionApproved) {
               commFlags.push(`<div class="pill pill-approved">Approved</div>`);
             } else if (e.halvingReason) {
-              commFlags.push(`<div class="pill pill-warn">${e.halvingReason}</div>`);
+              commFlags.push(`<div class="pill pill-warn">Half commission</div>`);
             }
             const commFlagHtml = commFlags.length > 0 ? commFlags.join("") : "";
 
