@@ -103,9 +103,10 @@ None currently.
 | 260330-irn | Add notes dropdown to agent sales and payroll views | 2026-03-30 | c305ca3 | [260330-irn-add-notes-dropdown-to-agent-sales-and-pa](./quick/260330-irn-add-notes-dropdown-to-agent-sales-and-pa/) |
 | 260330-jfj | Add audio buffer validation to audit queue | 2026-03-30 | b67ad52 | [260330-jfj-add-audio-buffer-validation-to-audit-que](./quick/260330-jfj-add-audio-buffer-validation-to-audit-queue/) |
 | 260401-n4p | Fix payroll card collapse on edit, approval badges, summary colors | 2026-04-01 | 2330e49 | [260401-n4p-fix-payroll-card-collapse-on-edit-restor](./quick/260401-n4p-fix-payroll-card-collapse-on-edit-restor/) |
+| 260401-nu5 | Chargebacks target oldest OPEN period, per-product partial chargebacks | 2026-04-01 | 40aae1b | [260401-nu5-chargebacks-apply-to-oldest-open-payroll](./quick/260401-nu5-chargebacks-apply-to-oldest-open-payroll/) |
 
 ---
 *State initialized: 2026-03-14*
 *v2.1 milestone shipped: 2026-04-01*
-*Last session: 2026-04-01 -- Completed quick task 260401-n4p*
+*Last session: 2026-04-01 -- Completed quick task 260401-nu5*
 *Last updated: 2026-04-01*
