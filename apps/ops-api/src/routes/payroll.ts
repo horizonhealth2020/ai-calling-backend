@@ -4,6 +4,7 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { executeCarryover } from "../services/carryover";
+import { findOldestOpenPeriodForAgent, calculatePerProductCommission } from "../services/payroll";
 import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
@@ -169,37 +170,126 @@ router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_A
 }));
 
 router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
-  const parsed3 = z.object({ memberId: z.string().optional(), memberName: z.string().optional(), notes: z.string().optional() }).safeParse(req.body);
+  const parsed3 = z.object({
+    memberId: z.string().optional(),
+    memberName: z.string().optional(),
+    notes: z.string().optional(),
+    productIds: z.array(z.string()).optional(),
+  }).safeParse(req.body);
   if (!parsed3.success) return res.status(400).json(zodErr(parsed3.error));
   const payload = parsed3.data;
   const sale = payload.memberId
-    ? await prisma.sale.findFirst({ where: { memberId: payload.memberId }, include: { payrollEntries: true } })
-    : await prisma.sale.findFirst({ where: { memberName: payload.memberName }, include: { payrollEntries: true } });
+    ? await prisma.sale.findFirst({
+        where: { memberId: payload.memberId },
+        include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
+      })
+    : await prisma.sale.findFirst({
+        where: { memberName: payload.memberName },
+        include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
+      });
   if (!sale) return res.status(404).json({ error: "Matching sale not found" });
 
-  const lastEntry = sale.payrollEntries[0];
-  const zeroOut = !lastEntry || lastEntry.status !== "PAID";
+  // Find the oldest OPEN period for this agent (instead of first entry)
+  let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+
+  // Fallback: if no OPEN period, use the most recent payroll entry's period
+  if (!targetPeriodId && sale.payrollEntries.length > 0) {
+    targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
+  }
+
+  // Find the payroll entry in the target period for this sale
+  const targetEntry = targetPeriodId
+    ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
+    : sale.payrollEntries[0];
+
+  // Calculate chargeback amount
+  let chargebackAmount: number;
+  const productIds = payload.productIds;
+  if (productIds && productIds.length > 0) {
+    const fullPayout = targetEntry ? Number(targetEntry.payoutAmount) : 0;
+    chargebackAmount = calculatePerProductCommission(sale as Parameters<typeof calculatePerProductCommission>[0], productIds, fullPayout);
+  } else {
+    chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : 0;
+  }
+
+  // Build notes with product names for partial chargebacks
+  let notes = payload.notes || "";
+  if (productIds && productIds.length > 0) {
+    const allProducts = [sale.product, ...sale.addons.map(a => a.product)];
+    const selectedNames = allProducts.filter(p => productIds.includes(p.id)).map(p => p.name);
+    if (selectedNames.length < allProducts.length) {
+      notes = `Partial chargeback: ${selectedNames.join(", ")}${notes ? ` | ${notes}` : ""}`;
+    }
+  }
+
+  const zeroOut = !targetEntry || targetEntry.status !== "PAID";
   const clawback = await prisma.clawback.create({
     data: {
       saleId: sale.id,
       agentId: sale.agentId,
       matchedBy: payload.memberId ? "member_id" : "member_name",
       matchedValue: payload.memberId || payload.memberName || "",
-      amount: lastEntry?.netAmount || 0,
+      amount: chargebackAmount,
       status: zeroOut ? "ZEROED" : "DEDUCTED",
-      notes: payload.notes,
+      appliedPayrollPeriodId: targetPeriodId || undefined,
+      notes: notes || undefined,
     },
   });
-  if (lastEntry) {
+
+  // Create ClawbackProduct records for per-product tracking
+  if (productIds && productIds.length > 0) {
+    const allProducts = [sale.product, ...sale.addons.map(a => a.product)];
+    const fullPayout = targetEntry ? Number(targetEntry.payoutAmount) : 0;
+    const productRecords = productIds
+      .filter(pid => allProducts.some(p => p.id === pid))
+      .map(pid => ({
+        clawbackId: clawback.id,
+        productId: pid,
+        amount: calculatePerProductCommission(sale as Parameters<typeof calculatePerProductCommission>[0], [pid], fullPayout),
+      }));
+    if (productRecords.length > 0) {
+      await prisma.clawbackProduct.createMany({ data: productRecords });
+    }
+  }
+
+  if (targetEntry) {
     await prisma.payrollEntry.update({
-      where: { id: lastEntry.id },
+      where: { id: targetEntry.id },
       data: zeroOut
         ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
-        : { adjustmentAmount: Number(lastEntry.adjustmentAmount) - Number(lastEntry.netAmount), status: "CLAWBACK_APPLIED" },
+        : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
     });
   }
-  await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, { saleId: sale.id, status: clawback.status, amount: Number(clawback.amount) });
+  await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, { saleId: sale.id, status: clawback.status, amount: chargebackAmount });
   res.status(201).json(clawback);
+}));
+
+// ── Clawback sale lookup (for product selection UI) ─────────────
+router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const parsed = z.object({
+    memberId: z.string().optional(),
+    memberName: z.string().optional(),
+  }).safeParse(req.query);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const { memberId, memberName } = parsed.data;
+  if (!memberId && !memberName) return res.status(400).json({ error: "Provide memberId or memberName" });
+
+  const sale = memberId
+    ? await prisma.sale.findFirst({
+        where: { memberId },
+        include: { product: { select: { id: true, name: true, type: true } }, addons: { include: { product: { select: { id: true, name: true, type: true } } } } },
+      })
+    : await prisma.sale.findFirst({
+        where: { memberName },
+        include: { product: { select: { id: true, name: true, type: true } }, addons: { include: { product: { select: { id: true, name: true, type: true } } } } },
+      });
+  if (!sale) return res.status(404).json({ error: "No matching sale found" });
+
+  const products = [
+    { id: sale.product.id, name: sale.product.name, type: sale.product.type },
+    ...sale.addons.map(a => ({ id: a.product.id, name: a.product.name, type: a.product.type })),
+  ];
+  res.json({ saleId: sale.id, memberName: sale.memberName, memberId: sale.memberId, products });
 }));
 
 // ── Payroll Entry adjustments (bonus / fronted) ─────────────────

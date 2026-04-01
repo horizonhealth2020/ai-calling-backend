@@ -157,9 +157,10 @@ model Product {
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  sales       Sale[]
-  payoutRules PayoutRule[]
-  saleAddons  SaleAddon[]
+  sales            Sale[]
+  payoutRules      PayoutRule[]
+  saleAddons       SaleAddon[]
+  clawbackProducts ClawbackProduct[]
 
   @@map("products")
 }
@@ -401,8 +402,23 @@ model Clawback {
   sale                 Sale           @relation(fields: [saleId], references: [id])
   agent                Agent          @relation(fields: [agentId], references: [id])
   appliedPayrollPeriod PayrollPeriod? @relation(fields: [appliedPayrollPeriodId], references: [id])
+  clawbackProducts     ClawbackProduct[]
 
   @@map("clawbacks")
+}
+
+model ClawbackProduct {
+  id          String   @id @default(cuid())
+  clawbackId  String   @map("clawback_id")
+  productId   String   @map("product_id")
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  clawback Clawback @relation(fields: [clawbackId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@unique([clawbackId, productId])
+  @@map("clawback_products")
 }
 
 model SalesBoardSetting {

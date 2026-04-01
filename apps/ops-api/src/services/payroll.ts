@@ -368,6 +368,125 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   });
 };
 
+/**
+ * Find the oldest OPEN payroll period that has entries for a given agent.
+ * Returns the period ID or null if no OPEN period exists for this agent.
+ */
+export async function findOldestOpenPeriodForAgent(agentId: string): Promise<string | null> {
+  const period = await prisma.payrollPeriod.findFirst({
+    where: {
+      status: "OPEN",
+      entries: { some: { agentId } },
+    },
+    orderBy: { weekStart: "asc" },
+    select: { id: true },
+  });
+  return period?.id ?? null;
+}
+
+/**
+ * Calculate commission for specific products in a sale (partial chargeback).
+ * If productIds includes all products or is empty, returns the full payout amount.
+ */
+export function calculatePerProductCommission(
+  sale: SaleWithProduct & { memberCount?: number | null; enrollmentFee?: unknown; commissionApproved?: boolean },
+  productIds: string[],
+  fullPayoutAmount: number,
+): number {
+  // Collect all product IDs in the sale
+  const allProductIds = new Set<string>();
+  allProductIds.add(sale.product.id);
+  for (const addon of (sale.addons ?? [])) {
+    allProductIds.add(addon.product.id);
+  }
+
+  // If all products selected or none specified, return full amount
+  if (productIds.length === 0 || productIds.length >= allProductIds.size) {
+    const allIncluded = productIds.every(id => allProductIds.has(id));
+    if (allIncluded && productIds.length >= allProductIds.size) {
+      return fullPayoutAmount;
+    }
+  }
+
+  const selectedSet = new Set(productIds);
+  const allEntries = [
+    { product: sale.product, premium: Number(sale.premium) },
+    ...(sale.addons ?? []).map(a => ({ product: a.product, premium: Number(a.premium ?? 0) })),
+  ];
+
+  const coreEntry = allEntries.find(e => e.product.type === "CORE");
+  const hasCoreInSale = !!coreEntry;
+  const coreSelected = coreEntry ? selectedSet.has(coreEntry.product.id) : false;
+
+  let totalCommission = 0;
+
+  // ACA_PL: flat commission
+  if (sale.product.type === "ACA_PL" && selectedSet.has(sale.product.id)) {
+    const flatAmount = Number(sale.product.flatCommission ?? 0);
+    const count = sale.memberCount ?? 1;
+    return Math.round(flatAmount * count * 100) / 100;
+  }
+
+  if (hasCoreInSale) {
+    // Determine core rate
+    const bundlePremium = allEntries
+      .filter(e =>
+        (e.product.type === "CORE" || e.product.type === "ADDON") &&
+        e.product.bundledCommission === null
+      )
+      .reduce((sum, e) => sum + e.premium, 0);
+
+    const threshold = Number(coreEntry!.product.premiumThreshold ?? 0);
+    const rate = bundlePremium >= threshold
+      ? Number(coreEntry!.product.commissionAbove ?? 0)
+      : Number(coreEntry!.product.commissionBelow ?? 0);
+
+    // Core product contribution
+    if (coreSelected) {
+      totalCommission += Number(sale.premium) * (rate / 100);
+    }
+
+    // Addons bundled into core (bundledCommission = null)
+    for (const entry of allEntries.filter(
+      e => e.product.type === "ADDON" && e.product.bundledCommission === null && selectedSet.has(e.product.id)
+    )) {
+      totalCommission += entry.premium * (rate / 100);
+    }
+
+    // Addons with own bundledCommission rate
+    for (const entry of allEntries.filter(
+      e => e.product.type === "ADDON" && e.product.bundledCommission !== null && selectedSet.has(e.product.id)
+    )) {
+      const addonRate = Number(entry.product.bundledCommission ?? 0);
+      totalCommission += entry.premium * (addonRate / 100);
+    }
+
+    // AD_D (separate calculation, bundled rate)
+    for (const entry of allEntries.filter(e => e.product.type === "AD_D" && selectedSet.has(e.product.id))) {
+      const addDRate = Number(entry.product.bundledCommission ?? 0);
+      totalCommission += entry.premium * (addDRate / 100);
+    }
+
+    // Enrollment fee bonus only if core is included
+    if (coreSelected) {
+      const enrollFee = sale.enrollmentFee != null ? Number(sale.enrollmentFee) : null;
+      if (enrollFee !== null && enrollFee >= 125) {
+        totalCommission += 10; // ENROLLMENT_BONUS_AMOUNT
+      }
+    }
+  } else {
+    // Standalone (no core)
+    for (const entry of allEntries.filter(e => selectedSet.has(e.product.id))) {
+      if (entry.product.type === "AD_D" || entry.product.type === "ADDON") {
+        const rate = Number(entry.product.standaloneCommission ?? 0);
+        totalCommission += entry.premium * (rate / 100);
+      }
+    }
+  }
+
+  return Math.round(totalCommission * 100) / 100;
+}
+
 export const isAgentPaidInPeriod = async (agentId: string, payrollPeriodId: string): Promise<boolean> => {
   const paidEntries = await prisma.payrollEntry.findMany({
     where: {
