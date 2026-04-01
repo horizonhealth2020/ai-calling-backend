@@ -55,7 +55,7 @@ Plans:
   7. Bonus label shows "Hold Payout" when from carryover, editable inline
   8. Agent cards appear even with zero sales when carryover exists
   9. Carryover is idempotent — lock/unlock does not duplicate
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 40-01-PLAN.md -- Schema + migration + net formula fix + approval logic + print pills (CARRY-01, NET-01, FIX-06, FIX-07, FIX-08)
 - [x] 40-02-PLAN.md -- Carryover service + tests + adjustment CRUD endpoints (CARRY-02, CARRY-03, CARRY-04, CARRY-06, CARRY-07)
