@@ -1251,13 +1251,13 @@ export default function PayrollPeriods({
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payroll - ${fmtDate(period.weekStart)} to ${fmtDate(period.weekEnd)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; background: #fff; padding: 20px; }
-  .agent-card { page-break-after: always; padding: 24px 0; }
+  @page { margin: 6mm 10mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; background: #fff; padding: 8px; }
+  .agent-card { page-break-after: always; padding: 4px 0; }
   .agent-card:last-child { page-break-after: auto; }
-  .header { border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+  .header { border-bottom: 2px solid #1e293b; padding-bottom: 6px; margin-bottom: 8px; }
   .header h1 { font-size: 20px; font-weight: 800; }
-  .header .meta { font-size: 13px; color: #64748b; margin-top: 4px; }
-  .summary { display: flex; gap: 24px; margin-bottom: 16px; }
+  .summary { display: flex; gap: 24px; margin-bottom: 10px; }
   .summary-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; }
   .summary-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
   .summary-value { font-size: 18px; font-weight: 800; margin-top: 2px; }
@@ -1281,7 +1281,7 @@ export default function PayrollPeriods({
   .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-top: 2px; }
   .pill-approved { background: #d1fae5; color: #059669; }
   .pill-warn { background: #fef3c7; color: #d97706; }
-  @media print { body { padding: 0; } .agent-card { padding: 16px 0; } }
+  @media print { body { padding: 0; } .agent-card { padding: 2px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
         const agentGross   = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
@@ -1291,8 +1291,7 @@ export default function PayrollPeriods({
         const agentNet     = entries.reduce((s, e) => s + Number(e.netAmount), 0);
         return `<div class="agent-card">
   <div class="header">
-    <h1>${agentName}</h1>
-    <div class="meta">Sunday ${fmtDate(period.weekStart)} \u2013 Saturday ${fmtDate(period.weekEnd)} &nbsp;\u00B7&nbsp; ${period.quarterLabel} &nbsp;\u00B7&nbsp; ${entries.length} sale${entries.length !== 1 ? "s" : ""}</div>
+    <h1>${agentName} <span style="font-size:13px;font-weight:400;color:#64748b;margin-left:8px">${entries.length} sale${entries.length !== 1 ? "s" : ""}</span></h1>
   </div>
   <div class="summary">
     <div class="summary-item"><div class="summary-label">Commission</div><div class="summary-value">$${agentGross.toFixed(2)}</div></div>
