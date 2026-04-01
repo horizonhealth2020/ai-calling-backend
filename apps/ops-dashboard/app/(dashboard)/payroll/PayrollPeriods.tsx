@@ -807,7 +807,7 @@ function AgentPayCard({
 
       {/* Financial summary strip */}
       <div style={{
-        display: "flex", gap: 16, alignItems: "center",
+        display: "flex", gap: 16, alignItems: "flex-end",
         padding: "10px 20px",
         background: "rgba(255,255,255,0.02)",
         borderBottom: `1px solid ${C.borderSubtle}`,
@@ -848,10 +848,10 @@ function AgentPayCard({
             onChange={e => setHeaderBonus(e.target.value)}
             onBlur={() => handleHeaderBlur("bonus", headerBonus)}
           />
-          <CarryoverHint show={!!adjustment?.bonusFromCarryover} />
+          <CarryoverHint show={!!adjustment?.bonusFromCarryover && Number(headerBonus) > 0} />
         </div>
         <div>
-          <div style={HEADER_LBL}>Fronted</div>
+          <div style={{ ...HEADER_LBL, padding: "4px 0" }}>Fronted</div>
           <input
             className="input-focus"
             disabled={allPaid}
@@ -870,9 +870,9 @@ function AgentPayCard({
         </div>
         <div>
           <EditableLabel
-            value={adjustment?.holdLabel ?? null}
+            value={adjustment?.holdFromCarryover && Number(headerHold) > 0 ? (adjustment?.holdLabel ?? null) : null}
             defaultLabel="Hold"
-            carryoverColor={adjustment?.holdFromCarryover ? C.warning : undefined}
+            carryoverColor={adjustment?.holdFromCarryover && Number(headerHold) > 0 ? C.warning : undefined}
             onChange={async (label) => {
               if (adjustment?.id) {
                 await authFetch(`${API}/api/payroll/adjustments/${adjustment.id}`, {
@@ -899,7 +899,7 @@ function AgentPayCard({
             onChange={e => setHeaderHold(e.target.value)}
             onBlur={() => handleHeaderBlur("hold", headerHold)}
           />
-          <CarryoverHint show={!!adjustment?.holdFromCarryover} />
+          <CarryoverHint show={!!adjustment?.holdFromCarryover && Number(headerHold) > 0} />
         </div>
         <div style={{ marginLeft: "auto" }}>
           <div style={HEADER_LBL}>Net</div>

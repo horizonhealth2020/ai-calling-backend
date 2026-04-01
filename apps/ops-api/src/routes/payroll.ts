@@ -258,9 +258,19 @@ router.patch("/payroll/adjustments/:id", requireAuth, requireRole("PAYROLL", "SU
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const existing = await prisma.agentPeriodAdjustment.findUnique({ where: { id: pp.data.id } });
   if (!existing) return res.status(404).json({ error: "Adjustment not found" });
+  // Clear carryover flags when amount is zeroed out
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.holdAmount === 0) {
+    updateData.holdFromCarryover = false;
+    updateData.holdLabel = null;
+  }
+  if (parsed.data.bonusAmount === 0) {
+    updateData.bonusFromCarryover = false;
+    updateData.bonusLabel = null;
+  }
   const updated = await prisma.agentPeriodAdjustment.update({
     where: { id: pp.data.id },
-    data: parsed.data,
+    data: updateData,
     include: { agent: { select: { id: true, name: true } } },
   });
   await logAudit(req.user!.id, "UPDATE", "AgentPeriodAdjustment", pp.data.id, parsed.data);
