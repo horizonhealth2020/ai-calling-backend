@@ -188,6 +188,52 @@
 
 ---
 
+## Milestone: v2.1 — Payroll Card Overhaul & Carryover System
+
+**Shipped:** 2026-04-01
+**Phases:** 4 | **Plans:** 7 | **Sessions:** ~2
+
+### What Was Built
+- Fixed zero-value validation bugs and changed fronted display to positive-orange
+- Removed Net column from print rows, fixed addon badge layout and half-commission indicators
+- Made ACA PL products editable with configurable flat commission
+- AgentPeriodAdjustment table with data migration from entry-level values
+- Idempotent carryover service: fronted auto-carries as hold on period lock, negative net carries forward
+- Agent-first payroll hierarchy with AgentCard/WeekSection components and per-week print template
+
+### What Worked
+- Four-phase decomposition (quick fixes → ACA → carryover → card restructure) isolated risk well — Phase 38 fixes were prerequisites for Phase 40
+- TDD for carryover service (40-02) caught idempotency edge cases early
+- UI-SPEC design contracts for Phases 40 and 41 prevented executor drift on complex component restructure
+- Component extraction (AgentCard, WeekSection, payroll-types.ts) solved the long-standing single-file scalability issue
+- All 21 requirements checked off, 8/8 UAT passed on Phase 41
+
+### What Was Inefficient
+- Summary one-liner extraction still broken in CLI tooling — had to manually fix MILESTONES.md accomplishments
+- Phase 40 was large (3 plans) combining schema changes, service logic, and UI — could have been split into 2 phases
+
+### Patterns Established
+- AgentPeriodAdjustment agent+period unique constraint for period-scoped financial adjustments
+- Idempotent carryover via `carryoverExecuted` flag — lock/unlock safe
+- EditableLabel component for inline label editing with display:block layout
+- CarryoverHint indicator for values sourced from previous period
+- Agent-first data regrouping via useMemo Map keyed by agent name
+- CS section rendered per-period outside agent cards (hierarchy separation)
+
+### Key Lessons
+1. Financial domain restructuring (entry-level → agent-level) requires careful data migration — SQL aggregation in migration is reliable
+2. Idempotency flags are the simplest correct solution for lock/unlock cycles
+3. Component extraction should happen proactively (not at 2700 lines) — Phase 41 proved it's fast and clean
+4. Fronted sign convention (positive = cash advance) must be explicit everywhere — it's counterintuitive
+5. The 4-phase milestone with dependency ordering (fixes → config → restructure → UI) is efficient for refactor work
+
+### Cost Observations
+- Model mix: ~75% opus (execution), ~25% sonnet (verification/planning)
+- Sessions: ~2 in 1 day
+- Notable: Entire milestone completed in a single day (11:14 → 16:27) — 5 hours for 4 phases, 21 requirements
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -198,6 +244,7 @@
 | v1.1 | ~4 | 7 | UI-SPEC contracts, milestone audit→gap closure→re-audit pattern |
 | v1.2 | ~3 | 1 | Single-phase consolidation, UAT-driven iterative fixes |
 | v1.8 | ~2 | 1 | Clean 5-plan execution, 10/10 UAT pass, zero rework |
+| v2.1 | ~2 | 4 | Component extraction, agent-level financial restructure, idempotent carryover |
 
 ### Cumulative Quality
 
@@ -207,6 +254,7 @@
 | v1.1 | 0 (client-side parsers, no new tests) | N/A | 2 (Phase 15.04 UAT gaps, Phase 17 tech debt) |
 | v1.2 | 15 UAT tests (all passed) | Full dashboard UAT | 0 (fixes applied inline during verification) |
 | v1.8 | 10 UAT tests (all passed) | Full feature UAT | 0 (zero issues found) |
+| v2.1 | 8 UAT tests (all passed) | Full feature UAT | 0 (zero issues found) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -217,3 +265,5 @@
 5. Single-file dashboards work but don't scale — consider component extraction
 6. UAT-driven iterative fixes are more efficient than upfront specification for UI/UX work
 7. Auto-seeding defaults on first access eliminates "missing data" bugs reliably
+8. Component extraction is fast and clean — do it proactively before files hit 2000+ lines
+9. Financial sign conventions must be explicit and documented — "positive fronted" is counterintuitive

@@ -1,5 +1,23 @@
 # Milestones
 
+## v2.1 Payroll Card Overhaul & Carryover System (Shipped: 2026-04-01)
+
+**Phases completed:** 4 phases (38-41), 7 plans
+**Timeline:** 2026-04-01 (1 day)
+**Requirements:** 21/21 satisfied
+**Stats:** 49 files changed, +8,522 / -1,468 lines, 53 commits
+
+**Key accomplishments:**
+
+- Fixed zero-value validation bugs on bonus/fronted/hold inputs and changed fronted display to positive-orange
+- Removed Net column from print rows, fixed addon badge layout and half-commission indicators
+- Made ACA PL products editable with configurable flat commission in Products tab
+- Created AgentPeriodAdjustment table, corrected net formula (Commission + Bonus + Fronted - Hold), fixed approval logic and print pills
+- Built idempotent carryover service: fronted auto-carries as hold on period lock, negative net carries forward, editable labels with "Hold Payout" indicator
+- Restructured payroll to agent-first hierarchy with AgentCard/WeekSection components and per-week print template
+
+---
+
 ## v2.0 Sales Board TV Readability & Manager Dashboard (Shipped: 2026-03-31)
 
 **Phases completed:** 5 phases, 13 plans, 23 tasks

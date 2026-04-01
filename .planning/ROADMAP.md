@@ -1,87 +1,116 @@
-# Roadmap: Ops Platform v2.1 -- Payroll Card Overhaul & Carryover System
+# Roadmap: Ops Platform
 
-**Milestone:** v2.1
-**Phases:** 4 (Phase 38-41)
-**Granularity:** Fine
-**Requirements:** 14
-**Created:** 2026-04-01
+## Milestones
+
+- ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
+- ✅ **v1.1 Customer Service** — Phases 11-17 (shipped 2026-03-18)
+- ✅ **v1.2 Platform Polish** — Phase 18 (shipped 2026-03-19)
+- ✅ **v1.3 Dashboard Consolidation** — Phase 19 (shipped 2026-03-23)
+- ✅ **v1.4 State-Aware Bundle** — Phase 20 (shipped 2026-03-23)
+- ✅ **v1.5 Platform Cleanup** — Phases 21-24 (shipped 2026-03-24)
+- ✅ **v1.6 Pre-Launch Stabilization** — Phases 25-28 (shipped 2026-03-25)
+- ✅ **v1.7 Dashboard Fixes & Cost Tracking** — Phase 29 (shipped 2026-03-26)
+- ✅ **v1.8 Lead Source Timing Analytics** — Phase 30 (shipped 2026-03-30)
+- ✅ **v1.9 Auth Stability & Phone Number Display** — Phases 31-32 (shipped 2026-03-30)
+- ✅ **v2.0 Sales Board TV Readability & Manager Dashboard** — Phases 33-37 (shipped 2026-03-31)
+- ✅ **v2.1 Payroll Card Overhaul & Carryover System** — Phases 38-41 (shipped 2026-04-01)
 
 ## Phases
 
-- [x] **Phase 38: Quick Fixes** -- Fix display bugs and validation issues blocking daily payroll workflow
-- [x] **Phase 39: ACA Product Configuration** -- Make ACA PL products editable with configurable commission in Products tab
-- [x] **Phase 40: Agent-Level Adjustments + Carryover System** -- Move bonus/fronted/hold to agent level, add auto-carryover on period lock
-- [x] **Phase 41: Payroll Card Restructure** -- Agent-level collapsible cards with week-by-week entries and aligned print template
+<details>
+<summary>✅ v1.0 MVP (Phases 1-10) — SHIPPED 2026-03-17</summary>
 
-## Phase Details
+See: `.planning/milestones/v1.0-ROADMAP.md`
 
-### Phase 38: Quick Fixes
-**Goal**: Payroll staff can process pay cards without display bugs or blocked inputs
-**Depends on**: Nothing (all fixes are independent, no migration needed)
-**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05
-**Success Criteria** (what must be TRUE):
-  1. User can set bonus, fronted, or hold to zero and save without validation error
-  2. Fronted amount shows as a positive dollar value on pay cards (e.g., "$200.00" not "-$200.00")
-  3. Print card sale rows show commission per row with no Net column
-  4. Addon names on pay cards display as shortened labels that fit within their cells without overflow
-  5. Half-commission deals show "Approved" pill when approved or the specific halving reason (e.g., "Waived Fee", "Missing Add-on") in print view
-**Plans:** 2/2 plans complete
-Plans:
-- [x] 38-01-PLAN.md -- Fix zero-value input validation and fronted positive orange display (FIX-01, FIX-02)
-- [x] 38-02-PLAN.md -- Fix print view: Net column removal, addon badge layout, half-commission indicators (FIX-03, FIX-04, FIX-05)
+</details>
 
-### Phase 39: ACA Product Configuration
-**Goal**: Staff can view and configure ACA PL products and their flat commissions via the Products tab
-**Depends on**: Nothing (independent of other phases, but sequenced before larger refactors to avoid merge conflicts)
-**Requirements**: ACA-01
-**Success Criteria** (what must be TRUE):
-  1. ACA PL products appear in the Products tab list alongside other product types
-  2. User can edit the flat commission amount for an ACA PL product and save successfully
-**Plans:** 1/1 plans complete
-Plans:
-- [x] 39-01-PLAN.md -- Add flatCommission to API PATCH schema and extend Products tab UI with ACA PL support (ACA-01)
+<details>
+<summary>✅ v1.1 Customer Service (Phases 11-17) — SHIPPED 2026-03-18</summary>
 
-### Phase 40: Agent-Level Adjustments + Carryover System
-**Goal**: Fix approval logic, correct net formula (fronted is positive), move adjustments to agent-level storage, and implement auto-carryover on period lock
-**Depends on**: Phase 38 (zero-value fix and display corrections must be in place before restructuring inputs)
-**Requirements**: FIX-06, FIX-07, FIX-08, NET-01, CARRY-01, CARRY-02, CARRY-03, CARRY-04, CARRY-05, CARRY-06, CARRY-07, CARRY-08, CARRY-09
-**Success Criteria** (what must be TRUE):
-  1. Approve/Unapprove buttons appear based on halvingReason, not enrollment fee threshold
-  2. Print pills (Approved/Half commission) appear left of commission amount for column alignment
-  3. Net formula is Commission + Bonus + Fronted - Hold (fronted is cash advance, added not subtracted)
-  4. Bonus/fronted/hold stored at agent+period level (AgentPeriodAdjustment table)
-  5. On period lock, fronted carries as hold in next period; negative net carries as hold
-  6. Carryover amounts are editable and add to existing values (no overwrite)
-  7. Bonus label shows "Hold Payout" when from carryover, editable inline
-  8. Agent cards appear even with zero sales when carryover exists
-  9. Carryover is idempotent — lock/unlock does not duplicate
-**Plans:** 3/3 plans complete
-Plans:
-- [x] 40-01-PLAN.md -- Schema + migration + net formula fix + approval logic + print pills (CARRY-01, NET-01, FIX-06, FIX-07, FIX-08)
-- [x] 40-02-PLAN.md -- Carryover service + tests + adjustment CRUD endpoints (CARRY-02, CARRY-03, CARRY-04, CARRY-06, CARRY-07)
-- [x] 40-03-PLAN.md -- Dashboard integration: EditableLabel, CarryoverHint, zero-sales cards (CARRY-05, CARRY-08, CARRY-09)
+See: `.planning/milestones/v1.1-ROADMAP.md`
 
-### Phase 41: Payroll Card Restructure
-**Goal**: Payroll view uses agent-level collapsible cards with week-by-week sale grouping, and print template matches screen layout
-**Depends on**: Phase 40 (agent-level adjustments and carryover data shape must be stable before rebuilding cards around them)
-**Requirements**: CARD-01, CARD-02
-**Success Criteria** (what must be TRUE):
-  1. Each agent has a single collapsible card in the payroll view (one card per agent, not one per period)
-  2. Inside each agent card, sales are grouped by week with visible week separators
-  3. Print output matches the new screen layout -- agent cards with week-by-week entries, not the old flat list
-**Plans:** 1/1 plans complete
-Plans:
-- [x] 41-01-PLAN.md -- Extract shared types, create AgentCard + WeekSection components, agent-first data regrouping, per-week print (CARD-01, CARD-02)
+</details>
+
+<details>
+<summary>✅ v1.2 Platform Polish (Phase 18) — SHIPPED 2026-03-19</summary>
+
+See: `.planning/milestones/v1.2-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.3 Dashboard Consolidation (Phase 19) — SHIPPED 2026-03-23</summary>
+
+See: `.planning/milestones/v1.3-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.5 Platform Cleanup (Phases 21-24) — SHIPPED 2026-03-24</summary>
+
+See: `.planning/milestones/v1.5-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.6 Pre-Launch Stabilization (Phases 25-28) — SHIPPED 2026-03-25</summary>
+
+See: `.planning/milestones/v1.6-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.7 Dashboard Fixes & Cost Tracking (Phase 29) — SHIPPED 2026-03-26</summary>
+
+See: `.planning/milestones/v1.7-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.8 Lead Source Timing Analytics (Phase 30) — SHIPPED 2026-03-30</summary>
+
+See: `.planning/milestones/v1.8-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.9 Auth Stability & Phone Number Display (Phases 31-32) — SHIPPED 2026-03-30</summary>
+
+See: `.planning/milestones/v1.9-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v2.0 Sales Board TV Readability & Manager Dashboard (Phases 33-37) — SHIPPED 2026-03-31</summary>
+
+See: `.planning/milestones/v2.0-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v2.1 Payroll Card Overhaul & Carryover System (Phases 38-41) — SHIPPED 2026-04-01</summary>
+
+See: `.planning/milestones/v2.1-ROADMAP.md`
+
+</details>
 
 ## Progress
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
-| 39. ACA Product Configuration | 1/1 | Complete    | 2026-04-01 |
-| 40. Agent-Level Adjustments + Carryover | 3/3 | Complete    | 2026-04-01 |
-| 41. Payroll Card Restructure | 1/1 | Complete    | 2026-04-01 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1-10 | v1.0 | 31/31 | Complete | 2026-03-17 |
+| 11-17 | v1.1 | 15/15 | Complete | 2026-03-18 |
+| 18 | v1.2 | 8/8 | Complete | 2026-03-19 |
+| 19 | v1.3 | 10/10 | Complete | 2026-03-23 |
+| 20 | v1.4 | 3/3 | Complete | 2026-03-23 |
+| 21-24 | v1.5 | 8/8 | Complete | 2026-03-24 |
+| 25-28 | v1.6 | 10/10 | Complete | 2026-03-25 |
+| 29 | v1.7 | 4/4 | Complete | 2026-03-26 |
+| 30 | v1.8 | 5/5 | Complete | 2026-03-30 |
+| 31-32 | v1.9 | 3/3 | Complete | 2026-03-30 |
+| 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
+| 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
 
 ---
-*Roadmap created: 2026-04-01*
-*Last updated: 2026-04-01*
+*Roadmap created: 2026-03-14*
+*Last updated: 2026-04-01 after v2.1 milestone*

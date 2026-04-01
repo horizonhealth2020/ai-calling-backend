@@ -109,21 +109,25 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Self-healing audit queue with orphan recovery, exponential backoff retry, categorized failures — v2.0 (Phase 37)
 - ✓ Composite performance scoring (40% premium + 60% cost efficiency) for agent ranking — v2.0 (Phase 37)
 - ✓ Audit UI overhaul: date+time display, cursor pagination, agent filter, dual-field ordering — v2.0 (Phase 37)
+- ✓ Zero-value validation bug fix on bonus/fronted/hold inputs — v2.1 (Phase 38)
+- ✓ Fronted displayed as positive amount on pay cards — v2.1 (Phase 38)
+- ✓ Net column removed from print card sale rows — v2.1 (Phase 38)
+- ✓ "Approved" pill on half-commission deals in print view — v2.1 (Phase 38)
+- ✓ Addon name formatting cleanup on pay cards — v2.1 (Phase 38)
+- ✓ ACA editable in Products tab with configurable commission — v2.1 (Phase 39)
+- ✓ Net formula corrected: Commission + Bonus + Fronted - Hold — v2.1 (Phase 40)
+- ✓ Approval logic based on halvingReason, not enrollment fee threshold — v2.1 (Phase 40)
+- ✓ Bonus/fronted/hold stored at agent+period level (AgentPeriodAdjustment) — v2.1 (Phase 40)
+- ✓ Fronted/hold auto-carryover between pay periods — v2.1 (Phase 40)
+- ✓ Editable bonus label (Bonus vs Hold Payout) with carryover indicators — v2.1 (Phase 40)
+- ✓ Carryover idempotent on lock/unlock cycles — v2.1 (Phase 40)
+- ✓ Payroll cards restructured: agent-level collapsible cards with week-by-week entries — v2.1 (Phase 41)
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Fronted/hold auto-carryover between pay periods
-- [ ] Editable bonus label (Bonus vs Hold Payout)
-- [ ] Fronted displayed as positive amount on pay cards
-- [ ] Bonus/fronted/hold removed from individual sale rows (agent-level only)
-- [ ] Net column removed from print card sale rows
-- [ ] Zero-value validation bug fix on bonus/fronted/hold inputs
-- [ ] "Approved" pill on half-commission deals in print view
-- [ ] Addon name formatting cleanup on pay cards
-- [ ] ACA editable in Products tab with configurable commission
-- [ ] Payroll cards restructured: agent-level collapsible cards with week-by-week entries
+(None — milestone complete, awaiting next milestone definition)
 
 ### Out of Scope
 
@@ -133,26 +137,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
 
-## Current Milestone: v2.1 Payroll Card Overhaul & Carryover System
+## Current Milestone: Planning Next
 
-**Goal:** Fix payroll accuracy issues, restructure pay cards for clarity, and add fronted/hold auto-carryover.
-
-**Target features:**
-- Fronted/hold auto-carryover between pay periods
-- Editable bonus label (Bonus vs Hold Payout)
-- Fronted positive display, bonus/fronted/hold agent-level only
-- Net column removed from print card rows
-- Zero-value validation bug fix
-- Approved pill on half-commission print view
-- Addon name formatting cleanup
-- ACA editable in Products tab
-- Payroll cards restructured: agent collapsible cards with week entries
+v2.1 shipped 2026-04-01. Next milestone to be defined via `/gsd:new-milestone`.
 
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31) → Phase 41 complete (2026-04-01)
-**Total:** 11 milestones, 41 phases across 18 days
-**LOC:** ~130,000 TypeScript/TSX
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31) → v2.1 (2026-04-01)
+**Total:** 12 milestones, 41 phases across 18 days
+**LOC:** ~135,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
 - **Unified ops-dashboard** — single Next.js app with role-gated tabs (Manager, Payroll, Owner, CS), shared Socket.IO, uniform date range filtering on all KPIs, lead source timing analytics
@@ -162,7 +155,7 @@ The platform is fully operational with a unified dashboard app, 1 standalone sal
 
 ## Context
 
-Shipped 11 milestones in 18 days (37 phases, 113 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence. Phone numbers flow from Convoso API through to manager dashboard views. Sales board is TV-readable at 10-15ft with dynamic agent scaling. Self-healing audit queue handles orphaned jobs and retries with exponential backoff. ACA PL flat-commission product type supports bundled and standalone entry modes.
+Shipped 12 milestones in 18 days (41 phases, 120 plans). Tech stack: Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon. Monorepo with unified dashboard, sales board, 1 API, and shared @ops/* packages. Codebase is production-hardened: zero dead code, full Zod input validation, proper error handling, strict type safety. Lead source timing analytics provide data-driven call routing intelligence. Phone numbers flow from Convoso API through to manager dashboard views. Sales board is TV-readable at 10-15ft with dynamic agent scaling. Self-healing audit queue handles orphaned jobs and retries with exponential backoff. ACA PL flat-commission product type supports bundled and standalone entry modes. Payroll uses agent-first card hierarchy with week-by-week sale grouping and auto-carryover of fronted/hold between pay periods.
 
 **Known areas for future work:**
 - Bulk sale import from CSV
@@ -208,6 +201,11 @@ Shipped 11 milestones in 18 days (37 phases, 113 plans). Tech stack: Next.js 15,
 | Uniform date range via React context | Date range persists across tab switches, 4 presets match payroll week | ✓ Good |
 | Sub-component extraction during migration | Each dashboard tab split into named components for debuggability | ✓ Good |
 | Sales board stays standalone | No auth required, public leaderboard — different access model | ✓ Good |
+| AgentPeriodAdjustment table | Agent+period unique constraint, migrated from entry-level values | ✓ Good |
+| Fronted additive in net formula | Fronted is cash advance (positive), not deduction | ✓ Good |
+| halvingReason-driven approval | Approval based on halvingReason presence, not enrollment fee threshold | ✓ Good |
+| Idempotent carryover on lock | carryoverExecuted flag prevents duplication on lock/unlock cycles | ✓ Good |
+| Agent-first payroll hierarchy | AgentCard/WeekSection components replace flat period-first layout | ✓ Good |
 
 ## Evolution
 
@@ -227,4 +225,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-01 after v2.1 milestone started*
+*Last updated: 2026-04-01 after v2.1 milestone*
