@@ -29,12 +29,12 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Carryover System
 
 - [x] **CARRY-01**: Bonus/fronted/hold stored at agent+period level (new AgentPeriodAdjustment table) — not on individual sale entries
-- [ ] **CARRY-02**: Fronted amount from current period auto-carries as hold in next period on lock (cash advance repayment)
-- [ ] **CARRY-03**: If net goes negative (hold > income), unpaid portion carries as hold in next period
-- [ ] **CARRY-04**: Carryover amounts are editable after auto-population (payroll can adjust as agents pay down)
+- [x] **CARRY-02**: Fronted amount from current period auto-carries as hold in next period on lock (cash advance repayment)
+- [x] **CARRY-03**: If net goes negative (hold > income), unpaid portion carries as hold in next period
+- [x] **CARRY-04**: Carryover amounts are editable after auto-population (payroll can adjust as agents pay down)
 - [ ] **CARRY-05**: Bonus label shows "Hold Payout" when sourced from carryover; hold label shows source. Labels editable inline.
-- [ ] **CARRY-06**: Carryover is idempotent — locking/unlocking a period does not create duplicate carryover entries
-- [ ] **CARRY-07**: Carryover adds to existing values in next period (does not overwrite)
+- [x] **CARRY-06**: Carryover is idempotent — locking/unlocking a period does not create duplicate carryover entries
+- [x] **CARRY-07**: Carryover adds to existing values in next period (does not overwrite)
 - [ ] **CARRY-08**: Agent cards appear even with zero sales if carryover exists (shows negative net if applicable)
 - [ ] **CARRY-09**: Subtle "Carried from prev week" text below inputs when values are from carryover
 
@@ -77,12 +77,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-08 | Phase 40 | Complete |
 | NET-01 | Phase 40 | Complete |
 | CARRY-01 | Phase 40 | Complete |
-| CARRY-02 | Phase 40 | Pending |
-| CARRY-03 | Phase 40 | Pending |
-| CARRY-04 | Phase 40 | Pending |
+| CARRY-02 | Phase 40 | Complete |
+| CARRY-03 | Phase 40 | Complete |
+| CARRY-04 | Phase 40 | Complete |
 | CARRY-05 | Phase 40 | Pending |
-| CARRY-06 | Phase 40 | Pending |
-| CARRY-07 | Phase 40 | Pending |
+| CARRY-06 | Phase 40 | Complete |
+| CARRY-07 | Phase 40 | Complete |
 | CARRY-08 | Phase 40 | Pending |
 | CARRY-09 | Phase 40 | Pending |
 | CARD-01 | Phase 41 | Pending |
