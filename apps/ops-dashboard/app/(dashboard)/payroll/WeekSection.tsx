@@ -481,6 +481,9 @@ export function WeekSection({
   const totalFronted = adjustment ? Number(adjustment.frontedAmount) : 0;
   const totalHold = adjustment ? Number(adjustment.holdAmount) : 0;
 
+  const needsApprovalCount = entries.filter(e => !!e.halvingReason && !e.sale?.commissionApproved).length;
+  const allApproved = entries.length > 0 && entries.every(e => !e.halvingReason || e.sale?.commissionApproved);
+
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => {
       const aId = a.sale?.memberId;
@@ -592,6 +595,16 @@ export function WeekSection({
             </span>
           ) : (
             <Badge color={statusCfg.color} dot>{statusCfg.label}</Badge>
+          )}
+          {needsApprovalCount > 0 && (
+            <Badge color={C.danger} size="sm">
+              {needsApprovalCount} unapproved
+            </Badge>
+          )}
+          {allApproved && entries.some(e => !!e.halvingReason) && (
+            <Badge color={C.success} size="sm">
+              All approved
+            </Badge>
           )}
         </div>
         <div style={{ display: "flex", gap: S[3], alignItems: "center" }}>
