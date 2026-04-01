@@ -25,6 +25,30 @@ const C = colors;
 const S = spacing;
 const R = radius;
 
+/* ── StatMini ───────────────────────────────────────────────── */
+
+function StatMini({
+  label, value, color, prefix = "$",
+}: {
+  label: string; value: number; color?: string; prefix?: string;
+}) {
+  return (
+    <div style={{
+      background: C.bgSurfaceRaised,
+      borderRadius: R.lg,
+      padding: "14px 16px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 4,
+    }}>
+      <div style={{ fontSize: 10, color: C.textTertiary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+      <div style={{ fontWeight: 700, fontSize: 20, color: color ?? C.textPrimary }}>
+        <AnimatedNumber value={value} prefix={prefix} decimals={2} />
+      </div>
+    </div>
+  );
+}
+
 /* ── Props ──────────────────────────────────────────────────── */
 
 export interface PayrollPeriodsProps {
@@ -136,6 +160,35 @@ export default function PayrollPeriods({
     setExpandedWeeks(weekMap);
     setSelectedWeek(selMap);
   }, [agentData]);
+
+  /* ── Current-week totals for summary strip ──────────────── */
+  const currentWeekTotals = useMemo(() => {
+    // Find the most recent period
+    const sortedPeriods = [...periods].sort((a, b) =>
+      new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+    );
+    const current = sortedPeriods[0];
+    if (!current) return null;
+
+    const activeEntries = current.entries.filter(isActiveEntry);
+    const gross = activeEntries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+    const bonus = (current.agentAdjustments ?? []).reduce((s, a) => s + Number(a.bonusAmount ?? 0), 0);
+    const fronted = (current.agentAdjustments ?? []).reduce((s, a) => s + Number(a.frontedAmount ?? 0), 0);
+    const hold = (current.agentAdjustments ?? []).reduce((s, a) => s + Number(a.holdAmount ?? 0), 0);
+    const net = gross + bonus + fronted - hold;
+    const svcTotal = (current.serviceEntries ?? []).reduce((s, e) => s + Number(e.totalPay), 0);
+
+    return {
+      period: current,
+      entries: activeEntries.length,
+      gross,
+      bonus,
+      fronted,
+      hold,
+      net,
+      svcTotal,
+    };
+  }, [periods]);
 
   /* ── Agent sorting ───────────────────────────────────────── */
   const sortedAgents = useMemo(() => {
@@ -639,6 +692,24 @@ export default function PayrollPeriods({
           </div>
         )}
       </div>
+
+      {/* Current week summary strip */}
+      {currentWeekTotals && (
+        <div style={{ marginBottom: S[5] }}>
+          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, marginBottom: S[2], display: "flex", alignItems: "center", gap: S[2] }}>
+            <Calendar size={13} />
+            {fmtDate(currentWeekTotals.period.weekStart)} {"\u2013"} {fmtDate(currentWeekTotals.period.weekEnd)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: S[3] }} className="grid-mobile-1">
+            <StatMini label="Entries" value={currentWeekTotals.entries} prefix="" color={C.textPrimary} />
+            <StatMini label="Commission" value={currentWeekTotals.gross} />
+            <StatMini label="Bonuses" value={currentWeekTotals.bonus} color={C.success} />
+            <StatMini label="Fronted" value={currentWeekTotals.fronted} color={C.success} />
+            <StatMini label="Hold" value={currentWeekTotals.hold} color={C.warning} />
+            <StatMini label="Net Payout" value={currentWeekTotals.net} color={currentWeekTotals.net >= 0 ? C.success : C.danger} />
+          </div>
+        </div>
+      )}
 
       {periods.length === 0 && (
         <Card style={{ borderRadius: R["2xl"] }}>
