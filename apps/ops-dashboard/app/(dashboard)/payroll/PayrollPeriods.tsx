@@ -145,9 +145,9 @@ export default function PayrollPeriods({
 
   useEffect(() => {
     if (!initializedRef.current) {
-      // First load: all agents collapsed, default weeks expanded
+      // First load: all agents expanded, default weeks expanded
       initializedRef.current = true;
-      setExpandedAgents(new Set());
+      setExpandedAgents(new Set(agentData.keys()));
 
       const weekMap = new Map<string, Set<string>>();
       const selMap = new Map<string, string>();
