@@ -33,9 +33,24 @@ type ServiceEntry = {
   frontedAmount?: number; totalPay: number; bonusBreakdown?: Record<string, number>;
   status: string; notes?: string; serviceAgent: { name: string; basePay: number };
 };
+type AgentAdjustment = {
+  id: string;
+  agentId: string;
+  payrollPeriodId: string;
+  bonusAmount: string;
+  frontedAmount: string;
+  holdAmount: string;
+  bonusLabel: string | null;
+  holdLabel: string | null;
+  bonusFromCarryover: boolean;
+  holdFromCarryover: boolean;
+  carryoverSourcePeriodId: string | null;
+  agent: { id: string; name: string };
+};
 type Period = {
   id: string; weekStart: string; weekEnd: string; quarterLabel: string;
   status: string; entries: Entry[]; serviceEntries: ServiceEntry[];
+  agentAdjustments?: AgentAdjustment[];
 };
 type ProductType = "CORE" | "ADDON" | "AD_D";
 type Product = {
@@ -172,6 +187,67 @@ function fmtDate(iso: string): string {
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(d.getUTCDate()).padStart(2, "0");
   return `${mm}-${dd}-${d.getUTCFullYear()}`;
+}
+
+/* ── EditableLabel + CarryoverHint ───────────────────────────── */
+
+const EDITABLE_LBL: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  letterSpacing: "0.06em", marginBottom: 2,
+};
+
+function EditableLabel({ value, onChange, defaultLabel, carryoverColor }: {
+  value: string | null;
+  onChange: (v: string) => void;
+  defaultLabel: string;
+  carryoverColor?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? defaultLabel);
+
+  useEffect(() => { setDraft(value ?? defaultLabel); }, [value, defaultLabel]);
+
+  if (!editing) {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditing(true)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setEditing(true); }}
+        style={{
+          ...EDITABLE_LBL,
+          cursor: "pointer",
+          color: carryoverColor ?? C.textMuted,
+          padding: "4px 0",
+        }}
+      >
+        {value ?? defaultLabel}
+      </span>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      style={{ ...SMALL_INP, width: 100, fontSize: 11, padding: "4px 8px" }}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={() => { onChange(draft); setEditing(false); }}
+      onKeyDown={e => {
+        if (e.key === "Enter") { onChange(draft); setEditing(false); }
+        if (e.key === "Escape") { setDraft(value ?? defaultLabel); setEditing(false); }
+      }}
+    />
+  );
+}
+
+function CarryoverHint({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <div style={{ fontSize: 11, fontWeight: 400, color: C.textMuted, fontStyle: "italic", marginTop: 4, lineHeight: "1.45" }}>
+      Carried from prev week
+    </div>
+  );
 }
 
 /* ── Editable Sale Row ───────────────────────────────────────── */
@@ -555,6 +631,7 @@ function AgentPayCard({
   onApproveChangeRequest, onRejectChangeRequest,
   onApproveEditRequest, onRejectEditRequest,
   highlightedEntryIds,
+  adjustment, API, refreshPeriods,
 }: {
   agentName: string;
   entries: Entry[];
@@ -584,11 +661,14 @@ function AgentPayCard({
   onApproveEditRequest: (id: string) => Promise<void>;
   onRejectEditRequest: (id: string) => Promise<void>;
   highlightedEntryIds: Set<string>;
+  adjustment?: AgentAdjustment;
+  API: string;
+  refreshPeriods: () => Promise<void>;
 }) {
   const activeEntries = entries.filter(isActiveEntry);
-  const totalBonus = activeEntries.reduce((s, e) => s + Number(e.bonusAmount), 0);
-  const totalFronted = activeEntries.reduce((s, e) => s + Number(e.frontedAmount), 0);
-  const totalHold = activeEntries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
+  const totalBonus = adjustment ? Number(adjustment.bonusAmount) : 0;
+  const totalFronted = adjustment ? Number(adjustment.frontedAmount) : 0;
+  const totalHold = adjustment ? Number(adjustment.holdAmount) : 0;
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => {
@@ -627,30 +707,38 @@ function AgentPayCard({
   }, [totalBonus, totalFronted, totalHold]);
 
   const handleHeaderBlur = async (field: "bonus" | "fronted" | "hold", rawValue: string) => {
-    const newTotal = Number(rawValue) || 0;
-    let currentTotal: number;
-    if (field === "bonus") currentTotal = totalBonus;
-    else if (field === "fronted") currentTotal = totalFronted;
-    else currentTotal = totalHold;
-
-    if (Math.abs(newTotal - currentTotal) < 0.005) return;
-
-    const delta = newTotal - currentTotal;
-    // Pick the entry that holds the largest value for this field so negative deltas actually apply
-    const pool = activeEntries.length ? activeEntries : entries;
-    const target = delta < 0
-      ? pool.reduce((best, e) => {
-          const val = field === "bonus" ? Number(e.bonusAmount) : field === "fronted" ? Number(e.frontedAmount) : Number(e.holdAmount ?? 0);
-          const bestVal = field === "bonus" ? Number(best.bonusAmount) : field === "fronted" ? Number(best.frontedAmount) : Number(best.holdAmount ?? 0);
-          return val > bestVal ? e : best;
-        })
-      : pool[0];
-    if (!target) return;
-
-    const newBonus = Math.max(0, field === "bonus" ? Number(target.bonusAmount) + delta : Number(target.bonusAmount));
-    const newFronted = Math.max(0, field === "fronted" ? Number(target.frontedAmount) + delta : Number(target.frontedAmount));
-    const newHold = Math.max(0, field === "hold" ? Number(target.holdAmount ?? 0) + delta : Number(target.holdAmount ?? 0));
-    await onBonusFrontedUpdate(target.id, newBonus, newFronted, newHold);
+    const newVal = Number(rawValue) || 0;
+    if (!adjustment?.id) {
+      // No adjustment record exists — create one via POST
+      const agentId = entries[0]?.agent?.name
+        ? allAgents.find(a => a.name === entries[0]?.agent?.name)?.id ?? adjustment?.agentId
+        : adjustment?.agentId;
+      if (!agentId) return;
+      const body: Record<string, unknown> = {
+        agentId,
+        payrollPeriodId: period.id,
+      };
+      if (field === "bonus") body.bonusAmount = newVal;
+      else if (field === "fronted") body.frontedAmount = newVal;
+      else body.holdAmount = newVal;
+      const res = await authFetch(`${API}/api/payroll/adjustments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) refreshPeriods();
+      return;
+    }
+    const body: Record<string, number> = {};
+    if (field === "bonus") body.bonusAmount = newVal;
+    else if (field === "fronted") body.frontedAmount = newVal;
+    else body.holdAmount = newVal;
+    const res = await authFetch(`${API}/api/payroll/adjustments/${adjustment.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) refreshPeriods();
   };
 
   const HEADER_LBL: React.CSSProperties = {
@@ -730,7 +818,21 @@ function AgentPayCard({
           <div style={{ fontSize: 16, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</div>
         </div>
         <div>
-          <div style={HEADER_LBL}>Bonus</div>
+          <EditableLabel
+            value={adjustment?.bonusLabel ?? null}
+            defaultLabel="Bonus"
+            carryoverColor={adjustment?.bonusFromCarryover ? C.success : undefined}
+            onChange={async (label) => {
+              if (adjustment?.id) {
+                await authFetch(`${API}/api/payroll/adjustments/${adjustment.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ bonusLabel: label === "Bonus" ? null : label }),
+                });
+                refreshPeriods();
+              }
+            }}
+          />
           <input
             className="input-focus"
             disabled={allPaid}
@@ -746,6 +848,7 @@ function AgentPayCard({
             onChange={e => setHeaderBonus(e.target.value)}
             onBlur={() => handleHeaderBlur("bonus", headerBonus)}
           />
+          <CarryoverHint show={!!adjustment?.bonusFromCarryover} />
         </div>
         <div>
           <div style={HEADER_LBL}>Fronted</div>
@@ -766,7 +869,21 @@ function AgentPayCard({
           />
         </div>
         <div>
-          <div style={HEADER_LBL}>Hold</div>
+          <EditableLabel
+            value={adjustment?.holdLabel ?? null}
+            defaultLabel="Hold"
+            carryoverColor={adjustment?.holdFromCarryover ? C.warning : undefined}
+            onChange={async (label) => {
+              if (adjustment?.id) {
+                await authFetch(`${API}/api/payroll/adjustments/${adjustment.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ holdLabel: label === "Hold" ? null : label }),
+                });
+                refreshPeriods();
+              }
+            }}
+          />
           <input
             className="input-focus"
             disabled={allPaid}
@@ -782,6 +899,7 @@ function AgentPayCard({
             onChange={e => setHeaderHold(e.target.value)}
             onBlur={() => handleHeaderBlur("hold", headerHold)}
           />
+          <CarryoverHint show={!!adjustment?.holdFromCarryover} />
         </div>
         <div style={{ marginLeft: "auto" }}>
           <div style={HEADER_LBL}>Net</div>
@@ -801,7 +919,8 @@ function AgentPayCard({
         Sunday {fmtDate(period.weekStart)} – Saturday {fmtDate(period.weekEnd)}
       </div>
 
-      {/* Commission table */}
+      {/* Commission table (hidden when zero sales) */}
+      {entries.length > 0 && (
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
           <thead>
@@ -840,6 +959,7 @@ function AgentPayCard({
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Show more / Show less toggle */}
       {entries.length > COLLAPSED_LIMIT && (
@@ -1285,10 +1405,11 @@ export default function PayrollPeriods({
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
         const agentGross   = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
-        const agentBonus   = entries.reduce((s, e) => s + Number(e.bonusAmount), 0);
-        const agentFronted = entries.reduce((s, e) => s + Number(e.frontedAmount), 0);
-        const agentHold    = entries.reduce((s, e) => s + Number(e.holdAmount ?? 0), 0);
-        const agentNet     = entries.reduce((s, e) => s + Number(e.netAmount), 0);
+        const agentAdj = period.agentAdjustments?.find((a: AgentAdjustment) => a.agent?.name === agentName);
+        const agentBonus   = agentAdj ? Number(agentAdj.bonusAmount) : 0;
+        const agentFronted = agentAdj ? Number(agentAdj.frontedAmount) : 0;
+        const agentHold    = agentAdj ? Number(agentAdj.holdAmount) : 0;
+        const agentNet     = agentGross + agentBonus + agentFronted - agentHold;
         return `<div class="agent-card">
   <div class="header">
     <h1>${agentName} <span style="font-size:13px;font-weight:400;color:#64748b;margin-left:8px">${entries.length} sale${entries.length !== 1 ? "s" : ""}</span></h1>
@@ -1296,7 +1417,7 @@ export default function PayrollPeriods({
   <div class="summary">
     <div class="summary-item"><div class="summary-label">Commission</div><div class="summary-value">$${agentGross.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Bonuses</div><div class="summary-value green">+$${agentBonus.toFixed(2)}</div></div>
-    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value" style="color:#d97706">$${agentFronted.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value" style="color:#34d399">+$${agentFronted.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Hold</div><div class="summary-value" style="color:#d97706">-$${agentHold.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Net Payout</div><div class="summary-value green">$${agentNet.toFixed(2)}</div></div>
   </div>
@@ -1535,6 +1656,13 @@ export default function PayrollPeriods({
         for (const agent of allAgents) {
           if (!byAgent.has(agent.name)) byAgent.set(agent.name, []);
         }
+        // Also add agents from agentAdjustments (CARRY-08: zero-sales agents with carryover)
+        if (p.agentAdjustments) {
+          for (const adj of p.agentAdjustments) {
+            const name = adj.agent?.name ?? "Unknown";
+            if (!byAgent.has(name)) byAgent.set(name, []);
+          }
+        }
 
         const hasUnpaidInClosed = p.status === "LOCKED" && p.entries.some(e => e.status === "PENDING");
 
@@ -1742,6 +1870,7 @@ export default function PayrollPeriods({
 
                   return sorted.map(({ name: agentName, entries, net: agentNet, gross: agentGross, activeCount }, agentIdx) => {
                     const isTopEarner = top3.has(agentName);
+                    const agentAdj = p.agentAdjustments?.find(a => a.agent?.name === agentName);
                     return (
                       <div
                         key={agentName}
@@ -1776,6 +1905,9 @@ export default function PayrollPeriods({
                           onApproveEditRequest={approveEditRequest}
                           onRejectEditRequest={rejectEditRequest}
                           highlightedEntryIds={highlightedEntryIds}
+                          adjustment={agentAdj}
+                          API={API}
+                          refreshPeriods={refreshPeriods}
                         />
                       </div>
                     );
