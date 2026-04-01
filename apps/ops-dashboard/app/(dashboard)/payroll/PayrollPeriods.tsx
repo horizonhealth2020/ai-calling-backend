@@ -216,6 +216,7 @@ function EditableLabel({ value, onChange, defaultLabel, carryoverColor }: {
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setEditing(true); }}
         style={{
           ...EDITABLE_LBL,
+          display: "block",
           cursor: "pointer",
           color: carryoverColor ?? C.textMuted,
           padding: "4px 0",
