@@ -35,7 +35,7 @@ Declared values from existing `@ops/ui` spacing tokens (all multiples of 4):
 |-------|-------|---------------------|
 | S[1] | 4px | Icon-to-text gaps in badges, margin-bottom on HEADER_LBL |
 | S[2] | 8px | Compact row padding (team total rows, date range strip) |
-| S[3] | 12px | Gap between inline elements (badges, financial summary items, week header items) |
+| S[3] | 12px | Gap between inline elements (badges, financial summary items, week header items), financial strip vertical padding |
 | S[4] | 16px | Agent card header vertical padding, week section header vertical padding |
 | S[5] | 20px | Agent card header horizontal padding, financial strip horizontal padding |
 | S[6] | 24px | Card body padding (baseCardStyle default) |
@@ -47,17 +47,18 @@ Exceptions: none. All spacing uses the existing `spacing` object from `@ops/ui`.
 
 ## Typography
 
-All values from existing `@ops/ui` typography tokens:
+All values from existing `@ops/ui` typography tokens. Consolidated to 4 sizes and 2 weights:
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body (table cells) | 13px | 400 (normal) | 1.5 | Sale row text, financial values in week section |
-| Label (HEADER_LBL) | 11px | 700 (bold) | 1.45 | Uppercase labels: "Commission", "Bonus", "Fronted", "Hold", "Net" |
-| Agent name (card header) | 17px | 800 (extrabold) | 1.3 | Top-level agent card header name |
-| Week date range | 14px | 700 (bold) | 1.6 | Week section header: "Mar 24 - Mar 30" |
-| Financial amounts | 16px | 700 (bold) | 1.5 | Commission total, net total in financial strip |
-| Agent header summary | 13px | 400/700 | 1.5 | Read-only financial mirror in agent header (labels at 400, values at 700) |
-| Sale count | 12px | 400 (normal) | 1.45 | "N sales" count next to agent name and in week headers |
+| Small (labels + counts) | 12px | 400 (normal) | 1.45 | Sale count ("N sales"), uppercase labels ("COMMISSION", "BONUS", etc. -- differentiated via `text-transform: uppercase` + `letter-spacing: 0.05em`), Print Week button icon caption |
+| Body (table cells + summaries) | 13px | 400 (normal) | 1.5 | Sale row text, financial values in week section, agent header read-only summary labels |
+| Emphasis (headings + amounts) | 16px | 700 (bold) | 1.5 | Agent name in card header, week date range, commission/net totals in financial strip, agent header summary values |
+| Page heading | 20px | 700 (bold) | 1.3 | Page-level heading ("Payroll Periods") -- not used inside agent cards but declared for completeness |
+
+**Weight rules:** Only two weights exist: 400 (normal) for body text and labels, 700 (bold) for headings, amounts, and emphasis. No other weights are permitted in this phase.
+
+**Differentiation strategy for 12px elements:** Uppercase labels use `text-transform: uppercase` + `letter-spacing: 0.05em` at 12px/700. Sale counts use 12px/400 with no transform. This provides clear visual distinction without an extra font size.
 
 Source: Existing `AgentPayCard` component (lines 764-916 of PayrollPeriods.tsx) + `typography` tokens.
 
@@ -74,10 +75,14 @@ All values from existing `@ops/ui` color tokens (CSS custom properties in theme.
 | Accent (10%) | `accentTeal` / `primary400` | #14b8a6 / #2dd4bf | Selected week left-border indicator, Top Earner badge, chevron focus |
 | Destructive | `danger` | #f87171 | Negative net values, unpaid button border/text |
 
+### Accent token semantic distinction:
+- **`accentTeal` (#14b8a6):** Structural/chrome accent -- used for borders, indicators, and subtle backgrounds (selected week left-border, top earner card tint at 4% opacity). This is the darker teal, appropriate for elements that frame content.
+- **`primary400` (#2dd4bf):** Content/interactive accent -- used for text, badge fills, and interactive element colors (Top Earner badge background, info-style button text/border, chevron highlight). This is the brighter teal, appropriate for elements the user reads or clicks.
+
 ### Accent reserved for (explicit list):
 1. Selected week indicator left border (3px solid `accentTeal`)
 2. Top Earner badge background (`primary400`)
-3. Top earner agent card header subtle background (`rgba(20,184,166,0.04)`)
+3. Top earner agent card header subtle background (`rgba(20,184,166,0.04)` -- derived from `accentTeal`)
 4. Chevron rotate animation on expand/collapse
 
 ### Semantic colors used in financial strip:
@@ -86,7 +91,7 @@ All values from existing `@ops/ui` color tokens (CSS custom properties in theme.
 | Green | `success` (#34d399) | Positive net value, bonus input highlight when > 0 |
 | Yellow/orange | `warning` (#fbbf24) | Fronted input highlight, hold input highlight when > 0 |
 | Red | `danger` (#f87171) | Negative net value |
-| Info blue | `info` (#2dd4bf) | Print button background/border/text |
+| Info blue | `info` (#2dd4bf) | Print Week button background/border/text |
 
 ### Status badge colors:
 | Status | Background | Text |
@@ -117,7 +122,7 @@ All values from existing `@ops/ui` color tokens (CSS custom properties in theme.
 | `CarryoverHint` | Phase 40 | "Carried from prev week" text per-week (D-11) |
 | `Badge` | `@ops/ui` | Top Earner, period status (Open/Locked), approval pills |
 | `AnimatedNumber` | `@ops/ui` | Net value display with animation |
-| `Button` | `@ops/ui` | Print, Paid/Unpaid, approve/reject actions |
+| `Button` | `@ops/ui` | Print Week, Paid/Unpaid, approve/reject actions |
 
 ---
 
@@ -158,25 +163,26 @@ All values from existing `@ops/ui` color tokens (CSS custom properties in theme.
 
 | Property | Value |
 |----------|-------|
-| Input style | `SMALL_INP` (13px font, 90px width, right-aligned, 6px/10px padding) |
+| Input style | `SMALL_INP` (13px font, 90px width, right-aligned, 6px/12px padding) |
 | Save trigger | `onBlur` fires `handleHeaderBlur()` which PATCHes AgentPeriodAdjustment |
 | Disabled state | All inputs disabled + transparent background when all entries are paid |
 | Live net update | Net recalculates on every input change (Commission + Bonus + Fronted - Hold) |
 
-### Print Button (D-19)
+### Print Week Button (D-19)
 
 | Property | Value |
 |----------|-------|
 | Location | Per-week, inside week section header area (right-aligned with Paid button) |
 | Style | Ghost button with info-blue treatment: `background: infoBg`, `border: 1px solid rgba(45,212,191,0.2)`, `color: info` |
-| Icon | `Printer` at 11px |
+| Icon | `Printer` at 12px |
+| Label | "Print Week" |
 | Behavior | Opens print window for that single agent + single week's entries |
 
 ### Paid/Unpaid Button (D-12)
 
 | Property | Value |
 |----------|-------|
-| Location | Per-week, next to print button in week section |
+| Location | Per-week, next to Print Week button in week section |
 | States | Unpaid (red ghost), Mark Unpaid (green ghost with CheckCircle), Paid disabled (green ghost, reduced opacity, cursor: not-allowed when period locked) |
 | Behavior | Unchanged from current AgentPayCard behavior |
 
@@ -206,7 +212,7 @@ border-bottom: 1px solid borderSubtle
 background: rgba(20,184,166,0.04) if top earner, transparent otherwise
 cursor: pointer
 
-Left side: agent name (17px/800) + Top Earner badge + sale count (12px)
+Left side: agent name (16px/700) + Top Earner badge + sale count (12px/400)
 Right side: read-only financial summary (13px) + chevron (18px)
 ```
 
@@ -221,15 +227,15 @@ cursor: pointer
 border-bottom: 1px solid borderSubtle (when expanded)
 background: rgba(255,255,255,0.02)
 
-Left side: date range (14px/700) + status badge (Open/Locked)
-Right side: Print button + Paid/Unpaid button + chevron (14px)
+Left side: date range (16px/700) + status badge (Open/Locked)
+Right side: Print Week button + Paid/Unpaid button + chevron (14px)
 ```
 
 ### Week Section Body (expanded content)
 
 ```
 Same as current AgentPayCard body:
-  Financial strip: flex, gap 16px, padding 10px 20px, background rgba(255,255,255,0.02)
+  Financial strip: flex, gap 16px, padding S[3] (12px) vertical S[5] (20px) horizontal, background rgba(255,255,255,0.02)
   Sale table: full-width table with existing thStyle/tdStyle
   Pending approvals: below sale table (same as current)
 ```
@@ -257,7 +263,7 @@ Background treatment (rgba(255,255,255,0.02)) on week headers provides separatio
 
 | Element | Copy |
 |---------|------|
-| Primary CTA | "Print" (per-week print action) |
+| Primary CTA | "Print Week" (per-week print action) |
 | Empty state heading | "No payroll periods" |
 | Empty state body | "Create a payroll period to start tracking agent commissions." |
 | Agent card no-sales week | No special empty state -- week section shows financial strip with $0.00 commission + adjustment inputs (CARRY-08 already handles zero-sale agents) |
