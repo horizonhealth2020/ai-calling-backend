@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
+import { executeCarryover } from "../services/carryover";
 import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
@@ -10,6 +11,9 @@ const router = Router();
 router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "SUPER_ADMIN"), asyncHandler(async (_req, res) => {
   res.json(await prisma.payrollPeriod.findMany({
     include: {
+      agentAdjustments: {
+        include: { agent: { select: { id: true, name: true } } },
+      },
       entries: {
         include: {
           sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, memberCount: true, product: { select: { id: true, name: true, type: true, flatCommission: true } }, addons: { select: { productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } } } },
@@ -38,6 +42,21 @@ router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", 
   if (period.status === "FINALIZED") return res.status(400).json({ error: "Finalized periods cannot be changed" });
   const updated = await prisma.payrollPeriod.update({ where: { id: pp.data.id }, data: { status: parsed.data.status } });
   await logAudit(req.user!.id, "UPDATE", "PayrollPeriod", pp.data.id, { status: parsed.data.status });
+
+  // Execute carryover when locking (idempotent -- skips if already done)
+  if (parsed.data.status === "LOCKED") {
+    try {
+      const result = await executeCarryover(pp.data.id);
+      await logAudit(req.user!.id, "CARRYOVER", "PayrollPeriod", pp.data.id, {
+        carried: result.carried,
+        skipped: result.skipped,
+      });
+    } catch (err) {
+      // Log but don't fail the lock operation
+      console.error("[carryover] Failed:", err);
+    }
+  }
+
   res.json(updated);
 }));
 
@@ -211,6 +230,66 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   });
   await logAudit(req.user!.id, "UPDATE", "PayrollEntry", pp.data.id, { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net });
   res.json(updated);
+}));
+
+// ── Agent Period Adjustment CRUD ──────────────────────────────────
+
+// GET /payroll/adjustments/:periodId -- fetch all adjustments for a period
+router.get("/payroll/adjustments/:periodId", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const adjustments = await prisma.agentPeriodAdjustment.findMany({
+    where: { payrollPeriodId: req.params.periodId },
+    include: { agent: { select: { id: true, name: true } } },
+  });
+  res.json(adjustments);
+}));
+
+// PATCH /payroll/adjustments/:id -- update an adjustment (CARRY-04)
+router.patch("/payroll/adjustments/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const pp = idParamSchema.safeParse(req.params);
+  if (!pp.success) return res.status(400).json(zodErr(pp.error));
+  const schema = z.object({
+    bonusAmount: z.number().min(0).optional(),
+    frontedAmount: z.number().min(0).optional(),
+    holdAmount: z.number().min(0).optional(),
+    bonusLabel: z.string().nullable().optional(),
+    holdLabel: z.string().nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const existing = await prisma.agentPeriodAdjustment.findUnique({ where: { id: pp.data.id } });
+  if (!existing) return res.status(404).json({ error: "Adjustment not found" });
+  const updated = await prisma.agentPeriodAdjustment.update({
+    where: { id: pp.data.id },
+    data: parsed.data,
+    include: { agent: { select: { id: true, name: true } } },
+  });
+  await logAudit(req.user!.id, "UPDATE", "AgentPeriodAdjustment", pp.data.id, parsed.data);
+  res.json(updated);
+}));
+
+// POST /payroll/adjustments -- create/upsert adjustment for agent+period
+router.post("/payroll/adjustments", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    agentId: z.string(),
+    payrollPeriodId: z.string(),
+    bonusAmount: z.number().min(0).optional().default(0),
+    frontedAmount: z.number().min(0).optional().default(0),
+    holdAmount: z.number().min(0).optional().default(0),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const adjustment = await prisma.agentPeriodAdjustment.upsert({
+    where: { agentId_payrollPeriodId: { agentId: parsed.data.agentId, payrollPeriodId: parsed.data.payrollPeriodId } },
+    create: parsed.data,
+    update: {
+      bonusAmount: parsed.data.bonusAmount,
+      frontedAmount: parsed.data.frontedAmount,
+      holdAmount: parsed.data.holdAmount,
+    },
+    include: { agent: { select: { id: true, name: true } } },
+  });
+  await logAudit(req.user!.id, "UPSERT", "AgentPeriodAdjustment", adjustment.id, parsed.data);
+  res.status(201).json(adjustment);
 }));
 
 export default router;
