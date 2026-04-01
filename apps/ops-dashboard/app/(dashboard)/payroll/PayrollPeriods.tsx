@@ -85,6 +85,7 @@ export default function PayrollPeriods({
   const [highlightedEntryIds] = useState<Set<string>>(new Set());
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
   const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
+  const [selectedAlertPeriod, setSelectedAlertPeriod] = useState<Record<string, string>>({});
 
   /* ── Agent-level expand/collapse state ───────────────────── */
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
@@ -261,6 +262,10 @@ export default function PayrollPeriods({
     if (res.ok) {
       const data = await res.json();
       setAlertPeriods(prev => ({ ...prev, [alertId]: data }));
+      // Auto-select the first (oldest) period
+      if (data.length > 0) {
+        setSelectedAlertPeriod(prev => ({ ...prev, [alertId]: data[0].id }));
+      }
     }
   }
 
@@ -665,21 +670,36 @@ export default function PayrollPeriods({
                       <td style={{ ...tdCenter, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
                         {approvingAlertId === alert.id ? (
                           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                            <select
-                              style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
-                              defaultValue=""
-                              onChange={e => { if (e.target.value) handleApproveAlert(alert.id, e.target.value); }}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontSize: 11, color: C.textMuted, fontStyle: "italic" }}>Oldest open period pre-selected</span>
+                              <select
+                                style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
+                                value={selectedAlertPeriod[alert.id] || ""}
+                                onChange={e => setSelectedAlertPeriod(prev => ({ ...prev, [alert.id]: e.target.value }))}
+                              >
+                                {(!alertPeriods[alert.id] || alertPeriods[alert.id].length === 0) ? (
+                                  <option value="" disabled>No open periods found</option>
+                                ) : (
+                                  (alertPeriods[alert.id] || []).map((p: AlertPeriod) => (
+                                    <option key={p.id} value={p.id}>
+                                      {fmtDate(p.weekStart)} {"\u2013"} {fmtDate(p.weekEnd)}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="success"
+                              disabled={!selectedAlertPeriod[alert.id]}
+                              onClick={() => {
+                                if (selectedAlertPeriod[alert.id]) {
+                                  handleApproveAlert(alert.id, selectedAlertPeriod[alert.id]);
+                                }
+                              }}
                             >
-                              <option value="" disabled>Select period...</option>
-                              {(alertPeriods[alert.id] || []).map((p: AlertPeriod) => (
-                                <option key={p.id} value={p.id}>
-                                  {fmtDate(p.weekStart)} {"\u2013"} {fmtDate(p.weekEnd)}
-                                </option>
-                              ))}
-                              {(!alertPeriods[alert.id] || alertPeriods[alert.id].length === 0) && (
-                                <option disabled>No open periods found</option>
-                              )}
-                            </select>
+                              <Check size={12} style={{ marginRight: 3 }} /> Approve
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => setApprovingAlertId(null)}>Cancel</Button>
                           </div>
                         ) : (
@@ -693,8 +713,14 @@ export default function PayrollPeriods({
                                   fetchAgentPeriods(alert.agentId, alert.id);
                                 } else {
                                   authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).then(data => {
-                                    const openPeriods = ((data || []) as (AlertPeriod & { status?: string })[]).filter((p) => p.status === "OPEN").map((p) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }));
+                                    const openPeriods = ((data || []) as (AlertPeriod & { status?: string })[])
+                                      .filter((p) => p.status === "OPEN")
+                                      .map((p) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }))
+                                      .sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
                                     setAlertPeriods(prev => ({ ...prev, [alert.id]: openPeriods }));
+                                    if (openPeriods.length > 0) {
+                                      setSelectedAlertPeriod(prev => ({ ...prev, [alert.id]: openPeriods[0].id }));
+                                    }
                                   });
                                 }
                               }}
