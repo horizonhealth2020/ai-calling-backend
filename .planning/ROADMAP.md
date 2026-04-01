@@ -69,7 +69,7 @@ Plans:
   1. Each agent has a single collapsible card in the payroll view (one card per agent, not one per period)
   2. Inside each agent card, sales are grouped by week with visible week separators
   3. Print output matches the new screen layout -- agent cards with week-by-week entries, not the old flat list
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [x] 41-01-PLAN.md -- Extract shared types, create AgentCard + WeekSection components, agent-first data regrouping, per-week print (CARD-01, CARD-02)
 
