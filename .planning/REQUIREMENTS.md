@@ -56,26 +56,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | — | Pending |
-| FIX-02 | — | Pending |
-| FIX-03 | — | Pending |
-| FIX-04 | — | Pending |
-| FIX-05 | — | Pending |
-| ACA-01 | — | Pending |
-| CARRY-01 | — | Pending |
-| CARRY-02 | — | Pending |
-| CARRY-03 | — | Pending |
-| CARRY-04 | — | Pending |
-| CARRY-05 | — | Pending |
-| CARRY-06 | — | Pending |
-| CARD-01 | — | Pending |
-| CARD-02 | — | Pending |
+| FIX-01 | Phase 38 | Pending |
+| FIX-02 | Phase 38 | Pending |
+| FIX-03 | Phase 38 | Pending |
+| FIX-04 | Phase 38 | Pending |
+| FIX-05 | Phase 38 | Pending |
+| ACA-01 | Phase 39 | Pending |
+| CARRY-01 | Phase 40 | Pending |
+| CARRY-02 | Phase 40 | Pending |
+| CARRY-03 | Phase 40 | Pending |
+| CARRY-04 | Phase 40 | Pending |
+| CARRY-05 | Phase 40 | Pending |
+| CARRY-06 | Phase 40 | Pending |
+| CARD-01 | Phase 41 | Pending |
+| CARD-02 | Phase 41 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-01*
-*Last updated: 2026-04-01 after initial definition*
+*Last updated: 2026-04-01 after roadmap creation*

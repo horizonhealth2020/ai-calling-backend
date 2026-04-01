@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Payroll Card Overhaul & Carryover System
-status: Defining requirements
+status: Roadmap created
 last_updated: "2026-04-01"
 last_activity: 2026-04-01
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,24 +19,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Defining requirements for v2.1
+**Current focus:** v2.1 Payroll Card Overhaul & Carryover System -- roadmap created, ready for phase planning
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-01 — Milestone v2.1 started
+Phase: 38 (Quick Fixes) -- not started
+Plan: --
+Status: Roadmap created, awaiting phase planning
+Progress: [____________________] 0/4 phases
+Last activity: 2026-04-01 -- Roadmap created for v2.1
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 10 (v1.0 through v1.9) |
-| Total phases | 32 complete |
-| Total plans | 95 complete |
-| Total requirements | 225 shipped |
-| Timeline | 17 days (2026-03-14 to 2026-03-30) |
+| Milestones shipped | 11 (v1.0 through v2.0) |
+| Total phases | 37 complete |
+| Total plans | 113 complete |
+| Total requirements | 225+ shipped |
+| Timeline | 18 days (2026-03-14 to 2026-03-31) |
 
 ## Accumulated Context
 
@@ -74,10 +75,14 @@ Last activity: 2026-04-01 — Milestone v2.1 started
 
 - Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
 - Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
+- v2.1 roadmap: 4 phases (38-41) covering 14 requirements
 
 ### Open Questions
 
-None currently.
+- saleId nullable vs sentinel sale for carryover entries (agents with no sales in next period) -- must be resolved before Phase 40 planning
+- Carryover UI indicators (badge, label, icon, tooltip) -- design decision for Phase 40 planning
+- Fronted positive display treatment (label and color) -- design decision for Phase 38 planning
+- Carryover with pre-paid entries in next period -- policy decision for Phase 40 planning
 
 ### Blockers
 
@@ -94,6 +99,6 @@ None currently.
 
 ---
 *State initialized: 2026-03-14*
-*v2.0 milestone started: 2026-03-31*
-*Last session: 2026-03-31 -- Completed all Phase 37 plans (37-00 through 37-03)*
-*Last updated: 2026-03-31*
+*v2.1 milestone started: 2026-04-01*
+*Last session: 2026-04-01 -- Roadmap created for v2.1*
+*Last updated: 2026-04-01*
