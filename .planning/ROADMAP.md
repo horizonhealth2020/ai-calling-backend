@@ -8,7 +8,7 @@
 
 ## Phases
 
-- [ ] **Phase 38: Quick Fixes** -- Fix display bugs and validation issues blocking daily payroll workflow
+- [x] **Phase 38: Quick Fixes** -- Fix display bugs and validation issues blocking daily payroll workflow
 - [ ] **Phase 39: ACA Product Configuration** -- Make ACA PL products editable with configurable commission in Products tab
 - [ ] **Phase 40: Agent-Level Adjustments + Carryover System** -- Move bonus/fronted/hold to agent level, add auto-carryover on period lock
 - [ ] **Phase 41: Payroll Card Restructure** -- Agent-level collapsible cards with week-by-week entries and aligned print template
@@ -28,7 +28,7 @@
 **Plans:** 2 plans
 Plans:
 - [x] 38-01-PLAN.md -- Fix zero-value input validation and fronted positive orange display (FIX-01, FIX-02)
-- [ ] 38-02-PLAN.md -- Fix print view: Net column removal, addon badge layout, half-commission indicators (FIX-03, FIX-04, FIX-05)
+- [x] 38-02-PLAN.md -- Fix print view: Net column removal, addon badge layout, half-commission indicators (FIX-03, FIX-04, FIX-05)
 
 ### Phase 39: ACA Product Configuration
 **Goal**: Staff can view and configure ACA PL products and their flat commissions via the Products tab
@@ -65,7 +65,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 38. Quick Fixes | 1/2 | In Progress | - |
+| 38. Quick Fixes | 2/2 | Complete | 2026-04-01 |
 | 39. ACA Product Configuration | 0/? | Not started | - |
 | 40. Agent-Level Adjustments + Carryover | 0/? | Not started | - |
 | 41. Payroll Card Restructure | 0/? | Not started | - |

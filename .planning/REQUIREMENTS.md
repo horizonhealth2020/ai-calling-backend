@@ -11,9 +11,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **FIX-01**: User can set bonus/fronted/hold values to zero without validation error
 - [x] **FIX-02**: Fronted amount displays as positive on pay cards (money advanced to agent)
-- [ ] **FIX-03**: Net column removed from print card sale rows (commission is the per-row amount)
-- [ ] **FIX-04**: Addon names display cleanly on pay cards with shortened names that fit without jumbling
-- [ ] **FIX-05**: Half-commission approved deals show "Approved" pill on print view; non-approved show halving reason (e.g., "Waived Fee", "Missing Add-on")
+- [x] **FIX-03**: Net column removed from print card sale rows (commission is the per-row amount)
+- [x] **FIX-04**: Addon names display cleanly on pay cards with shortened names that fit without jumbling
+- [x] **FIX-05**: Half-commission approved deals show "Approved" pill on print view; non-approved show halving reason (e.g., "Waived Fee", "Missing Add-on")
 
 ### ACA Product
 
@@ -58,9 +58,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | FIX-01 | Phase 38 | Complete |
 | FIX-02 | Phase 38 | Complete |
-| FIX-03 | Phase 38 | Pending |
-| FIX-04 | Phase 38 | Pending |
-| FIX-05 | Phase 38 | Pending |
+| FIX-03 | Phase 38 | Complete |
+| FIX-04 | Phase 38 | Complete |
+| FIX-05 | Phase 38 | Complete |
 | ACA-01 | Phase 39 | Pending |
 | CARRY-01 | Phase 40 | Pending |
 | CARRY-02 | Phase 40 | Pending |
