@@ -37,7 +37,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. ACA PL products appear in the Products tab list alongside other product types
   2. User can edit the flat commission amount for an ACA PL product and save successfully
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 39-01-PLAN.md -- Add flatCommission to API PATCH schema and extend Products tab UI with ACA PL support (ACA-01)
 
 ### Phase 40: Agent-Level Adjustments + Carryover System
 **Goal**: Bonus/fronted/hold live at agent level only, and fronted/hold amounts auto-carry to the next period on lock
@@ -66,7 +68,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
-| 39. ACA Product Configuration | 0/? | Not started | - |
+| 39. ACA Product Configuration | 0/1 | In progress | - |
 | 40. Agent-Level Adjustments + Carryover | 0/? | Not started | - |
 | 41. Payroll Card Restructure | 0/? | Not started | - |
 
