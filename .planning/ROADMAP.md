@@ -10,7 +10,7 @@
 
 - [x] **Phase 38: Quick Fixes** -- Fix display bugs and validation issues blocking daily payroll workflow
 - [x] **Phase 39: ACA Product Configuration** -- Make ACA PL products editable with configurable commission in Products tab
-- [ ] **Phase 40: Agent-Level Adjustments + Carryover System** -- Move bonus/fronted/hold to agent level, add auto-carryover on period lock
+- [x] **Phase 40: Agent-Level Adjustments + Carryover System** -- Move bonus/fronted/hold to agent level, add auto-carryover on period lock
 - [ ] **Phase 41: Payroll Card Restructure** -- Agent-level collapsible cards with week-by-week entries and aligned print template
 
 ## Phase Details
@@ -59,7 +59,7 @@ Plans:
 Plans:
 - [x] 40-01-PLAN.md -- Schema + migration + net formula fix + approval logic + print pills (CARRY-01, NET-01, FIX-06, FIX-07, FIX-08)
 - [x] 40-02-PLAN.md -- Carryover service + tests + adjustment CRUD endpoints (CARRY-02, CARRY-03, CARRY-04, CARRY-06, CARRY-07)
-- [ ] 40-03-PLAN.md -- Dashboard integration: EditableLabel, CarryoverHint, zero-sales cards (CARRY-05, CARRY-08, CARRY-09)
+- [x] 40-03-PLAN.md -- Dashboard integration: EditableLabel, CarryoverHint, zero-sales cards (CARRY-05, CARRY-08, CARRY-09)
 
 ### Phase 41: Payroll Card Restructure
 **Goal**: Payroll view uses agent-level collapsible cards with week-by-week sale grouping, and print template matches screen layout
@@ -77,7 +77,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
 | 39. ACA Product Configuration | 1/1 | Complete    | 2026-04-01 |
-| 40. Agent-Level Adjustments + Carryover | 0/3 | Not started | - |
+| 40. Agent-Level Adjustments + Carryover | 3/3 | Complete    | 2026-04-01 |
 | 41. Payroll Card Restructure | 0/? | Not started | - |
 
 ---
