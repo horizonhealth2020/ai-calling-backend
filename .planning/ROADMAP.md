@@ -68,7 +68,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
-| 39. ACA Product Configuration | 1/1 | Complete | 2026-04-01 |
+| 39. ACA Product Configuration | 1/1 | Complete    | 2026-04-01 |
 | 40. Agent-Level Adjustments + Carryover | 0/? | Not started | - |
 | 41. Payroll Card Restructure | 0/? | Not started | - |
 
