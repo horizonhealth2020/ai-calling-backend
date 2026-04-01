@@ -1,36 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: milestone
-status: All plans executed
-last_updated: "2026-03-31T21:20:03.149Z"
-last_activity: 2026-03-31
+milestone: v2.1
+milestone_name: Payroll Card Overhaul & Carryover System
+status: Defining requirements
+last_updated: "2026-04-01"
+last_activity: 2026-04-01
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-31)
+See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 37 — fix-call-audit-issues-manager-dashboard-ui-and-agent-performance-card-order
+**Current focus:** Defining requirements for v2.1
 
 ## Current Position
 
-Phase: 37
-Plan: 4 of 4 complete
-Status: All plans executed
-Last activity: 2026-03-31
-
-```
-[=====...............] 1/4 plans
-```
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-01 — Milestone v2.1 started
 
 ## Performance Metrics
 

@@ -112,7 +112,18 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- Next milestone requirements will be defined via /gsd:new-milestone -->
+<!-- Current scope. Building toward these. -->
+
+- [ ] Fronted/hold auto-carryover between pay periods
+- [ ] Editable bonus label (Bonus vs Hold Payout)
+- [ ] Fronted displayed as positive amount on pay cards
+- [ ] Bonus/fronted/hold removed from individual sale rows (agent-level only)
+- [ ] Net column removed from print card sale rows
+- [ ] Zero-value validation bug fix on bonus/fronted/hold inputs
+- [ ] "Approved" pill on half-commission deals in print view
+- [ ] Addon name formatting cleanup on pay cards
+- [ ] ACA editable in Products tab with configurable commission
+- [ ] Payroll cards restructured: agent-level collapsible cards with week-by-week entries
 
 ### Out of Scope
 
@@ -121,6 +132,21 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
+
+## Current Milestone: v2.1 Payroll Card Overhaul & Carryover System
+
+**Goal:** Fix payroll accuracy issues, restructure pay cards for clarity, and add fronted/hold auto-carryover.
+
+**Target features:**
+- Fronted/hold auto-carryover between pay periods
+- Editable bonus label (Bonus vs Hold Payout)
+- Fronted positive display, bonus/fronted/hold agent-level only
+- Net column removed from print card rows
+- Zero-value validation bug fix
+- Approved pill on half-commission print view
+- Addon name formatting cleanup
+- ACA editable in Products tab
+- Payroll cards restructured: agent collapsible cards with week entries
 
 ## Current State
 
@@ -201,4 +227,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after v2.0 milestone complete*
+*Last updated: 2026-04-01 after v2.1 milestone started*
