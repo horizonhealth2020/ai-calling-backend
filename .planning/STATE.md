@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-01T16:19:48.876Z"
+last_updated: "2026-04-01T17:49:38.575Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -18,12 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 39 — aca-product-configuration
+**Current focus:** Phase 40 — agent-level-adjustments-carryover-system
 
 ## Current Position
 
-Phase: 40
-Plan: Not started
+Phase: 40 (agent-level-adjustments-carryover-system) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -67,6 +67,10 @@ Plan: Not started
 - Prisma ID-based cursor pagination over date-based cursor for reliability with duplicate timestamps
 - Agent list fetched once on mount via distinct query for filter dropdown
 - Fronted uses C.warning (orange) on both dashboard and print; min=0 prevents zero-value browser validation errors
+- [Phase 40]: halvingReason always preserved regardless of commissionApproved; halving only applied when NOT approved
+- [Phase 40]: Fronted becomes additive in net formula (Commission + Bonus + Fronted - Hold)
+- [Phase 40]: Approval buttons driven by halvingReason presence, not enrollment fee threshold
+- [Phase 40]: Print pills positioned left of commission amount for column alignment
 
 ### Roadmap Evolution
 
@@ -97,5 +101,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.1 milestone started: 2026-04-01*
-*Last session: 2026-04-01 -- Completed 39-01-PLAN.md*
+*Last session: 2026-04-01 -- Completed 40-01-PLAN.md*
 *Last updated: 2026-04-01*
