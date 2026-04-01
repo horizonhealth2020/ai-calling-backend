@@ -40,8 +40,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Payroll Card Restructure
 
-- [ ] **CARD-01**: Payroll view shows agent-level collapsible cards (one card per agent)
-- [ ] **CARD-02**: Inside each agent card, week-by-week entries are separated for payroll processing
+- [x] **CARD-01**: Payroll view shows agent-level collapsible cards (one card per agent)
+- [x] **CARD-02**: Inside each agent card, week-by-week entries are separated for payroll processing
 
 ## v2.2+ Requirements
 
@@ -85,8 +85,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CARRY-07 | Phase 40 | Complete |
 | CARRY-08 | Phase 40 | Complete |
 | CARRY-09 | Phase 40 | Complete |
-| CARD-01 | Phase 41 | Pending |
-| CARD-02 | Phase 41 | Pending |
+| CARD-01 | Phase 41 | Complete |
+| CARD-02 | Phase 41 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 21 total

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-01T18:35:58.719Z"
+last_updated: "2026-04-01T20:00:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -18,12 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 40 — agent-level-adjustments-carryover-system
+**Current focus:** Phase 41 — payroll-card-restructure
 
 ## Current Position
 
-Phase: 41
-Plan: Not started
+Phase: 41 (payroll-card-restructure) — COMPLETE
+Plan: 1 of 1 (complete)
 
 ## Performance Metrics
 
@@ -73,6 +73,10 @@ Plan: Not started
 - [Phase 40]: Print pills positioned left of commission amount for column alignment
 - [Phase 40]: EditableLabel uses display:block so labels sit above inputs
 - [Phase 40]: Carryover flags cleared on zero-value to prevent stale label indicators
+- [Phase 41]: Agent-first payroll hierarchy with AgentCard/WeekSection component extraction
+- [Phase 41]: Agent-first data regrouping via useMemo Map keyed by agent name
+- [Phase 41]: CS section rendered per-period outside agent cards (prevents hierarchy mixing)
+- [Phase 41]: ACA_PL added to ProductType union for consistency
 
 ### Roadmap Evolution
 
@@ -103,5 +107,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.1 milestone started: 2026-04-01*
-*Last session: 2026-04-01 -- Completed 40-03-PLAN.md (Phase 40 complete)*
+*Last session: 2026-04-01 -- Completed 41-01-PLAN.md (Phase 41 complete)*
 *Last updated: 2026-04-01*

@@ -11,7 +11,7 @@
 - [x] **Phase 38: Quick Fixes** -- Fix display bugs and validation issues blocking daily payroll workflow
 - [x] **Phase 39: ACA Product Configuration** -- Make ACA PL products editable with configurable commission in Products tab
 - [x] **Phase 40: Agent-Level Adjustments + Carryover System** -- Move bonus/fronted/hold to agent level, add auto-carryover on period lock
-- [ ] **Phase 41: Payroll Card Restructure** -- Agent-level collapsible cards with week-by-week entries and aligned print template
+- [x] **Phase 41: Payroll Card Restructure** -- Agent-level collapsible cards with week-by-week entries and aligned print template
 
 ## Phase Details
 
@@ -71,7 +71,7 @@ Plans:
   3. Print output matches the new screen layout -- agent cards with week-by-week entries, not the old flat list
 **Plans:** 1 plan
 Plans:
-- [ ] 41-01-PLAN.md -- Extract shared types, create AgentCard + WeekSection components, agent-first data regrouping, per-week print (CARD-01, CARD-02)
+- [x] 41-01-PLAN.md -- Extract shared types, create AgentCard + WeekSection components, agent-first data regrouping, per-week print (CARD-01, CARD-02)
 
 ## Progress
 
@@ -80,7 +80,7 @@ Plans:
 | 38. Quick Fixes | 2/2 | Complete    | 2026-04-01 |
 | 39. ACA Product Configuration | 1/1 | Complete    | 2026-04-01 |
 | 40. Agent-Level Adjustments + Carryover | 3/3 | Complete    | 2026-04-01 |
-| 41. Payroll Card Restructure | 0/1 | In progress | - |
+| 41. Payroll Card Restructure | 1/1 | Complete    | 2026-04-01 |
 
 ---
 *Roadmap created: 2026-04-01*
