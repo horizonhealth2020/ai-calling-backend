@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
 import { colors, spacing, radius } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -140,25 +140,54 @@ export default function PayrollPeriods({
   }, [periods, allAgents]);
 
   /* ── Initialize expand/selected state when data changes ──── */
-  useEffect(() => {
-    // All agents start collapsed
-    setExpandedAgents(new Set());
+  const initializedRef = useRef(false);
 
-    const weekMap = new Map<string, Set<string>>();
-    const selMap = new Map<string, string>();
-    for (const [agentName, data] of agentData) {
-      // Sort periods by weekStart desc
-      const sorted = [...data.periods].sort((a, b) =>
-        new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
-      );
-      // D-14: last 2 weeks expanded
-      const expandedIds = new Set(sorted.slice(0, 2).map(p => p.period.id));
-      weekMap.set(agentName, expandedIds);
-      // D-06: selected week defaults to most recent
-      if (sorted.length > 0) selMap.set(agentName, sorted[0].period.id);
+  useEffect(() => {
+    if (!initializedRef.current) {
+      // First load: all agents collapsed, default weeks expanded
+      initializedRef.current = true;
+      setExpandedAgents(new Set());
+
+      const weekMap = new Map<string, Set<string>>();
+      const selMap = new Map<string, string>();
+      for (const [agentName, data] of agentData) {
+        const sorted = [...data.periods].sort((a, b) =>
+          new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
+        );
+        const expandedIds = new Set(sorted.slice(0, 2).map(p => p.period.id));
+        weekMap.set(agentName, expandedIds);
+        if (sorted.length > 0) selMap.set(agentName, sorted[0].period.id);
+      }
+      setExpandedWeeks(weekMap);
+      setSelectedWeek(selMap);
+      return;
     }
-    setExpandedWeeks(weekMap);
-    setSelectedWeek(selMap);
+
+    // Subsequent updates: only add state for NEW agents, preserve existing
+    setExpandedWeeks(prev => {
+      const next = new Map(prev);
+      for (const [agentName, data] of agentData) {
+        if (!next.has(agentName)) {
+          const sorted = [...data.periods].sort((a, b) =>
+            new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
+          );
+          next.set(agentName, new Set(sorted.slice(0, 2).map(p => p.period.id)));
+        }
+      }
+      return next;
+    });
+    setSelectedWeek(prev => {
+      const next = new Map(prev);
+      for (const [agentName, data] of agentData) {
+        if (!next.has(agentName)) {
+          const sorted = [...data.periods].sort((a, b) =>
+            new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
+          );
+          if (sorted.length > 0) next.set(agentName, sorted[0].period.id);
+        }
+      }
+      return next;
+    });
   }, [agentData]);
 
   /* ── Current-week totals for summary strip ──────────────── */
@@ -489,8 +518,8 @@ export default function PayrollPeriods({
   <div class="summary">
     <div class="summary-item"><div class="summary-label">Commission</div><div class="summary-value">$${agentGross.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Bonuses</div><div class="summary-value green">+$${agentBonus.toFixed(2)}</div></div>
-    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value" style="color:#34d399">+$${agentFronted.toFixed(2)}</div></div>
-    <div class="summary-item"><div class="summary-label">Hold</div><div class="summary-value" style="color:#d97706">-$${agentHold.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value" style="color:#f59e0b">+$${agentFronted.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Hold</div><div class="summary-value" style="color:#ef4444">-$${agentHold.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Net Payout</div><div class="summary-value green">$${agentNet.toFixed(2)}</div></div>
   </div>
   <table>
@@ -704,8 +733,8 @@ export default function PayrollPeriods({
             <StatMini label="Entries" value={currentWeekTotals.entries} prefix="" color={C.textPrimary} />
             <StatMini label="Commission" value={currentWeekTotals.gross} />
             <StatMini label="Bonuses" value={currentWeekTotals.bonus} color={C.success} />
-            <StatMini label="Fronted" value={currentWeekTotals.fronted} color={C.success} />
-            <StatMini label="Hold" value={currentWeekTotals.hold} color={C.warning} />
+            <StatMini label="Fronted" value={currentWeekTotals.fronted} color={C.warning} />
+            <StatMini label="Hold" value={currentWeekTotals.hold} color={C.danger} />
             <StatMini label="Net Payout" value={currentWeekTotals.net} color={currentWeekTotals.net >= 0 ? C.success : C.danger} />
           </div>
         </div>
