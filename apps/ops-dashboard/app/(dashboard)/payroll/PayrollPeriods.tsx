@@ -733,7 +733,7 @@ function AgentPayCard({
               fontWeight: 700,
               ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
             }}
-            type="number" step="0.01"
+            type="number" step="0.01" min="0"
             value={headerBonus}
             onChange={e => setHeaderBonus(e.target.value)}
             onBlur={() => handleHeaderBlur("bonus", headerBonus)}
@@ -746,12 +746,12 @@ function AgentPayCard({
             disabled={allPaid}
             style={{
               ...SMALL_INP, width: 90,
-              background: Number(headerFronted) > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
-              color: Number(headerFronted) > 0 ? C.danger : C.textPrimary,
+              background: Number(headerFronted) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
+              color: Number(headerFronted) > 0 ? C.warning : C.textPrimary,
               fontWeight: 700,
               ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
             }}
-            type="number" step="0.01"
+            type="number" step="0.01" min="0"
             value={headerFronted}
             onChange={e => setHeaderFronted(e.target.value)}
             onBlur={() => handleHeaderBlur("fronted", headerFronted)}
@@ -769,7 +769,7 @@ function AgentPayCard({
               fontWeight: 700,
               ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
             }}
-            type="number" step="0.01"
+            type="number" step="0.01" min="0"
             value={headerHold}
             onChange={e => setHeaderHold(e.target.value)}
             onBlur={() => handleHeaderBlur("hold", headerHold)}
