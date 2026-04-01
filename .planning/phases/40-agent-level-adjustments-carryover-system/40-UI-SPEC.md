@@ -127,7 +127,7 @@ Accent reserved for: Print button, Top Earner badge, Approve action button, focu
 - Color when from carryover (bonus): `colors.success` (#34d399)
 - Color when from carryover (hold): `colors.warning` (#fbbf24)
 - Color when default label: `colors.textMuted` (#475569) -- matches existing HEADER_LBL
-- Edit input: `{ ...SMALL_INP, width: 100, fontSize: 11, padding: "2px 8px" }`
+- Edit input: `{ ...SMALL_INP, width: 100, fontSize: 11, padding: "4px 8px" }`
 - Transition: none (instant swap between display and edit)
 
 **Accessibility:**
