@@ -97,12 +97,13 @@ model Agent {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  sales           Sale[]
-  audits          CallAudit[]
-  payrollEntries  PayrollEntry[]
-  clawbacks       Clawback[]
-  convosoCallLogs ConvosoCallLog[]
-  callKpis        AgentCallKpi[]
+  sales              Sale[]
+  audits             CallAudit[]
+  payrollEntries     PayrollEntry[]
+  clawbacks          Clawback[]
+  convosoCallLogs    ConvosoCallLog[]
+  callKpis           AgentCallKpi[]
+  periodAdjustments  AgentPeriodAdjustment[]
 
   @@map("agents")
 }
@@ -274,14 +275,16 @@ model PayrollPeriod {
   weekEnd      DateTime            @map("week_end")
   quarterLabel String              @map("quarter_label")
   year         Int
-  status       PayrollPeriodStatus @default(OPEN)
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
+  status             PayrollPeriodStatus @default(OPEN)
+  carryoverExecuted  Boolean             @default(false) @map("carryover_executed")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  entries        PayrollEntry[]
-  serviceEntries ServicePayrollEntry[]
-  clawbacks      Clawback[]
-  approvedAlerts PayrollAlert[] @relation("AlertApprovedPeriod")
+  entries            PayrollEntry[]
+  serviceEntries     ServicePayrollEntry[]
+  clawbacks          Clawback[]
+  approvedAlerts     PayrollAlert[] @relation("AlertApprovedPeriod")
+  agentAdjustments   AgentPeriodAdjustment[]
 
   @@map("payroll_periods")
 }
@@ -674,4 +677,26 @@ model PendingTerm {
   resolver  User? @relation("PendingTermResolvedBy", fields: [resolvedBy], references: [id])
 
   @@map("pending_terms")
+}
+
+model AgentPeriodAdjustment {
+  id                      String   @id @default(cuid())
+  agentId                 String   @map("agent_id")
+  payrollPeriodId         String   @map("payroll_period_id")
+  bonusAmount             Decimal  @default(0) @map("bonus_amount") @db.Decimal(12, 2)
+  frontedAmount           Decimal  @default(0) @map("fronted_amount") @db.Decimal(12, 2)
+  holdAmount              Decimal  @default(0) @map("hold_amount") @db.Decimal(12, 2)
+  bonusLabel              String?  @map("bonus_label")
+  holdLabel               String?  @map("hold_label")
+  bonusFromCarryover      Boolean  @default(false) @map("bonus_from_carryover")
+  holdFromCarryover       Boolean  @default(false) @map("hold_from_carryover")
+  carryoverSourcePeriodId String?  @map("carryover_source_period_id")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  agent         Agent         @relation(fields: [agentId], references: [id])
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+
+  @@unique([agentId, payrollPeriodId])
+  @@map("agent_period_adjustments")
 }
