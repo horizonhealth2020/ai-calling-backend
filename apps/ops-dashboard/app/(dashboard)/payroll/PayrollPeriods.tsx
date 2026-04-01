@@ -1282,7 +1282,7 @@ export default function PayrollPeriods({
   <div class="summary">
     <div class="summary-item"><div class="summary-label">Commission</div><div class="summary-value">$${agentGross.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Bonuses</div><div class="summary-value green">+$${agentBonus.toFixed(2)}</div></div>
-    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value red">-$${agentFronted.toFixed(2)}</div></div>
+    <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value" style="color:#d97706">$${agentFronted.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Hold</div><div class="summary-value" style="color:#d97706">-$${agentHold.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Net Payout</div><div class="summary-value green">$${agentNet.toFixed(2)}</div></div>
   </div>
