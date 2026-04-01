@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
-import { colors, spacing, radius, shadows, motion, baseInputStyle, baseThStyle, baseTdStyle } from "@ops/ui";
+import { colors, spacing, radius, shadows, motion } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
 import {
@@ -10,191 +10,21 @@ import {
   XCircle, Printer, Plus, Edit3, Trash2,
   Save, X, Check, Clock, FileText,
 } from "lucide-react";
-
-/* ── Types ──────────────────────────────────────────────────── */
-
-type SaleAddonInfo = { productId: string; premium: number | null; product: { id: string; name: string; type: string } };
-type SaleInfo = {
-  id: string; memberName: string; memberId?: string; carrier: string;
-  premium: number; enrollmentFee: number | null; commissionApproved: boolean;
-  status: string; notes?: string; memberCount?: number | null;
-  product: { id: string; name: string; type: string; flatCommission?: number | null };
-  addons?: SaleAddonInfo[];
-};
-type Entry = {
-  id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number;
-  frontedAmount: number; holdAmount: number; netAmount: number; status: string;
-  halvingReason?: string | null;
-  sale?: SaleInfo; agent?: { name: string };
-};
-type BonusCategory = { name: string; isDeduction: boolean };
-type ServiceEntry = {
-  id: string; basePay: number; bonusAmount: number; deductionAmount: number;
-  frontedAmount?: number; totalPay: number; bonusBreakdown?: Record<string, number>;
-  status: string; notes?: string; serviceAgent: { name: string; basePay: number };
-};
-type AgentAdjustment = {
-  id: string;
-  agentId: string;
-  payrollPeriodId: string;
-  bonusAmount: string;
-  frontedAmount: string;
-  holdAmount: string;
-  bonusLabel: string | null;
-  holdLabel: string | null;
-  bonusFromCarryover: boolean;
-  holdFromCarryover: boolean;
-  carryoverSourcePeriodId: string | null;
-  agent: { id: string; name: string };
-};
-type Period = {
-  id: string; weekStart: string; weekEnd: string; quarterLabel: string;
-  status: string; entries: Entry[]; serviceEntries: ServiceEntry[];
-  agentAdjustments?: AgentAdjustment[];
-};
-type ProductType = "CORE" | "ADDON" | "AD_D";
-type Product = {
-  id: string; name: string; active: boolean; type: ProductType;
-  premiumThreshold?: number | null; commissionBelow?: number | null;
-  commissionAbove?: number | null; bundledCommission?: number | null;
-  standaloneCommission?: number | null; enrollFeeThreshold?: number | null;
-  notes?: string;
-};
-type StatusChangeRequest = {
-  id: string;
-  saleId: string;
-  oldStatus: string;
-  newStatus: string;
-  status: string;
-  requestedAt: string;
-  sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
-  requester: { name: string; email: string };
-};
-type SaleEditRequest = {
-  id: string;
-  saleId: string;
-  changes: Record<string, { old: unknown; new: unknown }>;
-  status: string;
-  requestedAt: string;
-  sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
-  requester: { name: string; email: string };
-};
-
-type Alert = {
-  id: string;
-  agentId: string | null;
-  agentName: string | null;
-  customerName: string | null;
-  amount: number | null;
-  createdAt: string;
-};
-
-type AlertPeriod = { id: string; weekStart: string; weekEnd: string };
-
-type SocketClient = import("socket.io-client").Socket;
+import {
+  type Entry, type BonusCategory, type ServiceEntry, type AgentAdjustment,
+  type Period, type Product, type StatusChangeRequest, type SaleEditRequest,
+  type Alert, type AlertPeriod, type SocketClient, type AgentData, type AgentPeriodData,
+  inputStyle, SMALL_INP, thStyle, thRight, thCenter, tdStyle, tdRight, tdCenter,
+  STATUS_BADGE, SALE_STATUS_COLORS, ENROLLMENT_BONUS_THRESHOLD, ENROLLMENT_BADGE,
+  ACA_BADGE, EDITABLE_LBL, HEADER_LBL, isActiveEntry, fmtDate,
+} from "./payroll-types";
+// AgentCard import will be added in Task 2
 
 /* ── Design tokens (local aliases) ─────────────────────────── */
 
 const C = colors;
 const S = spacing;
 const R = radius;
-
-/* ── Style constants ─────────────────────────────────────────── */
-
-const inputStyle: React.CSSProperties = {
-  ...baseInputStyle,
-  boxSizing: "border-box",
-};
-
-const SMALL_INP: React.CSSProperties = {
-  ...baseInputStyle,
-  padding: "6px 10px",
-  fontSize: 13,
-  width: 90,
-  textAlign: "right",
-  boxSizing: "border-box",
-};
-
-const thStyle: React.CSSProperties = {
-  ...baseThStyle,
-  background: C.bgSurface,
-  position: "sticky",
-  top: 0,
-};
-
-const thRight: React.CSSProperties = { ...thStyle, textAlign: "right" };
-const thCenter: React.CSSProperties = { ...thStyle, textAlign: "center" };
-
-const tdStyle: React.CSSProperties = { ...baseTdStyle, borderBottom: "none" };
-const tdRight: React.CSSProperties = { ...tdStyle, textAlign: "right" };
-const tdCenter: React.CSSProperties = { ...tdStyle, textAlign: "center" };
-
-/* ── Status config ───────────────────────────────────────────── */
-
-const STATUS_BADGE: Record<string, { color: string; label: string }> = {
-  OPEN:      { color: C.accentTeal,  label: "Open" },
-  LOCKED:    { color: C.danger,      label: "Closed" },
-  FINALIZED: { color: C.success,     label: "Finalized" },
-};
-
-const SALE_STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  RAN:      { bg: "rgba(52,211,153,0.12)", color: "#34d399", label: "Ran" },
-  DECLINED: { bg: "rgba(248,113,113,0.12)", color: "#f87171", label: "Declined" },
-  DEAD:     { bg: "rgba(148,163,184,0.12)", color: "#94a3b8", label: "Dead" },
-};
-
-/** Returns true if the payroll entry counts toward period totals (RAN sales only) */
-function isActiveEntry(e: Entry): boolean {
-  if (e.status === "ZEROED_OUT") return false;
-  if (e.sale?.status && e.sale.status !== "RAN") return false;
-  return true;
-}
-
-/* ── Enrollment bonus constants ──────────────────────────────── */
-
-const ENROLLMENT_BONUS_THRESHOLD = 125;
-
-const ENROLLMENT_BADGE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  background: C.warningBg,
-  color: C.warning,
-  fontSize: 11,
-  fontWeight: 700,
-  borderRadius: 9999,
-  padding: "2px 6px",
-  marginLeft: 4,
-};
-
-const ACA_BADGE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  fontSize: 11,
-  fontWeight: 600,
-  color: C.info,
-  background: C.infoBg,
-  padding: "4px 8px",
-  borderRadius: 9999,
-  marginLeft: 8,
-  letterSpacing: "0.05em",
-  textTransform: "uppercase",
-};
-
-/* ── Helpers ─────────────────────────────────────────────────── */
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return `${mm}-${dd}-${d.getUTCFullYear()}`;
-}
-
-/* ── EditableLabel + CarryoverHint ───────────────────────────── */
-
-const EDITABLE_LBL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-  letterSpacing: "0.06em", marginBottom: 2,
-};
 
 function EditableLabel({ value, onChange, defaultLabel, carryoverColor }: {
   value: string | null;
