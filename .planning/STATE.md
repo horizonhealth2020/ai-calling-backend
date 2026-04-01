@@ -1,15 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.1
-milestone_name: Payroll Card Overhaul & Carryover System
-status: Roadmap created
-last_updated: "2026-04-01"
-last_activity: 2026-04-01
+milestone_name: milestone
+status: unknown
+last_updated: "2026-04-01T15:19:00.955Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -19,15 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v2.1 Payroll Card Overhaul & Carryover System -- roadmap created, ready for phase planning
+**Current focus:** Phase 38 — quick-fixes
 
 ## Current Position
 
-Phase: 38 (Quick Fixes) -- not started
-Plan: --
-Status: Roadmap created, awaiting phase planning
-Progress: [____________________] 0/4 phases
-Last activity: 2026-04-01 -- Roadmap created for v2.1
+Phase: 38 (quick-fixes) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -70,6 +66,7 @@ Last activity: 2026-04-01 -- Roadmap created for v2.1
 - [Phase 37]: 40% premium + 60% cost efficiency composite score for agent ranking
 - Prisma ID-based cursor pagination over date-based cursor for reliability with duplicate timestamps
 - Agent list fetched once on mount via distinct query for filter dropdown
+- Fronted uses C.warning (orange) on both dashboard and print; min=0 prevents zero-value browser validation errors
 
 ### Roadmap Evolution
 
@@ -100,5 +97,5 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.1 milestone started: 2026-04-01*
-*Last session: 2026-04-01 -- Roadmap created for v2.1*
+*Last session: 2026-04-01 -- Completed 38-01-PLAN.md*
 *Last updated: 2026-04-01*
