@@ -1289,7 +1289,7 @@ export default function PayrollPeriods({
   <table>
     <thead><tr>
       <th>Member ID</th><th>Member Name</th><th class="center">Core</th><th class="center">Add-on</th><th class="center">AD&D</th>
-      <th class="right">Enroll Fee</th><th class="right">Commission</th><th class="right">Net</th>
+      <th class="right">Enroll Fee</th><th class="right">Commission</th>
     </tr></thead>
     <tbody>` +
           entries.map(e => {
@@ -1313,11 +1313,10 @@ export default function PayrollPeriods({
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}</td>
         <td class="right" style="font-weight:700">$${Number(e.payoutAmount).toFixed(2)}</td>
-        <td class="right green" style="font-weight:700">$${Number(e.netAmount).toFixed(2)}</td>
       </tr>`;
           }).join("") +
           `<tr class="subtotal">
-        <td colspan="6" class="right">SUBTOTAL</td>
+        <td colspan="5" class="right">SUBTOTAL</td>
         <td class="right">$${agentGross.toFixed(2)}</td>
         <td class="right green">$${agentNet.toFixed(2)}</td>
       </tr>
