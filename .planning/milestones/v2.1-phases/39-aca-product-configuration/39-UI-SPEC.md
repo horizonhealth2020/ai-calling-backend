@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-04-06
+revised: 2026-04-06
 ---
 
 # Phase 39 — UI Design Contract
@@ -38,22 +39,22 @@ Declared values from `@ops/ui` tokens (multiples of 4):
 | spacing[6] | 24px | Card padding (matches `baseCardStyle`) |
 | spacing[8] | 32px | Gap between ACA PL group section and previous group |
 
-Exceptions: none
+Exceptions: spacing[3] (12px) is not in the strict 8-point scale but IS a defined `@ops/ui` design token (`--space-3: 12px` in `packages/ui/src/theme.css` line 46). It is used extensively across existing components: Button sm/lg padding, Toast padding, TabNav tab padding, and responsive card padding. Retaining 12px maintains consistency with these established patterns. Using 8px would be too tight for card internal padding; 16px would duplicate the form field gap and reduce visual hierarchy between compact and standard spacing.
 
 ---
 
 ## Typography
 
-All values reference existing `@ops/ui` typography tokens. No new sizes introduced.
+All values reference existing `@ops/ui` typography tokens. No new sizes introduced. Two weights only: 400 (normal) and 600 (semibold).
 
-| Role | Size | Weight | Line Height | Token Path |
-|------|------|--------|-------------|------------|
-| Group heading | 14px | 700 (bold) | 1.6 | `typography.sizes.base` + `typography.weights.bold` |
-| Card product name | 16px | 600 (semibold) | 1.5 | `typography.sizes.md` + `typography.weights.semibold` |
-| Field label | 11px | 700 (bold) | 1.45 | `baseLabelStyle` (uppercase, tracking.caps) |
-| Field value | 14px | 400 (normal) | 1.6 | `typography.sizes.base` + `typography.weights.normal` |
-| Commission amount | 14px | 600 (semibold) | 1.6 | `typography.sizes.base` + `typography.weights.semibold` |
-| Input text | 14px | 400 (normal) | 1.6 | `baseInputStyle` |
+| Role | Size | Weight | Line Height | Token Path | Notes |
+|------|------|--------|-------------|------------|-------|
+| Group heading | 14px | 600 (semibold) | 1.6 | `typography.sizes.base` + `typography.weights.semibold` | Uppercase + `letterSpacing: tracking.caps` provides sufficient hierarchy without bold |
+| Card product name | 16px | 600 (semibold) | 1.5 | `typography.sizes.md` + `typography.weights.semibold` | |
+| Field label | 11px | 600 (semibold) | 1.45 | `baseLabelStyle` (uppercase, tracking.caps) | Uppercase + small size + semibold distinguishes labels without requiring bold |
+| Field value | 14px | 400 (normal) | 1.6 | `typography.sizes.base` + `typography.weights.normal` | |
+| Commission amount | 14px | 600 (semibold) | 1.6 | `typography.sizes.base` + `typography.weights.semibold` | |
+| Input text | 14px | 400 (normal) | 1.6 | `baseInputStyle` | |
 
 ---
 
