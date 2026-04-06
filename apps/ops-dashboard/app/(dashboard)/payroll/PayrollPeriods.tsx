@@ -29,8 +29,10 @@ const R = radius;
 
 const LAYOUT: React.CSSProperties = {
   display: "flex",
-  minHeight: 0,
   flex: 1,
+  minHeight: 0,
+  height: "calc(100vh - 320px)",
+  overflow: "hidden",
 };
 const CONTENT_AREA: React.CSSProperties = {
   flex: 1,
@@ -107,10 +109,15 @@ export default function PayrollPeriods({
   const [selectedWeek, setSelectedWeek] = useState<Map<string, string>>(new Map());
 
   /* ── Sidebar agent selection state ─────────────────────── */
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("payroll_selectedAgent") ?? null;
+    }
+    return null;
+  });
   const [visibleCount, setVisibleCount] = useState(4);
   const contentRef = useRef<HTMLDivElement>(null);
-  const selectedAgentRef = useRef<string | null>(null);
+  const selectedAgentRef = useRef<string | null>(selectedAgent);
 
   /* ── Agent-first data regrouping ─────────────────────────── */
   const agentData = useMemo(() => {
@@ -211,8 +218,12 @@ export default function PayrollPeriods({
     });
   }, [agentData]);
 
-  // Keep ref in sync with state
-  useEffect(() => { selectedAgentRef.current = selectedAgent; }, [selectedAgent]);
+  // Keep ref in sync with state + persist to sessionStorage
+  useEffect(() => {
+    selectedAgentRef.current = selectedAgent;
+    if (selectedAgent) sessionStorage.setItem("payroll_selectedAgent", selectedAgent);
+    else sessionStorage.removeItem("payroll_selectedAgent");
+  }, [selectedAgent]);
 
   // Restore selection after socket-driven data refresh
   useEffect(() => {
@@ -257,19 +268,25 @@ export default function PayrollPeriods({
   }, [periods]);
 
   /* ── Agent sorting ───────────────────────────────────────── */
+  // Identify the current (most recent) period for sidebar earnings
+  const currentPeriodId = useMemo(() => {
+    if (periods.length === 0) return null;
+    const sorted = [...periods].sort((a, b) =>
+      new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+    );
+    return sorted[0].id;
+  }, [periods]);
+
   const sortedAgents = useMemo(() => {
     const agentEntries = [...agentData.entries()].map(([name, data]) => {
-      // Use most recent period for sorting
-      const sorted = [...data.periods].sort((a, b) =>
-        new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
-      );
-      const mostRecent = sorted[0];
+      // Use current week period specifically, not "most recent with data"
+      const currentPeriod = data.periods.find(p => p.period.id === currentPeriodId);
       return {
         agentName: name,
         data,
-        gross: mostRecent?.gross ?? 0,
-        net: mostRecent?.net ?? 0,
-        activeCount: mostRecent?.activeCount ?? 0,
+        gross: currentPeriod?.gross ?? 0,
+        net: currentPeriod?.net ?? 0,
+        activeCount: currentPeriod?.activeCount ?? 0,
       };
     });
 
@@ -288,16 +305,22 @@ export default function PayrollPeriods({
       ...a,
       isTopEarner: top3.has(a.agentName),
     }));
-  }, [agentData]);
+  }, [agentData, currentPeriodId]);
 
   /* ── Agent status helper ─────────────────────────────────── */
 
   function getAgentStatus(agentPeriods: AgentPeriodData[]): "paid" | "unpaid" | "partial" | null {
     if (agentPeriods.length === 0) return null;
-    const mostRecent = [...agentPeriods].sort((a, b) =>
+    // Use current week period, not just most recent with data
+    const current = currentPeriodId
+      ? agentPeriods.find(p => p.period.id === currentPeriodId)
+      : null;
+    // Fall back to most recent if agent has no current week entry
+    const target = current ?? [...agentPeriods].sort((a, b) =>
       new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
     )[0];
-    const entries = mostRecent.entries;
+    if (!target) return null;
+    const entries = target.entries;
     if (entries.length === 0) return null;
     const paidStatuses = ["PAID", "ZEROED_OUT", "CLAWBACK_APPLIED"];
     const allPaid = entries.every(e => paidStatuses.includes(e.status));
@@ -938,7 +961,17 @@ export default function PayrollPeriods({
               </Card>
             )}
 
-            {selectedAgent && !isCSAgent && selectedSalesData && (
+            {selectedAgent && !isCSAgent && selectedSalesData && visiblePeriods.length === 0 && (
+              <Card style={{ borderRadius: R["2xl"], marginTop: S[8] }}>
+                <EmptyState
+                  icon={<Users size={32} />}
+                  title={selectedAgent}
+                  description="No sales entries for the current period."
+                />
+              </Card>
+            )}
+
+            {selectedAgent && !isCSAgent && selectedSalesData && visiblePeriods.length > 0 && (
               <>
                 <AgentCard
                   agentName={selectedAgent}
