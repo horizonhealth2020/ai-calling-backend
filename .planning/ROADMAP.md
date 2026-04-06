@@ -95,7 +95,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 
 </details>
 
-### v2.2 Chargeback Batch Review & Payroll Agent Tabs (Phases 42-43)
+### v2.2 Chargeback Batch Review & Payroll Agent Tabs (Phases 42-44)
 
 See: `.planning/milestones/v2.2-ROADMAP.md`
 
@@ -119,10 +119,10 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 | 31-32 | v1.9 | 3/3 | Complete | 2026-03-30 |
 | 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
 | 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
-| 42 | v2.2 | 0/0 | Not started | - |
+| 42 | v2.2 | 0/1 | Planning complete | - |
 | 43 | v2.2 | 0/0 | Not started | - |
 | 44 | v2.2 | 0/0 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
-*Last updated: 2026-04-06 -- v2.2 roadmap added (Phases 42-44)*
+*Last updated: 2026-04-06 -- Phase 42 planned (1 plan)*
