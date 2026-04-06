@@ -1,168 +1,164 @@
 # Project Research Summary
 
-**Project:** Sales Board TV Readability (v2.0)
-**Domain:** TV-mounted sales leaderboard — font scaling and contrast optimization within an existing Next.js dashboard
-**Researched:** 2026-03-31
+**Project:** Ops Platform v2.1 — Chargeback Processing, Payroll Layout & Dashboard Polish
+**Domain:** Internal sales operations platform — incremental iteration
+**Researched:** 2026-04-06
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This milestone is a narrow, focused improvement to an existing working product. The sales board at `apps/sales-board/app/page.tsx` already delivers the core functionality; the v2.0 goal is to make it legible from across a sales floor on a wall-mounted TV. Research across all four domains converges on the same recommendation: increase font sizes using hardcoded `px` values within the existing inline `React.CSSProperties` pattern, bump low-contrast secondary text one tier up the color scale, and validate against 15 agents at 1080p before shipping. No new dependencies, no new files, no architectural changes.
+This is a tightly scoped internal ops platform milestone (v2.1) built on a mature, validated stack. The research is grounded entirely in direct codebase analysis — not documentation hunting — because the codebase itself is the primary source of truth. Every feature in v2.1 is an extension or refinement of something already built: CSV upload extends an existing paste-to-parse flow, the payroll sidebar restructures an existing period-first layout, ACA editing adds form fields to an existing read-only view, and the remaining four changes are configuration tweaks. Zero new npm packages are required.
 
-The recommended approach treats this as a surgical pass on a single file. All ~30 font-size literals in `apps/sales-board/app/page.tsx` need to increase by 20-40%, following a TV-readability tier system: glanceable numbers (sale counts, totals) at 30-42px, key labels (agent names, headers) at 20-26px, and supporting text (premiums, section labels) at 16-20px. Font weight (already 800 on key numbers) and negative letter-spacing (already applied to large counts) should be preserved — they contribute more to readability than raw size alone. Dollar amounts should drop cents and use `fmt$whole` consistently across both views.
+The recommended approach is to build in three phases ordered by risk and independence: quick fixes first (four independent, low-risk changes that each touch one file), then CSV batch processing (medium complexity with a new client-side UI path), then ACA product editing and the payroll sidebar redesign (the two features that require the most structural change). This order lets the team ship four improvements immediately while the larger changes are in flight, and it avoids blocking work on the highest-risk item (the 91K PayrollPeriods.tsx refactor).
 
-The primary risk is cell height overflow with 15 agents at 1080p: increasing font sizes also increases computed row height, which can push the team total row off-screen. The pixel budget analysis shows 741px available for 15 agent rows — approximately 49px per row — which is tight but workable if vertical padding is reduced from 14px to 11-12px per side to compensate for larger type. The secondary risk is contrast failure on actual TVs: colors passing WCAG AA on a backlit monitor can wash out on a consumer TV in a bright office. Both risks must be addressed in Phase 1, not deferred.
+The primary risk is financial data correctness. Two pitfalls are categorized as critical: (1) the enrollment fee $0 default, which if applied to the commission engine rather than just the UI badge will silently halve commission for every historical sale without an enrollment fee, and (2) partial CSV batch failures, where a mid-loop failure leaves orphaned payroll alerts. Both risks are fully preventable through surgical scoping of the enrollment fee fix and Prisma transaction wrapping for the CSV batch. All pitfalls identified have direct code references and concrete prevention steps.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new technologies are needed. The existing stack (Next.js 15, React, Inter font via `next/font/google`, inline `React.CSSProperties`) is entirely sufficient for this milestone. The Inter font at weight 800 renders well at display sizes, and the project's numeric `fontSize` convention (e.g., `fontSize: 18`) should be preserved — introducing CSS string values like `clamp()` would break this convention and solve a problem that does not exist on a single known-resolution display.
+The existing stack is sufficient for all six v2.1 features without any additions. The codebase has a documented philosophy of preferring inline implementations over external dependencies (inline SVG sparklines instead of a chart library, paste-to-parse instead of a file upload library). This philosophy holds for v2.1: the CSV upload uses the browser FileReader API and a custom `parseCSVLine()` function rather than PapaParse, and the payroll sidebar uses `useState` and CSS flexbox rather than a component library.
 
-**Core technologies:**
-- **React inline CSSProperties (existing):** All font size changes stay as numeric literals — keeps consistency with the 1,240-line file convention and avoids introducing string-typed fontSize values
-- **Next.js 15 (existing):** No config changes needed; the sales board is already a standalone Next.js app
-- **Inter at weight 800 (already loaded):** Renders well at display sizes; negative letter-spacing already applied to large counts should be preserved
-- **`fmt$whole` helper (existing):** Whole-dollar formatting already exists — consistency pass only, no new helper needed
+**Core technologies (unchanged for v2.1):**
+- Next.js 15.3.9: Dashboard framework — sufficient for all new components
+- React 18.3.1: UI components — `useState` handles all new state needs
+- Express 4.19.2: API server — existing endpoints accept all required payloads
+- Prisma 5.20.0: ORM — `$transaction` needed for CSV batch safety
+- Zod 3.23.8: Input validation — schema extensions needed for ACA_PL fields
+- Browser FileReader API: CSV file reading — no install, all modern browsers
 
 ### Expected Features
 
-Research confirmed all table-stakes items are low-complexity changes to existing inline styles. The highest-value differentiators (auto-scaling by agent count, podium card enlargement) should be deferred until base font sizes are validated on a real TV.
+Research produced a clear four-phase MVP definition with each feature categorized by user value and implementation cost.
 
-**Must have (table stakes — v2.0):**
-- Enlarged table fonts in WeeklyView (agent names to ~22px, daily counts to ~26px, premiums to ~16px, totals to ~32px) — currently 12-24px range
-- Enlarged KPI card numbers in stats bar (32-36px) — currently 26-30px
-- Enlarged team total row (grand total to 36px) — currently 14-28px; this is the most-glanced row
-- Minimum fontWeight 700 on all data-bearing text — currently some premium sub-text uses weight 600
-- Contrast promotion for secondary/tertiary text — promote `textTertiary` to `textSecondary` for anything a manager reads from 3+ meters
-- `fmt$whole` consistency across both WeeklyView and DailyView — suppress "$0" for zero-premium agents
+**Must have (table stakes):**
+- CSV upload for batch chargebacks — natural extension of existing paste-to-parse workflow; users already deal with carrier CSV reports
+- Pre-submit review table with match badges — batch operations require visual confirmation before commit; 50-row batches cannot be undone easily
+- Enrollment fee defaults to $0 — fixes inconsistent half-commission badge behavior; deterministic behavior is a correctness requirement
+- Call audit rolling window (last 30 audits) — time-based default shows nothing on slow days; count-based is predictably useful
 
-**Should have (competitive — v2.x, after TV validation):**
-- Auto-scaling font sizes based on agent count using `Math.max(MIN, BASE - (count - 9) * STEP)` pattern
-- Podium card size increase in DailyView (~1.5x nameSize and countSize) for dramatic leaderboard impact
+**Should have (competitive advantage):**
+- Payroll agent sidebar redesign — master-detail pattern makes per-agent payroll review dramatically faster for payroll staff
+- ACA product editable in payroll Products tab — removes developer intervention for flat commission rate changes
+- Performance tracker sections start expanded — removes a friction click from every page load for analytics staff
+- Sparkline data fix — analytics section is present but silently broken; fixes trust in the feature
 
-**Defer (v3+):**
-- TV-specific URL parameter (`?tv=1`) to toggle between TV and desktop sizing — only if the board must serve both contexts simultaneously
-- Configurable default view persistence — only if offices disagree on weekly vs. daily default
-- Abbreviated K/M suffixes — only if full dollar amounts remain noisy after the font increase
+**Defer to v2.2+:**
+- Drag-and-drop column mapping for CSV — generic mapper adds significant complexity for a single-format carrier report
+- Full-text transcript search — requires indexing infrastructure; existing filters are sufficient
+- Real-time sidebar totals via Socket.IO — navigation aid does not need live updates; adds re-render complexity
 
 ### Architecture Approach
 
-All changes land in a single file: `apps/sales-board/app/page.tsx`. No shared package changes, no API changes, no new components. The correct integration points are: `PODIUM_CONFIG` constant for podium nameSize and countSize values, direct literal changes for WeeklyView and stats bar elements, and the `PodiumCard` component's inline premium fontSize. A centralized `TV` constant object at the top of the file (following the existing `TH`, `PODIUM_CONFIG` pattern) is recommended as an optional organizational improvement but is not required for correctness.
+All six features integrate into the existing three-layer architecture (ops-dashboard -> ops-api -> Prisma/PostgreSQL) with no new services, no schema migrations, and no new shared packages. The CSV upload is purely a new client-side input path feeding an existing API endpoint. The payroll redesign is a client-side data pivot from period-first to agent-first grouping using data already returned by the existing endpoint. The four quick fixes each touch a single file at a specific line.
 
-**Major components (all within `page.tsx`):**
-1. `PODIUM_CONFIG` constant — entry point for podium nameSize and countSize; change values here, not in JSX downstream
-2. `WeeklyView` component — ~12 font-size literals across TH, agent name cells, daily count/premium cells, total column, team total row
-3. `SalesBoard` / stats bar — 4 KPI card value sizes (labels can stay small at 11-13px)
+**Major components and their changes:**
+1. `CSSubmissions.tsx` — add CSV upload UI path alongside existing paste; feeds same `POST /chargebacks` endpoint
+2. `PayrollPeriods.tsx` — major refactor (91K file); extract agent sidebar, pivot from period-first to agent-first rendering
+3. `PayrollProducts.tsx` — add ACA_PL edit fields (`flatCommission`, addon qualifier toggles)
+4. `payroll.ts` (service) — three-line fix: treat null `enrollmentFee` as $0 in `applyEnrollmentFee()` only
+5. `call-audits.ts` (API route) — remove 24h time window default; rely on existing count-based `take: 30`
+6. `LeadTimingSection.tsx` / `LeadTimingSparklines.tsx` — one-line expanded default + sparkline data pipeline fix
 
 ### Critical Pitfalls
 
-1. **Cell height overflow at 15 agents** — Increasing fontSize raises computed row height. At 17 rows in ~741px of available space, each row gets ~49px. Reduce vertical padding from `14px` to `11-12px` per side as font sizes grow. Verify with exactly 15 agents that no vertical scrollbar appears and the team total row stays visible.
+1. **CSV partial batch failures** — Wrap entire CSV batch in Prisma `$transaction`; validate all rows client-side before submit; generate deterministic batchId from file hash to prevent re-upload duplicates. The existing `createMany` + alert loop pattern is not atomic.
 
-2. **Dark theme contrast fails on actual TV** — `textTertiary: #64748b` on `#070a0a` passes WCAG AA on a monitor but can become invisible on a consumer TV in ambient office light. Promote all content text at least one tier: `textTertiary` → `textSecondary`, `textMuted` → `textTertiary`. Nothing readable on a TV should use `colors.textMuted` or `colors.borderStrong`.
+2. **Enrollment fee $0 causes commission regression** — The fix must be scoped exclusively to the UI badge display and the form default. Do NOT change `applyEnrollmentFee()` in `payroll.ts` to treat null as $0 — this would halve commission on every historical sale without an enrollment fee. The payroll UI already correctly guards with `enrollmentFee !== null &&` checks.
 
-3. **Agent name truncation with larger fonts** — Agent names use `whiteSpace: "nowrap"`. At 22-24px, long names like "Christopher Rodriguez" overflow the agent column and trigger the table's `overflowX: auto` scrollbar — unusable on a wall TV. Add `overflow: hidden`, `textOverflow: "ellipsis"`, and a `maxWidth` on agent name cells before shipping.
+3. **ACA flatCommission retroactive corruption** — When `flatCommission` changes, any future recalculation of existing payroll entries uses the new rate. Add a warning dialog ("This affects future recalculations only") and log the change via `logAudit`. Snapshot deferral is acceptable for v2.1.
 
-4. **Podium vertical overflow on DailyView** — The podium cards (160-220px tall) plus the "All Agents" section below may exceed 1080px. If DailyView is a TV target, card heights must be compressed by 30-40%. The milestone spec focuses on the weekly table, so this may be out of Phase 1 scope — confirm with stakeholders.
+4. **Payroll sidebar empty states** — Agents with zero payroll entries produce a blank right panel that looks broken. Show "No payroll entries yet" empty state; filter to active agents by default; add visual indicators in sidebar for agents with/without entries.
 
-5. **`$0` visual noise at large font sizes** — Promoting `fmt$whole` output to 16-18px makes large "$0" prominent for zero-sales agents. Suppress to a dash or empty string for the zero case to prevent visual clutter drawing the eye to inactive agents.
+5. **Sparkline date key format mismatch** — Prisma raw queries return PostgreSQL `date` type with unpredictable serialization. Fix by using `TO_CHAR(timestamp, 'YYYY-MM-DD') AS day` in the SQL rather than `::date`, guaranteeing consistent string format on both ends.
 
 ## Implications for Roadmap
 
-The work naturally separates into two phases: a core readability pass (all table-stakes features + critical pitfall prevention) followed by a polish/validation pass after real-world TV testing.
+Based on research, the dependency graph and risk profile suggest a four-phase structure. Phase 1 items are all independent and can be executed in parallel by multiple developers.
 
-### Phase 1: Core TV Readability
+### Phase 1: Quick Fixes
+**Rationale:** Four independent changes with zero dependencies on each other or on later phases. Each is one to eight lines in a single file. High value-to-effort ratio — ship immediately to reduce backlog pressure and validate the deployment pipeline before larger changes land.
+**Delivers:** Correct enrollment fee behavior, consistent audit density, visible analytics sections, working sparklines.
+**Addresses:** Enrollment fee $0 default, audit rolling window, tracker expanded state, sparkline data fix.
+**Avoids:** Pitfall 2 (commission regression) by scoping the enrollment fee fix to UI only; Pitfall 7 (sparkline date mismatch) by applying `TO_CHAR` SQL fix.
 
-**Rationale:** All table-stakes features and all critical pitfalls must ship atomically. Increasing font sizes without simultaneously fixing row height budget, contrast, name truncation, and dollar formatting leaves the board in a broken intermediate state — improved in some conditions, broken in others (15 agents, long names, bright room).
+### Phase 2: CSV Batch Chargeback Processing
+**Rationale:** Medium-complexity feature with clear client-side scope. Does not depend on Phase 1. The primary input risk (partial batch failures) has a known prevention (Prisma transaction). Ships after Phase 1 to have a clean baseline, but does not need to wait for Phases 3 or 4.
+**Delivers:** File-based chargeback submission with pre-submit review, match badges, row editing, and batch safety.
+**Addresses:** CSV batch upload (table stakes), pre-submit review with match indicators (table stakes).
+**Avoids:** Pitfall 1 (partial batch) via transaction wrapping and client-side validation; Pitfall 5 (CSV parsing edge cases) via BOM stripping and quoted-field handling; Pitfall 10 (browser memory) via row cap.
+**Note on library decision:** PITFALLS.md recommends PapaParse for robustness; STACK.md recommends against it for consistency with codebase conventions. Resolve during implementation by inspecting an actual carrier CSV export. If the format is confirmed tab-delimited, the custom parser suffices.
 
-**Delivers:** A production-ready TV-readable sales board at 1080p for 9-15 agents, using the weekly table as the primary TV view.
+### Phase 3: ACA Product Editing
+**Rationale:** Self-contained extension of existing product CRUD. Does not depend on Phase 1 or 2. Moderate complexity — UI form additions with matching Zod schema changes. Ships separately from the payroll sidebar to isolate risks.
+**Delivers:** Editable `flatCommission` and addon qualifier configuration for ACA_PL products without developer intervention.
+**Addresses:** ACA product editable (should have).
+**Avoids:** Pitfall 3 (retroactive commission corruption) via warning dialog and audit log; Pitfall 8 (circular addon dependencies) via type-conditional field visibility and server-side validation.
 
-**Addresses:**
-- Enlarged WeeklyView table fonts (agent names to ~22px, daily counts to ~26px, premiums to ~16px, totals to ~32px)
-- Enlarged KPI card numbers (32-36px) in stats bar
-- Enlarged team total row (grand total to 36px)
-- Font weight minimum 700 on all data text
-- Contrast promotion (textTertiary to textSecondary for readable content)
-- `fmt$whole` consistency + suppress "$0" for zero-premium agents
-- Day/week toggle buttons and section labels enlarged for TV readability
-
-**Avoids:**
-- Cell height overflow — reduce vertical padding 14px → 11-12px while increasing font
-- Contrast failure on TV — promote all readable text one color tier
-- Agent name overflow — add textOverflow ellipsis + maxWidth to agent name cells
-- Dollar format noise — suppress zero-premium agents to dash
-
-**Research flag:** No additional research needed. All patterns are well-documented, scope is a single file, implementation path is unambiguous. Execute directly.
-
-### Phase 2: Polish and TV Validation
-
-**Rationale:** After Phase 1 ships and is tested on an actual office TV, real-world feedback will reveal whether podium view needs work, whether agent counts cause overflow at extremes, and whether animation duration needs tuning. These cannot be validated without the Phase 1 baseline.
-
-**Delivers:** A refined TV experience with dynamic agent count scaling, enlarged podium cards for DailyView, and animation behavior appropriate for peripheral display.
-
-**Addresses:**
-- Auto-scaling font sizes based on agent count (P2 feature)
-- Podium card size increase in DailyView (P2 feature)
-- AnimatedNumber duration reduction for TV (under 200ms, or switch to static + background pulse)
-- DailyView podium vertical fit at 1080p (if DailyView is confirmed as TV-facing view)
-
-**Avoids:**
-- AnimatedNumber jitter causing distraction during active sales periods
-- Fixed pixel resolution fragility if TVs vary (consider clamp() post-validation if 4K TVs are in use)
-
-**Research flag:** Podium resizing requires a brief layout analysis before implementation — the 3-card fixed-width geometry (165/175/200px) is the most resolution-sensitive part of the layout. Verify cards + remaining-agents flex section fit at 1920px with increased widths before committing to specific values.
+### Phase 4: Payroll Agent Sidebar Redesign
+**Rationale:** Largest change in the milestone (91K file refactor, 300-500 lines changed). Ships last to avoid blocking other work and to have a stable base. Independent of all other phases but benefits from a fully tested deployment pipeline.
+**Delivers:** Agent-first payroll navigation with sidebar, per-agent historical view, last 4 pay cards, and "Load More" pagination.
+**Addresses:** Payroll agent sidebar (should have, high user value for payroll staff).
+**Avoids:** Pitfall 4 (empty state chaos) via empty state components and active agent filtering; Pitfall 9 (sort order inconsistency) via `displayOrder` then alphabetical sort; Pitfall 12 (unbounded load more) via 20-period hard cap.
 
 ### Phase Ordering Rationale
 
-- Phase 1 before Phase 2 because: auto-scaling fonts depend on establishing correct base sizes; podium work is isolated to DailyView and does not affect the weekly table; animation tuning is non-blocking polish that requires watching the board during live sales activity.
-- All Phase 1 items must ship atomically: font sizes, padding adjustments, contrast promotion, and text overflow handling are co-dependent — partial application creates a broken intermediate state.
-- DailyView (podium) work is intentionally deferred: the milestone spec targets the weekly breakdown table, and podium geometry is more complex to change without overflow risks across agent counts.
+- Phase 1 before everything: zero dependencies, immediate wins, validates deployment
+- Phase 2 before Phase 3/4: CSV processing has external user impact (CS staff) vs internal payroll staff; higher urgency
+- Phase 3 before Phase 4: ACA editing is scoped and lower risk; completes before the largest change goes in
+- Phase 4 last: highest structural change, largest single file modification, benefits from stable prior phases
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2 (podium resizing):** Podium card geometry involves fixed pixel widths for 3 side-by-side cards at 1920px. Resizing requires verifying the 3-card layout still fits with increased widths and that the "All Agents" flex section below remains usable. A brief layout analysis before implementation is warranted.
+Phases with well-documented patterns (skip deeper research-phase):
+- **Phase 1:** All four changes are trivial code modifications with exact line references in research. No additional research needed.
+- **Phase 3:** Extends existing product CRUD with known patterns. Zod schema additions are standard.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (font size + contrast pass):** Entirely within established inline CSSProperties pattern. Target values are documented in STACK.md. Implementation is mechanical number substitution with one layout constraint (row height budget). No research needed — execute directly.
+Phases that may benefit from targeted investigation during planning:
+- **Phase 2 (CSV parsing decision):** Resolve the PapaParse vs custom parser conflict. Obtain one actual carrier chargeback CSV export to inspect headers, encoding, and quoting before committing to implementation approach.
+- **Phase 4 (PayrollPeriods.tsx refactor):** The file is 91K. Before writing code, map the exact component boundaries to extract. Identify which sub-components (`AgentPayCard`, period accordion) can be reused versus replaced.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Direct codebase analysis; no new dependencies means zero uncertainty about library compatibility or version conflicts |
-| Features | HIGH | Features are well-scoped to CSS property changes; priority tiers based on multiple corroborating industry sources (Klipfolio, Spinify, Android TV guidelines) |
-| Architecture | HIGH | Single-file change set confirmed by direct code inspection; component boundaries are unambiguous; integration points explicitly identified |
-| Pitfalls | HIGH | Primary pitfalls derived from direct pixel budget calculation (not estimation) and confirmed color token analysis against known hex values |
+| Stack | HIGH | All conclusions from direct `package.json` and dependency analysis. No external docs needed — existing stack is definitively sufficient. |
+| Features | HIGH | All features derived from direct code inspection of existing flows. User expectations are grounded in the current product, not speculation. |
+| Architecture | HIGH | Component boundaries, data flow, and file-level change estimates all from direct code analysis. Line numbers cited for key changes. |
+| Pitfalls | HIGH | All pitfalls identified from actual code patterns with specific file and line references. No hypothetical scenarios. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Exact padding reduction values:** Research recommends reducing vertical padding from 14px to 11-12px, but the precise amount depends on the font sizes chosen. Implementation must measure actual rendered row height at chosen sizes and adjust padding to stay within the ~49px row budget. This is a test-and-adjust step during Phase 1, not a pre-calculable value.
-- **DailyView as TV target:** Research is ambiguous on whether DailyView (podium + remaining agents) is expected to fit on a TV. The milestone spec focuses on weekly table readability. If the office uses DailyView on the TV, Phase 1 scope expands significantly. Confirm with stakeholders before starting Phase 1 implementation.
-- **Actual TV hardware:** Research assumes a 50-65 inch 1080p TV at 10-15 feet. If the specific TV is smaller (40 inch) or the room is deeper, font size targets may need upward adjustment. Verify Phase 1 output on the actual hardware before declaring done.
+- **CSV parser library decision:** STACK.md (no library) and PITFALLS.md (use PapaParse) give conflicting recommendations. Resolution requires a real carrier CSV sample. If the format is truly tab-delimited, a custom parser suffices; if it is standard RFC 4180 CSV with encoding variation, add PapaParse and document the exception.
+
+- **Enrollment fee fix scope:** Research confirmed the fix must NOT touch `applyEnrollmentFee()` in `payroll.ts`. The exact location of the UI badge bug needs verification during implementation — likely `PayrollPeriods.tsx:1505` and the commission preview endpoint.
+
+- **Sparkline root cause:** The `TO_CHAR` SQL fix addresses the probable cause (date key format mismatch from Prisma raw query). If sparklines remain broken after that fix, inspect the actual API response format in the running environment before further debugging.
 
 ## Sources
 
-### Primary (HIGH confidence)
-- `apps/sales-board/app/page.tsx` — direct code audit; all font sizes, padding values, layout structure, ~1,240 lines inspected
-- `packages/ui/src/tokens.ts` — color token values, typography scale
-- `packages/ui/src/theme.css` — CSS custom properties, actual hex values for contrast analysis
-- `.planning/PROJECT.md` — milestone requirements and constraints
+### Primary (HIGH confidence — direct codebase analysis)
+- `apps/ops-dashboard/app/(dashboard)/cs/CSSubmissions.tsx` — existing paste-to-parse chargeback flow and parser
+- `apps/ops-api/src/routes/chargebacks.ts` — batch chargeback API contract, `createMany` + alert loop
+- `apps/ops-api/src/routes/call-audits.ts` — 24h default window at lines 44-52
+- `apps/ops-api/src/routes/products.ts` — product CRUD Zod schemas
+- `apps/ops-api/src/routes/lead-timing.ts` — sparkline 7-day series query with date casting
+- `apps/ops-api/src/services/payroll.ts` — commission engine, `applyEnrollmentFee()` at lines 55-84
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` — 91K agent card component, enrollment fee guards at line 1505, agent grouping at line 1701+
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` — product management UI (no ACA_PL fields currently)
+- `apps/ops-dashboard/app/(dashboard)/manager/LeadTimingSection.tsx` — collapsed default at line 75
+- `apps/ops-dashboard/app/(dashboard)/manager/LeadTimingSparklines.tsx` — sparkline rendering
+- `apps/ops-dashboard/app/(dashboard)/manager/ManagerAudits.tsx` — audit display
+- `prisma/schema.prisma` — Product model, ChargebackSubmission, CallAudit
+- `apps/ops-api/src/services/__tests__/commission.test.ts` — COMM-08 enrollment fee test cases
+- `apps/ops-dashboard/package.json` — current dependency list
 
-### Secondary (MEDIUM confidence)
-- [Klipfolio: Best Practices for Displaying Dashboards on Large Screens](https://www.klipfolio.com/resources/articles/best-practices-large-screen-wallboard-tv-dashboard) — abbreviate numbers, design for glancing, avoid data density
-- [DigitalSignage.com: Typography & Viewing Distance Guide](https://digitalsignage.com/digital_signage/docs/guides/typography-viewing-distance/) — font size formulas by viewing distance
-- [Pascal Potvin: Designing a 10ft UI](https://pascalpotvin.medium.com/designing-a-10ft-ui-ae2ca0da08b7) — 24px minimum body text at 10ft on 1080p
-- [Android TV Style Guide](https://spot.pcc.edu/~mgoodman/developer.android.com/preview/tv/design/style.html) — 28px minimum on 1080p display
-- [Spinify: Sales Leaderboard Best Practices](https://spinify.com/blog/top-10-sales-leaderboard-best-practices/) — motivation through visibility, avoid ranking-based public shaming
-- [Ambition: Wallboards and Leaderboards Best Practices](https://ambition.com/blog/entry/2017-09-26-how-use-wallboards-and-leaderboards-close-out-year-strong/) — keep metrics simple, multiple recognition opportunities
-- [RiseVision: Digital Signage Best Practices](https://www.risevision.com/blog/digital-signage-best-practices) — sans-serif bold, limit text density, test at distance
-
-### Tertiary (LOW confidence)
-- General TV contrast research — consumer TV panels have lower native contrast than IPS monitors; ambient light worsens perceived contrast; specific contrast degradation values vary by TV model and cannot be precisely predicted without testing on target hardware
+### Secondary (project decision history)
+- Inline SVG sparklines chosen over charting library — establishes no-external-library precedent for v2.1
+- Paste-to-parse chosen over file upload middleware — establishes client-side parsing precedent for CSV upload
 
 ---
-*Research completed: 2026-03-31*
+*Research completed: 2026-04-06*
 *Ready for roadmap: yes*

@@ -1,224 +1,178 @@
-# Pitfalls Research
+# Domain Pitfalls
 
-**Domain:** TV-readable sales board leaderboard (optimizing existing Next.js dark-theme dashboard for wall-mounted TV viewing distance)
-**Researched:** 2026-03-31
-**Confidence:** HIGH (based on direct codebase analysis + established display/typography best practices)
+**Domain:** Sales/payroll ops platform v2.1 feature additions
+**Researched:** 2026-04-06
 
 ## Critical Pitfalls
 
-### Pitfall 1: Increasing font sizes causes cell height expansion, breaking 9-15 agent fit
+Mistakes that cause rewrites, data corruption, or payroll inaccuracies.
 
-**What goes wrong:**
-The weekly table uses `padding: "14px 16px"` on every `<td>`. Bumping font sizes from 18px/20px to TV-readable sizes (24px+) increases the line box height, which adds to the existing 28px of vertical padding per cell. With 15 agents + header + team total row = 17 rows, each gaining even 8px of height totals 136px of extra vertical space. The table overflows the viewport on a 1080p TV.
+### Pitfall 1: CSV Chargeback Upload — Partial Batch Failures Without Transaction Safety
 
-**Why it happens:**
-Developers increase `fontSize` but leave `padding` untouched, assuming "cell dimensions unchanged" means only padding stays the same. In reality, the browser computes cell height as `padding-top + line-height * fontSize + padding-bottom`. Bigger font = taller cell regardless of padding.
+**What goes wrong:** A CSV with 50 chargeback rows processes 30 successfully, then row 31 fails validation or matching. The user sees a partial import with no clear indication of which rows succeeded and which failed. Worse, if the batch creates payroll alerts for the first 30 rows before failing, those alerts are now orphaned from incomplete batch context.
 
-**How to avoid:**
-Reduce vertical padding proportionally as font size increases. The constraint is "keep cell dimensions unchanged," which means the total rendered height per row must stay the same. If font goes from 18px to 24px (6px taller), reduce top+bottom padding by 6px (e.g., 14px -> 11px each side). Test with exactly 15 agents at 1080p to verify no overflow.
+**Why it happens:** The existing `POST /chargebacks` endpoint uses `createMany` for records, then loops through created records for matching and alert creation. A CSV upload amplifies this pattern -- a 200-row CSV hitting the loop-based matching (one query per row) creates N+1 query patterns and sequential `createAlertFromChargeback` calls. Any failure mid-loop leaves the database in a partial state.
 
-**Warning signs:**
-- Vertical scrollbar appears on the table container (it has `overflowX: "auto"` but no `overflowY`)
-- Team total row disappears below the fold
-- Page requires scrolling when more than 12 agents are active
+**Consequences:** Payroll staff see partial chargeback data. Alerts fire for some chargebacks but not others. Re-uploading the CSV creates duplicates for the rows that already succeeded. Users lose trust in batch operations.
 
-**Phase to address:**
-Phase 1 (font size changes) -- must be validated simultaneously with size increases, not as a follow-up fix.
+**Prevention:**
+1. Wrap the entire CSV batch in a Prisma `$transaction` so it is all-or-nothing.
+2. Separate validation from persistence: parse and validate ALL rows client-side, show a pre-submit review table, then send only validated records.
+3. Add a dedupe guard on CSV upload -- hash the CSV content or use a unique batch identifier so re-uploads are idempotent.
+4. The existing `batchId` field is already a UUID generated per paste. For CSV, generate a deterministic batch ID from the file hash to prevent re-upload duplicates.
 
----
+**Detection:** Chargeback count in tracking table does not match the row count the user expected from their CSV.
 
-### Pitfall 2: Dark theme contrast ratios that pass on monitors fail on TVs
+### Pitfall 2: Enrollment Fee $0 Default — Triggering Half-Commission on Every Sale Without a Fee
 
-**What goes wrong:**
-The current theme uses `--text-tertiary: #64748b` (slate-500) and `--text-muted: #475569` (slate-600) on backgrounds like `#070a0a` and `#0c1414`. On a backlit monitor at 60cm viewing distance, these pass WCAG AA. On a consumer-grade TV at 3-6 meters with ambient office lighting, lower-contrast elements become invisible. Specifically: the "dash" placeholders (`&mdash;` in `colors.borderStrong`), the premium sub-text (`colors.textTertiary`), and the rank badges on non-top-3 agents (`colors.textMuted`) will disappear.
+**What goes wrong:** Changing `enrollmentFee` from `null` to `0` when missing fundamentally changes commission behavior. The current code at `payroll.ts:56` has an explicit early return: `if (enrollmentFee === null || enrollmentFee === undefined) return { finalCommission: commission, enrollmentBonus: 0, feeHalvingReason: null }`. Changing null to 0 means EVERY sale that previously had no enrollment fee now hits the `fee < halfThreshold` check at line 79, which would HALVE commission for all of them (unless `commissionApproved` is true).
 
-**Why it happens:**
-TV panels have lower native contrast ratios than IPS monitors (especially in bright rooms), and viewing distance means the eye integrates text with surrounding background more aggressively. A color that "looks dim but readable" on a monitor becomes "invisible" on a TV from across the room.
+**Why it happens:** The intent is to fix the UI showing a "half commission" badge when enrollment fee is missing (null). But the fix location matters enormously. Defaulting at the database/API level changes commission calculations. Defaulting only at the UI display level fixes the badge without affecting payroll.
 
-**How to avoid:**
-Promote all text elements by one contrast tier: `textTertiary` -> `textSecondary`, `textMuted` -> `textTertiary`. For the sales board specifically, nothing should use `textMuted` or `borderStrong` for any visible text or numbers. The minimum should be `textTertiary` (#64748b) for truly secondary info, and `textSecondary` (#94a3b8) for anything a manager needs to read from across the room.
+**Consequences:** Every historical sale without an enrollment fee gets half commission on recalculation. Payroll entries are wrong. Agents are underpaid. Reversing the change requires identifying which sales legitimately had $0 fees vs which had missing fees.
 
-**Warning signs:**
-- Any text element using `colors.textMuted` or `colors.borderStrong` for content that should be readable
-- Premium dollar amounts using `colors.textTertiary` at small font sizes
-- Placeholder dashes using border colors instead of text colors
+**Prevention:**
+1. Do NOT change the database column default or the `enrollmentFee ?? null` patterns in `sales.ts`.
+2. The fix should be scoped to exactly TWO places: (a) the payroll UI half-commission badge check at `PayrollPeriods.tsx:1505` should treat null as "no fee, not half commission" (currently correct -- `enrollmentFee !== null && Number(...) < 99`), and (b) the approve button visibility, which also correctly guards on `!== null`.
+3. If the actual bug is the commission preview showing a half-commission badge when enrollment fee is empty on the entry form, fix the preview endpoint to treat empty/null enrollment fee as "skip fee check" not "fee is $0".
+4. Add a test case: `COMM-null-fee: sale with enrollmentFee=null should NOT trigger halving`.
 
-**Phase to address:**
-Phase 1 -- contrast adjustments must ship with font size changes. Bigger text at low contrast is still unreadable.
+**Detection:** Payroll totals drop dramatically after deployment. Half-commission badges appear on sales that never had enrollment fee issues.
 
----
+### Pitfall 3: ACA Product Edit — Changing flatCommission Retroactively Corrupts Existing Payroll
 
-### Pitfall 3: The podium section on DailyView consumes too much vertical space for TV
+**What goes wrong:** Making `flatCommission` editable in the Products tab means someone changes it from $15/member to $20/member. Existing payroll entries for ACA_PL sales were calculated at the old rate. The product table stores the current rate, not a historical snapshot. If any payroll recalculation is triggered (sale edit, status change, period reopen), existing ACA entries recalculate at the new rate.
 
-**What goes wrong:**
-The DailyView has a podium section with cards at heights 160px, 180px, 220px plus a 48px platform base, plus "Top Performers" header, plus day/week toggle, plus "All Agents" section below. This layout assumes vertical scrolling is acceptable. On a TV, the entire board must fit in one viewport with no scrolling -- nobody can scroll a wall-mounted TV.
+**Why it happens:** The commission engine at `payroll.ts:106` reads `sale.product.flatCommission` at calculation time, not the rate that was in effect when the sale was made. This is fine for percentage-based products (rates rarely change), but flat commission products are more likely to have rate adjustments.
 
-**Why it happens:**
-The existing design was built for desktop browser use where scrolling is natural. The podium is a visual showpiece that prioritizes engagement over information density. TV use inverts this: information density and zero-scroll are paramount.
+**Consequences:** Historical payroll entries silently change amounts when recalculated. Agent pay for past periods becomes inaccurate. Audit trail shows the payroll entry was "updated" but the reason is obscured.
 
-**How to avoid:**
-Either (a) compress the podium section significantly (reduce card heights by 30-40%, shrink gaps), or (b) when in "weekly" tab mode the table already has no podium -- consider making weekly the default/only view for TV mode, or (c) add a TV-specific layout that removes the podium entirely and shows all agents in a flat ranked list. The milestone requirements focus on the table (font sizes, 9-15 agents), so the weekly table view is likely the primary TV target.
+**Prevention:**
+1. When saving a flat commission change, log the old and new values in the audit log via `logAudit`.
+2. Add a confirmation dialog: "This product has X active payroll entries. Changing the rate will NOT retroactively change existing payroll entries, but any future recalculations will use the new rate."
+3. Consider snapshotting `flatCommission` on the `PayrollEntry` or storing it as a field on the sale at creation time. For v2.1, the warning dialog is sufficient -- snapshot can be deferred.
+4. The `PATCH /products/:id` endpoint already exists and supports all fields. The ACA edit is purely a UI task -- no new API work needed.
 
-**Warning signs:**
-- DailyView content extends below 1080px viewport height
-- "All Agents" section gets compressed or cut off below the podium
-- Users report needing to scroll on the TV
+**Detection:** Payroll entry amounts change after a product edit + unrelated sale update in the same period.
 
-**Phase to address:**
-Phase 1 -- decide early whether DailyView or WeeklyView is the TV target. If both, podium compression is Phase 1 work.
+### Pitfall 4: Payroll Agent Card Redesign — Sidebar With All Agents Creates Empty State Chaos
 
----
+**What goes wrong:** A sidebar listing ALL agents includes agents with zero payroll entries for any period. Clicking an agent with no entries shows a blank right panel. With "last 4 pay cards + load more," an agent who just started has 0-1 cards, making the layout look broken. Worse, the `allAgents` variable at `PayrollPeriods.tsx:1514` already injects empty arrays for agents not in the period -- this pattern needs to extend to the sidebar.
 
-### Pitfall 4: Fixed pixel widths in podium cards break on non-1080p TV resolutions
+**Why it happens:** The redesign changes from "one card per period containing all agents" to "one sidebar listing agents, one panel showing per-agent history." Agents without entries are a normal state (new hires, inactive agents still in the list), but the UI does not account for it.
 
-**What goes wrong:**
-Podium cards use fixed pixel widths: 200px, 175px, 165px. The platform base mirrors these. If the TV is 4K (3840x2160) running at native resolution, these cards will look tiny. If the TV is 720p, they may overlap or overflow. The weekly table has `minWidth: 760` which is fine for most TVs, but the inline pixel dimensions throughout are resolution-fragile.
+**Consequences:** Users think the system is broken when clicking an agent shows nothing. The "load more" button logic breaks when there are fewer than 4 entries.
 
-**Why it happens:**
-The codebase uses inline `React.CSSProperties` exclusively (project constraint: no Tailwind, no CSS files beyond theme/responsive). Fixed pixel values work well when the target viewport is known (desktop browser). TVs vary wildly: 720p, 1080p, 4K, and browsers on TV sticks may or may not honor device-pixel-ratio.
+**Prevention:**
+1. Show "No payroll entries yet" empty state with the agent's start date if available.
+2. For the "last 4 pay cards" query, use a single API call: `GET /payroll/agent/:agentId/history?limit=4&offset=0`. Return periods even if they have zero entries for this agent (so the user sees the period existed).
+3. In the sidebar, show a visual indicator for agents with entries vs without (dot, badge count, or grayed name).
+4. Filter sidebar to active agents by default, with a toggle to show inactive agents.
+5. Handle the edge case: an agent exists in the sidebar but has entries only as part of `ServicePayrollEntry` (service agents), not `PayrollEntry`. These are different tables -- do not mix them.
 
-**How to avoid:**
-For the weekly table (the primary TV view), column widths are already flexible (`width: "100%"` on the table). Font sizes are the main concern. Use `clamp()` in font-size values so they scale between a floor and ceiling: e.g., `fontSize: "clamp(18px, 2vw, 28px)"`. This keeps things readable across resolutions without media queries. Note: `clamp()` works in inline styles as a string value.
+**Detection:** QA clicks through every agent in the sidebar. At least one will have no entries.
 
-**Warning signs:**
-- Testing only on one resolution (e.g., only 1080p)
-- Podium cards overlapping or having large gaps on non-standard resolutions
-- Text that looks perfect on 1080p but is too small on 4K or too large on 720p
+## Moderate Pitfalls
 
-**Phase to address:**
-Phase 1 -- if using fixed pixel font sizes, document the target resolution explicitly. If using clamp(), implement it from the start.
+### Pitfall 5: CSV Parsing — Column Header Mismatches and Encoding Issues
 
----
+**What goes wrong:** The chargeback CSV from the carrier may have different column headers than expected (e.g., "Chargeback Amt" vs "chargebackAmount"), BOM characters in the first byte, Windows line endings, or quoted fields containing commas. The existing paste-to-parse parser in `CSSubmissions.tsx` handles tab-delimited carrier data with a custom parser. CSV is a different format requiring different parsing logic.
 
-### Pitfall 5: Animated numbers cause visual jitter at TV viewing distance
+**Why it happens:** CSV is not a single format -- it is a family of formats. Excel exports UTF-8 with BOM. Google Sheets exports UTF-8 without BOM. Carrier reports may be ISO-8859-1. Column order varies between report versions.
 
-**What goes wrong:**
-The board uses `<AnimatedNumber>` throughout for sales counts and premiums. These animate on value changes (real-time Socket.IO updates). At TV viewing distance, a number flickering from "4" to "5" with a counting animation creates momentary visual noise that draws the eye unnecessarily. Worse, if multiple cells update simultaneously (a sale triggers cascade), the entire table appears to shimmer.
+**Prevention:**
+1. Use a battle-tested CSV parser library (Papa Parse is the standard for browser-side CSV). Do not write a custom parser.
+2. Show a column mapping step in the pre-submit review: detect headers automatically, let the user confirm or remap columns.
+3. Strip BOM (`\uFEFF`) from the first byte.
+4. Validate that required columns exist before processing. Required: at minimum `chargebackAmount`, `memberId` (for matching).
+5. Show the raw parsed preview table BEFORE any matching logic runs, so users can catch parsing errors visually.
 
-**Why it happens:**
-Animation that feels polished at arm's length feels chaotic from across a room. The eye can't track the transition -- it just sees "something changed" without catching the before/after. This defeats the purpose of the leaderboard: quick at-a-glance status.
+**Detection:** First real CSV upload from a carrier report will reveal mismatches. Test with an actual carrier export, not a manually created CSV.
 
-**How to avoid:**
-Keep AnimatedNumber but ensure the animation duration is very short (under 200ms) so it reads as a snap rather than a count-up. Alternatively, for TV mode, replace AnimatedNumber with static rendering and use a brief background flash (cell background pulses green for 1 second) to signal "this value just changed." This is more TV-appropriate: the number is always statically readable, and the flash provides change notification.
+### Pitfall 6: Rolling Window (Last 30 Audits) — Count-Based vs Time-Based Query Semantics
 
-**Warning signs:**
-- Multiple cells animating simultaneously when a sale is entered
-- Numbers mid-animation being unreadable (showing intermediate values)
-- Users reporting the board "flickers" or is "always moving"
+**What goes wrong:** "Last 30 audits" means different things: (a) the 30 most recent audit records, or (b) audits from the last 30 calendar days. The current code at `call-audits.ts:49` defaults to `24 * 60 * 60 * 1000` (24 hours) when no date range or cursor is specified. Changing this to "last 30 audits" (count-based) is different from "last 30 days" (time-based). A count-based approach with cursor pagination already exists -- the `limit` parameter defaults to 25.
 
-**Phase to address:**
-Phase 2 (polish) -- functional but not critical. Font sizes and contrast are Phase 1; animation tuning is refinement.
+**Why it happens:** The requirement says "last 30 audits instead of last 24 hours." This is a change from time-based to count-based default windowing. The cursor pagination already supports count-based loading (take: limit + 1), so the fix is trivial: remove the 24-hour default when no cursor is present, and change the default limit from 25 to 30.
 
----
+**Prevention:**
+1. Simply remove the `else if (!cursor)` block at line 48-52 that sets a 24-hour window. Let the query use no date filter on initial load, relying on `take: limit + 1` (change default to 30).
+2. The cursor pagination already handles "load more" correctly.
+3. Keep the date range filter working -- if a user selects "Last Week," the date filter should still apply on top of the count limit.
+4. Do NOT change the database query to `ORDER BY createdAt` instead of `callDate` -- the existing dual-field ordering (`callDate DESC, updatedAt DESC`) is intentional (D-09 in the code comments).
 
-### Pitfall 6: Agent name truncation when font size increases
+**Detection:** After the change, verify that selecting a date range still works correctly alongside the count-based default.
 
-**What goes wrong:**
-Agent names in the weekly table use `whiteSpace: "nowrap"` and `fontSize: 18`. Increasing to 24px+ means names like "Christopher M." or "Alejandra Rodriguez" may overflow the agent column, pushing day columns off-screen or causing horizontal scroll. The table has `overflowX: "auto"` which will add a scrollbar -- unusable on a TV.
+### Pitfall 7: Sparkline Data — Date Key Format Mismatch Between PostgreSQL and JavaScript
 
-**Why it happens:**
-The agent column has no `maxWidth` or `overflow: hidden` constraint. At 18px the names fit. At 24px they may not, especially with the rank badge (24px wide + 12px gap) eating into available space.
+**What goes wrong:** The sparkline query at `lead-timing.ts:153` casts `call_timestamp` to `::date`, which returns a PostgreSQL `date` type. When Prisma serializes this to JavaScript, the format depends on the Prisma version and PostgreSQL driver. It may come as `"2026-04-06"` (string) or `2026-04-06T00:00:00.000Z` (Date object). The client-side code at line 203 uses `String(r.day)` to build lookup keys, while the 7-day series at line 213 uses `d.toISOString().slice(0, 10)` which produces `"2026-04-06"`. If `String(r.day)` produces `"Sun Apr 06 2026 ..."` (from a Date object), the keys never match and sparklines show all zeros.
 
-**How to avoid:**
-Add `overflow: hidden`, `textOverflow: "ellipsis"`, and a `maxWidth` on the agent name cell. Better: use first name + last initial format for TV display (server-side or client-side formatting). "Christopher M." is 30% shorter than "Christopher Martinez" and equally identifiable in a sales office where everyone knows each other.
+**Why it happens:** Prisma raw queries (`$queryRaw`) return database types as-is. PostgreSQL `date` type serialization is not guaranteed to match JavaScript date string formatting. The mismatch is environment-dependent -- it may work in local dev with one Prisma version and fail in production with another.
 
-**Warning signs:**
-- Horizontal scrollbar appearing on the table
-- Agent column consuming more than 20% of table width
-- Day columns getting compressed to accommodate long names
+**Prevention:**
+1. In the SQL query, explicitly cast the date to a string format: `TO_CHAR((...), 'YYYY-MM-DD') AS day` instead of `::date AS day`. This guarantees the format regardless of Prisma/driver behavior.
+2. On the client side, normalize the day key: `const dayKey = typeof r.day === 'string' ? r.day.slice(0, 10) : new Date(r.day).toISOString().slice(0, 10)`.
+3. Add a log line in the sparkline endpoint to verify the day format during development: `console.log('sparkline day sample:', calls[0]?.day, typeof calls[0]?.day)`.
 
-**Phase to address:**
-Phase 1 -- must be handled when font sizes increase, not after.
+**Detection:** Sparklines render as flat zero lines even when there is clearly call/sale data for the period. Check the Network tab -- if the API returns data with mismatched day formats, this is the cause.
 
----
+### Pitfall 8: ACA Addon Qualifier Rules — Circular Product Dependencies
 
-### Pitfall 7: `fmt$whole` dollar formatting becomes ambiguous at large font sizes
+**What goes wrong:** Making ACA product addon qualifier rules editable in the Products tab means someone could set Product A's required bundle addon to Product B, and Product B's required bundle addon to Product A. The `resolveBundleRequirement` function at `payroll.ts:226` would loop or produce nonsensical results. Additionally, setting an ACA_PL product as a `requiredBundleAddonId` target creates a cross-type dependency that the commission engine does not handle.
 
-**What goes wrong:**
-The `fmt$whole` function rounds premiums to whole dollars: "$1,234". At 12px this is fine as supplementary info. At TV-readable sizes (18px+), "$1,234" without cents reads as authoritative. When the total on the payroll dashboard shows "$1,234.50", users may perceive a discrepancy. More critically, "$0" for agents with no sales is large and prominent, creating visual clutter.
+**Why it happens:** The Products tab allows setting `requiredBundleAddonId` and `fallbackAddonIds` on any product. There is no validation preventing circular references or cross-type misconfigurations.
 
-**Why it happens:**
-The formatting was designed for a supplementary/secondary display context. Increasing font size promotes it to primary information, changing user perception.
+**Prevention:**
+1. In the `PATCH /products/:id` endpoint, validate that `requiredBundleAddonId` is not the product itself and is not a product that already requires the current product as its addon.
+2. Only allow ADDON type products as `requiredBundleAddonId` targets -- not CORE, AD_D, or ACA_PL.
+3. For ACA_PL products, the edit form should only show `flatCommission` and `name` -- not bundle requirement fields (ACA_PL uses a completely different commission path that ignores bundle requirements).
+4. The UI should conditionally show/hide fields based on product type selection.
 
-**How to avoid:**
-Keep `fmt$whole` (no cents is correct for TV readability -- fewer characters = more readable at distance). But suppress the "$0" case entirely: show a dash or nothing for zero-premium agents, same as the zero-sales treatment. This reduces visual noise.
+**Detection:** Product configuration looks normal but commission calculations produce unexpected results or errors.
 
-**Warning signs:**
-- Large "$0" values drawing attention to inactive agents
-- Users comparing board totals to payroll and finding "mismatches" due to rounding
+## Minor Pitfalls
 
-**Phase to address:**
-Phase 1 -- part of the font size change pass.
+### Pitfall 9: Payroll Sidebar — Agent Sort Order Inconsistency
 
-## Technical Debt Patterns
+**What goes wrong:** The current payroll display at `PayrollPeriods.tsx:1508-1516` groups entries by agent name using a Map, then adds missing agents from `allAgents`. Map iteration order is insertion order, so agents appear in the order their first payroll entry was created, not alphabetical. The new sidebar needs a consistent sort -- alphabetical by name or by `displayOrder` field on the Agent model.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Hardcoding TV-specific font sizes inline | Quick to implement, matches codebase pattern | If the board is ever viewed on desktop again, sizes are wrong | Acceptable if the sales board is TV-only. If dual-use, use clamp() or a CSS class toggle. |
-| Duplicating style objects for TV sizes | No need to refactor existing styles | Two sets of magic numbers to maintain | Never -- use a multiplier or scale factor applied to existing values. |
-| Removing animations entirely for TV | Simplest fix for jitter | Loses the "living dashboard" feel | Only if animation tuning proves too complex. Prefer reducing duration first. |
+**Prevention:** Sort sidebar agents by `displayOrder` (existing field, default 0) then alphabetically by name. Use `allAgents.sort((a, b) => (a.displayOrder - b.displayOrder) || a.name.localeCompare(b.name))`.
 
-## Performance Traps
+### Pitfall 10: CSV Upload File Size and Browser Memory
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| 30-second polling + Socket.IO both active | Duplicate data fetches, flash of stale data on poll then immediate Socket.IO correction | Not a TV-specific issue, but more visible on TV because the "flash" is large-font and prominent | With 15+ agents, visible now |
-| Large AnimatedNumber re-renders on every poll | Every cell re-renders even if value unchanged | Memoize agent rows or use React.memo with comparison on count+premium | Noticeable with 15 agents x 9 columns = 135 cells re-rendering every 30s |
+**What goes wrong:** A CSV with 10,000 rows loaded entirely into browser memory for preview can freeze the tab. The existing paste-to-parse flow handles 10-50 rows at a time. CSV uploads could be orders of magnitude larger.
 
-## UX Pitfalls
+**Prevention:** Cap preview at 100 rows with a "showing first 100 of 5,432 rows" message. Parse the full file only on submit. Set a server-side max (e.g., 1000 rows per batch) with a clear error message. Add `express.json({ limit: '5mb' })` or equivalent on the upload route.
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Day/Week toggle buttons too small for TV | Nobody can switch modes -- buttons are 12px font, 6px padding | Increase toggle size proportionally, or auto-detect TV mode and default to weekly |
-| "Top Performers" and "All Agents" section labels invisible at distance | Users can't parse the visual hierarchy | Either remove labels (the podium speaks for itself) or increase to 16px+ |
-| Theme toggle (light/dark) visible on TV | Someone accidentally clicks it, board goes white in a dark sales office | Hide ThemeToggle in TV mode -- the board should always be dark on a TV |
-| Team total row not visually distinct enough at distance | The gold background at 0.07 opacity is barely visible on TV | Increase opacity to 0.15-0.20, or add a thicker top border (current 2px may need 3-4px) |
-| Column header abbreviations (Mon, Tue...) at 15px may be too small | Headers are reference text -- need to be readable but not dominant | Increase to 18px minimum for TV, keep uppercase + letter-spacing for distinction |
+### Pitfall 11: Lead Source Analytics Start Expanded — Layout Shift on Load
 
-## "Looks Done But Isn't" Checklist
+**What goes wrong:** Performance tracker sections currently start collapsed. Changing them to start expanded means the heatmap and sparklines render immediately on page load, firing API calls before the user has scrolled down. If the data is slow to load, the section shows spinners that push content around.
 
-- [ ] **Font sizes increased:** Verify padding was reduced to compensate -- total row height must not exceed original
-- [ ] **Tested at 1080p:** Also test at 720p and 4K -- font sizes must remain readable at all three
-- [ ] **Tested with 15 agents:** Not just 5 or 9 -- the table must fit 15 rows + header + team total without scrolling
-- [ ] **Tested with long names:** Use "Christopher Rodriguez" as a test name -- if it overflows, add text-overflow handling
-- [ ] **Tested with ambient light:** View the TV in a lit room, not a dark dev setup -- contrast issues only appear in real conditions
-- [ ] **Tested at actual distance:** Stand 3-4 meters from the screen -- what looks readable at your desk may not be
-- [ ] **Zero-sales agents tested:** An agent with 0 sales and $0 premium should look clean, not cluttered with large "0" and "$0"
-- [ ] **Team total row visible:** The gold highlight must be distinct enough to separate team totals from last agent at a glance
-- [ ] **No horizontal scroll:** The table must never trigger horizontal overflow on a 1080p or higher TV
-- [ ] **Socket.IO updates don't cause layout shift:** When a sale comes in, the row should update in-place without the table reflowing
+**Prevention:** Use skeleton loaders (fixed-height placeholder blocks) to prevent layout shift. Consider lazy-loading the analytics data with `IntersectionObserver` so API calls only fire when the section scrolls into view, even though it starts visually expanded.
 
-## Recovery Strategies
+### Pitfall 12: Payroll History "Load More" — Unbounded Query Growth
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Cell height overflow (too many agents) | LOW | Reduce padding values and re-test. Pure CSS change, no logic affected. |
-| Contrast too low on TV | LOW | Bump color tokens one tier. Search-and-replace in the single page.tsx file. |
-| Podium won't fit on TV | MEDIUM | Must either compress or remove podium. If DailyView is the TV target, this requires layout restructuring. |
-| Agent names overflowing | LOW | Add textOverflow + ellipsis. 2-line change per cell. |
-| Animations jarring on TV | LOW | Reduce duration prop on AnimatedNumber or swap to static rendering. |
-| Fixed pixels wrong on non-1080p TV | MEDIUM | Retrofitting clamp() across all font-size values after shipping px values. Tedious but mechanical. |
+**What goes wrong:** "Last 4 pay cards + load more" without a maximum creates unbounded queries for agents with 52+ weeks of history. Each "load more" fetches 4 more periods, eventually loading hundreds of payroll entries.
 
-## Pitfall-to-Phase Mapping
+**Prevention:** Set a hard cap (e.g., 20 periods maximum). Show a "View older periods" link to the full payroll tab with a date range filter rather than loading indefinitely.
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Cell height overflow | Phase 1 (font sizes) | Render with 15 agents at 1080p -- no scrollbar, team total visible |
-| Dark theme contrast on TV | Phase 1 (font sizes) | View on actual TV in lit room -- all text readable from 3m |
-| Podium vertical space | Phase 1 (layout) | DailyView fits in single viewport at 1080p with 12 agents |
-| Fixed pixel resolution fragility | Phase 1 (font sizes) | Test at 720p, 1080p, 4K -- text remains proportional |
-| AnimatedNumber jitter | Phase 2 (polish) | Watch board for 5 minutes during active sales -- no distracting flicker |
-| Agent name truncation | Phase 1 (font sizes) | Test with "Christopher Rodriguez" at max font size -- no horizontal overflow |
-| Dollar format visual noise | Phase 1 (font sizes) | Zero-premium agents show dash, not "$0" at large size |
+## Phase-Specific Warnings
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| CSV chargeback upload | Partial batch failures (Pitfall 1), column mapping (Pitfall 5) | Transaction wrapping, Papa Parse library, pre-submit review table |
+| ACA product edit | Retroactive commission change (Pitfall 3), circular deps (Pitfall 8) | Audit log + warning dialog, type-conditional field visibility |
+| Enrollment fee $0 default | Commission regression (Pitfall 2) | UI-only fix, do NOT change database defaults or payroll engine |
+| Payroll agent card redesign | Empty state (Pitfall 4), sort order (Pitfall 9), load more bounds (Pitfall 12) | Empty state component, sorted sidebar, capped pagination |
+| Call audit rolling window | Query semantics confusion (Pitfall 6) | Remove 24h default, rely on existing count-based pagination |
+| Performance tracker polish | Sparkline data mismatch (Pitfall 7), layout shift (Pitfall 11) | TO_CHAR in SQL, skeleton loaders |
 
 ## Sources
 
-- Direct codebase analysis: `apps/sales-board/app/page.tsx` (current layout, font sizes, padding values, table structure)
-- Direct codebase analysis: `packages/ui/src/tokens.ts` and `packages/ui/src/theme.css` (color values, contrast ratios)
-- Direct codebase analysis: `packages/ui/src/responsive.css` (existing breakpoints, no TV-specific rules)
-- WCAG 2.1 contrast ratio guidelines (4.5:1 minimum for normal text, 3:1 for large text)
-- TV display best practices: minimum 24px font for body text at 3m viewing distance on 1080p (widely cited in digital signage industry)
-
----
-*Pitfalls research for: TV-readable sales board leaderboard*
-*Researched: 2026-03-31*
+- Direct codebase analysis of `apps/ops-api/src/services/payroll.ts` (commission engine)
+- Direct codebase analysis of `apps/ops-api/src/routes/chargebacks.ts` (batch creation pattern)
+- Direct codebase analysis of `apps/ops-api/src/routes/call-audits.ts` (24h default window)
+- Direct codebase analysis of `apps/ops-api/src/routes/lead-timing.ts` (sparkline date handling)
+- Direct codebase analysis of `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` (enrollment fee checks, agent grouping)
+- Direct codebase analysis of `prisma/schema.prisma` (Product model, ACA_PL type, flatCommission field)
+- Confidence: HIGH -- all pitfalls identified from actual code patterns, not hypothetical scenarios

@@ -1,176 +1,195 @@
 # Technology Stack
 
-**Project:** Sales Board TV Readability (v2.0)
-**Researched:** 2026-03-31
+**Project:** Ops Platform v2.1 -- Chargeback Processing, Payroll Layout & Dashboard Polish
+**Researched:** 2026-04-06
+**Scope:** Incremental additions only. Core stack (Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon, Zod, inline CSS) is validated and NOT re-researched.
 
-## Recommendation: No New Dependencies
+## Key Decision: No New Dependencies
 
-This milestone requires zero new libraries. The existing stack (Next.js 15, React, inline CSSProperties, Inter font via next/font/google) provides everything needed. The work is purely CSS font-size and layout tuning within the existing pattern.
+After analyzing all six v2.1 features, **zero new npm packages are required**. Every capability needed is already available through browser APIs, existing libraries, or simple code patterns. This is the correct approach for a codebase that has consistently avoided external dependencies (inline SVG sparklines over charting libraries, paste-to-parse over file upload libraries, etc.).
 
-## Current Font Size Inventory
+## Feature-by-Feature Stack Analysis
 
-Understanding what exists is critical before changing anything. All values are in `px` (hardcoded integers in inline styles).
+### 1. CSV Upload for Batch Chargeback Processing
 
-### Weekly View (table layout -- primary TV view)
+**What's needed:** Read a CSV file from disk, parse it into structured rows, display a review table, submit as JSON.
 
-| Element | Current Size | Location |
-|---------|-------------|----------|
-| Table header (day labels) | 15px | `TH` style object, line 542 |
-| Agent name | 18px | Agent name `<td>`, line 606 |
-| Rank badge number | 11px | Rank `<span>`, line 623 |
-| Daily cell count | 20px | Sale count per day, line 656 |
-| Daily cell premium | 12px | Premium per day, line 668 |
-| Empty cell dash | 14px | `&mdash;` placeholder, line 673 |
-| Agent total count | 24px | Weekly total column, line 685 |
-| Agent total premium | 15px | Premium total, line 702 |
-| Team Total label | 14px | Footer row label, line 719 |
-| Team Total daily count | 20px | Footer daily counts, line 740 |
-| Team Total daily premium | 12px | Footer daily premiums, line 743 |
-| Team Total grand count | 28px | Grand total number, line 758 |
-| Team Total grand premium | 16px | Grand total premium, line 771 |
+**Recommendation: Browser FileReader API + client-side string splitting. No library needed.**
 
-### Daily View (podium + columns)
+| Approach | Verdict | Rationale |
+|----------|---------|-----------|
+| PapaParse (npm) | REJECT | Adds 30KB for CSV parsing that a 15-line function handles. The existing `parseChargebackText()` in `CSSubmissions.tsx` already splits tab-delimited text -- CSV is the same pattern with commas instead of tabs. |
+| Multer (server-side) | REJECT | File never needs to reach the server as a file. The established pattern is: parse on client, review in UI, POST JSON. Adding multipart upload middleware breaks this pattern for zero benefit. |
+| FileReader + manual parse | USE THIS | `<input type="file" accept=".csv">` + `FileReader.readAsText()` + split by `\n` and `,`. Handles quoted fields with a simple regex or state machine if needed. Consistent with the codebase's no-external-library philosophy. |
 
-| Element | Current Size | Location |
-|---------|-------------|----------|
-| 1st place name | 17px | `PODIUM_CONFIG[0].nameSize`, line 61 |
-| 1st place count | 36px | `PODIUM_CONFIG[0].countSize`, line 62 |
-| 2nd place name | 15px | `PODIUM_CONFIG[1].nameSize`, line 75 |
-| 2nd place count | 28px | `PODIUM_CONFIG[1].countSize`, line 76 |
-| 3rd place name | 14px | `PODIUM_CONFIG[2].nameSize`, line 89 |
-| 3rd place count | 26px | `PODIUM_CONFIG[2].countSize`, line 90 |
-| Podium premium | 12px | Below count, line 212 |
-| Remaining agent name | 14px | Column name, line 469 |
-| Remaining agent count | 28px | Column count, line 481 |
-| Remaining agent premium | 12px | Column premium, line 492 |
-| Rank badge number | 11px | Rank circle, line 440 |
+**Implementation pattern:**
+```typescript
+// Mirrors existing parseChargebackText() but for CSV format
+function parseChargebackCSV(text: string): ParsedRow[] {
+  const lines = text.split("\n").filter(l => l.trim());
+  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+  return lines.slice(1).map(line => {
+    const fields = splitCSVLine(line); // handles quoted commas
+    // map fields to ParsedRow using header index lookup
+  });
+}
+```
 
-### Header / Stats Bar
+**Why not server-side parsing:** The existing chargeback flow is client-parse -> review table -> POST JSON to `/chargebacks` endpoint. The CSV upload is just a new input method feeding the same review table and the same API endpoint. The `chargebackSchema` Zod validation on the server already validates the JSON payload shape. No server changes needed for the parsing itself.
 
-| Element | Current Size | Location |
-|---------|-------------|----------|
-| "Sales Board" title | 36px | `<h1>`, line 917 |
-| Stats card label | 11px | "TODAY'S SALES" etc., lines 1022/1070/1122/1174 |
-| Stats card value | 20-30px | Varies by data magnitude, lines 1034/1082/1134/1186 |
+**Quoted field handling:** CSV files may contain commas inside quoted fields (e.g., `"Smith, John"`). A simple state-machine CSV line splitter (20 lines) handles this. If the carrier's CSV export is simple (no nested quotes), even a regex suffices. PapaParse is overkill for a known, consistent CSV format from a single carrier.
 
-## Techniques for TV-Distance Readability
+**Confidence:** HIGH -- Browser FileReader API is stable, the pattern matches existing codebase conventions, the chargeback API endpoint already accepts the right JSON shape.
 
-### Use Static `px` Values (Not `clamp()` or `vw`)
+### 2. Sidebar-Based Agent Card Navigation (Payroll Redesign)
 
-**Recommendation: Keep using hardcoded `px` values. Do NOT introduce `clamp()`, `vw`, or responsive font techniques.**
+**What's needed:** Replace flat agent card list with a sidebar listing all agents and a main content area showing one agent's pay cards at a time with load-more pagination.
 
-**Why:**
-1. The sales board runs on a single known display: a wall-mounted TV, typically 1080p (1920x1080). The viewport does not change.
-2. `clamp()` and viewport units solve a problem that does not exist here -- adapting to unknown screen sizes. A TV is a fixed target.
-3. CSS `clamp()` cannot be expressed as a React `CSSProperties` `fontSize` number -- it requires a string value like `"clamp(18px, 2vw, 28px)"`. This would break the existing pattern of `fontSize: 18` (number) and create inconsistency across the codebase.
-4. Viewport units (`2vw` = ~38px on 1920px wide) are harder to reason about than explicit pixel values when the target resolution is known.
+**Recommendation: Pure React state + existing inline CSS. No library needed.**
 
-**Bottom line:** When you know the screen, pick the right number. `fontSize: 24` is clearer than `fontSize: "clamp(18px, 1.25vw, 24px)"` and produces identical results on the target TV.
+| Approach | Verdict | Rationale |
+|----------|---------|-----------|
+| React Router nested routes | REJECT | This is a single-page tab component, not a routed view. URL state is unnecessary. |
+| Virtualized list (react-window) | REJECT | Agent count is 9-15 per the sales board scaling work. Virtualization is for 1000+ items. |
+| State management library | REJECT | `useState` for `selectedAgentId` is the entire state model. |
+| Pure React useState | USE THIS | `selectedAgentId` drives which agent's cards render. Sidebar is a scrollable list with click handlers. Exactly the pattern used in `ManagerAudits.tsx` for agent filtering. |
 
-### Font Size Scaling Strategy
+**Implementation pattern:**
+```typescript
+const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+// Sidebar: agent list with active highlight
+// Main: filtered entries for selectedAgentId with take/skip pagination
+```
 
-For a 1080p TV viewed from 10-15 feet (typical sales floor):
+**Layout approach:** CSS flexbox with fixed-width sidebar (220-250px) and flex-grow main area. The codebase uses inline `React.CSSProperties` exclusively -- this is a straightforward two-column flex layout. No CSS Grid needed.
 
-| Readability Tier | Minimum Size | Purpose |
-|-----------------|-------------|---------|
-| Glanceable numbers | 28-36px | Sale counts, totals -- the numbers agents care about most |
-| Key labels | 20-24px | Agent names, day headers, premium amounts |
-| Supporting text | 14-16px | Section labels, secondary metrics |
-| Decorative/metadata | 11-12px | Rank labels, timestamps -- fine to stay small |
+**Pagination for "last 4 pay cards + load more":** The payroll API already returns all periods. Client-side slicing (`periods.slice(0, visibleCount)`) with a "Load More" button incrementing `visibleCount` by 4. No API pagination changes needed since period count is bounded (52 weeks/year max, typically 4-8 visible).
 
-**Confidence:** MEDIUM -- based on TV typography best practices (minimum 24px for body text at 10ft viewing distance on 1080p). The exact sweet spots will need real-world testing on the actual TV.
+**Confidence:** HIGH -- Standard React pattern, no new APIs or libraries required.
 
-### Font Weight as a Readability Multiplier
+### 3. ACA Product Editable in Payroll Products Tab
 
-The codebase already uses `fontWeight: 800` for key numbers. This is correct. Bold text is more legible at distance than increasing font size alone. The Inter font (already loaded via `next/font/google`) renders well at heavy weights.
+**What's needed:** Make the ACA product type editable with flat commission per member and addon qualifier rule configuration.
 
-**Key insight:** Going from 700 to 800 weight on a number gains more perceived readability than adding 2px of font size, at no layout cost.
+**Recommendation: No stack changes. Existing Product CRUD endpoints + Zod schemas + inline form components.**
 
-### Letter Spacing for Large Numbers
+The payroll Products tab already has a read-only view (`PayrollPeriods.tsx` Product type). The change is: add edit form fields for `flatCommission`, `memberCount`-based calculation rules, and addon qualifier toggles. This is pure feature work using existing patterns:
+- Zod schema extension on the product update endpoint
+- Inline form with `baseInputStyle` from `@ops/ui`
+- `authFetch` PUT to existing product routes
 
-Current: `letterSpacing: "-0.03em"` on large counts. This tight tracking works well for display-size numbers and should be preserved. At large sizes, negative letter spacing prevents numbers from looking spaced-out.
+**Confidence:** HIGH -- Extends existing patterns.
 
-### Row Cell Padding Constraints
+### 4. Enrollment Fee Defaults to $0
 
-The milestone requirement states "cell dimensions unchanged -- use existing whitespace, not bigger rows." Current cell padding is `14px 16px`. The existing whitespace within cells can absorb larger font sizes because:
+**What's needed:** When enrollment fee is null/undefined, treat as $0 in commission calculation.
 
-- Agent name cells have `whiteSpace: "nowrap"` and adequate horizontal padding (`14px + spacing[5]px`)
-- Daily cells center-align content with `16px` horizontal padding
-- The table has `minWidth: 760` which is far below 1920px, leaving generous horizontal space
+**Recommendation: No stack changes. Single-line fallback in commission engine.**
 
-Increasing fonts within cells will consume vertical whitespace but the current `14px` top/bottom padding provides buffer.
+```typescript
+const enrollmentFee = sale.enrollmentFee ?? 0;
+```
+
+This is a bug fix in `apps/ops-api/src/services/payroll.ts`, not a stack decision.
+
+**Confidence:** HIGH -- Trivial code change.
+
+### 5. Call Audit Rolling Window: Last 30 Audits
+
+**What's needed:** Change default from "last 24 hours" to "last 30 audits" when no date range is specified.
+
+**Recommendation: No stack changes. Modify Prisma query in `call-audits.ts`.**
+
+Current code (line 48-52 of `call-audits.ts`):
+```typescript
+} else if (!cursor) {
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  where.callDate = { gte: yesterday, lt: now };
+}
+```
+
+Change to: Remove the date filter in the default case and rely on `take: 30` (the existing `limit` parameter, defaulting to 30 instead of 25). The cursor pagination already handles "load more."
+
+**Confidence:** HIGH -- Query parameter change only.
+
+### 6. Performance Tracker: Expanded Analytics + Sparkline Fix
+
+**What's needed:** Lead source/timing analytics default to expanded state; fix 7-day trend sparkline data.
+
+**Recommendation: No stack changes. UI state default change + data query fix.**
+
+- "Start expanded": Change `useState(false)` to `useState(true)` for the analytics collapse state.
+- "Fix sparklines": Debug the 7-day trend data query in the lead timing analytics endpoints. The inline SVG sparkline renderer is already built and working -- this is a data issue, not a rendering issue.
+
+**Confidence:** HIGH -- UI default + data query debugging.
+
+## Recommended Stack (Unchanged)
+
+No new packages to install. The v2.1 milestone is entirely buildable with the existing stack:
+
+### Existing Stack (No Changes)
+
+| Technology | Version | Purpose | Status for v2.1 |
+|------------|---------|---------|-----------------|
+| Next.js | 15.3.9 | Dashboard framework | Sufficient |
+| React | 18.3.1 | UI components | Sufficient |
+| Express | 4.19.2 | API server | Sufficient |
+| Prisma | 5.20.0 | Database ORM | Sufficient |
+| PostgreSQL | -- | Database | Sufficient |
+| Socket.IO | 4.8.3 | Real-time updates | Sufficient |
+| Zod | 3.23.8 | Input validation | Sufficient |
+| Luxon | 3.4.4 | Date/time handling | Sufficient |
+| lucide-react | 0.577.0 | Icons | Sufficient |
+| TypeScript | 5.6.2 | Type safety | Sufficient |
+
+### Browser APIs Used (No Install)
+
+| API | Purpose | Browser Support |
+|-----|---------|----------------|
+| FileReader | Read CSV file as text | All modern browsers |
+| `<input type="file">` | File picker UI | All modern browsers |
+| crypto.randomUUID() | Batch ID generation (already used) | All modern browsers |
+
+## Alternatives Considered and Rejected
+
+| Category | Considered | Why Rejected |
+|----------|------------|-------------|
+| CSV parsing | PapaParse | 30KB dependency for a 15-line function. Known single-format CSV from carrier. Codebase precedent: inline SVG over chart libs, paste-parse over upload libs. |
+| CSV parsing | csv-parse | Node.js stream-based parser. Server-side parsing not needed -- client parses, reviews, POSTs JSON. |
+| File upload | Multer | Multipart middleware unnecessary. File never leaves the browser as a file -- it's read as text, parsed to JSON, and POST'd. |
+| File upload | Formidable | Same rationale as Multer. |
+| Sidebar UI | Radix UI | Component library adds dependency weight for a simple flex layout with click handlers. |
+| Virtualization | react-window | Agent list is 9-15 items. Virtualization is for 1000+ items. |
+| State management | Zustand/Jotai | Single `selectedAgentId` state. useState is the right tool. |
+| Data table | TanStack Table | Review table is a simple map-to-tr render. No sorting/filtering/pagination complexity warranting a library. |
 
 ## What NOT to Add
 
-| Library/Technique | Why Skip It |
-|-------------------|-------------|
-| `clamp()` / CSS functions | Fixed viewport; adds string-type fontSize breaking numeric pattern |
-| Viewport units (`vw`, `vh`) | Harder to reason about than explicit px for known screen |
-| `@media` queries | Single target resolution; no breakpoints needed |
-| CSS Container Queries | Overkill for static TV layout |
-| `react-responsive` / `react-use` | Zero benefit over hardcoded values for single-screen target |
-| Custom font (e.g., `Roboto Mono`) | Inter at weight 800 is excellent for numbers; monospace not needed |
-| `fitty` / `textFit` libraries | Auto-sizing libraries solve dynamic content; agent counts are 1-3 digits |
-| CSS Grid `auto-fit`/`auto-fill` | The table already handles column distribution; podium uses flex |
+These are explicitly called out because they might seem tempting but would violate codebase conventions:
 
-## What to Change (Implementation Guidance)
+1. **No drag-and-drop file upload library** (react-dropzone, etc.) -- A standard `<input type="file">` with a styled label is sufficient. The user clicks "Upload CSV", picks a file, done. Drag-and-drop is a UX luxury that adds dependency weight.
 
-### Approach: Bump Static Values
+2. **No CSS framework or component library** -- The codebase uses inline `React.CSSProperties` exclusively. The sidebar layout is CSS flexbox. Do not introduce Tailwind, styled-components, or any CSS-in-JS library.
 
-Create a font size constant object at the top of `page.tsx` to centralize TV-optimized values:
+3. **No server-side file storage** -- CSV files are ephemeral. Read on client, parse, review, submit as JSON, discard the file. No need for S3, local file storage, or temp file management.
 
-```typescript
-const TV = {
-  // Weekly table
-  tableHeader: 18,      // was 15
-  agentName: 22,        // was 18
-  dailyCount: 24,       // was 20
-  dailyPremium: 15,     // was 12
-  totalCount: 30,       // was 24
-  totalPremium: 20,     // was 15
-  teamLabel: 18,        // was 14
-  teamDailyCount: 24,   // was 20
-  teamDailyPremium: 15, // was 12
-  teamGrandCount: 34,   // was 28
-  teamGrandPremium: 20, // was 16
+4. **No Papa Parse "just in case"** -- The CSV format is known (carrier chargeback export). If edge cases arise with quoted fields, a 20-line state machine handles it. The codebase has a strong precedent of avoiding libraries for things that can be done in <50 lines of code.
 
-  // Daily podium
-  podium1Name: 22,      // was 17
-  podium1Count: 42,     // was 36
-  podium2Name: 19,      // was 15
-  podium2Count: 34,     // was 28
-  podium3Name: 17,      // was 14
-  podium3Count: 30,     // was 26
-  podiumPremium: 15,    // was 12
+## Installation
 
-  // Remaining agents
-  restName: 18,         // was 14
-  restCount: 34,        // was 28
-  restPremium: 15,      // was 12
-} as const;
+```bash
+# No new packages to install for v2.1
+# The existing stack handles all six features
 ```
-
-This keeps the inline CSSProperties pattern (`fontSize: TV.agentName`) while making all TV-optimized values discoverable and tunable in one place.
-
-### Agent Count Scaling (9-15 agents)
-
-The weekly table handles variable agent counts naturally -- rows stack vertically with no overflow concern at 9-15 rows on a 1080px tall screen (each row ~50-60px = 450-900px total, well within budget with header/footer).
-
-The daily view's "remaining agents" section uses `flex: 1` columns with `minWidth: 0` and `maxWidth: 200`. For 6-12 remaining agents (after top 3 podium), this distributes evenly across 1920px width. No changes needed to the flex layout -- just the font sizes within columns.
-
-## Integration with Existing Patterns
-
-All changes stay within the existing pattern:
-
-- **Inline `React.CSSProperties`** -- fontSize remains a number, not a string
-- **Constant objects** -- the `TV` constant follows the existing `TH`, `PODIUM_CONFIG` pattern
-- **No CSS files** -- no `@media`, no `clamp()`, no global styles
-- **No new imports** -- zero new dependencies
-- **Inter font** -- already loaded, already used at weight 800
 
 ## Sources
 
-- Direct analysis of `apps/sales-board/app/page.tsx` (current font sizes, layout structure, styling patterns)
-- Direct analysis of `apps/sales-board/app/layout.tsx` (Inter font, ThemeProvider)
-- TV typography guidelines: 24px minimum for body text at 10ft on 1080p (MEDIUM confidence -- general industry guidance, not verified against a specific standard)
-- CSS `clamp()` incompatibility with `React.CSSProperties` number type: verified via TypeScript type definition (`fontSize` accepts `number | string`, but project convention is numbers only)
+- Codebase analysis: `apps/ops-dashboard/app/(dashboard)/cs/CSSubmissions.tsx` -- existing paste-to-parse pattern (HIGH confidence)
+- Codebase analysis: `apps/ops-api/src/routes/chargebacks.ts` -- existing chargeback API accepts JSON array (HIGH confidence)
+- Codebase analysis: `apps/ops-api/src/routes/call-audits.ts` -- existing 24h window implementation (HIGH confidence)
+- Codebase analysis: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` -- existing agent card rendering (HIGH confidence)
+- Codebase analysis: `apps/ops-dashboard/package.json` -- current dependency list (HIGH confidence)
+- MDN FileReader API documentation -- stable, all modern browsers (HIGH confidence)
+- Project decision history: inline SVG sparklines chosen over charting library (KEY PRECEDENT)
+- Project decision history: paste-to-parse chosen over file upload middleware (KEY PRECEDENT)
