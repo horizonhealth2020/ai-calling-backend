@@ -227,7 +227,9 @@ export async function resolveBundleRequirement(
 ): Promise<BundleRequirementContext> {
   if (!coreProduct.requiredBundleAddonId) return null;
 
-  // D-13: ACA PL auto-fulfills bundle requirement
+  // D-03 (Phase 42): ACA PL auto-satisfies bundle requirement regardless of which
+  // addon is configured as requiredBundleAddonId. This check must remain BEFORE the
+  // state availability lookups so ACA covering sales bypass all fallback logic.
   if (saleId) {
     const acaCovering = await prisma.sale.findFirst({
       where: { acaCoveringSaleId: saleId, product: { type: "ACA_PL" }, status: "RAN" },
