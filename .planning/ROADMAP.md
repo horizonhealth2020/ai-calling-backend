@@ -101,7 +101,7 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 
 - [x] **Phase 42: ACA Product Fix** -- Fix ACA product visibility in Products tab, editable flat commission, bundle requirement satisfaction (completed 2026-04-06)
 - [x] **Phase 43: Payroll Agent Tab Navigation** -- Left sidebar with agent list replacing scrollable cards, paginated pay periods per agent (completed 2026-04-06)
-- [ ] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission
+- [x] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission (completed 2026-04-06)
 
 ### Phase 43: Payroll Agent Tab Navigation
 **Goal**: Payroll staff can navigate between agents via a sidebar and view paginated pay periods per agent instead of scrolling through all cards
@@ -153,7 +153,7 @@ Plans:
 | 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
 | 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
 | 43 | v2.2 | 2/2 | Complete    | 2026-04-06 |
-| 44 | v2.2 | 0/0 | Not started | - |
+| 44 | v2.2 | 2/2 | Complete   | 2026-04-06 |
 
 ---
 *Roadmap created: 2026-03-14*
