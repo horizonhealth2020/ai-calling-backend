@@ -13,7 +13,7 @@
 - ✅ **v1.8 Lead Source Timing Analytics** — Phase 30 (shipped 2026-03-30)
 - ✅ **v1.9 Auth Stability & Phone Number Display** — Phases 31-32 (shipped 2026-03-30)
 - ✅ **v2.0 Sales Board TV Readability & Manager Dashboard** — Phases 33-37 (shipped 2026-03-31)
-- ✅ **v2.1 Payroll Card Overhaul & Carryover System** — Phases 38-41 (shipped 2026-04-01)
+- ◆ **v2.1 Payroll Card Overhaul & Carryover System** — Phases 38-41 (in progress)
 
 ## Phases
 
@@ -88,7 +88,7 @@ See: `.planning/milestones/v2.0-ROADMAP.md`
 </details>
 
 <details>
-<summary>✅ v2.1 Payroll Card Overhaul & Carryover System (Phases 38-41) — SHIPPED 2026-04-01</summary>
+<summary>◆ v2.1 Payroll Card Overhaul & Carryover System (Phases 38-41) — IN PROGRESS</summary>
 
 See: `.planning/milestones/v2.1-ROADMAP.md`
 
@@ -109,7 +109,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 | 30 | v1.8 | 5/5 | Complete | 2026-03-30 |
 | 31-32 | v1.9 | 3/3 | Complete | 2026-03-30 |
 | 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
-| 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
+| 38-41 | v2.1 | 2/7 | In Progress | -- |
 
 ---
 *Roadmap created: 2026-03-14*
