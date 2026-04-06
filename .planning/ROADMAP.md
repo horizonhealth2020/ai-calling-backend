@@ -132,8 +132,8 @@ Plans:
   6. Submitting the batch creates all chargebacks and associated clawbacks in a single action
 **Plans**: 2 plans
 Plans:
-- [x] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
-- [x] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
+- [ ] 44-01-PLAN.md — Preview API endpoint and Toast action button support
+- [ ] 44-02-PLAN.md — Review table UI with summary bar, product checkboxes, editing, and batch submit
 
 ## Progress
 
@@ -153,8 +153,8 @@ Plans:
 | 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
 | 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
 | 43 | v2.2 | 2/2 | Complete    | 2026-04-06 |
-| 44 | v2.2 | 0/0 | Not started | - |
+| 44 | v2.2 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-14*
-*Last updated: 2026-04-06 -- Phase 42 planned (1 plan)*
+*Last updated: 2026-04-06 -- Phase 44 planned (2 plans)*
