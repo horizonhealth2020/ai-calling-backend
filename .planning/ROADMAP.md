@@ -133,7 +133,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
-- [ ] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
+- [x] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
 
 ## Progress
 
@@ -152,7 +152,7 @@ Plans:
 | 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
 | 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
 | 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
-| 43 | v2.2 | 2/2 | Complete   | 2026-04-06 |
+| 43 | v2.2 | 2/2 | Complete    | 2026-04-06 |
 | 44 | v2.2 | 0/0 | Not started | - |
 
 ---
