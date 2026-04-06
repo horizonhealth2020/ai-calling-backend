@@ -104,6 +104,17 @@ export type AgentData = {
   periods: AgentPeriodData[];
 };
 
+export type SidebarAgent = {
+  agentName: string;
+  agentId: string;
+  gross: number;
+  net: number;
+  activeCount: number;
+  isTopEarner: boolean;
+  isCS: boolean;
+  status: "paid" | "unpaid" | "partial" | null;
+};
+
 /* ── Style constants ─────────────────────────────────────────── */
 
 export const inputStyle: React.CSSProperties = {
