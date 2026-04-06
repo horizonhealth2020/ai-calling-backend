@@ -2,9 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { createAlertFromChargeback } from "../services/alerts";
 import { emitCSChanged } from "../socket";
-import { getSundayWeekRange, findOldestOpenPeriodForAgent, calculatePerProductCommission } from "../services/payroll";
+import { getSundayWeekRange, findOldestOpenPeriodForAgent } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
@@ -231,21 +230,6 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
 
     await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, { saleId: sale.id, status: clawback.status, amount: chargebackAmount, batchId });
   }
-
-  // Create payroll alerts for chargebacks with amounts
-  for (const cb of refreshedChargebacks) {
-    if (cb.chargebackAmount) {
-      await createAlertFromChargeback(
-        cb.id,
-        cb.memberAgentId || cb.memberAgentCompany || undefined,
-        cb.memberCompany || cb.memberId || undefined,
-        cb.chargebackAmount ? Number(cb.chargebackAmount) : undefined,
-      );
-    }
-  }
-
-  // Emit CS changed event for real-time updates
-  emitCSChanged({ type: "chargeback", batchId, count: result.count });
 
   return res.status(201).json({ count: result.count, batchId });
 }));
