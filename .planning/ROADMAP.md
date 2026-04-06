@@ -114,7 +114,10 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
   4. A "Load More" button at the bottom loads older pay periods for the selected agent
   5. Each agent name in the sidebar shows a paid/unpaid/partial status badge
   6. Sidebar includes a search input that filters agents by name
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
+- [ ] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
 
 ### Phase 44: Chargeback Batch Review
 **Goal**: CS staff can paste multiple chargebacks, review all parsed entries with match status and product details, edit or remove entries, and submit the entire batch in one action
@@ -127,7 +130,10 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
   4. User can edit amount, rep assignment, and product selection per row, and can remove individual rows
   5. A validation summary bar above the review table shows counts by match status
   6. Submitting the batch creates all chargebacks and associated clawbacks in a single action
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
+- [ ] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
 
 ## Progress
 
