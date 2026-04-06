@@ -8,7 +8,7 @@ import {
   Calendar, AlertTriangle,
   CheckCircle,
   XCircle, Printer,
-  Check, X,
+  Check, X, Users,
 } from "lucide-react";
 import {
   type Entry, type BonusCategory, type ServiceEntry, type AgentAdjustment,
@@ -18,12 +18,26 @@ import {
   isActiveEntry, fmtDate,
 } from "./payroll-types";
 import { AgentCard } from "./AgentCard";
+import { AgentSidebar } from "./AgentSidebar";
+import { type SidebarAgent } from "./payroll-types";
 
 /* ── Design tokens (local aliases) ─────────────────────────── */
 
 const C = colors;
 const S = spacing;
 const R = radius;
+
+const LAYOUT: React.CSSProperties = {
+  display: "flex",
+  minHeight: 0,
+  flex: 1,
+};
+const CONTENT_AREA: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  overflowY: "auto" as const,
+  padding: S[4],
+};
 
 /* ── StatMini ───────────────────────────────────────────────── */
 
@@ -91,6 +105,12 @@ export default function PayrollPeriods({
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const [expandedWeeks, setExpandedWeeks] = useState<Map<string, Set<string>>>(new Map());
   const [selectedWeek, setSelectedWeek] = useState<Map<string, string>>(new Map());
+
+  /* ── Sidebar agent selection state ─────────────────────── */
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(4);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const selectedAgentRef = useRef<string | null>(null);
 
   /* ── Agent-first data regrouping ─────────────────────────── */
   const agentData = useMemo(() => {
@@ -191,6 +211,22 @@ export default function PayrollPeriods({
     });
   }, [agentData]);
 
+  // Keep ref in sync with state
+  useEffect(() => { selectedAgentRef.current = selectedAgent; }, [selectedAgent]);
+
+  // Restore selection after socket-driven data refresh
+  useEffect(() => {
+    if (selectedAgentRef.current && agentData.has(selectedAgentRef.current)) {
+      setSelectedAgent(selectedAgentRef.current);
+    }
+  }, [agentData]);
+
+  function handleSelectAgent(agentName: string) {
+    setSelectedAgent(agentName);
+    setVisibleCount(4);
+    contentRef.current?.scrollTo({ top: 0 });
+  }
+
   /* ── Current-week totals for summary strip ──────────────── */
   const currentWeekTotals = useMemo(() => {
     // Find the most recent period
@@ -237,22 +273,128 @@ export default function PayrollPeriods({
       };
     });
 
-    // Agents with sales sort by gross descending; without sort alphabetically
-    const result = [...agentEntries].sort((a, b) => {
-      if (a.activeCount > 0 && b.activeCount > 0) return b.gross - a.gross;
-      if (a.activeCount > 0) return -1;
-      if (b.activeCount > 0) return 1;
-      return a.agentName.localeCompare(b.agentName);
-    });
+    // Top 3 by earnings (before alphabetical sort)
+    const byEarnings = [...agentEntries].sort((a, b) => b.gross - a.gross);
+    const top3 = new Set(
+      byEarnings.slice(0, 3).filter(a => a.net > 0).map(a => a.agentName)
+    );
 
-    // Top 3 earners (with net > 0)
-    const top3 = new Set(result.slice(0, 3).filter(a => a.net > 0).map(a => a.agentName));
+    // D-03: Alphabetical sort for sidebar display
+    const result = [...agentEntries].sort((a, b) =>
+      a.agentName.localeCompare(b.agentName)
+    );
 
     return result.map(a => ({
       ...a,
       isTopEarner: top3.has(a.agentName),
     }));
   }, [agentData]);
+
+  /* ── Agent status helper ─────────────────────────────────── */
+
+  function getAgentStatus(agentPeriods: AgentPeriodData[]): "paid" | "unpaid" | "partial" | null {
+    if (agentPeriods.length === 0) return null;
+    const mostRecent = [...agentPeriods].sort((a, b) =>
+      new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
+    )[0];
+    const entries = mostRecent.entries;
+    if (entries.length === 0) return null;
+    const paidStatuses = ["PAID", "ZEROED_OUT", "CLAWBACK_APPLIED"];
+    const allPaid = entries.every(e => paidStatuses.includes(e.status));
+    const nonePaid = entries.every(e => !paidStatuses.includes(e.status));
+    if (allPaid) return "paid";
+    if (nonePaid) return "unpaid";
+    return "partial";
+  }
+
+  /* ── Sidebar agent lists ────────────────────────────────── */
+
+  const sidebarSalesAgents: SidebarAgent[] = useMemo(() =>
+    sortedAgents.map(a => ({
+      agentName: a.agentName,
+      agentId: a.data.agentId,
+      gross: a.gross,
+      net: a.net,
+      activeCount: a.activeCount,
+      isTopEarner: a.isTopEarner,
+      isCS: false,
+      status: getAgentStatus(a.data.periods),
+    })),
+    [sortedAgents]
+  );
+
+  const sidebarCSAgents: SidebarAgent[] = useMemo(() => {
+    // Group service entries by agent name across all periods
+    const csMap = new Map<string, { totalPay: number; statuses: string[] }>();
+    for (const p of periods) {
+      for (const se of (p.serviceEntries ?? [])) {
+        const name = se.serviceAgent.name;
+        if (!csMap.has(name)) csMap.set(name, { totalPay: 0, statuses: [] });
+        const entry = csMap.get(name)!;
+        entry.totalPay += Number(se.totalPay);
+        entry.statuses.push(se.status);
+      }
+    }
+    return [...csMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, data]) => {
+        const allPaid = data.statuses.length > 0 && data.statuses.every(s => s === "PAID");
+        const nonePaid = data.statuses.length > 0 && data.statuses.every(s => s !== "PAID");
+        let status: "paid" | "unpaid" | "partial" | null = null;
+        if (data.statuses.length > 0) {
+          status = allPaid ? "paid" : nonePaid ? "unpaid" : "partial";
+        }
+        return {
+          agentName: name,
+          agentId: name,
+          gross: data.totalPay,
+          net: data.totalPay,
+          activeCount: data.statuses.length,
+          isTopEarner: false,
+          isCS: true,
+          status,
+        };
+      });
+  }, [periods]);
+
+  /* ── Selected agent data for content area ───────────────── */
+
+  const isCSAgent = sidebarCSAgents.some(a => a.agentName === selectedAgent);
+  const selectedSalesData = selectedAgent && !isCSAgent ? agentData.get(selectedAgent) : null;
+  const selectedAgentSorted = selectedSalesData
+    ? [...selectedSalesData.periods].sort((a, b) =>
+        new Date(b.period.weekStart).getTime() - new Date(a.period.weekStart).getTime()
+      )
+    : [];
+  const visiblePeriods = selectedAgentSorted.slice(0, visibleCount);
+  const hasMorePeriods = selectedAgentSorted.length > visibleCount;
+  const selectedIsTopEarner = sortedAgents.find(a => a.agentName === selectedAgent)?.isTopEarner ?? false;
+
+  // CS agent data for content area
+  const selectedCSEntries = selectedAgent && isCSAgent
+    ? periods
+        .filter(p => (p.serviceEntries ?? []).some(se => se.serviceAgent.name === selectedAgent))
+        .map(p => ({
+          period: p,
+          entries: (p.serviceEntries ?? []).filter(se => se.serviceAgent.name === selectedAgent),
+        }))
+    : [];
+
+  /* ── Auto-expand visible periods for selected agent (D-10) ─ */
+
+  useEffect(() => {
+    if (!selectedAgent) return;
+    setExpandedWeeks(prev => {
+      const next = new Map(prev);
+      const currentSet = new Set(next.get(selectedAgent) ?? []);
+      // Expand all visible periods for this agent
+      for (const pd of visiblePeriods) {
+        currentSet.add(pd.period.id);
+      }
+      next.set(selectedAgent, currentSet);
+      return next;
+    });
+  }, [selectedAgent, visibleCount]);
 
   /* ── Alert handlers ──────────────────────────────────────── */
 
@@ -776,187 +918,218 @@ export default function PayrollPeriods({
         </Card>
       )}
 
-      {/* Agent cards (agent-first hierarchy) */}
-      {sortedAgents.map(({ agentName, data, isTopEarner }, agentIdx) => (
-        <div
-          key={agentName}
-          className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`}
-        >
-          <AgentCard
-            agentName={agentName}
-            agentData={data.periods}
-            isTopEarner={isTopEarner}
-            expanded={expandedAgents.has(agentName)}
-            onToggleExpand={() => {
-              setExpandedAgents(prev => {
-                const next = new Set(prev);
-                if (next.has(agentName)) next.delete(agentName);
-                else next.add(agentName);
-                return next;
-              });
-            }}
-            expandedWeeks={expandedWeeks.get(agentName) ?? new Set()}
-            selectedWeekId={selectedWeek.get(agentName) ?? null}
-            onToggleWeek={(periodId) => {
-              setExpandedWeeks(prev => {
-                const next = new Map(prev);
-                const agentSet = new Set(next.get(agentName) ?? []);
-                if (agentSet.has(periodId)) agentSet.delete(periodId);
-                else agentSet.add(periodId);
-                next.set(agentName, agentSet);
-                return next;
-              });
-            }}
-            onSelectWeek={(periodId) => {
-              setSelectedWeek(prev => {
-                const next = new Map(prev);
-                next.set(agentName, periodId);
-                return next;
-              });
-            }}
-            products={products}
-            allAgents={allAgents}
-            pendingRequests={pendingRequests}
-            pendingEditRequests={pendingEditRequests}
-            approvingId={approvingId}
-            rejectingId={rejectingId}
-            approvingEditId={approvingEditId}
-            rejectingEditId={rejectingEditId}
-            onSaleUpdate={updateSale}
-            onApprove={id => toggleApproval(id, true)}
-            onUnapprove={unapproveCommission}
-            onDelete={deleteSale}
-            onPrintWeek={(name, entries, period) => printAgentCards([[name, entries]], period)}
-            onMarkPaid={(entryIds, svcIds, name) => markEntriesPaid(entryIds, svcIds, name)}
-            onMarkUnpaid={(entryIds, svcIds, name) => markEntriesUnpaid(entryIds, svcIds, name)}
-            onApproveChangeRequest={approveChangeRequest}
-            onRejectChangeRequest={rejectChangeRequest}
-            onApproveEditRequest={approveEditRequest}
-            onRejectEditRequest={rejectEditRequest}
-            highlightedEntryIds={highlightedEntryIds}
-            API={API}
-            refreshPeriods={refreshPeriods}
+      {/* Sidebar + Content layout */}
+      {periods.length > 0 && (
+        <div style={LAYOUT}>
+          <AgentSidebar
+            salesAgents={sidebarSalesAgents}
+            csAgents={sidebarCSAgents}
+            selectedAgent={selectedAgent}
+            onSelectAgent={handleSelectAgent}
           />
-        </div>
-      ))}
+          <div ref={contentRef} style={CONTENT_AREA}>
+            {!selectedAgent && (
+              <Card style={{ borderRadius: R["2xl"], marginTop: S[8] }}>
+                <EmptyState
+                  icon={<Users size={32} />}
+                  title="Select an Agent"
+                  description="Choose an agent from the sidebar to view their pay periods."
+                />
+              </Card>
+            )}
 
-      {/* Customer Service -- rendered per period, outside agent cards */}
-      {periods.map(p => {
-        if (!p.serviceEntries || p.serviceEntries.length === 0) return null;
-        const svcTotal = p.serviceEntries.reduce((s, e) => s + Number(e.totalPay), 0);
-        return (
-          <div key={`cs-${p.id}`}>
-            <div style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: `${S[3]}px ${S[4]}px`,
-              background: C.infoBg,
-              border: `1px solid rgba(45,212,191,0.15)`,
-              borderRadius: R.lg,
-              marginBottom: S[3],
-            }}>
-              <span style={{ fontWeight: 700, fontSize: 14, color: C.info }}>
-                Customer Service ({p.serviceEntries.length} agents) - {fmtDate(p.weekStart)} to {fmtDate(p.weekEnd)}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.info }}>
-                Total: <AnimatedNumber value={svcTotal} prefix="$" decimals={2} />
-              </span>
-            </div>
-
-            {p.serviceEntries.map((se, seIdx) => {
-              const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
-              const seFronted = Number(se.frontedAmount ?? 0);
-              return (
-                <div
-                  key={se.id}
-                  className={`animate-fade-in-up stagger-${Math.min(seIdx + 1, 10)}`}
-                  style={{
-                    background: C.bgSurfaceRaised,
-                    border: `1px solid rgba(45,212,191,0.15)`,
-                    borderRadius: R.xl,
-                    marginBottom: S[3],
+            {selectedAgent && !isCSAgent && selectedSalesData && (
+              <>
+                <AgentCard
+                  agentName={selectedAgent}
+                  agentData={visiblePeriods}
+                  isTopEarner={selectedIsTopEarner}
+                  expanded={true}
+                  onToggleExpand={() => {}}
+                  expandedWeeks={expandedWeeks.get(selectedAgent) ?? new Set()}
+                  selectedWeekId={selectedWeek.get(selectedAgent) ?? null}
+                  onToggleWeek={(periodId) => {
+                    setExpandedWeeks(prev => {
+                      const next = new Map(prev);
+                      const agentSet = new Set(next.get(selectedAgent!) ?? []);
+                      if (agentSet.has(periodId)) agentSet.delete(periodId);
+                      else agentSet.add(periodId);
+                      next.set(selectedAgent!, agentSet);
+                      return next;
+                    });
                   }}
-                >
-                  <div style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: `${S[4]}px ${S[5]}px`,
-                    borderBottom: `1px solid rgba(45,212,191,0.1)`,
-                    background: C.infoBg,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{se.serviceAgent.name}</span>
-                      <Badge color={C.info} size="sm">CS</Badge>
-                    </div>
-                    <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
-                      <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</strong></span>
-                      <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>{formatDollar(Number(se.totalPay))}</strong></span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => printServiceCards([se], p, bonusCategories)}
-                        style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
-                      >
-                        <Printer size={11} /> Print
-                      </Button>
-                      {se.status === "PAID" ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => markEntriesUnpaid([], [se.id], se.serviceAgent.name)}
-                          style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
-                        >
-                          <CheckCircle size={11} /> Paid
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
-                          style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
-                        >
-                          <XCircle size={11} /> Unpaid
-                        </Button>
-                      )}
-                    </div>
+                  onSelectWeek={(periodId) => {
+                    setSelectedWeek(prev => {
+                      const next = new Map(prev);
+                      next.set(selectedAgent!, periodId);
+                      return next;
+                    });
+                  }}
+                  products={products}
+                  allAgents={allAgents}
+                  pendingRequests={pendingRequests}
+                  pendingEditRequests={pendingEditRequests}
+                  approvingId={approvingId}
+                  rejectingId={rejectingId}
+                  approvingEditId={approvingEditId}
+                  rejectingEditId={rejectingEditId}
+                  onSaleUpdate={updateSale}
+                  onApprove={id => toggleApproval(id, true)}
+                  onUnapprove={unapproveCommission}
+                  onDelete={deleteSale}
+                  onPrintWeek={(name, entries, period) => printAgentCards([[name, entries]], period)}
+                  onMarkPaid={(entryIds, svcIds, name) => markEntriesPaid(entryIds, svcIds, name)}
+                  onMarkUnpaid={(entryIds, svcIds, name) => markEntriesUnpaid(entryIds, svcIds, name)}
+                  onApproveChangeRequest={approveChangeRequest}
+                  onRejectChangeRequest={rejectChangeRequest}
+                  onApproveEditRequest={approveEditRequest}
+                  onRejectEditRequest={rejectEditRequest}
+                  highlightedEntryIds={highlightedEntryIds}
+                  API={API}
+                  refreshPeriods={refreshPeriods}
+                />
+                {hasMorePeriods && (
+                  <div style={{ textAlign: "center" as const, padding: S[4] }}>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setVisibleCount(selectedAgentSorted.length)}
+                      onKeyDown={(e) => { if (e.key === "Enter") setVisibleCount(selectedAgentSorted.length); }}
+                      style={{
+                        color: C.accentTeal,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Load More Periods
+                    </span>
                   </div>
+                )}
+              </>
+            )}
 
-                  <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: 12, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
-                    Sunday {fmtDate(p.weekStart)} {"\u2013"} Saturday {fmtDate(p.weekEnd)}
-                  </div>
-
-                  <div style={{ padding: `${S[4]}px ${S[5]}px` }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: S[3] }}>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Base Pay</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</div>
+            {selectedAgent && isCSAgent && selectedCSEntries.length > 0 && (
+              <div>
+                {selectedCSEntries.map(({ period: p, entries: csEntries }) => {
+                  const svcTotal = csEntries.reduce((s, e) => s + Number(e.totalPay), 0);
+                  return (
+                    <div key={`cs-${p.id}`}>
+                      <div style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: `${S[3]}px ${S[4]}px`,
+                        background: C.infoBg,
+                        border: `1px solid rgba(45,212,191,0.15)`,
+                        borderRadius: R.lg,
+                        marginBottom: S[3],
+                      }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: C.info }}>
+                          {selectedAgent} - {fmtDate(p.weekStart)} to {fmtDate(p.weekEnd)}
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.info }}>
+                          Total: <AnimatedNumber value={svcTotal} prefix="$" decimals={2} />
+                        </span>
                       </div>
-                      {seFronted > 0 && (
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Fronted</div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: C.danger }}>{formatDollar(seFronted)}</div>
-                        </div>
-                      )}
-                      {bonusCategories.map(cat => {
-                        const amt = bd[cat.name] ?? 0;
-                        if (amt === 0) return null;
+                      {csEntries.map((se, seIdx) => {
+                        const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
+                        const seFronted = Number(se.frontedAmount ?? 0);
                         return (
-                          <div key={cat.name}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{cat.name}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success }}>{formatDollar(amt)}</div>
+                          <div
+                            key={se.id}
+                            className={`animate-fade-in-up stagger-${Math.min(seIdx + 1, 10)}`}
+                            style={{
+                              background: C.bgSurfaceRaised,
+                              border: `1px solid rgba(45,212,191,0.15)`,
+                              borderRadius: R.xl,
+                              marginBottom: S[3],
+                            }}
+                          >
+                            <div style={{
+                              display: "flex", justifyContent: "space-between", alignItems: "center",
+                              padding: `${S[4]}px ${S[5]}px`,
+                              borderBottom: `1px solid rgba(45,212,191,0.1)`,
+                              background: C.infoBg,
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
+                                <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{se.serviceAgent.name}</span>
+                                <Badge color={C.info} size="sm">CS</Badge>
+                              </div>
+                              <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
+                                <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</strong></span>
+                                <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>{formatDollar(Number(se.totalPay))}</strong></span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => printServiceCards([se], p, bonusCategories)}
+                                  style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+                                >
+                                  <Printer size={11} /> Print
+                                </Button>
+                                {se.status === "PAID" ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => markEntriesUnpaid([], [se.id], se.serviceAgent.name)}
+                                    style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: C.success }}
+                                  >
+                                    <CheckCircle size={11} /> Paid
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
+                                    style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                                  >
+                                    <XCircle size={11} /> Unpaid
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: 12, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
+                              Sunday {fmtDate(p.weekStart)} {"\u2013"} Saturday {fmtDate(p.weekEnd)}
+                            </div>
+
+                            <div style={{ padding: `${S[4]}px ${S[5]}px` }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: S[3] }}>
+                                <div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Base Pay</div>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</div>
+                                </div>
+                                {seFronted > 0 && (
+                                  <div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Fronted</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: C.danger }}>{formatDollar(seFronted)}</div>
+                                  </div>
+                                )}
+                                {bonusCategories.map(cat => {
+                                  const amt = bd[cat.name] ?? 0;
+                                  if (amt === 0) return null;
+                                  return (
+                                    <div key={cat.name}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{cat.name}</div>
+                                      <div style={{ fontSize: 15, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success }}>{formatDollar(amt)}</div>
+                                    </div>
+                                  );
+                                })}
+                                <div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Total Pay</div>
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: C.info }}>{formatDollar(Number(se.totalPay))}</div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Total Pay</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: C.info }}>{formatDollar(Number(se.totalPay))}</div>
-                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 }
