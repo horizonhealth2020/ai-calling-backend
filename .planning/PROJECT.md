@@ -109,6 +109,10 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Self-healing audit queue with orphan recovery, exponential backoff retry, categorized failures — v2.0 (Phase 37)
 - ✓ Composite performance scoring (40% premium + 60% cost efficiency) for agent ranking — v2.0 (Phase 37)
 - ✓ Audit UI overhaul: date+time display, cursor pagination, agent filter, dual-field ordering — v2.0 (Phase 37)
+- ✓ Enrollment fee defaults to $0 when receipt contains enrollment line (fixes half-commission badge) — v2.1 (Phase 38)
+- ✓ Call audit rolling window: last 30 audits without 24-hour time restriction — v2.1 (Phase 38)
+- ✓ Performance tracker analytics start expanded with IntersectionObserver lazy loading — v2.1 (Phase 38)
+- ✓ Sparkline date key normalization via toISODate helper — v2.1 (Phase 38)
 
 ### Active
 
@@ -116,10 +120,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 - [ ] CSV upload for batch chargeback processing with pre-submit review
 - [ ] ACA product editable in payroll Products tab with flat commission per member and addon qualifier rules
-- [ ] Enrollment fee defaults to $0 when missing (fixes half-commission badge and approve button)
 - [ ] Payroll agent card redesign: sidebar with all agents, per-agent view with last 4 pay cards + load more
-- [ ] Call audit rolling window: last 30 audits instead of last 24 hours
-- [ ] Performance tracker: lead source/timing analytics start expanded, fix 7-day trend sparklines
 
 ### Out of Scope
 
@@ -144,7 +145,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 ## Current State
 
 **Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31)
-**Total:** 11 milestones, 37 phases, 113 plans across 18 days
+**Total:** 11 milestones, 38 phases, 115 plans across 21 days
 **LOC:** ~130,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
