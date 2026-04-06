@@ -160,7 +160,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 ## Current State
 
 **Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31) → v2.1 (2026-04-01)
-**Total:** 12 milestones, 41 phases across 18 days
+**Total:** 12 milestones, 42 phases across 21 days
 **LOC:** ~135,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
@@ -241,4 +241,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-06 after v2.2 milestone started*
+*Last updated: 2026-04-06 after Phase 42 (ACA Product Fix) complete*
