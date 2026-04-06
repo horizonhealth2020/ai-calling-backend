@@ -100,7 +100,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 See: `.planning/milestones/v2.2-ROADMAP.md`
 
 - [x] **Phase 42: ACA Product Fix** -- Fix ACA product visibility in Products tab, editable flat commission, bundle requirement satisfaction (completed 2026-04-06)
-- [ ] **Phase 43: Payroll Agent Tab Navigation** -- Left sidebar with agent list replacing scrollable cards, paginated pay periods per agent
+- [x] **Phase 43: Payroll Agent Tab Navigation** -- Left sidebar with agent list replacing scrollable cards, paginated pay periods per agent (completed 2026-04-06)
 - [ ] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission
 
 ### Phase 43: Payroll Agent Tab Navigation
@@ -116,8 +116,8 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
   6. Sidebar includes a search input that filters agents by name
 **Plans**: 2 plans
 Plans:
-- [ ] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
-- [ ] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
+- [x] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
+- [x] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
 
 ### Phase 44: Chargeback Batch Review
 **Goal**: CS staff can paste multiple chargebacks, review all parsed entries with match status and product details, edit or remove entries, and submit the entire batch in one action
@@ -132,7 +132,7 @@ Plans:
   6. Submitting the batch creates all chargebacks and associated clawbacks in a single action
 **Plans**: 2 plans
 Plans:
-- [ ] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
+- [x] 43-01-PLAN.md — Create AgentSidebar component with search, badges, CS section
 - [ ] 43-02-PLAN.md — Refactor PayrollPeriods layout with sidebar+content split and agent selection
 
 ## Progress
@@ -152,7 +152,7 @@ Plans:
 | 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
 | 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
 | 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
-| 43 | v2.2 | 0/0 | Not started | - |
+| 43 | v2.2 | 2/2 | Complete   | 2026-04-06 |
 | 44 | v2.2 | 0/0 | Not started | - |
 
 ---
