@@ -6,6 +6,7 @@ import { createAlertFromChargeback } from "../services/alerts";
 import { emitCSChanged } from "../socket";
 import { getSundayWeekRange } from "../services/payroll";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
+import { matchChargebacksToSales } from "../services/chargebacks";
 
 const router = Router();
 
@@ -25,10 +26,66 @@ const chargebackSchema = z.object({
     memberAgentCompany: z.string().nullable(),
     memberAgentId: z.string().nullable(),
     assignedTo: z.string().nullable(),
+    selectedSaleId: z.string().nullable().optional(),
   })),
   rawPaste: z.string().min(1),
   batchId: z.string().min(1),
 });
+
+const previewSchema = z.object({
+  records: z.array(z.object({
+    postedDate: z.string().nullable(),
+    type: z.string().nullable(),
+    payeeId: z.string().nullable(),
+    payeeName: z.string().nullable(),
+    payoutPercent: z.number().nullable(),
+    chargebackAmount: z.number(),
+    totalAmount: z.number().nullable(),
+    transactionDescription: z.string().nullable(),
+    product: z.string().nullable(),
+    memberCompany: z.string().nullable(),
+    memberId: z.string().nullable(),
+    memberAgentCompany: z.string().nullable(),
+    memberAgentId: z.string().nullable(),
+  })),
+});
+
+router.post("/chargebacks/preview", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const parsed = previewSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  const { records } = parsed.data;
+  const memberIds = records.map(r => r.memberId).filter(Boolean) as string[];
+  const salesByMemberId = await matchChargebacksToSales(memberIds);
+
+  const previews = records.map(record => {
+    const matchingSales = record.memberId ? (salesByMemberId.get(record.memberId) || []) : [];
+    let matchStatus: "MATCHED" | "MULTIPLE" | "UNMATCHED";
+    if (matchingSales.length === 1) matchStatus = "MATCHED";
+    else if (matchingSales.length > 1) matchStatus = "MULTIPLE";
+    else matchStatus = "UNMATCHED";
+
+    return {
+      ...record,
+      matchStatus,
+      matchedSales: matchingSales.map(sale => ({
+        id: sale.id,
+        memberName: sale.memberName,
+        agentName: sale.agent.name,
+        agentId: sale.agentId,
+        products: [
+          { id: sale.product.id, name: sale.product.name, type: sale.product.type, premium: Number(sale.premium) },
+          ...sale.addons.map((a: any) => ({
+            id: a.product.id, name: a.product.name, type: a.product.type, premium: Number(a.premium ?? 0),
+          })),
+        ],
+      })),
+      selectedSaleId: matchingSales.length === 1 ? matchingSales[0].id : null,
+    };
+  });
+
+  return res.json({ previews });
+}));
 
 router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
   const parsed = chargebackSchema.safeParse(req.body);
@@ -63,8 +120,33 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     orderBy: { createdAt: "desc" },
   });
 
+  // Build selectedSaleId lookup from submitted records (D-03: user-resolved matches)
+  const selectedSaleIdByMemberId = new Map<string, string>();
+  for (const r of records) {
+    if (r.selectedSaleId && r.memberId) {
+      selectedSaleIdByMemberId.set(r.memberId, r.selectedSaleId);
+    }
+  }
+
   // Auto-match chargebacks to sales by memberId (D-01: exact match only)
   for (const cb of createdChargebacks) {
+    // D-03: If frontend provided a selectedSaleId, verify and use it directly
+    const userSelectedId = cb.memberId ? selectedSaleIdByMemberId.get(cb.memberId) : undefined;
+    if (userSelectedId) {
+      const selectedSale = await prisma.sale.findUnique({
+        where: { id: userSelectedId },
+        select: { id: true, memberId: true },
+      });
+      if (selectedSale) {
+        await prisma.chargebackSubmission.update({
+          where: { id: cb.id },
+          data: { matchedSaleId: selectedSale.id, matchStatus: "MATCHED" },
+        });
+        continue;
+      }
+      // If selectedSaleId not found, fall through to automatic matching
+    }
+
     if (cb.memberId) {
       const matchingSales = await prisma.sale.findMany({
         where: { memberId: cb.memberId },
