@@ -103,6 +103,32 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 - [ ] **Phase 43: Payroll Agent Tab Navigation** -- Left sidebar with agent list replacing scrollable cards, paginated pay periods per agent
 - [ ] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission
 
+### Phase 43: Payroll Agent Tab Navigation
+**Goal**: Payroll staff can navigate between agents via a sidebar and view paginated pay periods per agent instead of scrolling through all cards
+**Depends on**: Nothing (pure UI refactor, zero API changes, all data already available in existing agentData Map)
+**Requirements**: PAY-01, PAY-02, PAY-03, PAY-04, PAY-05, PAY-06
+**Success Criteria** (what must be TRUE):
+  1. Payroll Periods tab shows a left sidebar listing all agents sorted by current earnings
+  2. Clicking an agent name in the sidebar loads that agent's pay periods in the main content area
+  3. Only the last 4 pay periods display by default for the selected agent (most recent first)
+  4. A "Load More" button at the bottom loads older pay periods for the selected agent
+  5. Each agent name in the sidebar shows a paid/unpaid/partial status badge
+  6. Sidebar includes a search input that filters agents by name
+**Plans**: TBD
+
+### Phase 44: Chargeback Batch Review
+**Goal**: CS staff can paste multiple chargebacks, review all parsed entries with match status and product details, edit or remove entries, and submit the entire batch in one action
+**Depends on**: Phase 43 (independent feature, but sequenced after to isolate correctness-critical chargeback changes)
+**Requirements**: CB-01, CB-02, CB-03, CB-04, CB-05, CB-06, CB-07, CB-08, CB-09
+**Success Criteria** (what must be TRUE):
+  1. User pastes multiple chargeback entries and all are parsed into individual rows in a review table
+  2. Each review row displays matched agent name, member name, member ID, and match status badge
+  3. Matched entries show sale products with checkboxes allowing partial chargeback selection
+  4. User can edit amount, rep assignment, and product selection per row, and can remove individual rows
+  5. A validation summary bar above the review table shows counts by match status
+  6. Submitting the batch creates all chargebacks and associated clawbacks in a single action
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
