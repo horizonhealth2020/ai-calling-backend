@@ -12,15 +12,26 @@ import { colors, radius, shadows } from "../tokens";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: string;
   type: "success" | "error" | "warning" | "info";
   message: string;
   duration: number;
+  action?: ToastAction;
+}
+
+interface ToastOptions {
+  duration?: number;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  toast: (type: ToastItem["type"], message: string, duration?: number) => void;
+  toast: (type: ToastItem["type"], message: string, options?: number | ToastOptions) => void;
 }
 
 /* ── Context ───────────────────────────────────────────────────── */
@@ -180,6 +191,28 @@ function ToastEntry({
     <div className="animate-slide-in-right" style={toastStyle}>
       <span style={iconStyle}>{cfg.icon}</span>
       <span style={messageStyle}>{item.message}</span>
+      {item.action && (
+        <button
+          onClick={() => {
+            item.action!.onClick();
+            onDismiss(item.id);
+          }}
+          style={{
+            background: "transparent",
+            border: `1px solid ${cfg.color}`,
+            borderRadius: radius.md,
+            color: cfg.color,
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "3px 8px",
+            whiteSpace: "nowrap" as const,
+            flexShrink: 0,
+          }}
+        >
+          {item.action.label}
+        </button>
+      )}
       <button style={closeStyle} onClick={() => onDismiss(item.id)} aria-label="Dismiss">
         <CloseIcon />
       </button>
@@ -198,9 +231,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (type: ToastItem["type"], message: string, duration = 4000) => {
+    (type: ToastItem["type"], message: string, options?: number | ToastOptions) => {
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      setToasts((prev) => [...prev, { id, type, message, duration }]);
+      let duration = 4000;
+      let action: ToastAction | undefined;
+      if (typeof options === "number") {
+        duration = options;
+      } else if (options) {
+        duration = options.duration ?? 4000;
+        action = options.action;
+      }
+      setToasts((prev) => [...prev, { id, type, message, duration, action }]);
     },
     []
   );
