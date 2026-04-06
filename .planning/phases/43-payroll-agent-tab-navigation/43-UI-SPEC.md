@@ -52,9 +52,11 @@ Exceptions: Sidebar agent rows use 40px total height (D-01). Sidebar width fixed
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px | 400 | 1.6 | Agent earnings in sidebar, content area body text |
-| Label | 11px | 700 | 1.45 | Sidebar section headers ("Sales Agents", "Customer Service"), stat labels. Uppercase, letter-spacing 0.06em |
+| Label | 11px | 600 | 1.45 | Sidebar section headers ("Sales Agents", "Customer Service"), stat labels. Uppercase, letter-spacing 0.06em |
 | Heading | 16px | 600 | 1.5 | Selected agent name in content area header |
-| Subheading | 13px | 500 | 1.5 | Agent names in sidebar rows, search input text |
+| Subheading | 13px | 600 | 1.5 | Agent names in sidebar rows, search input text |
+
+Weights: 400 (regular) for body and tertiary text, 600 (semibold) for all emphasized roles (labels, headings, subheadings).
 
 Source: `packages/ui/src/tokens.ts` — sizes.base (14px), sizes.xs (11px), sizes.md (16px), sizes.sm (13px)
 
@@ -142,7 +144,7 @@ Each agent row (40px height):
 ```
 
 - Optional top-3 dot: 6px circle, `accentTeal`, positioned left (D-13)
-- Agent name: 13px weight 500, `textSecondary` (or `textMuted` if zero sales)
+- Agent name: 13px weight 600, `textSecondary` (or `textMuted` if zero sales)
 - Earnings: 13px weight 400, `textTertiary`, right-aligned
 - Status badge: inline, right-aligned after earnings (D-11)
 - Horizontal padding: 16px (spacing.4)
@@ -153,7 +155,7 @@ Each agent row (40px height):
 ### CS Section in Sidebar
 
 - Divider: 1px solid `borderSubtle` with 8px vertical margin
-- Section header: 11px uppercase, weight 700, `textTertiary`, letter-spacing 0.06em, text "CUSTOMER SERVICE"
+- Section header: 11px uppercase, weight 600, `textTertiary`, letter-spacing 0.06em, text "CUSTOMER SERVICE"
 - CS agent rows: identical styling to sales agent rows
 
 ### Agent Selection States
