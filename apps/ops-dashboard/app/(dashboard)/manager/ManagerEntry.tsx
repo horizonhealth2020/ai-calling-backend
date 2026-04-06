@@ -156,6 +156,7 @@ function parseReceipt(text: string): ParseResult {
   if (am) out.premium = am[1].replace(/,/g, "");
 
   let totalEnrollment = 0;
+  let enrollmentFound = false;
   const productsIdx = lines.findIndex(l => /^Products$/i.test(l));
   if (productsIdx >= 0) {
     const productLines: string[] = [];
@@ -184,6 +185,7 @@ function parseReceipt(text: string): ParseResult {
         if (efMatch) {
           enrollFee = efMatch[1].replace(/,/g, "");
           totalEnrollment += Number(enrollFee);
+          enrollmentFound = true;
         }
         out.parsedProducts.push({ name: cleanName, price: block.price, isAddon, enrollmentFee: enrollFee });
         if (isAddon) out.addonNames.push(cleanName);
@@ -193,7 +195,7 @@ function parseReceipt(text: string): ParseResult {
     if (primary) out.carrier = primary.name;
   }
 
-  if (totalEnrollment > 0) out.enrollmentFee = totalEnrollment.toFixed(2);
+  if (enrollmentFound) out.enrollmentFee = totalEnrollment.toFixed(2);
 
   const payType = t.match(/Payment\s+Type:\s*(\w+)/i) || t.match(/Type:\s*(BANK|CARD|CC|ACH|CREDIT)/i);
   if (payType) {
@@ -217,8 +219,9 @@ function parseReceipt(text: string): ParseResult {
     const efRe = /Enrollment\s+\$?([\d,]+\.?\d*)/g;
     let efm: RegExpExecArray | null;
     let ef = 0;
-    while ((efm = efRe.exec(t)) !== null) ef += Number(efm[1].replace(/,/g, ""));
-    if (ef > 0) out.enrollmentFee = ef.toFixed(2);
+    let efFound = false;
+    while ((efm = efRe.exec(t)) !== null) { ef += Number(efm[1].replace(/,/g, "")); efFound = true; }
+    if (efFound) out.enrollmentFee = ef.toFixed(2);
   }
 
   return out;
