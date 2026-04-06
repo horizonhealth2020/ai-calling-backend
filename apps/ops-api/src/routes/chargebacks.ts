@@ -4,7 +4,8 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createAlertFromChargeback } from "../services/alerts";
 import { emitCSChanged } from "../socket";
-import { getSundayWeekRange } from "../services/payroll";
+import { getSundayWeekRange, findOldestOpenPeriodForAgent, calculatePerProductCommission } from "../services/payroll";
+import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
 
@@ -178,8 +179,61 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     }
   }
 
+  // Create clawbacks for matched chargebacks against agent's oldest open payroll period
+  const refreshedChargebacks = await prisma.chargebackSubmission.findMany({
+    where: { batchId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  for (const cb of refreshedChargebacks) {
+    if (cb.matchStatus !== "MATCHED" || !cb.matchedSaleId) continue;
+
+    const sale = await prisma.sale.findUnique({
+      where: { id: cb.matchedSaleId },
+      include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
+    });
+    if (!sale) continue;
+
+    // Find oldest OPEN payroll period for the agent
+    let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+    if (!targetPeriodId && sale.payrollEntries.length > 0) {
+      targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
+    }
+
+    const targetEntry = targetPeriodId
+      ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
+      : sale.payrollEntries[0];
+
+    const chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
+
+    const zeroOut = !targetEntry || targetEntry.status !== "PAID";
+    const clawback = await prisma.clawback.create({
+      data: {
+        saleId: sale.id,
+        agentId: sale.agentId,
+        matchedBy: cb.memberId ? "member_id" : "member_name",
+        matchedValue: cb.memberId || cb.memberCompany || "",
+        amount: chargebackAmount,
+        status: zeroOut ? "ZEROED" : "DEDUCTED",
+        appliedPayrollPeriodId: targetPeriodId || undefined,
+        notes: `Batch chargeback (${batchId})`,
+      },
+    });
+
+    if (targetEntry) {
+      await prisma.payrollEntry.update({
+        where: { id: targetEntry.id },
+        data: zeroOut
+          ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
+          : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
+      });
+    }
+
+    await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, { saleId: sale.id, status: clawback.status, amount: chargebackAmount, batchId });
+  }
+
   // Create payroll alerts for chargebacks with amounts
-  for (const cb of createdChargebacks) {
+  for (const cb of refreshedChargebacks) {
     if (cb.chargebackAmount) {
       await createAlertFromChargeback(
         cb.id,
