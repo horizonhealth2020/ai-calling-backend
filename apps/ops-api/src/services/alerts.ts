@@ -1,6 +1,7 @@
 import { prisma } from "@ops/db";
 import { emitAlertCreated, emitAlertResolved, emitClawbackCreated } from "../socket";
 import { logAudit } from "./audit";
+import { findOldestOpenPeriodForAgent } from "./payroll";
 
 export async function createAlertFromChargeback(
   chargebackId: string,
@@ -28,7 +29,7 @@ export async function getPendingAlerts() {
   });
 }
 
-export async function approveAlert(alertId: string, periodId: string, userId: string) {
+export async function approveAlert(alertId: string, periodId: string | undefined, userId: string) {
   const alert = await prisma.payrollAlert.findUnique({
     where: { id: alertId },
     include: {
@@ -47,8 +48,18 @@ export async function approveAlert(alertId: string, periodId: string, userId: st
   if (!alert) throw new Error("Alert not found");
   if (alert.status !== "PENDING") throw new Error("Alert already resolved");
 
+  // If no periodId provided, auto-select oldest OPEN period for the agent
+  let resolvedPeriodId = periodId;
+  if (!resolvedPeriodId) {
+    const agentId = alert.chargeback?.matchedSale?.agentId || alert.agentId;
+    if (agentId) {
+      resolvedPeriodId = (await findOldestOpenPeriodForAgent(agentId)) ?? undefined;
+    }
+    if (!resolvedPeriodId) throw new Error("No open payroll period found for this agent");
+  }
+
   // Verify period is OPEN
-  const period = await prisma.payrollPeriod.findUnique({ where: { id: periodId } });
+  const period = await prisma.payrollPeriod.findUnique({ where: { id: resolvedPeriodId } });
   if (!period || period.status !== "OPEN") throw new Error("Selected period is not OPEN");
 
   // CLAWBACK-01 fix: Use matchedSaleId, NOT memberId
@@ -81,7 +92,7 @@ export async function approveAlert(alertId: string, periodId: string, userId: st
       matchedValue: alert.chargebackSubmissionId,
       amount: clawbackAmount,
       status: "MATCHED",
-      appliedPayrollPeriodId: periodId,
+      appliedPayrollPeriodId: resolvedPeriodId,
       notes: `Auto-created from chargeback. Commission clawback: $${clawbackAmount.toFixed(2)}`,
     },
   });
@@ -90,7 +101,7 @@ export async function approveAlert(alertId: string, periodId: string, userId: st
     where: { id: alertId },
     data: {
       status: "APPROVED",
-      approvedPeriodId: periodId,
+      approvedPeriodId: resolvedPeriodId,
       approvedBy: userId,
       approvedAt: new Date(),
     },
@@ -105,7 +116,7 @@ export async function approveAlert(alertId: string, periodId: string, userId: st
   });
 
   emitAlertResolved({ alertId, status: "APPROVED" });
-  await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId, clawbackId: clawback.id });
+  await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId: resolvedPeriodId, clawbackId: clawback.id });
   return updated;
 }
 

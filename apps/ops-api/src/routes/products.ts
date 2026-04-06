@@ -65,6 +65,7 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
     bundledCommission: z.number().min(0).max(100).nullable().optional(),
     standaloneCommission: z.number().min(0).max(100).nullable().optional(),
     enrollFeeThreshold: z.number().min(0).nullable().optional(),
+    flatCommission: z.number().min(0).nullable().optional(),
     notes: z.string().nullable().optional(),
     requiredBundleAddonId: z.string().nullable().optional(),
     fallbackAddonIds: z.array(z.string()).optional(),

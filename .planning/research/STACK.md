@@ -1,195 +1,172 @@
 # Technology Stack
 
-**Project:** Ops Platform v2.1 -- Chargeback Processing, Payroll Layout & Dashboard Polish
-**Researched:** 2026-04-06
-**Scope:** Incremental additions only. Core stack (Next.js 15, Express, Prisma, PostgreSQL, Socket.IO, Luxon, Zod, inline CSS) is validated and NOT re-researched.
+**Project:** Ops Platform v2.1 -- Payroll Card Overhaul & Carryover System
+**Researched:** 2026-04-01
 
-## Key Decision: No New Dependencies
+## Key Finding: No New Dependencies Required
 
-After analyzing all six v2.1 features, **zero new npm packages are required**. Every capability needed is already available through browser APIs, existing libraries, or simple code patterns. This is the correct approach for a codebase that has consistently avoided external dependencies (inline SVG sparklines over charting libraries, paste-to-parse over file upload libraries, etc.).
+Every feature in this milestone is achievable with the existing stack. The carryover system is a backend data-flow concern (Prisma queries + payroll service logic). The pay card restructuring and print view enhancements are pure React component refactoring with inline styles. The ACA product editing reuses the existing Products tab CRUD pattern.
 
-## Feature-by-Feature Stack Analysis
+**Do NOT add any libraries for this milestone.** Adding a print library, PDF generator, or UI component library would violate the project's established patterns and create maintenance burden.
 
-### 1. CSV Upload for Batch Chargeback Processing
+## Current Stack (No Changes)
 
-**What's needed:** Read a CSV file from disk, parse it into structured rows, display a review table, submit as JSON.
+### Core Framework
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| Next.js | 15.3.9 | Dashboard app framework | Keep as-is |
+| Express | 4.19.2 | REST API server | Keep as-is |
+| React | 18.3.1 | UI components | Keep as-is |
+| TypeScript | 5.6.2 | Type safety | Keep as-is |
+| Node.js | 20.x | Runtime | Keep as-is |
 
-**Recommendation: Browser FileReader API + client-side string splitting. No library needed.**
+### Database
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| PostgreSQL | (Docker/Railway) | Primary datastore | Keep as-is |
+| Prisma | 5.20.0 | ORM, migrations, client | Keep as-is -- new migration needed for carryover fields |
 
-| Approach | Verdict | Rationale |
-|----------|---------|-----------|
-| PapaParse (npm) | REJECT | Adds 30KB for CSV parsing that a 15-line function handles. The existing `parseChargebackText()` in `CSSubmissions.tsx` already splits tab-delimited text -- CSV is the same pattern with commas instead of tabs. |
-| Multer (server-side) | REJECT | File never needs to reach the server as a file. The established pattern is: parse on client, review in UI, POST JSON. Adding multipart upload middleware breaks this pattern for zero benefit. |
-| FileReader + manual parse | USE THIS | `<input type="file" accept=".csv">` + `FileReader.readAsText()` + split by `\n` and `,`. Handles quoted fields with a simple regex or state machine if needed. Consistent with the codebase's no-external-library philosophy. |
+### Real-Time
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| Socket.IO | 4.8.3 (server) / 4.8.3 (client) | Real-time dashboard cascade | Keep as-is |
 
-**Implementation pattern:**
-```typescript
-// Mirrors existing parseChargebackText() but for CSV format
-function parseChargebackCSV(text: string): ParsedRow[] {
-  const lines = text.split("\n").filter(l => l.trim());
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map(line => {
-    const fields = splitCSVLine(line); // handles quoted commas
-    // map fields to ParsedRow using header index lookup
-  });
-}
+### Validation & Utilities
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| Zod | 3.23.8 | API input validation | Keep as-is -- new schemas for carryover endpoints |
+| Luxon | 3.4.4 | Timezone-aware date handling | Keep as-is -- used for period week calculations |
+
+### UI
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| lucide-react | 0.577.0 | Icon library | Keep as-is |
+| @ops/ui | workspace | Design system (Badge, Button, Card, etc.) | Keep as-is |
+| Inline CSSProperties | n/a | All styling | Keep as-is |
+
+## Feature-to-Stack Mapping
+
+### 1. Fronted/Hold Auto-Carryover Between Pay Periods
+
+**Stack used:** Prisma + Express + Zod
+
+**What's needed:**
+- Prisma migration to add `bonusLabel` (String, nullable) and potentially `carryoverSourcePeriodId` (String, nullable) to PayrollEntry for tracking carryover origin
+- New payroll service function: when a period transitions to LOCKED/FINALIZED, scan for agents with nonzero fronted/hold amounts and create corresponding entries in the next period
+- New API endpoint or hook on period status change to trigger carryover
+- Zod schema for carryover configuration
+
+**Why no new library:** This is a database write triggered by a period status change. The existing `getSundayWeekRange` function already calculates next-period dates. Prisma transactions handle the atomic multi-row writes.
+
+### 2. Editable Bonus Labels
+
+**Stack used:** Prisma + React (inline styles)
+
+**What's needed:**
+- Prisma migration to add `bonusLabel` field to PayrollEntry (String, nullable, defaults to "Bonus")
+- API patch endpoint already exists (`PATCH /payroll/entries/:id`) -- extend Zod schema to accept `bonusLabel`
+- Client-side: inline text input or dropdown in the agent card header
+
+**Why no new library:** A text input or select dropdown. The existing `SMALL_INP` style constant covers this pattern.
+
+### 3. Pay Card Restructure (Agent-Level Collapsible Cards)
+
+**Stack used:** React + inline CSSProperties
+
+**What's needed:**
+- Refactor `PeriodCard` component to group entries by agent first, then show individual sale rows nested inside
+- Reuse existing `ChevronDown` icon and expand/collapse state pattern (already used for period expansion)
+- Move bonus/fronted/hold inputs from individual sale rows to agent-level summary row
+
+**Why no new library:** The codebase already implements collapsible cards with expand/collapse state for periods. The same pattern (boolean state + conditional render) applies to agent-level grouping. No accordion library needed.
+
+### 4. Print View Enhancements
+
+**Stack used:** Template literal HTML + `window.open` + `window.print()`
+
+**What's needed:**
+- Modify the existing print HTML template strings (lines ~1270-1370 in PayrollPeriods.tsx) to:
+  - Remove net column from individual sale rows
+  - Add "Approved" pill (green badge) on half-commission deals where `commissionApproved === true`
+  - Clean up addon name formatting (strip prefixes, normalize casing)
+- All changes are to the template string HTML, not React components
+
+**Why no new library:** The print system uses raw HTML strings rendered in a new window. This is the simplest possible print approach and works well. Adding a PDF library (like jsPDF or react-to-print) would be over-engineering for what is already a working pattern. The changes are string template edits.
+
+### 5. ACA Editable in Products Tab
+
+**Stack used:** Existing PayrollProducts.tsx CRUD pattern
+
+**What's needed:**
+- Extend the `ProductCard` component to handle `ACA_PL` product type (currently handles CORE, ADDON, AD_D)
+- Add `ACA_PL` to the `TYPE_LABELS` and `TYPE_COLORS` maps
+- Ensure the product edit form shows `flatCommission` field for ACA_PL type
+- API product routes already support all product types via Prisma
+
+**Why no new library:** The Products tab already has full CRUD. ACA_PL products exist in the database. The UI just needs the type added to display maps and the flat commission field shown conditionally.
+
+### 6. Zero-Value Validation Bug Fix
+
+**Stack used:** Zod
+
+**What's needed:**
+- The current Zod schema uses `.min(0)` which rejects `0`. Change to `.min(0)` with explicit zero allowance, or the issue may be that `0` is being treated as falsy in JavaScript conditionals
+- Inspect the PATCH `/payroll/entries/:id` handler -- the bug is likely in `parsed.data.bonusAmount ?? Number(entry.bonusAmount)` where `0` is not nullish but may be treated as "no change" somewhere in the UI
+
+**Why no new library:** This is a validation logic fix, not a technology gap.
+
+## Alternatives Considered
+
+| Category | Considered | Why NOT |
+|----------|-----------|---------|
+| Print/PDF | react-to-print, jsPDF | Existing window.open+print pattern works. Adding a library for cosmetic print changes is over-engineering. |
+| Accordion UI | @radix-ui/react-accordion | Project uses zero external UI libraries. Inline expand/collapse with useState is the established pattern. |
+| State management | zustand, jotai | Not needed. Component-level useState + authFetch is the pattern. Carryover is server-side logic. |
+| Form library | react-hook-form | Project uses manual form state with useState + Zod on the API. Consistent with 130K LOC of existing code. |
+| Migration tool | Other than Prisma | Prisma is the established tool. No reason to change for schema additions. |
+
+## Schema Changes Required (Prisma Migration)
+
+```prisma
+// Add to PayrollEntry model:
+bonusLabel           String?  @map("bonus_label")        // "Bonus", "Hold Payout", custom
+carryoverFromPeriodId String? @map("carryover_from_period_id")  // Track carryover origin
+
+// Optional: Add carryover relation
+carryoverFromPeriod  PayrollPeriod? @relation("CarryoverSource", fields: [carryoverFromPeriodId], references: [id])
 ```
 
-**Why not server-side parsing:** The existing chargeback flow is client-parse -> review table -> POST JSON to `/chargebacks` endpoint. The CSV upload is just a new input method feeding the same review table and the same API endpoint. The `chargebackSchema` Zod validation on the server already validates the JSON payload shape. No server changes needed for the parsing itself.
+**Alternative approach (simpler):** Instead of tracking carryover at the PayrollEntry level (which is per-sale), create a separate agent-level summary model or use the existing entry fields. Since bonus/fronted/hold are being moved to agent-level only, the carryover could be implemented as:
 
-**Quoted field handling:** CSV files may contain commas inside quoted fields (e.g., `"Smith, John"`). A simple state-machine CSV line splitter (20 lines) handles this. If the carrier's CSV export is simple (no nested quotes), even a regex suffices. PapaParse is overkill for a known, consistent CSV format from a single carrier.
+1. When period locks, for each agent with nonzero fronted/hold: find or create a PayrollEntry in the next period and add the carryover amounts
+2. Track origin via audit log rather than a schema field (simpler, no migration for relation)
 
-**Confidence:** HIGH -- Browser FileReader API is stable, the pattern matches existing codebase conventions, the chargeback API endpoint already accepts the right JSON shape.
-
-### 2. Sidebar-Based Agent Card Navigation (Payroll Redesign)
-
-**What's needed:** Replace flat agent card list with a sidebar listing all agents and a main content area showing one agent's pay cards at a time with load-more pagination.
-
-**Recommendation: Pure React state + existing inline CSS. No library needed.**
-
-| Approach | Verdict | Rationale |
-|----------|---------|-----------|
-| React Router nested routes | REJECT | This is a single-page tab component, not a routed view. URL state is unnecessary. |
-| Virtualized list (react-window) | REJECT | Agent count is 9-15 per the sales board scaling work. Virtualization is for 1000+ items. |
-| State management library | REJECT | `useState` for `selectedAgentId` is the entire state model. |
-| Pure React useState | USE THIS | `selectedAgentId` drives which agent's cards render. Sidebar is a scrollable list with click handlers. Exactly the pattern used in `ManagerAudits.tsx` for agent filtering. |
-
-**Implementation pattern:**
-```typescript
-const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-// Sidebar: agent list with active highlight
-// Main: filtered entries for selectedAgentId with take/skip pagination
-```
-
-**Layout approach:** CSS flexbox with fixed-width sidebar (220-250px) and flex-grow main area. The codebase uses inline `React.CSSProperties` exclusively -- this is a straightforward two-column flex layout. No CSS Grid needed.
-
-**Pagination for "last 4 pay cards + load more":** The payroll API already returns all periods. Client-side slicing (`periods.slice(0, visibleCount)`) with a "Load More" button incrementing `visibleCount` by 4. No API pagination changes needed since period count is bounded (52 weeks/year max, typically 4-8 visible).
-
-**Confidence:** HIGH -- Standard React pattern, no new APIs or libraries required.
-
-### 3. ACA Product Editable in Payroll Products Tab
-
-**What's needed:** Make the ACA product type editable with flat commission per member and addon qualifier rule configuration.
-
-**Recommendation: No stack changes. Existing Product CRUD endpoints + Zod schemas + inline form components.**
-
-The payroll Products tab already has a read-only view (`PayrollPeriods.tsx` Product type). The change is: add edit form fields for `flatCommission`, `memberCount`-based calculation rules, and addon qualifier toggles. This is pure feature work using existing patterns:
-- Zod schema extension on the product update endpoint
-- Inline form with `baseInputStyle` from `@ops/ui`
-- `authFetch` PUT to existing product routes
-
-**Confidence:** HIGH -- Extends existing patterns.
-
-### 4. Enrollment Fee Defaults to $0
-
-**What's needed:** When enrollment fee is null/undefined, treat as $0 in commission calculation.
-
-**Recommendation: No stack changes. Single-line fallback in commission engine.**
-
-```typescript
-const enrollmentFee = sale.enrollmentFee ?? 0;
-```
-
-This is a bug fix in `apps/ops-api/src/services/payroll.ts`, not a stack decision.
-
-**Confidence:** HIGH -- Trivial code change.
-
-### 5. Call Audit Rolling Window: Last 30 Audits
-
-**What's needed:** Change default from "last 24 hours" to "last 30 audits" when no date range is specified.
-
-**Recommendation: No stack changes. Modify Prisma query in `call-audits.ts`.**
-
-Current code (line 48-52 of `call-audits.ts`):
-```typescript
-} else if (!cursor) {
-  const now = new Date();
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  where.callDate = { gte: yesterday, lt: now };
-}
-```
-
-Change to: Remove the date filter in the default case and rely on `take: 30` (the existing `limit` parameter, defaulting to 30 instead of 25). The cursor pagination already handles "load more."
-
-**Confidence:** HIGH -- Query parameter change only.
-
-### 6. Performance Tracker: Expanded Analytics + Sparkline Fix
-
-**What's needed:** Lead source/timing analytics default to expanded state; fix 7-day trend sparkline data.
-
-**Recommendation: No stack changes. UI state default change + data query fix.**
-
-- "Start expanded": Change `useState(false)` to `useState(true)` for the analytics collapse state.
-- "Fix sparklines": Debug the 7-day trend data query in the lead timing analytics endpoints. The inline SVG sparkline renderer is already built and working -- this is a data issue, not a rendering issue.
-
-**Confidence:** HIGH -- UI default + data query debugging.
-
-## Recommended Stack (Unchanged)
-
-No new packages to install. The v2.1 milestone is entirely buildable with the existing stack:
-
-### Existing Stack (No Changes)
-
-| Technology | Version | Purpose | Status for v2.1 |
-|------------|---------|---------|-----------------|
-| Next.js | 15.3.9 | Dashboard framework | Sufficient |
-| React | 18.3.1 | UI components | Sufficient |
-| Express | 4.19.2 | API server | Sufficient |
-| Prisma | 5.20.0 | Database ORM | Sufficient |
-| PostgreSQL | -- | Database | Sufficient |
-| Socket.IO | 4.8.3 | Real-time updates | Sufficient |
-| Zod | 3.23.8 | Input validation | Sufficient |
-| Luxon | 3.4.4 | Date/time handling | Sufficient |
-| lucide-react | 0.577.0 | Icons | Sufficient |
-| TypeScript | 5.6.2 | Type safety | Sufficient |
-
-### Browser APIs Used (No Install)
-
-| API | Purpose | Browser Support |
-|-----|---------|----------------|
-| FileReader | Read CSV file as text | All modern browsers |
-| `<input type="file">` | File picker UI | All modern browsers |
-| crypto.randomUUID() | Batch ID generation (already used) | All modern browsers |
-
-## Alternatives Considered and Rejected
-
-| Category | Considered | Why Rejected |
-|----------|------------|-------------|
-| CSV parsing | PapaParse | 30KB dependency for a 15-line function. Known single-format CSV from carrier. Codebase precedent: inline SVG over chart libs, paste-parse over upload libs. |
-| CSV parsing | csv-parse | Node.js stream-based parser. Server-side parsing not needed -- client parses, reviews, POSTs JSON. |
-| File upload | Multer | Multipart middleware unnecessary. File never leaves the browser as a file -- it's read as text, parsed to JSON, and POST'd. |
-| File upload | Formidable | Same rationale as Multer. |
-| Sidebar UI | Radix UI | Component library adds dependency weight for a simple flex layout with click handlers. |
-| Virtualization | react-window | Agent list is 9-15 items. Virtualization is for 1000+ items. |
-| State management | Zustand/Jotai | Single `selectedAgentId` state. useState is the right tool. |
-| Data table | TanStack Table | Review table is a simple map-to-tr render. No sorting/filtering/pagination complexity warranting a library. |
-
-## What NOT to Add
-
-These are explicitly called out because they might seem tempting but would violate codebase conventions:
-
-1. **No drag-and-drop file upload library** (react-dropzone, etc.) -- A standard `<input type="file">` with a styled label is sufficient. The user clicks "Upload CSV", picks a file, done. Drag-and-drop is a UX luxury that adds dependency weight.
-
-2. **No CSS framework or component library** -- The codebase uses inline `React.CSSProperties` exclusively. The sidebar layout is CSS flexbox. Do not introduce Tailwind, styled-components, or any CSS-in-JS library.
-
-3. **No server-side file storage** -- CSV files are ephemeral. Read on client, parse, review, submit as JSON, discard the file. No need for S3, local file storage, or temp file management.
-
-4. **No Papa Parse "just in case"** -- The CSV format is known (carrier chargeback export). If edge cases arise with quoted fields, a 20-line state machine handles it. The codebase has a strong precedent of avoiding libraries for things that can be done in <50 lines of code.
+The roadmap phase should decide which approach based on how visible carryover provenance needs to be in the UI.
 
 ## Installation
 
+No new packages to install. Existing `npm install` from monorepo root is sufficient.
+
 ```bash
-# No new packages to install for v2.1
-# The existing stack handles all six features
+# Only migration needed
+npm run db:migrate
 ```
+
+## What NOT to Add
+
+| Library | Why Tempting | Why Wrong |
+|---------|-------------|-----------|
+| `react-to-print` | "Clean print integration" | Print already works via window.open. The changes are template string edits. |
+| `@radix-ui/*` | "Accessible accordion for agent cards" | 130K LOC of inline CSSProperties + useState. Adding a component library now creates two patterns. |
+| `zustand` | "Complex state for carryover tracking" | Carryover is server-side. Client just fetches and displays. |
+| `react-query` / `swr` | "Better data fetching" | `authFetch` with `useEffect` is the universal pattern. Changing it means refactoring every component. |
+| `decimal.js` | "Precise financial math" | Prisma Decimal fields + server-side calculation already handle precision. Client displays only. |
 
 ## Sources
 
-- Codebase analysis: `apps/ops-dashboard/app/(dashboard)/cs/CSSubmissions.tsx` -- existing paste-to-parse pattern (HIGH confidence)
-- Codebase analysis: `apps/ops-api/src/routes/chargebacks.ts` -- existing chargeback API accepts JSON array (HIGH confidence)
-- Codebase analysis: `apps/ops-api/src/routes/call-audits.ts` -- existing 24h window implementation (HIGH confidence)
-- Codebase analysis: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` -- existing agent card rendering (HIGH confidence)
-- Codebase analysis: `apps/ops-dashboard/package.json` -- current dependency list (HIGH confidence)
-- MDN FileReader API documentation -- stable, all modern browsers (HIGH confidence)
-- Project decision history: inline SVG sparklines chosen over charting library (KEY PRECEDENT)
-- Project decision history: paste-to-parse chosen over file upload middleware (KEY PRECEDENT)
+- Prisma schema: `prisma/schema.prisma` (direct codebase inspection)
+- Payroll service: `apps/ops-api/src/services/payroll.ts` (direct codebase inspection)
+- Payroll routes: `apps/ops-api/src/routes/payroll.ts` (direct codebase inspection)
+- Dashboard components: `apps/ops-dashboard/app/(dashboard)/payroll/` (direct codebase inspection)
+- Package manifests: `package.json`, `apps/ops-api/package.json`, `apps/ops-dashboard/package.json` (direct codebase inspection)
+- Project context: `.planning/PROJECT.md` (direct codebase inspection)

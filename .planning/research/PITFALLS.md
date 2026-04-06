@@ -1,178 +1,113 @@
 # Domain Pitfalls
 
-**Domain:** Sales/payroll ops platform v2.1 feature additions
-**Researched:** 2026-04-06
+**Domain:** Payroll card overhaul, carryover system, and adjustment relocation
+**Researched:** 2026-04-01
+**Confidence:** HIGH (based on direct codebase analysis of payroll service, routes, and UI components)
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data corruption, or payroll inaccuracies.
+### Pitfall 1: Carryover Duplication on Period Status Toggle
 
-### Pitfall 1: CSV Chargeback Upload — Partial Batch Failures Without Transaction Safety
+**What goes wrong:** Payroll staff locks a period (OPEN -> LOCKED), carryover entries are created in the next period. Then they unlock it (LOCKED -> OPEN) to fix something, then re-lock it. The carryover logic runs again and creates duplicate entries in the next period, doubling the carryover amounts.
 
-**What goes wrong:** A CSV with 50 chargeback rows processes 30 successfully, then row 31 fails validation or matching. The user sees a partial import with no clear indication of which rows succeeded and which failed. Worse, if the batch creates payroll alerts for the first 30 rows before failing, those alerts are now orphaned from incomplete batch context.
+**Why it happens:** The existing `PATCH /payroll/periods/:id/status` endpoint allows toggling between OPEN and LOCKED freely. The carryover hook fires on every transition to LOCKED without checking if carryover already happened.
 
-**Why it happens:** The existing `POST /chargebacks` endpoint uses `createMany` for records, then loops through created records for matching and alert creation. A CSV upload amplifies this pattern -- a 200-row CSV hitting the loop-based matching (one query per row) creates N+1 query patterns and sequential `createAlertFromChargeback` calls. Any failure mid-loop leaves the database in a partial state.
+**Consequences:** Agent gets double-charged on holds or double-paid on bonus carryovers. Financial accuracy destroyed. Hard to detect because the duplicates look like legitimate entries.
 
-**Consequences:** Payroll staff see partial chargeback data. Alerts fire for some chargebacks but not others. Re-uploading the CSV creates duplicates for the rows that already succeeded. Users lose trust in batch operations.
+**Prevention:** Before creating carryover entries, check if carryover entries already exist for this agent in the next period from this source period. Options: (A) Query for entries with a matching bonusLabel pattern. (B) Add an `isCarryover` boolean flag to PayrollEntry. (C) Delete previous carryover entries before re-creating (simplest, but loses manual edits to carryover entries). Recommend option B -- explicit flag is cheapest to query and most reliable.
 
-**Prevention:**
-1. Wrap the entire CSV batch in a Prisma `$transaction` so it is all-or-nothing.
-2. Separate validation from persistence: parse and validate ALL rows client-side, show a pre-submit review table, then send only validated records.
-3. Add a dedupe guard on CSV upload -- hash the CSV content or use a unique batch identifier so re-uploads are idempotent.
-4. The existing `batchId` field is already a UUID generated per paste. For CSV, generate a deterministic batch ID from the file hash to prevent re-upload duplicates.
+**Detection:** Sum of carryover amounts in a period exceeding the source period's fronted/hold amounts.
 
-**Detection:** Chargeback count in tracking table does not match the row count the user expected from their CSV.
+---
 
-### Pitfall 2: Enrollment Fee $0 Default — Triggering Half-Commission on Every Sale Without a Fee
+### Pitfall 2: Zero-Value Bug is Deeper Than It Looks
 
-**What goes wrong:** Changing `enrollmentFee` from `null` to `0` when missing fundamentally changes commission behavior. The current code at `payroll.ts:56` has an explicit early return: `if (enrollmentFee === null || enrollmentFee === undefined) return { finalCommission: commission, enrollmentBonus: 0, feeHalvingReason: null }`. Changing null to 0 means EVERY sale that previously had no enrollment fee now hits the `fee < halfThreshold` check at line 79, which would HALVE commission for all of them (unless `commissionApproved` is true).
+**What goes wrong:** The Zod schema `.min(0)` correctly allows zero. The bug is likely client-side. When a user clears an input field, the value becomes empty string. `Number("")` = `0`, but if the onChange handler only sends the field when truthy (`if (value) { ... }`), zero is never sent. The PATCH endpoint uses `parsed.data.bonusAmount ?? Number(entry.bonusAmount)` which correctly passes `0` -- but only if `0` was sent.
 
-**Why it happens:** The intent is to fix the UI showing a "half commission" badge when enrollment fee is missing (null). But the fix location matters enormously. Defaulting at the database/API level changes commission calculations. Defaulting only at the UI display level fixes the badge without affecting payroll.
+**Why it happens:** JavaScript truthiness confusion. `0` is falsy. `if (value)` excludes zero.
 
-**Consequences:** Every historical sale without an enrollment fee gets half commission on recalculation. Payroll entries are wrong. Agents are underpaid. Reversing the change requires identifying which sales legitimately had $0 fees vs which had missing fees.
+**Consequences:** Once bonus/fronted/hold is set nonzero, it cannot be zeroed through the UI.
 
-**Prevention:**
-1. Do NOT change the database column default or the `enrollmentFee ?? null` patterns in `sales.ts`.
-2. The fix should be scoped to exactly TWO places: (a) the payroll UI half-commission badge check at `PayrollPeriods.tsx:1505` should treat null as "no fee, not half commission" (currently correct -- `enrollmentFee !== null && Number(...) < 99`), and (b) the approve button visibility, which also correctly guards on `!== null`.
-3. If the actual bug is the commission preview showing a half-commission badge when enrollment fee is empty on the entry form, fix the preview endpoint to treat empty/null enrollment fee as "skip fee check" not "fee is $0".
-4. Add a test case: `COMM-null-fee: sale with enrollmentFee=null should NOT trigger halving`.
+**Prevention:** Inspect PayrollPeriods.tsx save handler. Look for: (1) truthy checks excluding zero, (2) PATCH body construction skipping zero-value fields. Fix: always include the field, use `value !== undefined` not `if (value)`.
 
-**Detection:** Payroll totals drop dramatically after deployment. Half-commission badges appear on sales that never had enrollment fee issues.
+**Detection:** Test: set bonus to $50, save. Set bonus to $0, save. Verify API receives `bonusAmount: 0`.
 
-### Pitfall 3: ACA Product Edit — Changing flatCommission Retroactively Corrupts Existing Payroll
+---
 
-**What goes wrong:** Making `flatCommission` editable in the Products tab means someone changes it from $15/member to $20/member. Existing payroll entries for ACA_PL sales were calculated at the old rate. The product table stores the current rate, not a historical snapshot. If any payroll recalculation is triggered (sale edit, status change, period reopen), existing ACA entries recalculate at the new rate.
+### Pitfall 3: Agent With No Sales in Next Period Blocks Carryover
 
-**Why it happens:** The commission engine at `payroll.ts:106` reads `sale.product.flatCommission` at calculation time, not the rate that was in effect when the sale was made. This is fine for percentage-based products (rates rarely change), but flat commission products are more likely to have rate adjustments.
+**What goes wrong:** PayrollEntry requires a `saleId` (non-nullable FK) with `@@unique([payrollPeriodId, saleId])`. An agent fronted $200 but with no sales in the next period has no sale to attach the carryover entry to.
 
-**Consequences:** Historical payroll entries silently change amounts when recalculated. Agent pay for past periods becomes inaccurate. Audit trail shows the payroll entry was "updated" but the reason is obscured.
+**Why it happens:** PayrollEntry was designed as per-sale. Carryover is per-agent.
 
-**Prevention:**
-1. When saving a flat commission change, log the old and new values in the audit log via `logAudit`.
-2. Add a confirmation dialog: "This product has X active payroll entries. Changing the rate will NOT retroactively change existing payroll entries, but any future recalculations will use the new rate."
-3. Consider snapshotting `flatCommission` on the `PayrollEntry` or storing it as a field on the sale at creation time. For v2.1, the warning dialog is sufficient -- snapshot can be deferred.
-4. The `PATCH /products/:id` endpoint already exists and supports all fields. The ACA edit is purely a UI task -- no new API work needed.
+**Consequences:** Carryover fails for agents without sales in target period -- often the agents who most need it tracked.
 
-**Detection:** Payroll entry amounts change after a product edit + unrelated sale update in the same period.
+**Prevention:** Two options: (A) Create a sentinel "Carryover Adjustment" sale per agent -- $0 premium system-generated sale. (B) Make `saleId` nullable on PayrollEntry for adjustment-only entries. Option A preserves data model. Option B is cleaner but needs migration + audit of code assuming saleId non-null.
 
-### Pitfall 4: Payroll Agent Card Redesign — Sidebar With All Agents Creates Empty State Chaos
+**Detection:** Compare agents with fronted/hold > 0 in locked period vs agents with carryover entries in next period.
 
-**What goes wrong:** A sidebar listing ALL agents includes agents with zero payroll entries for any period. Clicking an agent with no entries shows a blank right panel. With "last 4 pay cards + load more," an agent who just started has 0-1 cards, making the layout look broken. Worse, the `allAgents` variable at `PayrollPeriods.tsx:1514` already injects empty arrays for agents not in the period -- this pattern needs to extend to the sidebar.
+---
 
-**Why it happens:** The redesign changes from "one card per period containing all agents" to "one sidebar listing agents, one panel showing per-agent history." Agents without entries are a normal state (new hires, inactive agents still in the list), but the UI does not account for it.
+### Pitfall 4: PeriodCard Refactor Breaks Existing Functionality
 
-**Consequences:** Users think the system is broken when clicking an agent shows nothing. The "load more" button logic breaks when there are fewer than 4 entries.
+**What goes wrong:** PayrollPeriods.tsx is ~1800 lines with interleaved concerns: period rendering, agent grouping, sale editing, bonus/fronted/hold inputs, mark paid/unpaid, print, status change requests, sale edit requests, chargeback alerts. Restructuring risks breaking any of these.
 
-**Prevention:**
-1. Show "No payroll entries yet" empty state with the agent's start date if available.
-2. For the "last 4 pay cards" query, use a single API call: `GET /payroll/agent/:agentId/history?limit=4&offset=0`. Return periods even if they have zero entries for this agent (so the user sees the period existed).
-3. In the sidebar, show a visual indicator for agents with entries vs without (dot, badge count, or grayed name).
-4. Filter sidebar to active agents by default, with a toggle to show inactive agents.
-5. Handle the edge case: an agent exists in the sidebar but has entries only as part of `ServicePayrollEntry` (service agents), not `PayrollEntry`. These are different tables -- do not mix them.
+**Why it happens:** Component grew through 11 milestones. Too many responsibilities in one file.
 
-**Detection:** QA clicks through every agent in the sidebar. At least one will have no entries.
+**Consequences:** Regressions in mark-paid, sale editing, print, or alert display not caught until payroll day.
+
+**Prevention:** Extract sub-components before restructuring. Create AgentCard, SaleRow, AgentSummary as separate components with explicit props. Test each in isolation. Then compose in new layout.
+
+**Detection:** Manual testing checklist: (1) Edit sale premium -> commission recalculates. (2) Set bonus/fronted/hold -> net updates. (3) Mark paid -> status updates. (4) Print -> matches screen. (5) Chargeback alert displays. (6) Status change request approve/reject works.
 
 ## Moderate Pitfalls
 
-### Pitfall 5: CSV Parsing — Column Header Mismatches and Encoding Issues
+### Pitfall 5: Carryover Interacts Badly With Clawbacks
 
-**What goes wrong:** The chargeback CSV from the carrier may have different column headers than expected (e.g., "Chargeback Amt" vs "chargebackAmount"), BOM characters in the first byte, Windows line endings, or quoted fields containing commas. The existing paste-to-parse parser in `CSSubmissions.tsx` handles tab-delimited carrier data with a custom parser. CSV is a different format requiring different parsing logic.
+**What goes wrong:** Agent fronted $200 in period N. Period N locks, creating $200 hold in period N+1. A clawback is applied to an entry in N+1, setting it to CLAWBACK_APPLIED. The hold amount on this entry becomes orphaned.
 
-**Why it happens:** CSV is not a single format -- it is a family of formats. Excel exports UTF-8 with BOM. Google Sheets exports UTF-8 without BOM. Carrier reports may be ISO-8859-1. Column order varies between report versions.
+**Prevention:** When applying clawbacks, preserve hold/bonus amounts by moving them to another active entry for the same agent. Or use a dedicated carryover entry separate from sale entries.
 
-**Prevention:**
-1. Use a battle-tested CSV parser library (Papa Parse is the standard for browser-side CSV). Do not write a custom parser.
-2. Show a column mapping step in the pre-submit review: detect headers automatically, let the user confirm or remap columns.
-3. Strip BOM (`\uFEFF`) from the first byte.
-4. Validate that required columns exist before processing. Required: at minimum `chargebackAmount`, `memberId` (for matching).
-5. Show the raw parsed preview table BEFORE any matching logic runs, so users can catch parsing errors visually.
+### Pitfall 6: Print Template Diverges From Screen Layout
 
-**Detection:** First real CSV upload from a carrier report will reveal mismatches. Test with an actual carrier export, not a manually created CSV.
+**What goes wrong:** After restructuring screen cards, the print template still generates old flat layout because it uses separate template literal code, not React components.
 
-### Pitfall 6: Rolling Window (Last 30 Audits) — Count-Based vs Time-Based Query Semantics
+**Prevention:** Update print template in same phase as card restructure. Use same data grouping logic for both screen and print.
 
-**What goes wrong:** "Last 30 audits" means different things: (a) the 30 most recent audit records, or (b) audits from the last 30 calendar days. The current code at `call-audits.ts:49` defaults to `24 * 60 * 60 * 1000` (24 hours) when no date range or cursor is specified. Changing this to "last 30 audits" (count-based) is different from "last 30 days" (time-based). A count-based approach with cursor pagination already exists -- the `limit` parameter defaults to 25.
+### Pitfall 7: Fronted Positive Display Creates Mental Model Mismatch
 
-**Why it happens:** The requirement says "last 30 audits instead of last 24 hours." This is a change from time-based to count-based default windowing. The cursor pagination already supports count-based loading (take: limit + 1), so the fix is trivial: remove the 24-hour default when no cursor is present, and change the default limit from 25 to 30.
+**What goes wrong:** Fronted displayed as `+$200.00` but net formula subtracts it. Reader sees Commission $500 + Bonus $50 + Fronted $200 = expects $750, but net shows $350.
 
-**Prevention:**
-1. Simply remove the `else if (!cursor)` block at line 48-52 that sets a 24-hour window. Let the query use no date filter on initial load, relying on `take: limit + 1` (change default to 30).
-2. The cursor pagination already handles "load more" correctly.
-3. Keep the date range filter working -- if a user selects "Last Week," the date filter should still apply on top of the count limit.
-4. Do NOT change the database query to `ORDER BY createdAt` instead of `callDate` -- the existing dual-field ordering (`callDate DESC, updatedAt DESC`) is intentional (D-09 in the code comments).
-
-**Detection:** After the change, verify that selecting a date range still works correctly alongside the count-based default.
-
-### Pitfall 7: Sparkline Data — Date Key Format Mismatch Between PostgreSQL and JavaScript
-
-**What goes wrong:** The sparkline query at `lead-timing.ts:153` casts `call_timestamp` to `::date`, which returns a PostgreSQL `date` type. When Prisma serializes this to JavaScript, the format depends on the Prisma version and PostgreSQL driver. It may come as `"2026-04-06"` (string) or `2026-04-06T00:00:00.000Z` (Date object). The client-side code at line 203 uses `String(r.day)` to build lookup keys, while the 7-day series at line 213 uses `d.toISOString().slice(0, 10)` which produces `"2026-04-06"`. If `String(r.day)` produces `"Sun Apr 06 2026 ..."` (from a Date object), the keys never match and sparklines show all zeros.
-
-**Why it happens:** Prisma raw queries (`$queryRaw`) return database types as-is. PostgreSQL `date` type serialization is not guaranteed to match JavaScript date string formatting. The mismatch is environment-dependent -- it may work in local dev with one Prisma version and fail in production with another.
-
-**Prevention:**
-1. In the SQL query, explicitly cast the date to a string format: `TO_CHAR((...), 'YYYY-MM-DD') AS day` instead of `::date AS day`. This guarantees the format regardless of Prisma/driver behavior.
-2. On the client side, normalize the day key: `const dayKey = typeof r.day === 'string' ? r.day.slice(0, 10) : new Date(r.day).toISOString().slice(0, 10)`.
-3. Add a log line in the sparkline endpoint to verify the day format during development: `console.log('sparkline day sample:', calls[0]?.day, typeof calls[0]?.day)`.
-
-**Detection:** Sparklines render as flat zero lines even when there is clearly call/sale data for the period. Check the Network tab -- if the API returns data with mismatched day formats, this is the cause.
-
-### Pitfall 8: ACA Addon Qualifier Rules — Circular Product Dependencies
-
-**What goes wrong:** Making ACA product addon qualifier rules editable in the Products tab means someone could set Product A's required bundle addon to Product B, and Product B's required bundle addon to Product A. The `resolveBundleRequirement` function at `payroll.ts:226` would loop or produce nonsensical results. Additionally, setting an ACA_PL product as a `requiredBundleAddonId` target creates a cross-type dependency that the commission engine does not handle.
-
-**Why it happens:** The Products tab allows setting `requiredBundleAddonId` and `fallbackAddonIds` on any product. There is no validation preventing circular references or cross-type misconfigurations.
-
-**Prevention:**
-1. In the `PATCH /products/:id` endpoint, validate that `requiredBundleAddonId` is not the product itself and is not a product that already requires the current product as its addon.
-2. Only allow ADDON type products as `requiredBundleAddonId` targets -- not CORE, AD_D, or ACA_PL.
-3. For ACA_PL products, the edit form should only show `flatCommission` and `name` -- not bundle requirement fields (ACA_PL uses a completely different commission path that ignores bundle requirements).
-4. The UI should conditionally show/hide fields based on product type selection.
-
-**Detection:** Product configuration looks normal but commission calculations produce unexpected results or errors.
+**Prevention:** Clear labeling: `$200.00 Fronted (deducted from net)` or distinct visual treatment (different color, separate section) that communicates "already given, being deducted."
 
 ## Minor Pitfalls
 
-### Pitfall 9: Payroll Sidebar — Agent Sort Order Inconsistency
+### Pitfall 8: ACA Product Type Missing From Multiple UI Locations
 
-**What goes wrong:** The current payroll display at `PayrollPeriods.tsx:1508-1516` groups entries by agent name using a Map, then adds missing agents from `allAgents`. Map iteration order is insertion order, so agents appear in the order their first payroll entry was created, not alphabetical. The new sidebar needs a consistent sort -- alphabetical by name or by `displayOrder` field on the Agent model.
+**What goes wrong:** Adding ACA_PL to Products tab fixes that tab, but other locations may hardcode `"CORE" | "ADDON" | "AD_D"`.
 
-**Prevention:** Sort sidebar agents by `displayOrder` (existing field, default 0) then alphabetically by name. Use `allAgents.sort((a, b) => (a.displayOrder - b.displayOrder) || a.name.localeCompare(b.name))`.
+**Prevention:** Search entire codebase for `TYPE_LABELS`, `TYPE_COLORS`, and ProductType unions. Update all occurrences.
 
-### Pitfall 10: CSV Upload File Size and Browser Memory
+### Pitfall 9: Addon Name Formatting Inconsistency
 
-**What goes wrong:** A CSV with 10,000 rows loaded entirely into browser memory for preview can freeze the tab. The existing paste-to-parse flow handles 10-50 rows at a time. CSV uploads could be orders of magnitude larger.
+**What goes wrong:** Client-side truncation in pay cards produces different results than print template truncation.
 
-**Prevention:** Cap preview at 100 rows with a "showing first 100 of 5,432 rows" message. Parse the full file only on submit. Set a server-side max (e.g., 1000 rows per batch) with a clear error message. Add `express.json({ limit: '5mb' })` or equivalent on the upload route.
-
-### Pitfall 11: Lead Source Analytics Start Expanded — Layout Shift on Load
-
-**What goes wrong:** Performance tracker sections currently start collapsed. Changing them to start expanded means the heatmap and sparklines render immediately on page load, firing API calls before the user has scrolled down. If the data is slow to load, the section shows spinners that push content around.
-
-**Prevention:** Use skeleton loaders (fixed-height placeholder blocks) to prevent layout shift. Consider lazy-loading the analytics data with `IntersectionObserver` so API calls only fire when the section scrolls into view, even though it starts visually expanded.
-
-### Pitfall 12: Payroll History "Load More" — Unbounded Query Growth
-
-**What goes wrong:** "Last 4 pay cards + load more" without a maximum creates unbounded queries for agents with 52+ weeks of history. Each "load more" fetches 4 more periods, eventually loading hundreds of payroll entries.
-
-**Prevention:** Set a hard cap (e.g., 20 periods maximum). Show a "View older periods" link to the full payroll tab with a date range filter rather than loading indefinitely.
+**Prevention:** Extract shared `formatAddonName(name: string)` utility used by both React component and print template.
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| CSV chargeback upload | Partial batch failures (Pitfall 1), column mapping (Pitfall 5) | Transaction wrapping, Papa Parse library, pre-submit review table |
-| ACA product edit | Retroactive commission change (Pitfall 3), circular deps (Pitfall 8) | Audit log + warning dialog, type-conditional field visibility |
-| Enrollment fee $0 default | Commission regression (Pitfall 2) | UI-only fix, do NOT change database defaults or payroll engine |
-| Payroll agent card redesign | Empty state (Pitfall 4), sort order (Pitfall 9), load more bounds (Pitfall 12) | Empty state component, sorted sidebar, capped pagination |
-| Call audit rolling window | Query semantics confusion (Pitfall 6) | Remove 24h default, rely on existing count-based pagination |
-| Performance tracker polish | Sparkline data mismatch (Pitfall 7), layout shift (Pitfall 11) | TO_CHAR in SQL, skeleton loaders |
+| Quick fixes (zero-value, display) | Zero-value bug is client-side, not API-side | Inspect save handler in PayrollPeriods.tsx |
+| ACA Products | Type union hardcoded in multiple files | Search codebase for all ProductType references |
+| Agent-level adjustments | Per-entry storage has no agent-level ID | Use "first active entry" convention, not new table |
+| Carryover system | Duplication on re-lock, no-sale agents blocked | Idempotency flag + sentinel sale or nullable saleId |
+| Card restructure | 1800-line component regression | Extract sub-components first |
+| Print enhancements | Print template is separate code from React | Update print in same phase as card changes |
 
 ## Sources
 
-- Direct codebase analysis of `apps/ops-api/src/services/payroll.ts` (commission engine)
-- Direct codebase analysis of `apps/ops-api/src/routes/chargebacks.ts` (batch creation pattern)
-- Direct codebase analysis of `apps/ops-api/src/routes/call-audits.ts` (24h default window)
-- Direct codebase analysis of `apps/ops-api/src/routes/lead-timing.ts` (sparkline date handling)
-- Direct codebase analysis of `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` (enrollment fee checks, agent grouping)
-- Direct codebase analysis of `prisma/schema.prisma` (Product model, ACA_PL type, flatCommission field)
-- Confidence: HIGH -- all pitfalls identified from actual code patterns, not hypothetical scenarios
+- `apps/ops-api/src/routes/payroll.ts` lines 186-214 -- PATCH handler with `??` operator
+- `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` -- 1800+ line component
+- `prisma/schema.prisma` -- PayrollEntry `@@unique([payrollPeriodId, saleId])`, saleId non-nullable
+- `apps/ops-api/src/routes/payroll.ts` lines 29-42 -- period status toggle

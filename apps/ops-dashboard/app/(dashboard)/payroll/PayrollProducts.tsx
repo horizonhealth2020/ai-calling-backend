@@ -16,12 +16,13 @@ const inputStyle: React.CSSProperties = {
 };
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
-type ProductType = "CORE" | "ADDON" | "AD_D";
+type ProductType = "CORE" | "ADDON" | "AD_D" | "ACA_PL";
 type Product = {
   id: string; name: string; active: boolean; type: ProductType;
   premiumThreshold?: number | null; commissionBelow?: number | null;
   commissionAbove?: number | null; bundledCommission?: number | null;
   standaloneCommission?: number | null; enrollFeeThreshold?: number | null;
+  flatCommission?: number | null;
   notes?: string;
   requiredBundleAddonId?: string | null;
   requiredBundleAddon?: { id: string; name: string } | null;
@@ -30,11 +31,11 @@ type Product = {
 };
 
 const TYPE_LABELS: Record<ProductType, string> = {
-  CORE: "Core", ADDON: "Add-on", AD_D: "AD&D",
+  CORE: "Core", ADDON: "Add-on", AD_D: "AD&D", ACA_PL: "ACA PL",
 };
 
 const TYPE_COLORS: Record<ProductType, string> = {
-  CORE: C.primary400, ADDON: C.accentTeal, AD_D: C.warning,
+  CORE: C.primary400, ADDON: C.accentTeal, AD_D: C.warning, ACA_PL: C.info,
 };
 
 /* ── Product Card ─────────────────────────────────────────────── */
@@ -58,6 +59,7 @@ function ProductCard({
     bundledCommission: String(product.bundledCommission ?? ""),
     standaloneCommission: String(product.standaloneCommission ?? ""),
     enrollFeeThreshold: String(product.enrollFeeThreshold ?? ""),
+    flatCommission: String(product.flatCommission ?? ""),
     requiredBundleAddonId: product.requiredBundleAddonId ?? null as string | null,
     fallbackAddonIds: (product.fallbackAddons ?? []).map(fa => fa.fallbackProduct.id),
   });
@@ -88,17 +90,24 @@ function ProductCard({
   const handleSave = async () => {
     setSaving(true);
     const saveData: Record<string, unknown> = {
-      name: d.name, active: d.active, type: d.type as ProductType, notes: d.notes || undefined,
-      premiumThreshold: d.premiumThreshold ? Number(d.premiumThreshold) : null,
-      commissionBelow: d.commissionBelow ? Number(d.commissionBelow) : null,
-      commissionAbove: d.commissionAbove ? Number(d.commissionAbove) : null,
-      bundledCommission: d.bundledCommission ? Number(d.bundledCommission) : null,
-      standaloneCommission: d.standaloneCommission ? Number(d.standaloneCommission) : null,
-      enrollFeeThreshold: d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null,
+      name: d.name, active: d.active, notes: d.notes || undefined,
     };
-    if (d.type === "CORE") {
-      saveData.requiredBundleAddonId = d.requiredBundleAddonId || null;
-      saveData.fallbackAddonIds = d.fallbackAddonIds;
+    if (d.type === "ACA_PL") {
+      // ACA PL: only flat commission, no type change, no percentage fields
+      saveData.flatCommission = d.flatCommission ? Number(d.flatCommission) : null;
+    } else {
+      // Existing types: send type and all percentage fields
+      saveData.type = d.type as ProductType;
+      saveData.premiumThreshold = d.premiumThreshold ? Number(d.premiumThreshold) : null;
+      saveData.commissionBelow = d.commissionBelow ? Number(d.commissionBelow) : null;
+      saveData.commissionAbove = d.commissionAbove ? Number(d.commissionAbove) : null;
+      saveData.bundledCommission = d.bundledCommission ? Number(d.bundledCommission) : null;
+      saveData.standaloneCommission = d.standaloneCommission ? Number(d.standaloneCommission) : null;
+      saveData.enrollFeeThreshold = d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null;
+      if (d.type === "CORE") {
+        saveData.requiredBundleAddonId = d.requiredBundleAddonId || null;
+        saveData.fallbackAddonIds = d.fallbackAddonIds;
+      }
     }
     // Save state availability BEFORE product PATCH so the PATCH response reflects updated states
     if (d.type === "ADDON" || d.type === "AD_D") {
@@ -160,6 +169,17 @@ function ProductCard({
                   {product.bundledCommission != null && <span>Bundled: <strong style={{ color: C.textSecondary }}>{product.bundledCommission}%</strong></span>}
                   {product.bundledCommission == null && product.type === "ADDON" && <span style={{ color: C.textMuted }}>Bundled: matches core</span>}
                   {product.standaloneCommission != null && <span> {"\u00B7"} Standalone: <strong style={{ color: C.textSecondary }}>{product.standaloneCommission}%</strong></span>}
+                </>
+              )}
+              {product.type === "ACA_PL" && (
+                <>
+                  {product.flatCommission != null && (
+                    <span>
+                      Flat Commission: <strong style={{ color: C.textSecondary }}>
+                        ${Number(product.flatCommission).toFixed(2)}
+                      </strong> per member
+                    </span>
+                  )}
                 </>
               )}
               {product.notes ? <span> {"\u00B7"} {product.notes}</span> : ""}
@@ -265,10 +285,17 @@ function ProductCard({
               </div>
               <div>
                 <label style={LBL}>Type</label>
-                <select className="input-focus" style={{ ...inputStyle, height: 42 }} value={d.type} onChange={e => setD(x => ({ ...x, type: e.target.value as ProductType }))}>
+                <select
+                  className="input-focus"
+                  style={{ ...inputStyle, height: 42, ...(product.type === "ACA_PL" ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
+                  value={d.type}
+                  disabled={product.type === "ACA_PL"}
+                  onChange={e => setD(x => ({ ...x, type: e.target.value as ProductType }))}
+                >
                   <option value="CORE">Core Product</option>
                   <option value="ADDON">Add-on</option>
                   <option value="AD_D">AD&D</option>
+                  {product.type === "ACA_PL" && <option value="ACA_PL">ACA PL</option>}
                 </select>
               </div>
             </div>
@@ -286,6 +313,24 @@ function ProductCard({
                 <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
+              </div>
+            )}
+
+            {d.type === "ACA_PL" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: S[2], maxWidth: 280 }}>
+                <div>
+                  <label style={LBL}>Flat Commission ($ per member)</label>
+                  <input
+                    className="input-focus"
+                    style={inputStyle}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={d.flatCommission}
+                    placeholder="e.g. 25.00"
+                    onChange={e => setD(x => ({ ...x, flatCommission: e.target.value }))}
+                  />
+                </div>
               </div>
             )}
 
@@ -598,7 +643,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         </Card>
       ) : (
         <div style={{ display: "grid", gap: S[6] }}>
-          {(["CORE", "ADDON", "AD_D"] as ProductType[]).map(type => {
+          {(["CORE", "ADDON", "AD_D", "ACA_PL"] as ProductType[]).map(type => {
             const group = products.filter(p => p.type === type);
             if (group.length === 0) return null;
             return (

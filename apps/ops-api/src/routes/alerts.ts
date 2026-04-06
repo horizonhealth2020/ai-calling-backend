@@ -17,7 +17,7 @@ router.get("/alerts", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncH
 router.post("/alerts/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const pp = idParamSchema.safeParse(req.params);
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
-  const parsed = z.object({ periodId: z.string().min(1) }).safeParse(req.body);
+  const parsed = z.object({ periodId: z.string().min(1).optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
   const { periodId } = parsed.data;
   const alert = await approveAlert(pp.data.id, periodId, req.user!.id);
@@ -41,7 +41,7 @@ router.get("/alerts/agent-periods/:agentId", requireAuth, requireRole("PAYROLL",
       status: "OPEN",
       entries: { some: { agentId: ap.data.agentId, status: { not: "PAID" } } },
     },
-    orderBy: { weekStart: "desc" },
+    orderBy: { weekStart: "asc" },
     select: { id: true, weekStart: true, weekEnd: true, status: true },
   });
   res.json(periods);

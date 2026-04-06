@@ -49,14 +49,14 @@ describe('payroll-guard', () => {
   });
 
   describe('net formula consistency', () => {
-    it('computes payout + adjustment + bonus - fronted - hold correctly', () => {
+    it('computes payout + adjustment + bonus + fronted - hold correctly', () => {
       const payout = 100;
       const adjustment = 10;
       const bonus = 5;
       const fronted = 20;
       const hold = 3;
-      const net = payout + adjustment + bonus - fronted - hold;
-      expect(net).toBe(92);
+      const net = payout + adjustment + bonus + fronted - hold;
+      expect(net).toBe(132);
     });
   });
 });

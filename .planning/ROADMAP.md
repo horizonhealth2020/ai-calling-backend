@@ -1,74 +1,116 @@
-# Roadmap: v2.1 Chargeback Processing, Payroll Layout & Dashboard Polish
+# Roadmap: Ops Platform
 
-**Milestone:** v2.1
-**Phases:** 4 (Phase 38-41, continuing from v2.0)
-**Granularity:** Fine
-**Coverage:** 15/15 requirements mapped
+## Milestones
+
+- ✅ **v1.0 MVP** — Phases 1-10 (shipped 2026-03-17)
+- ✅ **v1.1 Customer Service** — Phases 11-17 (shipped 2026-03-18)
+- ✅ **v1.2 Platform Polish** — Phase 18 (shipped 2026-03-19)
+- ✅ **v1.3 Dashboard Consolidation** — Phase 19 (shipped 2026-03-23)
+- ✅ **v1.4 State-Aware Bundle** — Phase 20 (shipped 2026-03-23)
+- ✅ **v1.5 Platform Cleanup** — Phases 21-24 (shipped 2026-03-24)
+- ✅ **v1.6 Pre-Launch Stabilization** — Phases 25-28 (shipped 2026-03-25)
+- ✅ **v1.7 Dashboard Fixes & Cost Tracking** — Phase 29 (shipped 2026-03-26)
+- ✅ **v1.8 Lead Source Timing Analytics** — Phase 30 (shipped 2026-03-30)
+- ✅ **v1.9 Auth Stability & Phone Number Display** — Phases 31-32 (shipped 2026-03-30)
+- ✅ **v2.0 Sales Board TV Readability & Manager Dashboard** — Phases 33-37 (shipped 2026-03-31)
+- ✅ **v2.1 Payroll Card Overhaul & Carryover System** — Phases 38-41 (shipped 2026-04-01)
 
 ## Phases
 
-- [x] **Phase 38: Dashboard & Payroll Quick Fixes** - Fix enrollment fee default, audit rolling window, analytics expanded state, and sparkline data (completed 2026-04-06)
-- [ ] **Phase 39: CSV Batch Chargeback Processing** - CSV upload with pre-submit review, row editing, and transactional batch submission
-- [ ] **Phase 40: ACA Product Editing** - Editable flat commission, addon qualifier rules, and functional ACA sale entry
-- [ ] **Phase 41: Payroll Agent Sidebar Redesign** - Agent-first sidebar navigation with per-agent historical pay cards and load more pagination
+<details>
+<summary>✅ v1.0 MVP (Phases 1-10) — SHIPPED 2026-03-17</summary>
 
-## Phase Details
+See: `.planning/milestones/v1.0-ROADMAP.md`
 
-### Phase 38: Dashboard & Payroll Quick Fixes
-**Goal**: Audit, tracker, and payroll sections behave correctly and predictably without user workarounds
-**Depends on**: Nothing (first phase of v2.1)
-**Requirements**: PAY-04, DASH-01, DASH-02, DASH-03, DASH-04
-**Success Criteria** (what must be TRUE):
-  1. A sale submitted without an enrollment fee shows $0 fee, displays the half-commission badge correctly, and the approve button appears
-  2. The call audit tab loads the last 30 audits regardless of when they occurred -- a quiet weekend still shows recent audits
-  3. Per-agent audit filter returns the last 30 audits for that agent, not just the last 24 hours
-  4. Lead source and timing analytics sections are visible immediately on page load without clicking to expand
-  5. 7-day trend sparklines render polyline data matching the actual daily close rates for the past week
-**Plans:** 2/2 plans complete
-Plans:
-- [x] 38-01-PLAN.md -- API fixes: audit rolling window, sparkline date keys, frontend limit update
-- [x] 38-02-PLAN.md -- Frontend fixes: enrollment fee $0 parsing, analytics default-expand with lazy loading
+</details>
 
-### Phase 39: CSV Batch Chargeback Processing
-**Goal**: CS staff can process carrier chargeback reports by uploading a CSV file instead of pasting individual entries
-**Depends on**: Phase 38
-**Requirements**: CB-01, CB-02, CB-03, CB-04
-**Success Criteria** (what must be TRUE):
-  1. User can select and upload a CSV file from the CS Submissions tab and see parsed rows appear in a review table
-  2. Each row in the review table shows matched agent name, product assignment, and chargeback amount with MATCHED/MULTIPLE/UNMATCHED status badges
-  3. User can change product assignment on any row before submitting the batch
-  4. Submitting the batch either processes all chargebacks or fails entirely -- no partial submissions leave orphaned records
-**Plans**: TBD
+<details>
+<summary>✅ v1.1 Customer Service (Phases 11-17) — SHIPPED 2026-03-18</summary>
 
-### Phase 40: ACA Product Editing
-**Goal**: Payroll staff can configure ACA product commission rates and addon rules without developer intervention
-**Depends on**: Phase 38
-**Requirements**: ACA-01, ACA-02, ACA-03
-**Success Criteria** (what must be TRUE):
-  1. User can open the ACA product in the payroll Products tab and edit the flat commission per member amount with changes persisting on save
-  2. An addon sold alongside an ACA product receives full commission (not halved) because ACA satisfies the bundle addon requirement
-  3. The ACA sale entry form accepts member count, calculates total commission as flat rate times members, and submits successfully
-**Plans**: TBD
+See: `.planning/milestones/v1.1-ROADMAP.md`
 
-### Phase 41: Payroll Agent Sidebar Redesign
-**Goal**: Payroll staff can navigate directly to any agent and review their pay history without scrolling through all periods
-**Depends on**: Phase 38
-**Requirements**: PAY-01, PAY-02, PAY-03
-**Success Criteria** (what must be TRUE):
-  1. A left sidebar lists all agents regardless of which pay period is selected -- agents with zero entries for the current period still appear
-  2. Clicking an agent in the sidebar shows their last 4 pay cards, and clicking "load more" fetches older weeks
-  3. A weekly summary row showing totals for all agents remains visible at the top regardless of which agent is selected in the sidebar
-**Plans**: TBD
+</details>
+
+<details>
+<summary>✅ v1.2 Platform Polish (Phase 18) — SHIPPED 2026-03-19</summary>
+
+See: `.planning/milestones/v1.2-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.3 Dashboard Consolidation (Phase 19) — SHIPPED 2026-03-23</summary>
+
+See: `.planning/milestones/v1.3-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.5 Platform Cleanup (Phases 21-24) — SHIPPED 2026-03-24</summary>
+
+See: `.planning/milestones/v1.5-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.6 Pre-Launch Stabilization (Phases 25-28) — SHIPPED 2026-03-25</summary>
+
+See: `.planning/milestones/v1.6-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.7 Dashboard Fixes & Cost Tracking (Phase 29) — SHIPPED 2026-03-26</summary>
+
+See: `.planning/milestones/v1.7-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.8 Lead Source Timing Analytics (Phase 30) — SHIPPED 2026-03-30</summary>
+
+See: `.planning/milestones/v1.8-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v1.9 Auth Stability & Phone Number Display (Phases 31-32) — SHIPPED 2026-03-30</summary>
+
+See: `.planning/milestones/v1.9-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v2.0 Sales Board TV Readability & Manager Dashboard (Phases 33-37) — SHIPPED 2026-03-31</summary>
+
+See: `.planning/milestones/v2.0-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v2.1 Payroll Card Overhaul & Carryover System (Phases 38-41) — SHIPPED 2026-04-01</summary>
+
+See: `.planning/milestones/v2.1-ROADMAP.md`
+
+</details>
 
 ## Progress
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 38. Dashboard & Payroll Quick Fixes | 2/2 | Complete    | 2026-04-06 |
-| 39. CSV Batch Chargeback Processing | 0/? | Not started | - |
-| 40. ACA Product Editing | 0/? | Not started | - |
-| 41. Payroll Agent Sidebar Redesign | 0/? | Not started | - |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1-10 | v1.0 | 31/31 | Complete | 2026-03-17 |
+| 11-17 | v1.1 | 15/15 | Complete | 2026-03-18 |
+| 18 | v1.2 | 8/8 | Complete | 2026-03-19 |
+| 19 | v1.3 | 10/10 | Complete | 2026-03-23 |
+| 20 | v1.4 | 3/3 | Complete | 2026-03-23 |
+| 21-24 | v1.5 | 8/8 | Complete | 2026-03-24 |
+| 25-28 | v1.6 | 10/10 | Complete | 2026-03-25 |
+| 29 | v1.7 | 4/4 | Complete | 2026-03-26 |
+| 30 | v1.8 | 5/5 | Complete | 2026-03-30 |
+| 31-32 | v1.9 | 3/3 | Complete | 2026-03-30 |
+| 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
+| 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
 
 ---
-*Roadmap created: 2026-04-06*
-*Last updated: 2026-04-06*
+*Roadmap created: 2026-03-14*
+*Last updated: 2026-04-01 after v2.1 milestone*
