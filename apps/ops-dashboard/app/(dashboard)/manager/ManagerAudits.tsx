@@ -153,7 +153,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    params.set("limit", "25");
+    params.set("limit", "30");
     if (selectedAgentId) params.set("agentId", selectedAgentId);
     // No date range = API defaults to last 24h
 
@@ -171,7 +171,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
     setLoadingMore(true);
     try {
       const params = new URLSearchParams();
-      params.set("limit", "25");
+      params.set("limit", "30");
       params.set("cursor", nextCursor);
       if (selectedAgentId) params.set("agentId", selectedAgentId);
 
@@ -240,7 +240,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
             size="sm"
             onClick={() => {
               const params = new URLSearchParams();
-              params.set("limit", "25");
+              params.set("limit", "30");
               if (selectedAgentId) params.set("agentId", selectedAgentId);
               authFetch(`${API}/api/call-audits?${params.toString()}`)
                 .then(r => r.ok ? r.json() : { audits: [], nextCursor: null })
