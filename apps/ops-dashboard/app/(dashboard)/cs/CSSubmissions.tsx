@@ -13,10 +13,11 @@ import {
   baseInputStyle,
   baseThStyle,
   baseTdStyle,
+  Badge,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Loader2 } from "lucide-react";
 
 type SocketClient = import("socket.io-client").Socket;
 
@@ -52,6 +53,44 @@ interface ConsolidatedRecord {
   memberId: string;
   memberAgentCompany: string | null;
   memberAgentId: string | null;
+  assignedTo: string;
+}
+
+interface ReviewProduct {
+  id: string;
+  name: string;
+  type: string;
+  premium: number;
+  selected: boolean;
+}
+
+interface MatchedSaleInfo {
+  id: string;
+  memberName: string;
+  agentName: string;
+  agentId: string;
+  products: Array<{ id: string; name: string; type: string; premium: number }>;
+}
+
+interface ReviewRow {
+  postedDate: string | null;
+  type: string | null;
+  payeeId: string | null;
+  payeeName: string | null;
+  payoutPercent: number | null;
+  chargebackAmount: number;
+  totalAmount: number | null;
+  transactionDescription: string | null;
+  product: string | null;
+  memberCompany: string | null;
+  memberId: string | null;
+  memberAgentCompany: string | null;
+  memberAgentId: string | null;
+  matchStatus: "MATCHED" | "MULTIPLE" | "UNMATCHED";
+  matchedSales: MatchedSaleInfo[];
+  selectedSaleId: string | null;
+  products: ReviewProduct[];
+  amountManuallyOverridden: boolean;
   assignedTo: string;
 }
 
@@ -386,6 +425,36 @@ const SIDEBAR_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
+const SUMMARY_BAR: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing[4],
+  padding: `${spacing[4]}px ${spacing[6]}px`,
+  borderBottom: `1px solid ${colors.borderSubtle}`,
+  background: colors.bgSurface,
+};
+
+const PRODUCT_CHECKBOX_WRAP: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 13,
+  color: colors.textSecondary,
+  cursor: "pointer",
+  marginRight: spacing[2],
+};
+
+const REMOVE_BTN: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  color: colors.textTertiary,
+  padding: 4,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 const TYPE_OPTIONS = ["Chargeback", "Chargeback Reversal", "Refund Reversal"];
 
 /* -- Props -- */
@@ -405,6 +474,11 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [newRepName, setNewRepName] = useState("");
+
+  // Review state (chargeback batch review)
+  const [reviewRecords, setReviewRecords] = useState<ReviewRow[]>([]);
+  const [previewing, setPreviewing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Pending terms state
   const [ptRawPaste, setPtRawPaste] = useState("");
@@ -446,15 +520,83 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
     return Array.from({ length: count }, (_, i) => active[(offset + i) % active.length]);
   };
 
-  const handleTextChange = async (text: string) => {
+  const handleTextChange = (text: string) => {
     setRawText(text);
-    if (text.trim()) {
-      const parsed = parseChargebackText(text);
-      const consolidated = consolidateByMember(parsed);
-      const assignments = await fetchBatchAssign("chargeback", consolidated.length);
-      setRecords(assignRoundRobinLocal(consolidated, assignments));
-    } else {
+    if (!text.trim()) {
       setRecords([]);
+      setReviewRecords([]);
+    }
+  };
+
+  const handleParseAndPreview = async () => {
+    if (!rawText.trim()) return;
+    setPreviewing(true);
+    try {
+      // Parse the raw text into individual rows (do NOT consolidate -- per STATE.md pitfall)
+      const parsed = parseChargebackText(rawText);
+      if (parsed.length === 0) {
+        setPreviewing(false);
+        return;
+      }
+
+      // Call preview API
+      const res = await authFetch(`${API}/api/chargebacks/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records: parsed }),
+      });
+
+      if (!res.ok) {
+        setPreviewing(false);
+        return;
+      }
+
+      const data = await res.json();
+      const previews: any[] = data.previews;
+
+      // Get round-robin assignments
+      const assignments = await fetchBatchAssign("chargeback", previews.length);
+
+      // Transform preview response into ReviewRow[]
+      const rows: ReviewRow[] = previews.map((p: any, i: number) => {
+        // For MATCHED (single sale), populate products from the matched sale
+        let products: ReviewProduct[] = [];
+        if (p.matchStatus === "MATCHED" && p.matchedSales.length === 1) {
+          products = p.matchedSales[0].products.map((prod: any) => ({
+            ...prod,
+            selected: true, // All products start checked
+          }));
+        }
+
+        return {
+          postedDate: p.postedDate,
+          type: p.type,
+          payeeId: p.payeeId,
+          payeeName: p.payeeName,
+          payoutPercent: p.payoutPercent,
+          chargebackAmount: p.chargebackAmount,
+          totalAmount: p.totalAmount,
+          transactionDescription: p.transactionDescription,
+          product: p.product,
+          memberCompany: p.memberCompany,
+          memberId: p.memberId,
+          memberAgentCompany: p.memberAgentCompany,
+          memberAgentId: p.memberAgentId,
+          matchStatus: p.matchStatus,
+          matchedSales: p.matchedSales,
+          selectedSaleId: p.selectedSaleId,
+          products,
+          amountManuallyOverridden: false,
+          assignedTo: assignments[i] ?? "",
+        };
+      });
+
+      setReviewRecords(rows);
+      setStatusFilter(null);
+    } catch {
+      // network error -- handled in SubmissionsContent via toast
+    } finally {
+      setPreviewing(false);
     }
   };
 
@@ -497,11 +639,18 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
         activeRepNames={activeRepNames}
         onTextChange={handleTextChange}
         onRecordsChange={setRecords}
+        reviewRecords={reviewRecords}
+        onReviewRecordsChange={setReviewRecords}
+        previewing={previewing}
+        onPreviewingChange={setPreviewing}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        onParseAndPreview={handleParseAndPreview}
         onRepsChange={setReps}
         onSidebarToggle={() => setSidebarOpen((o) => !o)}
         onSubmittingChange={setSubmitting}
         onNewRepNameChange={setNewRepName}
-        onRawTextClear={() => { setRawText(""); setRecords([]); }}
+        onRawTextClear={() => { setRawText(""); setRecords([]); setReviewRecords([]); }}
         rerunRoundRobin={async (recs, _activeReps) => {
           const assignments = await fetchBatchAssign("chargeback", recs.length);
           return assignRoundRobinLocal(recs, assignments);
@@ -538,6 +687,13 @@ interface SubmissionsContentProps {
   onNewRepNameChange: (v: string) => void;
   onRawTextClear: () => void;
   rerunRoundRobin: (records: ConsolidatedRecord[], activeReps: string[]) => Promise<ConsolidatedRecord[]>;
+  reviewRecords: ReviewRow[];
+  onReviewRecordsChange: React.Dispatch<React.SetStateAction<ReviewRow[]>>;
+  previewing: boolean;
+  onPreviewingChange: (v: boolean) => void;
+  statusFilter: string | null;
+  onStatusFilterChange: (v: string | null) => void;
+  onParseAndPreview: () => void;
   ptRawPaste: string;
   ptRecords: ConsolidatedPendingRecord[];
   ptSubmitting: boolean;
@@ -565,6 +721,13 @@ function SubmissionsContent({
   onNewRepNameChange,
   onRawTextClear,
   rerunRoundRobin,
+  reviewRecords,
+  onReviewRecordsChange,
+  previewing,
+  onPreviewingChange,
+  statusFilter,
+  onStatusFilterChange,
+  onParseAndPreview,
   ptRawPaste,
   ptRecords,
   ptSubmitting,
@@ -577,6 +740,120 @@ function SubmissionsContent({
 }: SubmissionsContentProps) {
   const { toast } = useToast();
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [hoveredRemoveIdx, setHoveredRemoveIdx] = useState<number | null>(null);
+
+  // Toggle product checkbox and auto-recalculate amount
+  const toggleProduct = (rowIdx: number, productId: string) => {
+    onReviewRecordsChange(reviewRecords.map((row, i) => {
+      if (i !== rowIdx) return row;
+      const products = row.products.map(p =>
+        p.id === productId ? { ...p, selected: !p.selected } : p
+      );
+      const autoAmount = products.filter(p => p.selected).reduce((sum, p) => sum + p.premium, 0);
+      return {
+        ...row,
+        products,
+        chargebackAmount: row.amountManuallyOverridden ? row.chargebackAmount : -autoAmount,
+      };
+    }));
+  };
+
+  // Handle sale selection for MULTIPLE matches
+  const selectSale = (rowIdx: number, saleId: string) => {
+    onReviewRecordsChange(reviewRecords.map((row, i) => {
+      if (i !== rowIdx) return row;
+      const sale = row.matchedSales.find(s => s.id === saleId);
+      if (!sale) return row;
+      const products: ReviewProduct[] = sale.products.map(p => ({ ...p, selected: true }));
+      const autoAmount = products.reduce((sum, p) => sum + p.premium, 0);
+      return {
+        ...row,
+        matchStatus: "MATCHED" as const,
+        selectedSaleId: saleId,
+        products,
+        chargebackAmount: row.amountManuallyOverridden ? row.chargebackAmount : -autoAmount,
+      };
+    }));
+  };
+
+  // Remove row with undo toast
+  const removeReviewRow = (idx: number) => {
+    const removed = reviewRecords[idx];
+    onReviewRecordsChange(reviewRecords.filter((_, i) => i !== idx));
+    toast("info", `Removed ${removed.memberCompany || removed.memberId || "entry"}`, {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          onReviewRecordsChange(prev => {
+            const next = [...prev];
+            next.splice(idx, 0, removed);
+            return next;
+          });
+        },
+      },
+    });
+  };
+
+  // Update review row field
+  const updateReviewField = (idx: number, field: keyof ReviewRow, value: any) => {
+    onReviewRecordsChange(reviewRecords.map((r, i) => {
+      if (i !== idx) return r;
+      if (field === "chargebackAmount") {
+        return { ...r, [field]: value, amountManuallyOverridden: true };
+      }
+      return { ...r, [field]: value };
+    }));
+  };
+
+  // Submit reviewed batch
+  const handleReviewSubmit = async () => {
+    if (reviewRecords.length === 0) return;
+    onSubmittingChange(true);
+    try {
+      const batchId = crypto.randomUUID();
+      // CRITICAL: Include selectedSaleId so the API honors user-resolved MULTIPLE matches (D-03)
+      const submitRecords = reviewRecords.map(r => ({
+        postedDate: r.postedDate,
+        type: r.type,
+        payeeId: r.payeeId,
+        payeeName: r.payeeName,
+        payoutPercent: r.payoutPercent,
+        chargebackAmount: r.chargebackAmount,
+        totalAmount: r.totalAmount,
+        transactionDescription: r.transactionDescription,
+        product: r.product,
+        memberCompany: r.memberCompany,
+        memberId: r.memberId,
+        memberAgentCompany: r.matchedSales.length > 0 && r.selectedSaleId
+          ? r.matchedSales.find(s => s.id === r.selectedSaleId)?.agentName ?? r.memberAgentCompany
+          : r.memberAgentCompany,
+        memberAgentId: r.memberAgentId,
+        assignedTo: r.assignedTo,
+        selectedSaleId: r.selectedSaleId,  // Forward user's sale selection to API
+      }));
+
+      const res = await authFetch(`${API}/api/chargebacks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records: submitRecords, rawPaste: rawText, batchId }),
+      });
+
+      if (res.status === 201) {
+        const data = await res.json();
+        onRawTextClear();
+        onReviewRecordsChange([]);
+        onStatusFilterChange(null);
+        toast("success", `${data.count} chargebacks submitted`);
+      } else {
+        toast("error", `Submit failed (${res.status})`);
+      }
+    } catch {
+      toast("error", "Submit failed (network error)");
+    } finally {
+      onSubmittingChange(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (records.length === 0) {
@@ -731,183 +1008,265 @@ function SubmissionsContent({
     <div style={{ display: "flex", gap: spacing[6] }}>
       {/* Main Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: spacing[6], minWidth: 0 }}>
-        {/* Paste Area */}
-        <Card>
-          <h3 style={SECTION_HEADING}>Chargeback Submissions</h3>
-          <textarea
-            style={TEXTAREA}
-            placeholder="Paste chargeback data from spreadsheet here..."
-            value={rawText}
-            onChange={(e) => onTextChange(e.target.value)}
-            disabled={submitting}
-          />
-          {!rawText && records.length === 0 && (
-            <EmptyState
-              title="Paste Chargeback Data"
-              description="Paste tab-separated chargeback rows from your spreadsheet. Records will be parsed and grouped by member automatically."
+        {/* Paste Area -- hidden when review records exist */}
+        {reviewRecords.length === 0 && (
+          <Card>
+            <h3 style={SECTION_HEADING}>Chargeback Submissions</h3>
+            <textarea
+              style={TEXTAREA}
+              placeholder="Paste chargeback data from spreadsheet here..."
+              value={rawText}
+              onChange={(e) => onTextChange(e.target.value)}
+              disabled={previewing}
             />
-          )}
-        </Card>
-
-        {/* Preview Table */}
-        {records.length > 0 && (
-          <Card padding="none">
-            <div style={{ padding: `${spacing[4]}px ${spacing[6]}px 0` }}>
-              <h3 style={SECTION_HEADING}>
-                Preview ({records.length} record{records.length !== 1 ? "s" : ""})
-              </h3>
-            </div>
-            <div style={TABLE_WRAP}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...baseThStyle, width: 120 }}>Date Posted</th>
-                    <th style={baseThStyle}>Member</th>
-                    <th style={{ ...baseThStyle, width: 110 }}>Member ID</th>
-                    <th style={baseThStyle}>Product</th>
-                    <th style={{ ...baseThStyle, width: 140 }}>Agent</th>
-                    <th style={{ ...baseThStyle, width: 160 }}>Transaction Type</th>
-                    <th style={{ ...baseThStyle, width: 110 }}>Total</th>
-                    <th style={{ ...baseThStyle, width: 140 }}>Assigned To</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((rec, idx) => (
-                    <tr
-                      key={idx}
-                      onMouseEnter={() => setHoveredRow(idx)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                      style={{
-                        background: hoveredRow === idx ? colors.bgSurfaceRaised : "transparent",
-                        transition: `background ${motion.duration.fast} ${motion.easing.out}`,
-                      }}
-                    >
-                      {/* Date Posted */}
-                      <td style={baseTdStyle}>
-                        <input
-                          type="date"
-                          style={COMPACT_INPUT}
-                          value={rec.postedDate ?? ""}
-                          onChange={(e) => updateRecord(idx, "postedDate", e.target.value)}
-                          disabled={submitting}
-                        />
-                      </td>
-                      {/* Member */}
-                      <td style={baseTdStyle}>
-                        <input
-                          type="text"
-                          style={COMPACT_INPUT}
-                          value={rec.memberCompany}
-                          onChange={(e) => updateRecord(idx, "memberCompany", e.target.value)}
-                          disabled={submitting}
-                        />
-                      </td>
-                      {/* Member ID (read-only) */}
-                      <td style={baseTdStyle}>
-                        <span style={{ color: colors.textSecondary }}>{rec.memberId || "--"}</span>
-                      </td>
-                      {/* Product (read-only) */}
-                      <td style={baseTdStyle}>
-                        <span
-                          style={{
-                            display: "block",
-                            maxWidth: 240,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            color: colors.textSecondary,
-                          }}
-                          title={rec.product || undefined}
-                        >
-                          {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
-                        </span>
-                      </td>
-                      {/* Agent */}
-                      <td style={baseTdStyle}>
-                        <select
-                          style={{ ...COMPACT_INPUT, color: rec.memberAgentCompany ? colors.textPrimary : colors.textMuted }}
-                          value={rec.memberAgentCompany ?? ""}
-                          onChange={(e) => updateRecord(idx, "memberAgentCompany", e.target.value)}
-                          disabled={submitting}
-                        >
-                          <option value="">Unknown</option>
-                          {agents.map((a) => (
-                            <option key={a.id} value={a.name}>{a.name}</option>
-                          ))}
-                          {rec.memberAgentCompany && !agents.some(a => a.name === rec.memberAgentCompany) && (
-                            <option value={rec.memberAgentCompany}>{rec.memberAgentCompany}</option>
-                          )}
-                        </select>
-                      </td>
-                      {/* Transaction Type */}
-                      <td style={baseTdStyle}>
-                        <select
-                          style={COMPACT_INPUT}
-                          value={rec.type ?? ""}
-                          onChange={(e) => updateRecord(idx, "type", e.target.value)}
-                          disabled={submitting}
-                        >
-                          <option value="">--</option>
-                          {TYPE_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                          {rec.type && !TYPE_OPTIONS.includes(rec.type) && (
-                            <option value={rec.type}>{rec.type}</option>
-                          )}
-                        </select>
-                      </td>
-                      {/* Total */}
-                      <td style={baseTdStyle}>
-                        <input
-                          type="text"
-                          style={COMPACT_INPUT}
-                          value={formatDollar(rec.totalAmount)}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, "");
-                            const num = parseFloat(raw);
-                            if (!isNaN(num)) updateRecord(idx, "totalAmount", num);
-                          }}
-                          disabled={submitting}
-                        />
-                      </td>
-                      {/* Assigned To */}
-                      <td style={baseTdStyle}>
-                        <select
-                          style={COMPACT_INPUT}
-                          value={rec.assignedTo}
-                          onChange={(e) => updateRecord(idx, "assignedTo", e.target.value)}
-                          disabled={submitting}
-                        >
-                          <option value="">Unassigned</option>
-                          {activeRepNames.map((name) => (
-                            <option key={name} value={name}>{name}</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Submit Bar */}
-            <div style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              padding: `${spacing[4]}px ${spacing[6]}px`,
-              borderTop: `1px solid ${colors.borderSubtle}`,
-            }}>
-              <Button
-                variant="primary"
-                onClick={handleSubmit}
-                disabled={submitting || records.length === 0}
-                loading={submitting}
-              >
-                {submitting ? "Submitting..." : "Submit Chargebacks"}
-              </Button>
-            </div>
+            {rawText.trim() && (
+              <div style={{ marginTop: spacing[4], display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  variant="primary"
+                  onClick={onParseAndPreview}
+                  disabled={!rawText.trim() || previewing}
+                  loading={previewing}
+                >
+                  {previewing ? (
+                    <><Loader2 size={14} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} />Matching...</>
+                  ) : "Parse & Preview"}
+                </Button>
+              </div>
+            )}
+            {!rawText && (
+              <EmptyState
+                title="Paste Chargeback Data"
+                description="Paste tab-separated chargeback rows from your spreadsheet. Records will be parsed and matched to sales automatically."
+              />
+            )}
           </Card>
         )}
+
+        {/* Review Table */}
+        {reviewRecords.length > 0 && (() => {
+          const matchedCount = reviewRecords.filter(r => r.matchStatus === "MATCHED").length;
+          const multipleCount = reviewRecords.filter(r => r.matchStatus === "MULTIPLE").length;
+          const unmatchedCount = reviewRecords.filter(r => r.matchStatus === "UNMATCHED").length;
+          const totalAmount = reviewRecords.reduce((sum, r) => sum + Math.abs(Number(r.chargebackAmount)), 0);
+          const filteredRecords = reviewRecords
+            .map((r, originalIdx) => ({ ...r, _originalIdx: originalIdx }))
+            .filter(r => !statusFilter || r.matchStatus === statusFilter);
+
+          return (
+            <Card padding="none">
+              <div style={{ padding: `${spacing[4]}px ${spacing[6]}px 0` }}>
+                <h3 style={{ ...SECTION_HEADING, fontWeight: 700 }}>Review Batch</h3>
+              </div>
+
+              {/* Summary Bar */}
+              <div style={SUMMARY_BAR} role="toolbar" aria-label="Filter by match status">
+                <button
+                  style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                  onClick={() => onStatusFilterChange(statusFilter === "MATCHED" ? null : "MATCHED")}
+                >
+                  <Badge color={colors.success} variant={statusFilter === "MATCHED" ? "solid" : "subtle"} size="md">
+                    {matchedCount} Matched
+                  </Badge>
+                </button>
+                <button
+                  style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                  onClick={() => onStatusFilterChange(statusFilter === "MULTIPLE" ? null : "MULTIPLE")}
+                >
+                  <Badge color={colors.warning} variant={statusFilter === "MULTIPLE" ? "solid" : "subtle"} size="md">
+                    {multipleCount} Multiple
+                  </Badge>
+                </button>
+                <button
+                  style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                  onClick={() => onStatusFilterChange(statusFilter === "UNMATCHED" ? null : "UNMATCHED")}
+                >
+                  <Badge color={colors.danger} variant={statusFilter === "UNMATCHED" ? "solid" : "subtle"} size="md">
+                    {unmatchedCount} Unmatched
+                  </Badge>
+                </button>
+                <span style={{ marginLeft: "auto", color: colors.danger, fontWeight: typography.weights.bold, fontSize: 16 }}>
+                  Total: {formatDollar(totalAmount)}
+                </span>
+              </div>
+
+              {/* Review Table */}
+              <div style={TABLE_WRAP}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...baseThStyle, width: 90 }}>Status</th>
+                      <th style={{ ...baseThStyle, minWidth: 140 }}>Member</th>
+                      <th style={{ ...baseThStyle, minWidth: 120 }}>Agent</th>
+                      <th style={{ ...baseThStyle, minWidth: 200 }}>Products</th>
+                      <th style={{ ...baseThStyle, width: 100 }}>Amount</th>
+                      <th style={{ ...baseThStyle, width: 130 }}>Rep</th>
+                      <th style={{ ...baseThStyle, width: 44 }}>Remove</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRecords.map((rec) => {
+                      const idx = rec._originalIdx;
+                      const selectedSale = rec.selectedSaleId
+                        ? rec.matchedSales.find(s => s.id === rec.selectedSaleId)
+                        : rec.matchedSales.length === 1 ? rec.matchedSales[0] : null;
+                      const agentName = selectedSale?.agentName ?? null;
+
+                      return (
+                        <tr
+                          key={idx}
+                          onMouseEnter={() => setHoveredRow(idx)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          style={{
+                            background: hoveredRow === idx ? colors.bgSurfaceRaised : "transparent",
+                            transition: `background ${motion.duration.fast} ${motion.easing.out}`,
+                          }}
+                        >
+                          {/* Status */}
+                          <td style={baseTdStyle}>
+                            <Badge
+                              color={rec.matchStatus === "MATCHED" ? colors.success : rec.matchStatus === "MULTIPLE" ? colors.warning : colors.danger}
+                              variant="subtle"
+                              size="sm"
+                            >
+                              {rec.matchStatus}
+                            </Badge>
+                          </td>
+
+                          {/* Member */}
+                          <td style={baseTdStyle}>
+                            <div>{rec.memberCompany || "--"}</div>
+                            {rec.memberId && (
+                              <div style={{ fontSize: 11, color: colors.textTertiary }}>{rec.memberId}</div>
+                            )}
+                          </td>
+
+                          {/* Agent */}
+                          <td style={baseTdStyle}>
+                            <span style={{ color: agentName ? colors.textPrimary : colors.textMuted }}>
+                              {agentName || "--"}
+                            </span>
+                          </td>
+
+                          {/* Products */}
+                          <td style={baseTdStyle}>
+                            {rec.matchStatus === "UNMATCHED" && (
+                              <span style={{ color: colors.textMuted }}>--</span>
+                            )}
+                            {rec.matchStatus === "MULTIPLE" && !rec.selectedSaleId && (
+                              <select
+                                style={{ ...COMPACT_INPUT, width: "auto" }}
+                                value=""
+                                onChange={(e) => selectSale(idx, e.target.value)}
+                                aria-label={`Select matching sale for ${rec.memberCompany || rec.memberId}`}
+                              >
+                                <option value="" disabled>Select matching sale...</option>
+                                {rec.matchedSales.map(sale => (
+                                  <option key={sale.id} value={sale.id}>
+                                    {sale.agentName} - {sale.memberName} ({sale.products.length} products)
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            {(rec.matchStatus === "MATCHED" || (rec.matchStatus === "MULTIPLE" && rec.selectedSaleId)) && rec.products.length > 0 && (
+                              <div>
+                                {rec.products.map(prod => (
+                                  <label key={prod.id} style={PRODUCT_CHECKBOX_WRAP}>
+                                    <input
+                                      type="checkbox"
+                                      checked={prod.selected}
+                                      onChange={() => toggleProduct(idx, prod.id)}
+                                    />
+                                    {prod.name} ({formatDollar(prod.premium)})
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                            {(rec.matchStatus === "MATCHED" || (rec.matchStatus === "MULTIPLE" && rec.selectedSaleId)) && rec.products.length === 0 && (
+                              <span style={{ color: colors.textMuted }}>--</span>
+                            )}
+                          </td>
+
+                          {/* Amount */}
+                          <td style={baseTdStyle}>
+                            <input
+                              type="text"
+                              style={COMPACT_INPUT}
+                              value={formatDollar(Math.abs(Number(rec.chargebackAmount)))}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/[^0-9.]/g, "");
+                                const num = parseFloat(raw);
+                                if (!isNaN(num)) updateReviewField(idx, "chargebackAmount", -num);
+                              }}
+                            />
+                          </td>
+
+                          {/* Rep */}
+                          <td style={baseTdStyle}>
+                            <select
+                              style={COMPACT_INPUT}
+                              value={rec.assignedTo}
+                              onChange={(e) => updateReviewField(idx, "assignedTo", e.target.value)}
+                            >
+                              <option value="">Unassigned</option>
+                              {activeRepNames.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Remove */}
+                          <td style={baseTdStyle}>
+                            <button
+                              style={{
+                                ...REMOVE_BTN,
+                                color: hoveredRemoveIdx === idx ? colors.danger : colors.textTertiary,
+                                transition: `color ${motion.duration.fast} ${motion.easing.out}`,
+                              }}
+                              onClick={() => removeReviewRow(idx)}
+                              onMouseEnter={() => setHoveredRemoveIdx(idx)}
+                              onMouseLeave={() => setHoveredRemoveIdx(null)}
+                              aria-label={`Remove ${rec.memberCompany || rec.memberId || "entry"}`}
+                              title="Remove from batch"
+                            >
+                              <X size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: spacing[3],
+                padding: `${spacing[4]}px ${spacing[6]}px`,
+                borderTop: `1px solid ${colors.borderSubtle}`,
+              }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    onReviewRecordsChange([]);
+                    onStatusFilterChange(null);
+                  }}
+                >
+                  Clear Batch
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleReviewSubmit}
+                  disabled={submitting || reviewRecords.length === 0}
+                  loading={submitting}
+                >
+                  {submitting ? "Submitting..." : "Submit Batch"}
+                </Button>
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Pending Terms Parser */}
         <Card>
