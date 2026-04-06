@@ -41,15 +41,12 @@ router.get("/call-audits", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
   const { cursor, limit } = qp.data;
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
 
-  // Default to last 24 hours if no date range specified and no cursor (initial load)
-  const where: { callDate?: { gte: Date; lt: Date } | { gte: Date; lt: Date } & { lt?: Date }; agentId?: string } = {};
+  const where: { callDate?: { gte: Date; lt: Date }; agentId?: string } = {};
   if (dr) {
     where.callDate = { gte: dr.gte, lt: dr.lt };
-  } else if (!cursor) {
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    where.callDate = { gte: yesterday, lt: now };
   }
+  // No else -- when no date range and no cursor, query runs without callDate filter.
+  // The orderBy + take: limit+1 produces a count-based rolling window of most recent audits.
   if (qp.data.agentId) where.agentId = qp.data.agentId;
 
   // Cursor-based pagination: use Prisma cursor with skip 1 to exclude the cursor item

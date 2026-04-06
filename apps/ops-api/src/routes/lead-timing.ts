@@ -197,12 +197,20 @@ router.get("/lead-timing/sparklines", requireAuth, requireRole("MANAGER", "OWNER
   const calls = toBigIntSafe(callBuckets as Record<string, unknown>[]);
   const sales = toBigIntSafe(saleBuckets as Record<string, unknown>[]);
 
+  // Normalize date objects/strings to YYYY-MM-DD to match the days array format
+  const toISODate = (d: unknown): string => {
+    if (d instanceof Date) return d.toISOString().slice(0, 10);
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    return new Date(s).toISOString().slice(0, 10);
+  };
+
   // Build lookup: leadSourceId:day:daypart -> { calls, sales }
   const key = (lsId: string, day: string, dp: string) => `${lsId}:${day}:${dp}`;
   const callMap = new Map<string, number>();
-  for (const r of calls) callMap.set(key(r.leadSourceId as string, String(r.day), r.daypart as string), r.callCount as number);
+  for (const r of calls) callMap.set(key(r.leadSourceId as string, toISODate(r.day), r.daypart as string), r.callCount as number);
   const saleMap = new Map<string, number>();
-  for (const r of sales) saleMap.set(key(r.leadSourceId as string, String(r.day), r.daypart as string), r.saleCount as number);
+  for (const r of sales) saleMap.set(key(r.leadSourceId as string, toISODate(r.day), r.daypart as string), r.saleCount as number);
 
   // Generate 7-day series
   const days: string[] = [];
