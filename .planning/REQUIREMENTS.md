@@ -3,49 +3,46 @@
 **Defined:** 2026-04-06
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations — agents get paid right, managers can track performance, owners see real KPIs.
 
-## v2.1 Requirements
+## v2.2 Requirements
 
-Requirements for milestone v2.1: Chargeback Processing, Payroll Layout & Dashboard Polish.
+Requirements for milestone v2.2: Chargeback Batch Review & Payroll Agent Tabs.
 
-### Chargeback Processing
+### Chargeback Batch Review
 
-- [ ] **CB-01**: User can upload a CSV file containing multiple chargebacks
-- [ ] **CB-02**: System parses CSV and displays pre-submit review table with matched agent, products, and chargeback amount per row
-- [ ] **CB-03**: User can select/edit product assignment per chargeback in review before submitting
-- [ ] **CB-04**: Batch chargeback submission processes all-or-nothing within a transaction
+- [ ] **CB-01**: User can paste multiple chargebacks and parse all entries at once
+- [ ] **CB-02**: User sees a review table of all parsed entries before submitting
+- [ ] **CB-03**: Each review row shows matched agent name, member name, member ID, and match status (MATCHED/MULTIPLE/UNMATCHED)
+- [ ] **CB-04**: Each matched review row shows sale products with checkboxes for partial chargeback selection
+- [ ] **CB-05**: User can edit amount, rep assignment, and product selection per entry in the review table
+- [ ] **CB-06**: User can remove individual entries from the batch before submitting
+- [ ] **CB-07**: Validation summary bar shows counts by match status above the review table
+- [ ] **CB-08**: CS reps are auto-assigned via round-robin in the review table
+- [ ] **CB-09**: User submits entire reviewed batch with a single "Submit Batch" action
 
-### ACA Product
+### Payroll Agent Tabs
 
-- [ ] **ACA-01**: User can edit ACA product in payroll Products tab with flat commission per member amount
-- [ ] **ACA-02**: ACA product satisfies addon bundle requirements — addon sold with ACA gets full commission
-- [ ] **ACA-03**: ACA sale entry form is fully functional for submitting ACA sales with member count
-
-### Payroll Layout
-
-- [ ] **PAY-01**: Payroll displays all agents in a left sidebar regardless of selected period
-- [ ] **PAY-02**: Selecting an agent shows their last 4 pay cards with a "load more" button for older weeks
-- [ ] **PAY-03**: Weekly summary for all agents remains visible regardless of which agent is selected
-- [ ] **PAY-04**: Sales with no enrollment fee default to $0, showing half-commission badge and approve button correctly
-
-### Dashboard Polish
-
-- [ ] **DASH-01**: Call audit tab shows last 30 audits (rolling window) instead of last 24 hours
-- [ ] **DASH-02**: Per-agent audit filter also uses rolling 30-audit window
-- [ ] **DASH-03**: Lead source and timing analytics sections start expanded by default
-- [ ] **DASH-04**: 7-day trend sparklines display data correctly
+- [ ] **PAY-01**: Payroll Periods tab has a left sidebar listing all agents with current earnings sort
+- [ ] **PAY-02**: Clicking an agent in sidebar shows that agent's pay periods in the main content area
+- [ ] **PAY-03**: Agent display shows last 4 pay periods by default (most recent first)
+- [ ] **PAY-04**: "Load More" button at bottom fetches older pay periods for the selected agent
+- [ ] **PAY-05**: Sidebar shows paid/unpaid/partial status badges next to each agent name
+- [ ] **PAY-06**: Sidebar includes search/filter to find agents by name
 
 ## Future Requirements
 
-None deferred — all scoped features are in v2.1.
+None deferred — all scoped features are in v2.2.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| CSV format auto-detection | Single known carrier format; defer if multiple formats emerge |
-| Payroll period-first view toggle | Full replacement with agent-first view; no need for both |
-| ACA flat commission snapshotting | Warning dialog sufficient for v2.1; historical rate locking deferred |
-| Chargeback email notifications | Not requested; existing alert pipeline covers CS-to-payroll flow |
+| CSV/file upload for chargebacks | Users copy-paste from carrier portal; paste-only matches workflow |
+| Multi-step wizard for batch submit | Two states (paste + review) is sufficient; wizard adds friction |
+| Drag-and-drop agent reordering | Automatic sort by earnings matches existing pattern |
+| Agent sidebar as separate routes | Agent selection is component state, not URL routes |
+| Infinite scroll for periods | Explicit "Load More" better for payroll period boundaries |
+| Server-side period pagination | Client-side slice sufficient for current data volume; optimize later |
+| Batch undo after submit | Per-chargeback delete endpoint covers corrections |
 
 ## Traceability
 
@@ -53,27 +50,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CB-01 | Phase 39 | Pending |
-| CB-02 | Phase 39 | Pending |
-| CB-03 | Phase 39 | Pending |
-| CB-04 | Phase 39 | Pending |
-| ACA-01 | Phase 40 | Pending |
-| ACA-02 | Phase 40 | Pending |
-| ACA-03 | Phase 40 | Pending |
-| PAY-01 | Phase 41 | Pending |
-| PAY-02 | Phase 41 | Pending |
-| PAY-03 | Phase 41 | Pending |
-| PAY-04 | Phase 38 | Pending |
-| DASH-01 | Phase 38 | Pending |
-| DASH-02 | Phase 38 | Pending |
-| DASH-03 | Phase 38 | Pending |
-| DASH-04 | Phase 38 | Pending |
+| CB-01 | — | Pending |
+| CB-02 | — | Pending |
+| CB-03 | — | Pending |
+| CB-04 | — | Pending |
+| CB-05 | — | Pending |
+| CB-06 | — | Pending |
+| CB-07 | — | Pending |
+| CB-08 | — | Pending |
+| CB-09 | — | Pending |
+| PAY-01 | — | Pending |
+| PAY-02 | — | Pending |
+| PAY-03 | — | Pending |
+| PAY-04 | — | Pending |
+| PAY-05 | — | Pending |
+| PAY-06 | — | Pending |
 
 **Coverage:**
-- v2.1 requirements: 15 total
-- Mapped to phases: 15
-- Unmapped: 0
+- v2.2 requirements: 15 total
+- Mapped to phases: 0
+- Unmapped: 15
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after roadmap creation -- all requirements mapped to phases*
+*Last updated: 2026-04-06 after initial definition*
