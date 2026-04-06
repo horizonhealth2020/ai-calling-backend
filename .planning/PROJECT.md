@@ -112,7 +112,14 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active
 
-<!-- Next milestone requirements will be defined via /gsd:new-milestone -->
+<!-- Current scope: v2.1 Chargeback Processing, Payroll Layout & Dashboard Polish -->
+
+- [ ] CSV upload for batch chargeback processing with pre-submit review
+- [ ] ACA product editable in payroll Products tab with flat commission per member and addon qualifier rules
+- [ ] Enrollment fee defaults to $0 when missing (fixes half-commission badge and approve button)
+- [ ] Payroll agent card redesign: sidebar with all agents, per-agent view with last 4 pay cards + load more
+- [ ] Call audit rolling window: last 30 audits instead of last 24 hours
+- [ ] Performance tracker: lead source/timing analytics start expanded, fix 7-day trend sparklines
 
 ### Out of Scope
 
@@ -121,6 +128,18 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Real-time chat — not needed for operations workflow
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
+
+## Current Milestone: v2.1 Chargeback Processing, Payroll Layout & Dashboard Polish
+
+**Goal:** Improve chargeback batch processing, iterate on ACA product entry, redesign payroll agent cards to per-agent view, and polish audit/tracker dashboard sections.
+
+**Target features:**
+- Chargeback CSV upload with batch processing and pre-submit review
+- ACA product iteration: editable flat commission, addon qualifier rules
+- Enrollment fee default to $0 when missing
+- Payroll agent card redesign: per-agent sidebar with historical pay cards
+- Call audit rolling window (last 30 audits)
+- Performance tracker polish: expanded analytics, sparkline data fix
 
 ## Current State
 
@@ -201,4 +220,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after v2.0 milestone complete*
+*Last updated: 2026-04-06 after v2.1 milestone started*
