@@ -7,7 +7,7 @@
 
 ## Phases
 
-- [ ] **Phase 38: Dashboard & Payroll Quick Fixes** - Fix enrollment fee default, audit rolling window, analytics expanded state, and sparkline data
+- [x] **Phase 38: Dashboard & Payroll Quick Fixes** - Fix enrollment fee default, audit rolling window, analytics expanded state, and sparkline data (completed 2026-04-06)
 - [ ] **Phase 39: CSV Batch Chargeback Processing** - CSV upload with pre-submit review, row editing, and transactional batch submission
 - [ ] **Phase 40: ACA Product Editing** - Editable flat commission, addon qualifier rules, and functional ACA sale entry
 - [ ] **Phase 41: Payroll Agent Sidebar Redesign** - Agent-first sidebar navigation with per-agent historical pay cards and load more pagination
@@ -24,10 +24,10 @@
   3. Per-agent audit filter returns the last 30 audits for that agent, not just the last 24 hours
   4. Lead source and timing analytics sections are visible immediately on page load without clicking to expand
   5. 7-day trend sparklines render polyline data matching the actual daily close rates for the past week
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 38-01-PLAN.md -- API fixes: audit rolling window, sparkline date keys, frontend limit update
-- [ ] 38-02-PLAN.md -- Frontend fixes: enrollment fee $0 parsing, analytics default-expand with lazy loading
+- [x] 38-01-PLAN.md -- API fixes: audit rolling window, sparkline date keys, frontend limit update
+- [x] 38-02-PLAN.md -- Frontend fixes: enrollment fee $0 parsing, analytics default-expand with lazy loading
 
 ### Phase 39: CSV Batch Chargeback Processing
 **Goal**: CS staff can process carrier chargeback reports by uploading a CSV file instead of pasting individual entries
@@ -64,7 +64,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 38. Dashboard & Payroll Quick Fixes | 0/2 | Planned | - |
+| 38. Dashboard & Payroll Quick Fixes | 2/2 | Complete   | 2026-04-06 |
 | 39. CSV Batch Chargeback Processing | 0/? | Not started | - |
 | 40. ACA Product Editing | 0/? | Not started | - |
 | 41. Payroll Agent Sidebar Redesign | 0/? | Not started | - |
