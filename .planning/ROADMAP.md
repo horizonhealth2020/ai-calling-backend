@@ -24,7 +24,10 @@
   3. Per-agent audit filter returns the last 30 audits for that agent, not just the last 24 hours
   4. Lead source and timing analytics sections are visible immediately on page load without clicking to expand
   5. 7-day trend sparklines render polyline data matching the actual daily close rates for the past week
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 38-01-PLAN.md -- API fixes: audit rolling window, sparkline date keys, frontend limit update
+- [ ] 38-02-PLAN.md -- Frontend fixes: enrollment fee $0 parsing, analytics default-expand with lazy loading
 
 ### Phase 39: CSV Batch Chargeback Processing
 **Goal**: CS staff can process carrier chargeback reports by uploading a CSV file instead of pasting individual entries
@@ -61,7 +64,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 38. Dashboard & Payroll Quick Fixes | 0/? | Not started | - |
+| 38. Dashboard & Payroll Quick Fixes | 0/2 | Planned | - |
 | 39. CSV Batch Chargeback Processing | 0/? | Not started | - |
 | 40. ACA Product Editing | 0/? | Not started | - |
 | 41. Payroll Agent Sidebar Redesign | 0/? | Not started | - |
