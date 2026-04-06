@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-04-06
+revised: 2026-04-06
 ---
 
 # Phase 44 — UI Design Contract
@@ -29,35 +30,42 @@ Source: CLAUDE.md mandates inline CSSProperties with SCREAMING_SNAKE_CASE consta
 
 ## Spacing Scale
 
-Declared values from existing `spacing` token (multiples of 4):
+Declared values for this phase (all multiples of 4):
 
 | Token | Value | Usage in This Phase |
 |-------|-------|---------------------|
 | spacing[1] | 4px | Checkbox-to-label gap, badge dot gap |
 | spacing[2] | 8px | Compact element spacing, product checkbox inline gap |
-| spacing[3] | 12px | Summary bar badge gap, row internal element gap |
-| spacing[4] | 16px | Section heading margin-bottom, cell padding (horizontal) |
-| spacing[5] | 20px | Table container side padding |
-| spacing[6] | 24px | Summary bar horizontal padding, card padding |
+| spacing[4] | 16px | Section heading margin-bottom, cell padding (horizontal), substitute for any 12px needs |
+| spacing[6] | 24px | Summary bar horizontal padding, card padding, table container side padding |
 | spacing[8] | 32px | Gap between summary bar and table |
 
-Exceptions: Table cell vertical padding uses 10px/12px from existing `baseThStyle`/`baseTdStyle` tokens (not multiples of 4, but inherited from established pattern).
+### Inherited Pre-existing Tokens (outside phase scope)
+
+The following values are NOT declared by this phase. They exist in the shared `baseThStyle` and `baseTdStyle` tokens from `packages/ui/src/tokens.ts` and are used as-is without modification. They are listed here for awareness only:
+
+- `baseThStyle` vertical padding: 10px -- inherited from existing table token, not a phase-declared spacing value.
+- `baseTdStyle` vertical padding: 12px -- inherited from existing table token, not a phase-declared spacing value.
+
+These are outside this phase's control and are not subject to the 4px-multiple spacing rule for phase-declared values.
 
 ---
 
 ## Typography
 
-All values from existing `typography` token in `packages/ui/src/tokens.ts`.
+All values from existing `typography` token in `packages/ui/src/tokens.ts`. This phase uses exactly **2 font weights**: 400 (normal) and 700 (bold).
 
 | Role | Size | Weight | Line Height | Token Path |
 |------|------|--------|-------------|------------|
 | Table header | 11px | 700 (bold) | 1.45 | `baseThStyle` (pre-built) |
 | Table cell / body | 13px | 400 (normal) | 1.5 | `baseTdStyle` / `typography.sizes.sm` |
 | Compact input | 13px | 400 (normal) | 1.6 | `COMPACT_INPUT` pattern |
-| Section heading | 16px | 600 (semibold) | 1.5 | `SECTION_HEADING` pattern |
+| Section heading | 16px | 700 (bold) | 1.5 | `SECTION_HEADING` pattern |
 | Summary bar total | 16px | 700 (bold) | 1.5 | `typography.sizes.md` + `typography.weights.bold` |
-| Badge text | 10px | 600 (semibold) | 1 | Badge `size="sm"` default |
+| Badge text | 10px | 700 (bold) | 1 | Badge `size="sm"` default |
 | Product checkbox label | 13px | 400 (normal) | 1.5 | `typography.sizes.sm` |
+
+Weight scale summary: 400 for all body/label text, 700 for all emphasis (headings, totals, badges).
 
 ---
 
@@ -91,6 +99,16 @@ When a badge in the summary bar is clicked to filter:
 
 ---
 
+## Visual Hierarchy
+
+**Primary focal point:** The summary bar (status badge counts + total amount) is the first element the user sees upon entering review mode. It anchors the top of the review area and provides immediate batch health at a glance.
+
+**Secondary focal point:** The review table body, scanned top-to-bottom. Status badge color in column 1 draws the eye to rows needing attention (yellow MULTIPLE, red UNMATCHED).
+
+**Tertiary focal point:** Action buttons ("Submit Batch" accent CTA, "Clear Batch" ghost) anchored below the table.
+
+---
+
 ## Component Inventory
 
 All components are inline within CSSubmissions.tsx using SCREAMING_SNAKE_CASE style constants. No separate component files.
@@ -99,17 +117,19 @@ All components are inline within CSSubmissions.tsx using SCREAMING_SNAKE_CASE st
 
 | Constant | Element | Key Properties |
 |----------|---------|----------------|
-| `SUMMARY_BAR` | `<div>` wrapping filter badges + total | `display: flex`, `alignItems: center`, `gap: spacing[3]`, `padding: spacing[3]px spacing[6]px`, `borderBottom: 1px solid colors.borderSubtle`, `background: colors.bgSurface` |
+| `SUMMARY_BAR` | `<div>` wrapping filter badges + total | `display: flex`, `alignItems: center`, `gap: 16px`, `padding: 16px 24px`, `borderBottom: 1px solid colors.borderSubtle`, `background: colors.bgSurface` |
 | `REVIEW_TABLE_WRAP` | `<div>` wrapping review table | Reuse existing `TABLE_WRAP` pattern: `width: 100%`, `overflowX: auto` |
-| `PRODUCT_CHECKBOX_WRAP` | `<label>` wrapping each product checkbox | `display: inline-flex`, `alignItems: center`, `gap: spacing[1]`, `fontSize: 13`, `color: colors.textSecondary`, `cursor: pointer`, `marginRight: spacing[2]` |
-| `REMOVE_BTN` | `<button>` for row X removal | `background: transparent`, `border: none`, `cursor: pointer`, `color: colors.textTertiary`, `padding: spacing[1]`, hover `color: colors.danger` |
+| `PRODUCT_CHECKBOX_WRAP` | `<label>` wrapping each product checkbox | `display: inline-flex`, `alignItems: center`, `gap: 4px`, `fontSize: 13`, `color: colors.textSecondary`, `cursor: pointer`, `marginRight: 8px` |
+| `REMOVE_BTN` | `<button>` for row X removal | `background: transparent`, `border: none`, `cursor: pointer`, `color: colors.textTertiary`, `padding: 4px`, hover `color: colors.danger`; `aria-label` required (see Accessibility) |
 | `SALE_SELECT` | `<select>` for MULTIPLE match resolution | Reuse `COMPACT_INPUT` pattern with `width: auto` |
+
+Note: `REMOVE_BTN` renders the `X` icon from lucide-react. It is intentionally icon-only (no text label) because the column header "Remove" provides context and the button has a descriptive `aria-label`. A `title` tooltip is also declared: `title="Remove from batch"`.
 
 ### Reused Style Constants (from existing CSSubmissions)
 
 | Constant | Purpose |
 |----------|---------|
-| `SECTION_HEADING` | "Review Batch" heading above summary bar |
+| `SECTION_HEADING` | "Review Batch" heading above summary bar (weight updated to 700 bold) |
 | `TABLE_WRAP` | Horizontal scroll container for wide review table |
 | `COMPACT_INPUT` | Amount input, rep assignment dropdown |
 | `baseThStyle` | Review table header cells |
@@ -139,7 +159,7 @@ Columns listed left to right. All use `baseThStyle` for headers, `baseTdStyle` f
 | 4 | Products | 200px min | Inline checkboxes: `[x] ProductName ($XX.XX)` per product | Yes (checkbox toggle) |
 | 5 | Amount | 100px | `COMPACT_INPUT` type="text" showing formatted dollar value | Yes (always editable) |
 | 6 | Rep | 130px | `<select>` dropdown with `COMPACT_INPUT` style, populated from CS reps | Yes (always editable) |
-| 7 | Remove | 44px | `X` icon button | Yes (click to remove) |
+| 7 | Remove | 44px | `X` icon button with `title="Remove from batch"` | Yes (click to remove) |
 
 ### Column Behavior Notes
 
@@ -165,7 +185,7 @@ After user clicks "Parse & Preview" (modifies existing Parse button):
 When `reviewRecords.length > 0`:
 - Hide the textarea (keep rawText in state for error recovery)
 - Show summary bar + review table + action buttons
-- Action buttons below table: "Submit Batch" (primary, accent color) + "Clear" (secondary, ghost style)
+- Action buttons below table: "Submit Batch" (primary, accent color) + "Clear Batch" (secondary, ghost style)
 
 ### Row Removal + Undo
 
@@ -195,7 +215,7 @@ When no paste data and no review records: existing textarea with placeholder is 
 | Parse button (modified) | "Parse & Preview" |
 | Parse loading state | "Matching..." |
 | Submit loading state | "Submitting..." |
-| Clear button | "Clear" |
+| Clear button | "Clear Batch" |
 | Summary bar format | "{N} Matched" / "{N} Multiple" / "{N} Unmatched" / "Total: $X,XXX.XX" |
 | MULTIPLE select placeholder | "Select matching sale..." |
 | MULTIPLE select option format | "{AgentName} - {MemberName} ({N} products)" |
@@ -206,6 +226,7 @@ When no paste data and no review records: existing textarea with placeholder is 
 | Preview error toast | "Preview failed ({statusCode})" |
 | Empty products cell | "--" (em dash for unmatched rows with no products) |
 | Unmatched agent cell | "--" |
+| Remove button tooltip | "Remove from batch" |
 
 ---
 
@@ -236,7 +257,7 @@ All transitions use existing `motion` tokens from `packages/ui/src/tokens.ts`.
 
 - Summary bar filter badges must be wrapped in `<button>` elements (Badge component renders `<span>`, which is not keyboard-focusable)
 - Product checkboxes use native `<input type="checkbox">` with associated `<label>` for screen reader support
-- Remove button must have `aria-label="Remove {memberCompany || memberId || 'entry'}"`
+- Remove button must have `aria-label="Remove {memberCompany || memberId || 'entry'}"` and `title="Remove from batch"`
 - MULTIPLE select must have `aria-label="Select matching sale for {memberCompany || memberId}"`
 - Summary bar container should have `role="toolbar"` and `aria-label="Filter by match status"`
 - Review table uses semantic `<table>`, `<thead>`, `<tbody>`, `<th scope="col">` elements (matches existing pattern)
