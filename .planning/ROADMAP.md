@@ -99,7 +99,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 
 See: `.planning/milestones/v2.2-ROADMAP.md`
 
-- [ ] **Phase 42: ACA Product Fix** -- Fix ACA product visibility in Products tab, editable flat commission, bundle requirement satisfaction
+- [x] **Phase 42: ACA Product Fix** -- Fix ACA product visibility in Products tab, editable flat commission, bundle requirement satisfaction (completed 2026-04-06)
 - [ ] **Phase 43: Payroll Agent Tab Navigation** -- Left sidebar with agent list replacing scrollable cards, paginated pay periods per agent
 - [ ] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission
 
@@ -119,7 +119,7 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 | 31-32 | v1.9 | 3/3 | Complete | 2026-03-30 |
 | 33-37 | v2.0 | 13/13 | Complete | 2026-03-31 |
 | 38-41 | v2.1 | 7/7 | Complete | 2026-04-01 |
-| 42 | v2.2 | 0/1 | Planning complete | - |
+| 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
 | 43 | v2.2 | 0/0 | Not started | - |
 | 44 | v2.2 | 0/0 | Not started | - |
 
