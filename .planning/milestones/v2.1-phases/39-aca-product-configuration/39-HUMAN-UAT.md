@@ -8,7 +8,11 @@ updated: 2026-04-01T17:00:00Z
 
 ## Current Test
 
-[awaiting human testing]
+number: 1
+name: ACA PL group appears in Products tab
+expected: |
+  A labelled section 'ACA PL Products' renders below the AD&D group, with the info-blue type badge and color bar on each card
+awaiting: user response
 
 ## Tests
 
