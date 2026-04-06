@@ -131,7 +131,12 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 <!-- Current scope. Building toward these. -->
 
-(None — milestone complete, awaiting next milestone definition)
+- [ ] Chargeback batch parser: paste multiple chargebacks, parse all at once
+- [ ] Pre-submit review table: matched agent, member name/ID, products with partial chargeback selection, chargeback amount per entry
+- [ ] Confirm/edit each parsed chargeback before bulk submit
+- [ ] Payroll agent tabs: left sidebar with agent names replacing scrollable card list
+- [ ] Agent tab shows last 4 pay periods (most recent with entries)
+- [ ] "Load More" button to fetch older pay periods per agent
 
 ### Out of Scope
 
@@ -141,9 +146,14 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
 
-## Current Milestone: Planning Next
+## Current Milestone: v2.2 Chargeback Batch Review & Payroll Agent Tabs
 
-v2.1 shipped 2026-04-01. Next milestone to be defined via `/gsd:new-milestone`.
+**Goal:** Streamline chargeback submission with batch parsing and pre-submit review, and restructure payroll into agent-tabbed navigation with paginated pay periods.
+
+**Target features:**
+- Chargeback batch parser with multi-entry paste-to-parse
+- Pre-submit review table with agent match, member info, partial product selection, amounts
+- Payroll agent tabs in left sidebar with last 4 periods per agent and load-more pagination
 
 ## Current State
 
@@ -229,8 +239,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-<<<<<<< HEAD
-*Last updated: 2026-04-06 after v2.1 milestone started*
-=======
-*Last updated: 2026-04-01 after v2.1 milestone*
->>>>>>> 311d3045238812e41ab324cff301b877d4a8edc4
+*Last updated: 2026-04-06 after v2.2 milestone started*
