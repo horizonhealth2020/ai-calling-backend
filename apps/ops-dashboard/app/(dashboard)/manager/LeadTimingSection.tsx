@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   DateRangeFilter,
   SkeletonCard,
@@ -72,7 +72,9 @@ export interface LeadTimingSectionProps {
 }
 
 export default function LeadTimingSection({ API }: LeadTimingSectionProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
   const [analyticsRange, setAnalyticsRange] = useState<DateRangeFilterValue>({ preset: "30d" });
   const [groupBy, setGroupBy] = useState<"dow" | "wom" | "moy">("dow");
   const [heatmapData, setHeatmapData] = useState<HeatmapData | null>(null);
@@ -82,7 +84,18 @@ export default function LeadTimingSection({ API }: LeadTimingSectionProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!expanded) return;
+    const el = sectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!expanded || !visible) return;
     setLoading(true);
     setError(null);
     const params = buildAnalyticsParams(analyticsRange);
@@ -96,7 +109,7 @@ export default function LeadTimingSection({ API }: LeadTimingSectionProps) {
       setRecommendationData(rec);
     }).catch(() => setError("Failed to load timing analytics. Check your connection and try again."))
       .finally(() => setLoading(false));
-  }, [expanded, analyticsRange, groupBy, API]);
+  }, [expanded, visible, analyticsRange, groupBy, API]);
 
   const chevronStyle: React.CSSProperties = {
     transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
@@ -105,7 +118,7 @@ export default function LeadTimingSection({ API }: LeadTimingSectionProps) {
   };
 
   return (
-    <div style={SECTION_WRAP}>
+    <div ref={sectionRef} style={SECTION_WRAP}>
       {/* Header */}
       <div style={HEADER_ROW} onClick={() => setExpanded(!expanded)}>
         <div style={HEADER_LEFT}>
