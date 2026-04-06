@@ -53,27 +53,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CB-01 | — | Pending |
-| CB-02 | — | Pending |
-| CB-03 | — | Pending |
-| CB-04 | — | Pending |
-| ACA-01 | — | Pending |
-| ACA-02 | — | Pending |
-| ACA-03 | — | Pending |
-| PAY-01 | — | Pending |
-| PAY-02 | — | Pending |
-| PAY-03 | — | Pending |
-| PAY-04 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
+| CB-01 | Phase 39 | Pending |
+| CB-02 | Phase 39 | Pending |
+| CB-03 | Phase 39 | Pending |
+| CB-04 | Phase 39 | Pending |
+| ACA-01 | Phase 40 | Pending |
+| ACA-02 | Phase 40 | Pending |
+| ACA-03 | Phase 40 | Pending |
+| PAY-01 | Phase 41 | Pending |
+| PAY-02 | Phase 41 | Pending |
+| PAY-03 | Phase 41 | Pending |
+| PAY-04 | Phase 38 | Pending |
+| DASH-01 | Phase 38 | Pending |
+| DASH-02 | Phase 38 | Pending |
+| DASH-03 | Phase 38 | Pending |
+| DASH-04 | Phase 38 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after initial definition*
+*Last updated: 2026-04-06 after roadmap creation -- all requirements mapped to phases*
