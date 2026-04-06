@@ -1,32 +1,34 @@
 # Feature Landscape
 
-**Domain:** Payroll management -- pay card overhaul, carryover system, print formatting, product config
-**Researched:** 2026-04-01
-**Confidence:** HIGH (all features are well-scoped with direct codebase analysis)
+**Domain:** Batch chargeback review and payroll agent tab navigation for internal ops platform
+**Researched:** 2026-04-06
 
 ## Table Stakes
 
-Features the payroll team expects. Missing = payroll accuracy issues persist.
+Features users expect. Missing = workflow feels broken or incomplete.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Zero-value validation bug fix | Cannot set bonus/fronted/hold to $0 once a nonzero value is entered. Blocks normal payroll workflow. | Low | Likely falsy check on `0` in UI send logic, or empty input converting to undefined instead of 0. |
-| Fronted displayed as positive | Fronted is money advanced TO the agent -- showing negative confuses staff reading pay cards. | Low | Display-only. Net formula (`payout + adjustment + bonus - fronted - hold`) stays unchanged. |
-| Net column removed from print card sale rows | Net per-sale is misleading because bonus/fronted/hold are agent-level adjustments, not sale-level. | Low | Remove `<th>Net</th>` and corresponding `<td>` from print template string. Keep agent-level net in summary. |
-| Approved pill on half-commission deals in print view | Half-commission deals with `commissionApproved=true` show halving reason but no approval indicator. Payroll needs to see which overrides happened. | Low | Add green "Approved" badge in print template when `commissionApproved && halvingReason`. |
-| Addon name formatting cleanup | Long addon names with parenthetical details overflow print table cells. | Low | Client-side string transform: strip type prefix, truncate to reasonable length. No migration needed. |
-| ACA editable in Products tab | ACA_PL products exist in DB with `flatCommission` but Products tab hardcodes type union as `CORE | ADDON | AD_D`, excluding ACA. Staff cannot configure ACA commissions. | Medium | Add ACA_PL to type maps, show flatCommission field conditionally. No schema change -- column already exists. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Multi-entry paste parsing | Current single-paste parser already exists; batch is the natural extension. Users paste full spreadsheet exports from carrier portal, not one row at a time. | Low | Existing `parseChargebackText()` in `CSSubmissions.tsx` already returns `ParsedRow[]` array; `consolidateByMember()` groups them. Parser handles batch natively. | Parser code already handles multiple rows. No parser changes needed -- the bottleneck is the review UX, not parsing. |
+| Pre-submit review table | Users must verify parsed data before committing. Current flow: paste -> auto-parse -> editable table -> submit. Batch needs the same pattern but with richer per-entry context (matched agent, member info, amounts). | Medium | Requires chargeback auto-matching data (exists server-side: `matchStatus` with MATCHED/MULTIPLE/UNMATCHED). Needs to surface match info BEFORE submit. | Currently matching runs AFTER submit in POST /chargebacks handler. For pre-submit review, need client-side lookup or a new preview endpoint. |
+| Per-entry edit/remove before bulk submit | Users need ability to edit individual parsed values (amount, product, assigned rep) and remove bad rows before submitting the batch. | Low | Existing `updateRecord()` pattern in CSSubmissions handles per-cell inline editing via `onRecordsChange`. | Already built for current flow. Extend with row-level remove button and validation badges per row. |
+| Matched agent display in review table | When a chargeback's memberId matches a sale, show which agent it maps to. Critical for payroll staff to verify before clawback creation. | Medium | Existing auto-match logic uses `prisma.sale.findMany({ where: { memberId } })`. For preview, need client-side or lightweight API lookup. | Key change: move match info from post-submit to pre-submit. |
+| Agent tab sidebar in payroll | Replace scrollable card list with fixed left sidebar listing agent names. Click agent -> show their pay data in main content area. | Medium | Existing `agentData` Map in `PayrollPeriods.tsx` already groups by agent name. `sortedAgents` provides ordered list with gross/net/activeCount. | Current layout: vertically stacked `AgentCard` components. New layout: sidebar (agent list) + main area (single agent's data). Major layout restructure but data layer is ready. |
+| Last 4 pay periods per agent | Show only recent periods to reduce visual clutter and load time. Current implementation loads ALL periods for ALL agents in a single API call. | Low-Medium | Existing `sortedPeriods` in `AgentCard` already sorts by weekStart descending. Client-side `.slice(0, 4)` is simplest approach. | Can start client-side (slice display) without API changes. Server-side pagination is optimization for later. |
+| Load More pagination per agent | Button to fetch older pay periods beyond the initial 4. | Low | Depends on tracking per-agent "how many periods shown" count. Client-side: increment slice. Server-side: offset/cursor param. | Simple counter state per agent. "Load More" increments by 4, appends to visible list. |
 
 ## Differentiators
 
-Features that improve payroll workflow beyond bug fixes.
+Features that set product apart. Not expected, but valued.
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Fronted/hold auto-carryover | Eliminates manual re-entry of carryover amounts each pay period. Currently error-prone: staff must remember agent X was fronted $200 last week and manually enter corresponding hold. | High | Triggers on period status transition. Must handle: next period lookup, agents with no sales in next period, idempotency on status toggle. |
-| Editable bonus label | Distinguish "Bonus" from "Hold Payout" on pay cards. Provides audit clarity on where money came from. | Medium | New `bonusLabel` field on PayrollEntry. Auto-carryover sets "Hold Payout". Manual entry defaults to "Bonus". |
-| Bonus/fronted/hold agent-level only | Currently on PayrollEntry (per-sale) but conceptually agent-level. Per-sale inputs cause confusion -- you front money to an agent, not a specific sale. | Medium | Remove per-sale row inputs. Show only on agent card header. Keep storage on first active entry (existing pattern). |
-| Payroll cards restructured: agent-level collapsible | Period card shows agent-level summaries that expand to show individual sale rows with week-by-week grouping. | High | Major refactor of PeriodCard component (~800 lines). Agent grouping with nested tables. Reuses existing expand/collapse pattern. |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| Pre-submit match preview with status badges | Show MATCHED/MULTIPLE/UNMATCHED status in the review table BEFORE submitting. Users fix issues before data enters the system. Prevents bad chargebacks from creating incorrect clawbacks. | Medium | New preview/lookup API endpoint accepting array of memberIds, returning match results without creating records. | Current flow: submit -> match -> alert. Better flow: preview -> fix -> submit. Prevents bad data from entering DB. |
+| Batch validation summary bar | "12 parsed, 10 matched, 1 multiple, 1 unmatched" count strip above the review table. Instant confidence signal before submit. | Low | Client-side aggregation of match preview results. | Quick scan: green = matched, yellow = multiple (needs review), red = unmatched (fix or accept). |
+| Partial product selection per chargeback in batch review | Already exists for single-chargeback flow in PayrollChargebacks tab (checkbox per product). Extending to batch: each matched row shows the sale's products with checkboxes for partial chargebacks. | High | Requires per-entry sale lookup to retrieve product list. Expensive for large batches (N+1 queries). | Only meaningful for MATCHED entries. UNMATCHED entries have no products. Defer unless explicitly requested. |
+| Agent period status indicators in sidebar | Paid/unpaid/partial badges next to agent names in the sidebar. At a glance: who still needs payroll attention. | Low | Existing `allPaid` logic in `AgentCard` can be computed at sidebar level from `agentData`. | Removes need to click into each agent to check status. High value, low effort. |
+| Agent sidebar search/filter | Type-ahead filter in sidebar to find agents by name. | Low | Client-side string filter on `sortedAgents` array. | Useful when agent roster exceeds 15. Not critical at current team size. |
+| Round-robin assignment in batch review | Auto-assign CS reps to chargebacks in the review table using existing round-robin logic. Already built for current flow (`fetchBatchAssign`). | Low | Existing `batch-assign` API endpoint and `assignRoundRobinLocal` function. | Already works. Just needs to be wired into batch review table. |
 
 ## Anti-Features
 
@@ -34,82 +36,59 @@ Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Per-sale bonus/fronted/hold inputs | These are agent-level adjustments. Per-sale inputs suggest sale-level semantics. | Agent card header inputs only. Store on first active entry. |
-| PDF export library | Over-engineers print. Browser print-to-PDF covers the use case. | Keep window.open + window.print pattern. |
-| Automatic carryover reversal | Auto-reversing wrong carryovers creates cascading audit complexity. | Manual adjustment. Audit log tracks original carryover. |
-| Carryover across non-adjacent periods | Skipping periods adds edge cases. | Always carry over to immediately next period. Manual adjust if needed. |
-| Carryover chain tracking | Linked list of "this hold came from that fronted" adds complexity for minimal value. | Use bonusLabel to indicate source. Audit log captures event. |
-| Retroactive carryover recalculation | Editing fronted after carryover auto-updating downstream creates cascading complexity. | Manual adjustment if fronted changes post-carryover. |
-| Custom print templates | Template editor for internal tool is over-engineering. | Hardcoded HTML print. Clean and consistent, not configurable. |
+| Automatic batch submission without review | Chargebacks affect payroll via clawback auto-creation. Human verification is non-negotiable. | Always require explicit "Submit Batch" click after review table is visible and inspected. |
+| Multi-step wizard for batch submit | Current paste-to-parse is single-step. Wizard (parse -> review -> match -> confirm -> submit) creates friction for a daily workflow. | Two states: (1) paste area with parse, (2) review table with submit. Same as existing CSSubmissions pattern. |
+| CSV/file upload for chargebacks | Users copy-paste from carrier portal. Data source is tab-delimited text from a web page. CSV import adds unused code paths. | Paste-only input. Parser handles tab-delimited format. |
+| Drag-and-drop agent reordering in sidebar | Agents sort by earnings (active first, then alphabetical). Custom ordering creates state complexity for no value. | Automatic sort: gross descending for agents with sales, alphabetical otherwise. Matches existing `sortedAgents` logic. |
+| Agent sidebar as separate routes | Each agent as URL route (`/payroll/agents/[id]`) adds routing complexity. Payroll is already a sub-tab within unified dashboard. | Agent selection as component state within Periods sub-tab. No route changes. |
+| Infinite scroll for periods | Pagination with explicit "Load More" is better for payroll. Users need clear period boundaries, not continuous streams. | "Load More" button that appends next batch of periods to agent's visible list. |
+| Real-time collaborative batch editing | Only SUPER_ADMIN or OWNER_VIEW submits chargebacks. Single-user scenario. | Standard single-user review table with submit. |
+| Batch undo after submit | Adds complex rollback logic (delete chargebacks, reverse clawbacks, clear alerts). Individual delete already exists. | Use existing per-chargeback delete endpoint (`DELETE /chargebacks/:id`) for corrections. |
 
 ## Feature Dependencies
 
 ```
-ACA editable in Products tab          (independent)
-Zero-value validation bug fix         (independent)
-Addon name formatting cleanup         (independent)
-"Approved" pill on print view         (independent)
-Net column removed from print rows    (independent)
-Fronted positive display              (independent)
+Existing parser (parseChargebackText) -----> Batch Review Table -----> Bulk Submit (POST /chargebacks)
+                                                  |
+                                                  +---> Per-entry Edit/Remove
+                                                  |
+                                                  +---> Match Preview (new lookup) ---> Status Badges
+                                                  |
+                                                  +---> Round-robin Assignment (exists)
 
-Bonus/fronted/hold agent-level only  --> Carryover (carryover needs clear agent-level storage)
-Editable bonus label                 --> Carryover (carryover sets the label automatically)
-Carryover system                     --> depends on agent-level storage + bonus label in place
-
-Pay card restructure                  (independent of carryover, but should follow it
-                                       so new layout displays carryover metadata correctly)
+Existing agentData Map -----> Agent Sidebar List -----> Agent Selection State
+                                                            |
+                                                            +---> Single Agent Display (AgentCard reuse)
+                                                            |
+                                                            +---> Period Slice (last 4) ---> Load More
 ```
+
+Key dependency notes:
+- Batch review table is the core chargeback deliverable; match preview and status badges layer on top
+- Agent sidebar is a layout restructure of PayrollPeriods; data layer (`agentData` Map, `sortedAgents`) already exists
+- Match preview is the only NEW backend endpoint needed (lookup by memberId array without creating records)
+- Load More can start client-side (slice existing data) then optimize to server-side pagination later
+- Both features are independent of each other -- can be built in parallel or either order
 
 ## MVP Recommendation
 
-**Phase 1: Quick fixes (all independent, low complexity)**
-1. Zero-value validation bug fix
-2. Fronted displayed as positive
-3. Net column removed from print card sale rows
-4. "Approved" pill on half-commission deals in print view
-5. Addon name formatting cleanup
+Prioritize:
+1. **Batch review table with inline editing** - Core deliverable. Parser already handles batch. Build editable table with row-remove, amount editing, rep assignment. Reuse existing `ConsolidatedRecord` type and `updateRecord` pattern from CSSubmissions.
+2. **Match preview before submit** - Add API endpoint that accepts `memberId[]` and returns `{ memberId, matchStatus, agentName?, saleId? }[]`. Display MATCHED/UNMATCHED badges in review table. Client calls this on parse, not on submit.
+3. **Agent tab sidebar** - Restructure PayrollPeriods from vertically stacked AgentCards to sidebar + content. `sortedAgents` becomes sidebar list, selected agent's `AgentCard` renders in main area. One agent visible at a time.
+4. **Last 4 periods + Load More** - Client-side: `sortedPeriods.slice(0, visibleCount)` with a "Load More" button incrementing `visibleCount` by 4. No API changes for MVP.
 
-**Phase 2: Product config**
-6. ACA editable in Products tab
-
-**Phase 3: Agent-level adjustments + carryover foundation**
-7. Bonus/fronted/hold agent-level only
-8. Editable bonus label (DB migration + UI)
-9. Fronted/hold auto-carryover (backend logic + UI indicators)
-
-**Phase 4: Card restructuring**
-10. Payroll cards restructured: agent-level collapsible cards with week-by-week entries
-
-**Rationale:** Quick fixes first (unblock daily payroll work). ACA next (independent, medium effort). Then carryover system (requires migration, most complex logic). Card restructure last (largest UI refactor, should build on stable carryover logic).
-
-## Existing Code Impact Analysis
-
-| Feature | Files Affected | Migration Needed |
-|---------|---------------|-----------------|
-| Zero-value bug fix | `PayrollPeriods.tsx` (client-side send logic) | No |
-| Fronted positive display | `PayrollPeriods.tsx` (print + card header display) | No |
-| Net column removed from print | `PayrollPeriods.tsx` (print template function) | No |
-| Approved pill on print | `PayrollPeriods.tsx` (print template function) | No |
-| Addon name formatting | `PayrollPeriods.tsx` (display helper) | No |
-| ACA in Products tab | `PayrollProducts.tsx` (type union + conditional form) | No |
-| Agent-level only | `PayrollPeriods.tsx` (hide per-row inputs) | No |
-| Editable bonus label | `PayrollPeriods.tsx`, `payroll.ts` route, `schema.prisma` | Yes |
-| Auto-carryover | New service function, `payroll.ts` routes, `PayrollPeriods.tsx` | Yes (shared with above) |
-| Card restructuring | `PayrollPeriods.tsx` (major refactor) | No |
-
-## Net Amount Formula Reference
-
-Current formula in `apps/ops-api/src/routes/payroll.ts:206`:
-```
-net = payoutAmount + adjustmentAmount + bonus - fronted - hold
-```
-
-This formula does NOT change. "Fronted as positive" is display-only -- the database stores fronted as a positive number that gets subtracted. The print and card header show `$200.00 (advanced)` instead of `-$200.00`.
+Defer:
+- **Partial product selection in batch review**: High complexity (N+1 lookups per batch entry). Add after batch workflow proves stable.
+- **Agent sidebar search**: Only needed at 15+ agents. Add based on roster growth.
+- **Server-side period pagination**: Optimize after measuring whether full-fetch + client-slice is fast enough.
 
 ## Sources
 
-- Direct analysis: `apps/ops-api/src/services/payroll.ts` (commission engine, net formula)
-- Direct analysis: `apps/ops-api/src/routes/payroll.ts` (PATCH endpoint, Zod schemas)
-- Direct analysis: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` (UI cards, print)
-- Direct analysis: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollProducts.tsx` (product types)
-- Direct analysis: `prisma/schema.prisma` (PayrollEntry model, ProductType enum)
+- Direct analysis: `apps/ops-dashboard/app/(dashboard)/cs/CSSubmissions.tsx` (existing paste-to-parse flow, parser functions, round-robin, submit handler)
+- Direct analysis: `apps/ops-api/src/routes/chargebacks.ts` (POST handler with auto-matching, batch create, alert creation)
+- Direct analysis: `apps/ops-dashboard/app/(dashboard)/payroll/AgentCard.tsx` (agent card structure, expand/collapse, week sections)
+- Direct analysis: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx` (agentData Map, sortedAgents, expand/select state, current layout)
+- Direct analysis: `apps/ops-dashboard/app/(dashboard)/payroll/page.tsx` (payroll tab structure, PageShell nav, shared state)
+- Direct analysis: `apps/ops-dashboard/app/(dashboard)/payroll/PayrollChargebacks.tsx` (single chargeback lookup, partial product selection pattern)
+- PROJECT.md active requirements (v2.2 milestone definition)
