@@ -131,6 +131,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 <!-- Current scope. Building toward these. -->
 
+- [ ] ACA product visible and editable in Products tab with flat commission rate
+- [ ] ACA product satisfies full commission bundle requirement for addons
 - [ ] Chargeback batch parser: paste multiple chargebacks, parse all at once
 - [ ] Pre-submit review table: matched agent, member name/ID, products with partial chargeback selection, chargeback amount per entry
 - [ ] Confirm/edit each parsed chargeback before bulk submit

@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
-status: Defining requirements
+status: Roadmap complete
 last_updated: "2026-04-06T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -16,26 +16,32 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-01)
+See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** v2.2 — Chargeback Batch Review & Payroll Agent Tabs
+**Current focus:** v2.2 -- Chargeback Batch Review & Payroll Agent Tabs
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-06 — Milestone v2.2 started
+Phase: 42 - ACA Product Fix (not started)
+Plan: --
+Status: Roadmap complete, ready for phase planning
+Last activity: 2026-04-06 -- Roadmap created with 3 phases (42-44)
+
+## Progress
+
+```
+v2.2: [..........] 0% (0/3 phases)
+```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
 | Milestones shipped | 12 (v1.0 through v2.1) |
-| Total phases | 41 complete, 0 remaining |
+| Total phases | 41 complete, 3 remaining |
 | Total plans | 120 complete, 0 remaining |
-| Total requirements | 246+ shipped |
+| Total requirements | 246+ shipped, 15 active |
 | Timeline | 18 days (2026-03-14 to 2026-04-01) |
 
 ## Accumulated Context
@@ -86,13 +92,21 @@ Last activity: 2026-04-06 — Milestone v2.2 started
 - Phase 36 added: Fix manager sales entry parsing error and payroll UI issues
 - Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
 - v2.1 roadmap: 4 phases (38-41) covering 14 requirements
+- v2.2 roadmap: 3 phases (42-44) covering 17 requirements
+
+### Research Notes (v2.2)
+
+- Payroll agent tabs: pure UI refactor, zero API changes -- use existing agentData Map and sortedAgents array
+- Chargeback batch: needs GET /api/chargebacks/preview-match endpoint and batch transaction in POST handler
+- Pitfall: N+1 queries in match loop -- batch with single IN clause
+- Pitfall: Socket.IO emits per-item -- needs batch emission (alerts_batch_created event)
+- Pitfall: consolidateByMember() must NOT run before review table -- present ParsedRow[] unconsolidated
+- Pitfall: clawback dedupe checks per-chargeback, not per-sale -- batch can create double clawbacks on same sale
+- Pitfall: agent tab state loss on socket update -- use useRef guard for selectedAgentId
 
 ### Open Questions
 
-- saleId nullable vs sentinel sale for carryover entries (agents with no sales in next period) -- must be resolved before Phase 40 planning
-- Carryover UI indicators (badge, label, icon, tooltip) -- design decision for Phase 40 planning
-- Fronted positive display treatment (label and color) -- design decision for Phase 38 planning
-- Carryover with pre-paid entries in next period -- policy decision for Phase 40 planning
+None currently.
 
 ### Blockers
 
@@ -112,4 +126,4 @@ None currently.
 ---
 *State initialized: 2026-03-14*
 *v2.2 milestone started 2026-04-06*
-*Last updated: 2026-04-06*
+*Last updated: 2026-04-06 -- Roadmap created*

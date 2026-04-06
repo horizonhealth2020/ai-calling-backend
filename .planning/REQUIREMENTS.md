@@ -19,6 +19,11 @@ Requirements for milestone v2.2: Chargeback Batch Review & Payroll Agent Tabs.
 - [ ] **CB-08**: CS reps are auto-assigned via round-robin in the review table
 - [ ] **CB-09**: User submits entire reviewed batch with a single "Submit Batch" action
 
+### ACA Product Fix
+
+- [ ] **ACA-01**: ACA product appears in the Products tab and is editable with flat commission rate
+- [ ] **ACA-02**: ACA product satisfies the full commission bundle requirement for addons
+
 ### Payroll Agent Tabs
 
 - [ ] **PAY-01**: Payroll Periods tab has a left sidebar listing all agents with current earnings sort
@@ -50,27 +55,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CB-01 | — | Pending |
-| CB-02 | — | Pending |
-| CB-03 | — | Pending |
-| CB-04 | — | Pending |
-| CB-05 | — | Pending |
-| CB-06 | — | Pending |
-| CB-07 | — | Pending |
-| CB-08 | — | Pending |
-| CB-09 | — | Pending |
-| PAY-01 | — | Pending |
-| PAY-02 | — | Pending |
-| PAY-03 | — | Pending |
-| PAY-04 | — | Pending |
-| PAY-05 | — | Pending |
-| PAY-06 | — | Pending |
+| ACA-01 | Phase 42 | Pending |
+| ACA-02 | Phase 42 | Pending |
+| PAY-01 | Phase 43 | Pending |
+| PAY-02 | Phase 43 | Pending |
+| PAY-03 | Phase 43 | Pending |
+| PAY-04 | Phase 43 | Pending |
+| PAY-05 | Phase 43 | Pending |
+| PAY-06 | Phase 43 | Pending |
+| CB-01 | Phase 44 | Pending |
+| CB-02 | Phase 44 | Pending |
+| CB-03 | Phase 44 | Pending |
+| CB-04 | Phase 44 | Pending |
+| CB-05 | Phase 44 | Pending |
+| CB-06 | Phase 44 | Pending |
+| CB-07 | Phase 44 | Pending |
+| CB-08 | Phase 44 | Pending |
+| CB-09 | Phase 44 | Pending |
 
 **Coverage:**
-- v2.2 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- v2.2 requirements: 17 total
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after initial definition*
+*Last updated: 2026-04-06 after roadmap creation (traceability updated)*
