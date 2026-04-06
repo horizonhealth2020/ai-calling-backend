@@ -645,7 +645,25 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         <div style={{ display: "grid", gap: S[6] }}>
           {(["CORE", "ADDON", "AD_D", "ACA_PL"] as ProductType[]).map(type => {
             const group = products.filter(p => p.type === type);
-            if (group.length === 0) return null;
+            if (group.length === 0) {
+              if (type === "ACA_PL") {
+                return (
+                  <div key={type}>
+                    <div style={{ display: "flex", alignItems: "center", gap: S[2], marginBottom: S[3] }}>
+                      <div style={{ height: 2, width: 16, background: TYPE_COLORS[type], borderRadius: 1 }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: TYPE_COLORS[type], textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                        {TYPE_LABELS[type]} Products
+                      </span>
+                      <Badge color={TYPE_COLORS[type]} size="sm">0</Badge>
+                    </div>
+                    <p style={{ fontSize: 13, color: C.textMuted, fontStyle: "italic", margin: 0 }}>
+                      ACA PL products appear here after ACA sales are entered.
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            }
             return (
               <div key={type}>
                 <div style={{ display: "flex", alignItems: "center", gap: S[2], marginBottom: S[3] }}>
