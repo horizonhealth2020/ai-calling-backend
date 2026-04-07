@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
-import { executeCarryover } from "../services/carryover";
+import { executeCarryover, reverseCarryover } from "../services/carryover";
 import { findOldestOpenPeriodForAgent, calculatePerProductCommission } from "../services/payroll";
 import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
@@ -41,6 +41,21 @@ router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", 
   const period = await prisma.payrollPeriod.findUnique({ where: { id: pp.data.id } });
   if (!period) return res.status(404).json({ error: "Period not found" });
   if (period.status === "FINALIZED") return res.status(400).json({ error: "Finalized periods cannot be changed" });
+
+  // LOCKED -> OPEN: reverse any prior carryover so re-lock sees a clean slate (Bug 45 fix)
+  if (period.status === "LOCKED" && parsed.data.status === "OPEN" && period.carryoverExecuted) {
+    try {
+      const result = await reverseCarryover(pp.data.id);
+      await logAudit(req.user!.id, "REVERSE_CARRYOVER", "PayrollPeriod", pp.data.id, {
+        reversed: result.reversed,
+        rowsTouched: result.rowsTouched,
+      });
+    } catch (err) {
+      console.error("[carryover] Reverse failed:", err);
+      return res.status(500).json({ error: "Failed to reverse carryover on unlock" });
+    }
+  }
+
   const updated = await prisma.payrollPeriod.update({ where: { id: pp.data.id }, data: { status: parsed.data.status } });
   await logAudit(req.user!.id, "UPDATE", "PayrollPeriod", pp.data.id, { status: parsed.data.status });
 

@@ -89,3 +89,68 @@ export async function executeCarryover(periodId: string): Promise<{ carried: num
 
   return { carried, skipped: false };
 }
+
+/**
+ * Reverse a previously-executed carryover when a period is unlocked.
+ * - Finds all next-period adjustments that originated from this source period
+ * - Subtracts each row's stored carryoverAmount from holdAmount (deterministic, no recomputation)
+ * - Clears carryover metadata when no hold remains; keeps partial when other sources contributed
+ * - Resets source period's carryoverExecuted so re-lock can carry the edited amount
+ * Transactional so partial failures cannot leave the next period in a stale state.
+ */
+export async function reverseCarryover(sourcePeriodId: string): Promise<{ reversed: number; rowsTouched: number }> {
+  return prisma.$transaction(async (tx) => {
+    const source = await tx.payrollPeriod.findUnique({ where: { id: sourcePeriodId } });
+    if (!source || !source.carryoverExecuted) {
+      return { reversed: 0, rowsTouched: 0 };
+    }
+
+    const targets = await tx.agentPeriodAdjustment.findMany({
+      where: {
+        carryoverSourcePeriodId: sourcePeriodId,
+        holdFromCarryover: true,
+      },
+    });
+
+    let totalReversed = 0;
+    for (const row of targets) {
+      const carriedAmount = Number(row.carryoverAmount ?? 0);
+      if (carriedAmount <= 0) continue;
+
+      const currentHold = Number(row.holdAmount);
+      const newHold = Math.max(0, currentHold - carriedAmount);
+      totalReversed += carriedAmount;
+
+      if (newHold === 0) {
+        // Row's hold came solely from carryover -- clear all carryover metadata.
+        await tx.agentPeriodAdjustment.update({
+          where: { id: row.id },
+          data: {
+            holdAmount: 0,
+            holdFromCarryover: false,
+            holdLabel: null,
+            carryoverSourcePeriodId: null,
+            carryoverAmount: null,
+          },
+        });
+      } else {
+        // Partial reversal -- hold had other contributions; keep metadata but clear carryoverAmount.
+        await tx.agentPeriodAdjustment.update({
+          where: { id: row.id },
+          data: {
+            holdAmount: newHold,
+            carryoverAmount: null,
+          },
+        });
+      }
+    }
+
+    // Reset the source period so re-lock can carryover again from a clean slate.
+    await tx.payrollPeriod.update({
+      where: { id: sourcePeriodId },
+      data: { carryoverExecuted: false },
+    });
+
+    return { reversed: totalReversed, rowsTouched: targets.length };
+  });
+}
