@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
 status: executing
-last_updated: "2026-04-07T13:21:45.875Z"
+last_updated: "2026-04-07T14:40:29.814Z"
 last_activity: 2026-04-07
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_plans: 7
+  completed_plans: 5
+  percent: 71
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 44 — Chargeback Batch Review
+**Current focus:** Phase 45 — fix-aca-sales-entry-into-commission-fronts-in-payroll-are-no
 
 ## Current Position
 
-Phase: 44
-Plan: Not started
-Status: Executing Phase 44
+Phase: 45 (fix-aca-sales-entry-into-commission-fronts-in-payroll-are-no) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-07
 
 ## Progress
@@ -44,6 +44,7 @@ v2.2: [..........] 0% (0/3 phases)
 | Total plans | 120 complete, 0 remaining |
 | Total requirements | 246+ shipped, 15 active |
 | Timeline | 18 days (2026-03-14 to 2026-04-01) |
+| Phase 45 P01 | 12m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ v2.2: [..........] 0% (0/3 phases)
 - Phase 37 added: Fix call audit issues, manager dashboard UI, and agent performance card order
 - v2.1 roadmap: 4 phases (38-41) covering 14 requirements
 - v2.2 roadmap: 3 phases (42-44) covering 17 requirements
+- Phase 45 added: Fix ACA sales commission entry, payroll fronts carryover to following holds, and CS submissions round-robin uneven assignment on page refresh
 
 ### Research Notes (v2.2)
 

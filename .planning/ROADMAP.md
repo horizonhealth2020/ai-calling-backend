@@ -101,7 +101,7 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 
 - [x] **Phase 42: ACA Product Fix** -- Fix ACA product visibility in Products tab, editable flat commission, bundle requirement satisfaction (completed 2026-04-06)
 - [x] **Phase 43: Payroll Agent Tab Navigation** -- Left sidebar with agent list replacing scrollable cards, paginated pay periods per agent (completed 2026-04-06)
-- [x] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission (completed 2026-04-06)
+- [x] **Phase 44: Chargeback Batch Review** -- Multi-entry paste parsing with pre-submit review table, match preview, and bulk submission (completed 2026-04-06)
 
 ### Phase 43: Payroll Agent Tab Navigation
 **Goal**: Payroll staff can navigate between agents via a sidebar and view paginated pay periods per agent instead of scrolling through all cards
@@ -154,7 +154,20 @@ Plans:
 | 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
 | 43 | v2.2 | 2/2 | Complete    | 2026-04-06 |
 | 44 | v2.2 | 2/2 | Complete    | 2026-04-07 |
+| 45 | v2.2 | 1/3 | In Progress|  |
+
+### Phase 45: Fix ACA commission entry, front carryover on unlock/re-lock, and CS round-robin advancement
+
+**Goal:** Three production bug fixes — (1) ACA sales show as a unified row with flat commission in payroll dashboard and print, (2) fronts entered on an agent-period adjustment carry correctly into the next period across the unlock → edit → re-lock workflow, (3) CS round-robin cursor advances only on actual submission and not on preview/paste/refresh.
+**Requirements**: BUGFIX-45-ACA, BUGFIX-45-CARRYOVER, BUGFIX-45-ROUNDROBIN
+**Depends on:** Phase 44
+**Plans:** 1/3 plans executed
+
+Plans:
+- [x] 45-01-PLAN.md — Bug 1: Unify ACA entry rendering on dashboard + print (display-only fix, leads with manual repro gate)
+- [ ] 45-02-PLAN.md — Bug 2: Reverse carryover on unlock + add carryoverAmount field (schema migration + service helper + route wiring + tests)
+- [ ] 45-03-PLAN.md — Bug 3: Split preview vs commit for CS round-robin; wrap chargeback/pending-term submit in $transaction
 
 ---
 *Roadmap created: 2026-03-14*
-*Last updated: 2026-04-06 -- Phase 42 planned (1 plan)*
+*Last updated: 2026-04-07 -- Phase 45 planned (3 plans)*
