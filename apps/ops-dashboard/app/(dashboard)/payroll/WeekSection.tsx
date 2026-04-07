@@ -246,7 +246,7 @@ function EditableSaleRow({
             {/* Core product */}
             <div style={{ display: "flex", flexDirection: "column" }}>
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
-              {(entry.sale?.product?.type === "ACA_PL" || entry.acaAttached) && <span style={ACA_BADGE}>ACA</span>}
+              {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.sale.premium))}
@@ -269,6 +269,15 @@ function EditableSaleRow({
                 )}
               </div>
             ))}
+            {/* GAP-45-07: ACA rendered as its own product chip with the bundled flat commission */}
+            {entry.acaAttached && (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <Badge color={C.info ?? C.accentTeal} size="sm">ACA</Badge>
+                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                  {formatDollar(Number(entry.acaAttached.payoutAmount))}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </td>
