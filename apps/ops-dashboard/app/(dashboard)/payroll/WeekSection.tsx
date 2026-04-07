@@ -132,7 +132,11 @@ function EditableSaleRow({
   const saleStatus = entry.sale?.status ?? "RAN";
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
-  const rowBg: React.CSSProperties = entry.status === "CLAWBACK_APPLIED"
+  const rowBg: React.CSSProperties = entry.status === "CLAWBACK_CROSS_PERIOD"
+    ? { backgroundColor: "rgba(251,146,60,0.10)", borderLeft: "3px solid rgba(251,146,60,0.6)" }
+    : entry.status === "ZEROED_OUT_IN_PERIOD"
+    ? { backgroundColor: "rgba(234,179,8,0.10)", borderLeft: "3px solid rgba(234,179,8,0.6)" }
+    : entry.status === "CLAWBACK_APPLIED"
     ? { backgroundColor: "rgba(239,68,68,0.08)", borderLeft: "3px solid rgba(239,68,68,0.4)" }
     : (saleStatus === "DECLINED" || saleStatus === "DEAD")
     ? { backgroundColor: "rgba(251,191,36,0.08)", borderLeft: "3px solid rgba(251,191,36,0.4)" }

@@ -755,6 +755,8 @@ export default function PayrollPeriods({
   .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-right: 4px; }
   .pill-approved { background: #d1fae5; color: #059669; }
   .pill-warn { background: #fef3c7; color: #d97706; }
+  .row-cross-period { background: #fed7aa; border-left: 3px solid #f97316; }
+  .row-in-period-zero { background: #fef3c7; border-left: 3px solid #eab308; }
   @media print { body { padding: 0; } .agent-card { padding: 2px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
@@ -815,7 +817,12 @@ export default function PayrollPeriods({
             const enrollFee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee) : 0;
             const enrollBonusHtml = enrollFee >= 125 ? `<div class="flag flag-bonus">+$10</div>` : "";
             const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
-            return `<tr>
+            // Phase 47-05 D-21/D-22: orange for cross-period chargeback, yellow for in-period zero
+            const rowClass =
+              e.status === "CLAWBACK_CROSS_PERIOD" ? "row-cross-period"
+              : e.status === "ZEROED_OUT_IN_PERIOD" ? "row-in-period-zero"
+              : "";
+            return `<tr${rowClass ? ` class="${rowClass}"` : ""}>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
         <td>${e.sale?.memberName ?? "\u2014"}</td>
         <td class="center core">${printProd(byType.CORE)}${acaChipHtml}${acaStandaloneHtml}</td>
