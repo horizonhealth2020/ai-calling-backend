@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, type FormEvent } from "react";
 import {
   Button, Card, EmptyState, useToast,
   colors, spacing, typography, motion, radius,
@@ -76,8 +76,38 @@ interface RepRoster {
   active: boolean;
 }
 
-type LookupProduct = { id: string; name: string; type: string };
-type LookupResult = { saleId: string; memberName: string; memberId: string | null; products: LookupProduct[] };
+type LookupProduct = {
+  id: string;
+  name: string;
+  type: string;
+  premium: number;
+  commission: number;
+};
+type LookupResult = {
+  saleId: string;
+  memberName: string;
+  memberId: string | null;
+  agentName: string;
+  agentId: string;
+  premium: number;
+  enrollmentFee: number | null;
+  products: LookupProduct[];
+  fullCommission: number;
+};
+
+const MINI_LABEL: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: C.textTertiary,
+  marginBottom: 2,
+};
+const MINI_VALUE: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: C.textPrimary,
+};
 
 /* ── Parser Helpers ─────────────────────────────────────────── */
 
@@ -296,6 +326,14 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [allSelected, setAllSelected] = useState(true);
+
+  /* ── Live net deduction (sum of selected products' canonical commission) ── */
+  const liveNetDeduction = useMemo(() => {
+    if (!lookupResult) return 0;
+    return lookupResult.products
+      .filter(p => selectedProductIds.includes(p.id))
+      .reduce((sum, p) => sum + p.commission, 0);
+  }, [selectedProductIds, lookupResult]);
 
   /* ── Fetch rep roster ────────────────────────────────────── */
 
@@ -525,7 +563,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
         setAllSelected(true);
       } else {
         const err = await res.json().catch(() => ({}));
-        setChargebackMsg(`Error: ${err.error ?? "No matching sale found"}`);
+        setChargebackMsg(`Error: ${err.error ?? `Request failed (${res.status})`}`);
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "network error";
@@ -921,7 +959,46 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
               </Button>
             )}
 
-            {/* Step 2: Product selection */}
+            {/* Step 2a: Sale info + live net deduction preview */}
+            {lookupResult && (
+              <div style={{
+                display: "grid",
+                gap: S[2],
+                padding: S[3],
+                background: C.bgSurfaceRaised,
+                borderRadius: R.md,
+                border: `1px solid ${C.borderSubtle}`,
+              }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[3] }}>
+                  <div>
+                    <div style={MINI_LABEL}>Agent</div>
+                    <div style={MINI_VALUE}>{lookupResult.agentName}</div>
+                  </div>
+                  <div>
+                    <div style={MINI_LABEL}>Member</div>
+                    <div style={MINI_VALUE}>{lookupResult.memberName}</div>
+                  </div>
+                  <div>
+                    <div style={MINI_LABEL}>Premium</div>
+                    <div style={MINI_VALUE}>{formatDollar(lookupResult.premium)}</div>
+                  </div>
+                  <div>
+                    <div style={MINI_LABEL}>Enrollment Fee</div>
+                    <div style={MINI_VALUE}>
+                      {lookupResult.enrollmentFee != null ? formatDollar(lookupResult.enrollmentFee) : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: S[2], paddingTop: S[2], borderTop: `1px solid ${C.borderSubtle}` }}>
+                  <div style={MINI_LABEL}>Net Chargeback (deducted from agent)</div>
+                  <div style={{ fontSize: 20, color: C.danger, fontWeight: 800 }}>
+                    −{formatDollar(liveNetDeduction)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2b: Product selection */}
             {lookupResult && (
               <div style={{
                 background: C.bgSurfaceRaised,
