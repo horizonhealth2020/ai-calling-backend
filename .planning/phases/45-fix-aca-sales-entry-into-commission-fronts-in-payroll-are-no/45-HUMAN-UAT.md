@@ -1,46 +1,55 @@
 ---
-status: diagnosed
+status: complete
 phase: 45-fix-aca-sales-entry-into-commission-fronts-in-payroll-are-no
 source: [45-VERIFICATION.md]
 started: 2026-04-07T00:00:00Z
-updated: 2026-04-07T00:00:00Z
+updated: 2026-04-07T17:00:00Z
 ---
 
 ## Current Test
 
-[testing complete]
+[testing complete — round 2 all passed]
 
 ## Tests
 
 ### 1. ACA unified row renders on payroll dashboard
 expected: Submit Complete Care Max + addon + ACA checkbox (memberCount=2). Payroll dashboard shows ONE row with core badge + addon badge + ACA badge, commission as flat dollar (no `x N members =` text).
-result: failed
-notes: Row is now correctly folded into one (parent shows Complete Care + Compass Care Navigator badges, $48.99 commission). However, the ACA covering sale's commission ($10) is MISSING from the unified row's total. The fold removes the child row but does not merge its commission into the parent's commission. ACA badge presence not yet confirmed visually.
+result: pass
+round_1: failed — fold dropped ACA child commission, leaving $48.99 instead of $58.99
+round_2: pass — visible $58.99 on Malik's aca test row; ACA renders as its own product chip showing the child product name with $10
+closed_by: 94234e0 (45-04 two-pass fold) + aeef119 (chip rendering) + 39e2d1d (chip uses real product name)
 
 ### 2. Lock → unlock → edit front → re-lock carryover cycle
 expected: Lock period with frontedAmount=200 → next period Fronted Hold=200. Unlock → next period Fronted Hold=0, app_audit_log shows REVERSE_CARRYOVER. Edit front to 300, re-lock → next period Fronted Hold=300.
-result: failed
-notes: First-lock path itself is broken in the user's environment. After locking 03-29-2026 with FRONTED=200, the FRONTED HOLD=200 shows on the SAME 03-29 week labeled "Carried from prev week" instead of on the next period (04-05-2026). The open 04-05 week shows FRONTED 0 / HOLD 0. The carryover row is being written to the wrong period — possibly a regression from Plan 45-02 changes to `executeCarryover`, or pre-existing first-lock logic that the plan assumed was intact.
+result: pass
+round_1: failed — first-lock wrote hold to source period (N) instead of N+1 due to DST/UTC day-rollover boundary
+round_2: pass — user confirmed "2 front pass"; CARRY-11 regression test green
+closed_by: ae4c368 (weekStart + 7d12h offset) + 356d348 (CARRY-11 test)
 
 ### 3. CS round-robin cursor stability under paste/refresh
 expected: Query `cs_round_robin_chargeback_index` value. Paste 5 rows in CS Submissions, refresh, paste again — value unchanged. Submit batch of 5 → value increases by exactly 5 (mod repCount).
-result: passed
+result: pass
+round_1: passed (no round 2 needed)
 
 ### 4. ACA unified row in agent sales tracking view
-expected: Submit Complete Care Max + addon + ACA checkbox. Agent sales tracking view shows ONE entry for the parent sale (ACA test 686905239 / Complete Care Max), not two separate rows for parent + ACA covering child.
-result: failed
-notes: User reported and screenshotted the manager/agent sales tracking view showing TWO entries: row 1 "ACA test (686905239) / Complete Care Max / $139.98" (parent) and row 4 "ACA test / Blue Cross Blue shield / $0.00" (ACA covering child with no member ID, no parent linkage shown). The fold logic from Plan 45-01 was only applied to the payroll dashboard surface (PayrollPeriods + WeekSection + PayrollExports) — the same fold needs to apply to whichever component renders the agent sales tracking list (likely under apps/ops-dashboard/app/(dashboard)/manager or sales). Top-of-view "4 sales" badge should also drop to 3.
+expected: Submit Complete Care Max + addon + ACA checkbox. Agent sales tracking view shows ONE entry for the parent sale, with ACA visible as a second product on the row.
+result: pass
+round_1: failed — view rendered two separate rows ("ACA test / Complete Care Max" and "ACA test / Blue Cross Blue Shield $0")
+round_2: pass — single row, Product cell renders "Complete Care + {child product name}", "4 sales" badge unchanged
+closed_by: 9a6cb62 (45-06 fold) + aeef119 (acaAttached marker + suffix) + 39e2d1d (real product name)
 
 ## Summary
 
 total: 4
-passed: 1
-issues: 3
+passed: 4
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+<!-- All gaps closed in round 2 (2026-04-07). See "closed_by" on each test above. -->
 
 ### GAP-45-01: ACA child commission lost during client-side fold
 test: 1
