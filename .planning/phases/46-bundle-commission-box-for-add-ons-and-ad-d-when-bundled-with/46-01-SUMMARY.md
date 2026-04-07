@@ -90,4 +90,42 @@ Added `acaBundledCommission: z.number().min(0).max(100).nullable().optional()` t
 - 4-input layout changed from `1fr 1fr 1fr` (3 cols) to `1fr 1fr` (2x2 grid)
 - Cleaned up redundant `acaBundledCommission: productData.acaBundledCommission` overrides on the prisma create/update calls — the spread already includes the field
 
-## Self-Check: PASSED
+## Gaps Discovered Post-Phase
+
+Two gaps surfaced during user verification of the deployed phase. Both are fixed; this section documents the corrections so the SUMMARY is consistent with the actual production behavior.
+
+### GAP-46-01: Standalone branch + per-product calc not patched
+**Fix commit:** `95ad3b8` — `fix(46): GAP-46-01 apply ACA bundle rate to standalone branch + per-product calc`
+
+Phase 46-01 Task 2 only patched the `hasCoreInSale` branch of `calculateCommission`. Two paths were missed:
+
+1. `calculateCommission` standalone branch (no CORE in sale): AD&D-only or ADDON-only sales bundled with an ACA PL fell through to `standaloneCommission`, ignoring `acaBundledCommission` entirely. User hit this — a Complete Care AD&D sale was calculating at 35% standalone instead of 70% ACA bundle.
+2. `calculatePerProductCommission` (used by per-product chargeback / clawback flows) had no `isAcaBundled` awareness in either branch.
+
+Both functions now apply the ACA bundle rate to ADDON-with-rate and AD&D entries in **both** branches. ADDONs with `bundledCommission === null` still fold into bundlePremium under the core rate (intentional per plan).
+
+### GAP-46-02: Inverted relationship direction
+**Fix commit:** `005d2d5` — `fix(46): GAP-46-02 detect ACA bundling via inverse acaCoveredSales relation`
+
+After GAP-46-01 shipped, the calculation **still** returned the standalone rate. Root cause: the entire Phase 46-01 premise had the Phase 42 self-relation backwards.
+
+The Phase 42 relation works like this:
+- The **CHILD ACA PL sale** has `acaCoveringSaleId` set, pointing UP at the AD&D/ADDON parent sale
+- The **PARENT AD&D/ADDON sale**'s `acaCoveringSaleId` is NULL — it finds its ACA child(ren) via the inverse relation `acaCoveredSales`
+
+`calculateCommission` is computing the parent AD&D sale's commission. `sale.acaCoveringSaleId` is `null` on the parent, so the original check `!!sale.acaCoveringSaleId` was **always false** for the AD&D — and the new bundle rate was never applied.
+
+Confirmed via [apps/ops-dashboard/.../ManagerEntry.tsx:451-476](apps/ops-dashboard/app/(dashboard)/manager/ManagerEntry.tsx#L451-L476) — the linked ACA child is created with `body.acaCoveringSaleId = sale.id` where `sale` is the AD&D parent (i.e., the child stores the parent's id).
+
+**Fix:**
+- `upsertPayrollEntryForSale` (services/payroll.ts): include `acaCoveredSales: { where: { product: { type: "ACA_PL" } }, select: { id: true } }` when fetching the sale
+- `POST /clawbacks` (routes/payroll.ts): same include for the per-product commission path
+- `calculateCommission` + `calculatePerProductCommission`: detect via `(sale.acaCoveredSales?.length ?? 0) > 0` instead of `acaCoveringSaleId`
+
+After the deploy, ACA TEST 2 (Complete Care AD&D $139.98 with linked ACA PL child) correctly calculated to $97.99 instead of $48.99.
+
+### Caveat: existing payroll entries don't auto-recalculate
+
+`upsertPayrollEntryForSale` only fires when a sale is touched (created, edited, status changed, or its ACA child is created/edited). Sales that existed before the GAP-46-02 deploy keep their stored `payoutAmount` from the old (incorrect) calc until something triggers a recalc — either a manual edit-and-save on the sale, or a backfill script. Not handled in this phase.
+
+## Self-Check: PASSED (with two post-phase gap fixes captured above)
