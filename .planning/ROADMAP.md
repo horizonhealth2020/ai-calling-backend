@@ -154,19 +154,19 @@ Plans:
 | 42 | v2.2 | 1/1 | Complete    | 2026-04-06 |
 | 43 | v2.2 | 2/2 | Complete    | 2026-04-06 |
 | 44 | v2.2 | 2/2 | Complete    | 2026-04-07 |
-| 45 | v2.2 | 2/3 | In Progress|  |
+| 45 | v2.2 | 3/3 | Complete   | 2026-04-07 |
 
 ### Phase 45: Fix ACA commission entry, front carryover on unlock/re-lock, and CS round-robin advancement
 
 **Goal:** Three production bug fixes — (1) ACA sales show as a unified row with flat commission in payroll dashboard and print, (2) fronts entered on an agent-period adjustment carry correctly into the next period across the unlock → edit → re-lock workflow, (3) CS round-robin cursor advances only on actual submission and not on preview/paste/refresh.
 **Requirements**: BUGFIX-45-ACA, BUGFIX-45-CARRYOVER, BUGFIX-45-ROUNDROBIN
 **Depends on:** Phase 44
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 45-01-PLAN.md — Bug 1: Unify ACA entry rendering on dashboard + print (display-only fix, leads with manual repro gate)
 - [x] 45-02-PLAN.md — Bug 2: Reverse carryover on unlock + add carryoverAmount field (schema migration + service helper + route wiring + tests)
-- [ ] 45-03-PLAN.md — Bug 3: Split preview vs commit for CS round-robin; wrap chargeback/pending-term submit in $transaction
+- [x] 45-03-PLAN.md — Bug 3: Split preview vs commit for CS round-robin; wrap chargeback/pending-term submit in $transaction
 
 ---
 *Roadmap created: 2026-03-14*

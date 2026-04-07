@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
-status: executing
-last_updated: "2026-04-07T15:20:00.000Z"
+status: verifying
+last_updated: "2026-04-07T14:54:56.561Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 Phase: 45 (fix-aca-sales-entry-into-commission-fronts-in-payroll-are-no) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-04-07 -- Completed 45-02-PLAN.md (carryover reversal on unlock)
+Status: Phase complete — ready for verification
+Last activity: 2026-04-07
 
 ## Progress
 
@@ -46,6 +46,7 @@ v2.2: [..........] 0% (0/3 phases)
 | Timeline | 18 days (2026-03-14 to 2026-04-01) |
 | Phase 45 P01 | 12m | 3 tasks | 5 files |
 | Phase 45 P02 | 18m | 3 tasks | 5 files |
+| Phase 45 P03 | 4m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,7 @@ v2.2: [..........] 0% (0/3 phases)
 - [Phase 45 P02]: reverseCarryover wraps multi-row update in prisma.$transaction so partial failure cannot leave next period with stale hold vs metadata
 - [Phase 45 P02]: Partial reversal preserves holdFromCarryover metadata but zeroes carryoverAmount when other sources contributed to the same hold row
 - [Phase 45 P02]: Unlock error path returns HTTP 500 (unlike lock path which swallows) because stale hold is worse than a failed unlock
+- [Phase 45]: Phase 45 P03: Round-robin cursor split into preview (dry-run) vs commit (transactional); cursor advance moved server-side inside chargeback/pending-term POST transactions so paste/refresh/rep-change can no longer drift assignments
 
 ### Roadmap Evolution
 
