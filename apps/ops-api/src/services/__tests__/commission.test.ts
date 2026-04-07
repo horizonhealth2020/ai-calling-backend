@@ -14,6 +14,7 @@ const makeProduct = (overrides: Partial<Product> = {}): Product => ({
   commissionAbove: new Decimal(50),
   bundledCommission: null,
   standaloneCommission: null,
+  acaBundledCommission: null,
   enrollFeeThreshold: null,
   flatCommission: null,
   requiredBundleAddonId: null,
