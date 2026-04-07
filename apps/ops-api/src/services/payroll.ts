@@ -190,12 +190,19 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     }
   } else {
     // --- STANDALONE (no core product) ---
+    // Phase 46 GAP-46-01: when this sale is bundled with an ACA PL covering sale,
+    // ADDON/AD_D entries prefer their acaBundledCommission rate over the
+    // standalone rate, even though the sale itself has no core product.
     for (const entry of allEntries) {
       if (entry.product.type === "AD_D" || entry.product.type === "ADDON") {
-        if (entry.product.standaloneCommission === null) {
+        const useAcaRate = isAcaBundled && entry.product.acaBundledCommission != null;
+        const rawRate = useAcaRate
+          ? entry.product.acaBundledCommission
+          : entry.product.standaloneCommission;
+        if (!useAcaRate && entry.product.standaloneCommission === null) {
           console.warn(`Product ${entry.product.id} has null standaloneCommission rate`);
         }
-        const rate = Number(entry.product.standaloneCommission ?? 0);
+        const rate = Number(rawRate ?? 0);
         totalCommission += entry.premium * (rate / 100);
       }
     }
@@ -431,6 +438,9 @@ export function calculatePerProductCommission(
   const hasCoreInSale = !!coreEntry;
   const coreSelected = coreEntry ? selectedSet.has(coreEntry.product.id) : false;
 
+  // Phase 46 GAP-46-01: ACA-bundled rate preference for ADDON/AD_D entries
+  const isAcaBundled = !!(sale as SaleWithProduct & { acaCoveringSaleId?: string | null }).acaCoveringSaleId;
+
   let totalCommission = 0;
 
   // ACA_PL: flat commission
@@ -470,13 +480,19 @@ export function calculatePerProductCommission(
     for (const entry of allEntries.filter(
       e => e.product.type === "ADDON" && e.product.bundledCommission !== null && selectedSet.has(e.product.id)
     )) {
-      const addonRate = Number(entry.product.bundledCommission ?? 0);
+      const rawRate = (isAcaBundled && entry.product.acaBundledCommission != null)
+        ? entry.product.acaBundledCommission
+        : entry.product.bundledCommission;
+      const addonRate = Number(rawRate ?? 0);
       totalCommission += entry.premium * (addonRate / 100);
     }
 
     // AD_D (separate calculation, bundled rate)
     for (const entry of allEntries.filter(e => e.product.type === "AD_D" && selectedSet.has(e.product.id))) {
-      const addDRate = Number(entry.product.bundledCommission ?? 0);
+      const rawRate = (isAcaBundled && entry.product.acaBundledCommission != null)
+        ? entry.product.acaBundledCommission
+        : entry.product.bundledCommission;
+      const addDRate = Number(rawRate ?? 0);
       totalCommission += entry.premium * (addDRate / 100);
     }
 
@@ -489,9 +505,14 @@ export function calculatePerProductCommission(
     }
   } else {
     // Standalone (no core)
+    // Phase 46 GAP-46-01: ACA-bundled rate preference for ADDON/AD_D entries
     for (const entry of allEntries.filter(e => selectedSet.has(e.product.id))) {
       if (entry.product.type === "AD_D" || entry.product.type === "ADDON") {
-        const rate = Number(entry.product.standaloneCommission ?? 0);
+        const useAcaRate = isAcaBundled && entry.product.acaBundledCommission != null;
+        const rawRate = useAcaRate
+          ? entry.product.acaBundledCommission
+          : entry.product.standaloneCommission;
+        const rate = Number(rawRate ?? 0);
         totalCommission += entry.premium * (rate / 100);
       }
     }
