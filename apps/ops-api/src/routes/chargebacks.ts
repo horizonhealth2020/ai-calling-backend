@@ -7,6 +7,7 @@ import { getSundayWeekRange, findOldestOpenPeriodForAgent } from "../services/pa
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
+import { batchRoundRobinAssign } from "../services/repSync";
 
 const router = Router();
 
@@ -92,143 +93,167 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   const { records, rawPaste, batchId } = parsed.data;
-  const result = await prisma.chargebackSubmission.createMany({
-    data: records.map((r) => ({
-      postedDate: r.postedDate ? new Date(r.postedDate) : null,
-      type: r.type,
-      payeeId: r.payeeId,
-      payeeName: r.payeeName,
-      payoutPercent: r.payoutPercent,
-      chargebackAmount: r.chargebackAmount,
-      totalAmount: r.totalAmount,
-      transactionDescription: r.transactionDescription,
-      product: r.product,
-      memberCompany: r.memberCompany,
-      memberId: r.memberId,
-      memberAgentCompany: r.memberAgentCompany,
-      memberAgentId: r.memberAgentId,
-      assignedTo: r.assignedTo,
-      submittedBy: req.user!.id,
-      batchId,
-      rawPaste,
-    })),
-  });
 
-  // Retrieve created chargebacks for matching and alert creation
-  const createdChargebacks = await prisma.chargebackSubmission.findMany({
-    where: { batchId },
-    orderBy: { createdAt: "desc" },
-  });
+  // Wrap createMany + matching + clawback creation + cursor advance in a single
+  // transaction so a failed insert rolls back the round-robin cursor (Bug 3 fix).
+  // Socket emits / audit logs that don't need atomicity stay outside the tx below.
+  const { result, clawbackAuditPayloads } = await prisma.$transaction(async (tx) => {
+    const created = await tx.chargebackSubmission.createMany({
+      data: records.map((r) => ({
+        postedDate: r.postedDate ? new Date(r.postedDate) : null,
+        type: r.type,
+        payeeId: r.payeeId,
+        payeeName: r.payeeName,
+        payoutPercent: r.payoutPercent,
+        chargebackAmount: r.chargebackAmount,
+        totalAmount: r.totalAmount,
+        transactionDescription: r.transactionDescription,
+        product: r.product,
+        memberCompany: r.memberCompany,
+        memberId: r.memberId,
+        memberAgentCompany: r.memberAgentCompany,
+        memberAgentId: r.memberAgentId,
+        assignedTo: r.assignedTo,
+        submittedBy: req.user!.id,
+        batchId,
+        rawPaste,
+      })),
+    });
 
-  // Build selectedSaleId lookup from submitted records (D-03: user-resolved matches)
-  const selectedSaleIdByMemberId = new Map<string, string>();
-  for (const r of records) {
-    if (r.selectedSaleId && r.memberId) {
-      selectedSaleIdByMemberId.set(r.memberId, r.selectedSaleId);
-    }
-  }
+    // Retrieve created chargebacks for matching and alert creation
+    const createdChargebacks = await tx.chargebackSubmission.findMany({
+      where: { batchId },
+      orderBy: { createdAt: "desc" },
+    });
 
-  // Auto-match chargebacks to sales by memberId (D-01: exact match only)
-  for (const cb of createdChargebacks) {
-    // D-03: If frontend provided a selectedSaleId, verify and use it directly
-    const userSelectedId = cb.memberId ? selectedSaleIdByMemberId.get(cb.memberId) : undefined;
-    if (userSelectedId) {
-      const selectedSale = await prisma.sale.findUnique({
-        where: { id: userSelectedId },
-        select: { id: true, memberId: true },
-      });
-      if (selectedSale) {
-        await prisma.chargebackSubmission.update({
-          where: { id: cb.id },
-          data: { matchedSaleId: selectedSale.id, matchStatus: "MATCHED" },
-        });
-        continue;
+    // Build selectedSaleId lookup from submitted records (D-03: user-resolved matches)
+    const selectedSaleIdByMemberId = new Map<string, string>();
+    for (const r of records) {
+      if (r.selectedSaleId && r.memberId) {
+        selectedSaleIdByMemberId.set(r.memberId, r.selectedSaleId);
       }
-      // If selectedSaleId not found, fall through to automatic matching
     }
 
-    if (cb.memberId) {
-      const matchingSales = await prisma.sale.findMany({
-        where: { memberId: cb.memberId },
-        select: { id: true },
-      });
+    // Auto-match chargebacks to sales by memberId (D-01: exact match only)
+    for (const cb of createdChargebacks) {
+      // D-03: If frontend provided a selectedSaleId, verify and use it directly
+      const userSelectedId = cb.memberId ? selectedSaleIdByMemberId.get(cb.memberId) : undefined;
+      if (userSelectedId) {
+        const selectedSale = await tx.sale.findUnique({
+          where: { id: userSelectedId },
+          select: { id: true, memberId: true },
+        });
+        if (selectedSale) {
+          await tx.chargebackSubmission.update({
+            where: { id: cb.id },
+            data: { matchedSaleId: selectedSale.id, matchStatus: "MATCHED" },
+          });
+          continue;
+        }
+        // If selectedSaleId not found, fall through to automatic matching
+      }
 
-      if (matchingSales.length === 1) {
-        await prisma.chargebackSubmission.update({
-          where: { id: cb.id },
-          data: { matchedSaleId: matchingSales[0].id, matchStatus: "MATCHED" },
+      if (cb.memberId) {
+        const matchingSales = await tx.sale.findMany({
+          where: { memberId: cb.memberId },
+          select: { id: true },
         });
-      } else if (matchingSales.length > 1) {
-        // D-02: Multiple matches -- flag for manual review, do NOT auto-select
-        await prisma.chargebackSubmission.update({
-          where: { id: cb.id },
-          data: { matchStatus: "MULTIPLE" },
-        });
+
+        if (matchingSales.length === 1) {
+          await tx.chargebackSubmission.update({
+            where: { id: cb.id },
+            data: { matchedSaleId: matchingSales[0].id, matchStatus: "MATCHED" },
+          });
+        } else if (matchingSales.length > 1) {
+          // D-02: Multiple matches -- flag for manual review, do NOT auto-select
+          await tx.chargebackSubmission.update({
+            where: { id: cb.id },
+            data: { matchStatus: "MULTIPLE" },
+          });
+        } else {
+          await tx.chargebackSubmission.update({
+            where: { id: cb.id },
+            data: { matchStatus: "UNMATCHED" },
+          });
+        }
       } else {
-        await prisma.chargebackSubmission.update({
+        await tx.chargebackSubmission.update({
           where: { id: cb.id },
           data: { matchStatus: "UNMATCHED" },
         });
       }
-    } else {
-      await prisma.chargebackSubmission.update({
-        where: { id: cb.id },
-        data: { matchStatus: "UNMATCHED" },
-      });
-    }
-  }
-
-  // Create clawbacks for matched chargebacks against agent's oldest open payroll period
-  const refreshedChargebacks = await prisma.chargebackSubmission.findMany({
-    where: { batchId },
-    orderBy: { createdAt: "desc" },
-  });
-
-  for (const cb of refreshedChargebacks) {
-    if (cb.matchStatus !== "MATCHED" || !cb.matchedSaleId) continue;
-
-    const sale = await prisma.sale.findUnique({
-      where: { id: cb.matchedSaleId },
-      include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
-    });
-    if (!sale) continue;
-
-    // Find oldest OPEN payroll period for the agent
-    let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
-    if (!targetPeriodId && sale.payrollEntries.length > 0) {
-      targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
     }
 
-    const targetEntry = targetPeriodId
-      ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
-      : sale.payrollEntries[0];
-
-    const chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
-
-    const zeroOut = !targetEntry || targetEntry.status !== "PAID";
-    const clawback = await prisma.clawback.create({
-      data: {
-        saleId: sale.id,
-        agentId: sale.agentId,
-        matchedBy: cb.memberId ? "member_id" : "member_name",
-        matchedValue: cb.memberId || cb.memberCompany || "",
-        amount: chargebackAmount,
-        status: zeroOut ? "ZEROED" : "DEDUCTED",
-        appliedPayrollPeriodId: targetPeriodId || undefined,
-        notes: `Batch chargeback (${batchId})`,
-      },
+    // Create clawbacks for matched chargebacks against agent's oldest open payroll period
+    const refreshedChargebacks = await tx.chargebackSubmission.findMany({
+      where: { batchId },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (targetEntry) {
-      await prisma.payrollEntry.update({
-        where: { id: targetEntry.id },
-        data: zeroOut
-          ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
-          : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
+    const auditPayloads: Array<{ clawbackId: string; saleId: string; status: string; amount: number }> = [];
+
+    for (const cb of refreshedChargebacks) {
+      if (cb.matchStatus !== "MATCHED" || !cb.matchedSaleId) continue;
+
+      const sale = await tx.sale.findUnique({
+        where: { id: cb.matchedSaleId },
+        include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
       });
+      if (!sale) continue;
+
+      // Find oldest OPEN payroll period for the agent
+      let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+      if (!targetPeriodId && sale.payrollEntries.length > 0) {
+        targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
+      }
+
+      const targetEntry = targetPeriodId
+        ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
+        : sale.payrollEntries[0];
+
+      const chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
+
+      const zeroOut = !targetEntry || targetEntry.status !== "PAID";
+      const clawback = await tx.clawback.create({
+        data: {
+          saleId: sale.id,
+          agentId: sale.agentId,
+          matchedBy: cb.memberId ? "member_id" : "member_name",
+          matchedValue: cb.memberId || cb.memberCompany || "",
+          amount: chargebackAmount,
+          status: zeroOut ? "ZEROED" : "DEDUCTED",
+          appliedPayrollPeriodId: targetPeriodId || undefined,
+          notes: `Batch chargeback (${batchId})`,
+        },
+      });
+
+      if (targetEntry) {
+        await tx.payrollEntry.update({
+          where: { id: targetEntry.id },
+          data: zeroOut
+            ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
+            : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
+        });
+      }
+
+      auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount });
     }
 
-    await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, { saleId: sale.id, status: clawback.status, amount: chargebackAmount, batchId });
+    // Advance the round-robin cursor by exactly the number of rows inserted, inside
+    // the same tx so a thrown error above rolls the cursor back to its pre-submit value.
+    await batchRoundRobinAssign("chargeback", created.count, { persist: true, tx });
+
+    return { result: created, clawbackAuditPayloads: auditPayloads };
+  }, { timeout: 30000 });
+
+  // Post-commit side effects: audit log writes (best-effort, non-atomic).
+  for (const payload of clawbackAuditPayloads) {
+    await logAudit(req.user!.id, "CREATE", "Clawback", payload.clawbackId, {
+      saleId: payload.saleId,
+      status: payload.status,
+      amount: payload.amount,
+      batchId,
+    });
   }
 
   return res.status(201).json({ count: result.count, batchId });

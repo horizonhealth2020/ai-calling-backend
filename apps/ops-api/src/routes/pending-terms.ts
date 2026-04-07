@@ -4,6 +4,7 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
+import { batchRoundRobinAssign } from "../services/repSync";
 
 const router = Router();
 
@@ -38,34 +39,45 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
   const { records, rawPaste, batchId } = parsed.data;
-  const result = await prisma.pendingTerm.createMany({
-    data: records.map((r) => ({
-      agentName: r.agentName,
-      agentIdField: r.agentIdField,
-      memberId: r.memberId,
-      memberName: r.memberName,
-      city: r.city,
-      state: r.state,
-      phone: r.phone,
-      product: r.product,
-      monthlyAmount: r.monthlyAmount,
-      paid: r.paid,
-      createdDate: r.createdDate ? new Date(r.createdDate) : null,
-      firstBilling: r.firstBilling ? new Date(r.firstBilling) : null,
-      activeDate: r.activeDate ? new Date(r.activeDate) : null,
-      nextBilling: r.nextBilling ? new Date(r.nextBilling) : null,
-      holdDate: r.holdDate ? new Date(r.holdDate + "T00:00:00") : null,
-      holdReason: r.holdReason,
-      inactive: r.inactive,
-      lastTransactionType: r.lastTransactionType,
-      assignedTo: r.assignedTo,
-      submittedBy: req.user!.id,
-      batchId,
-      rawPaste,
-    })),
+
+  // Wrap createMany + cursor advance in a single transaction so a failed insert
+  // rolls back the round-robin cursor (Bug 3 fix). Socket emits stay outside.
+  const result = await prisma.$transaction(async (tx) => {
+    const created = await tx.pendingTerm.createMany({
+      data: records.map((r) => ({
+        agentName: r.agentName,
+        agentIdField: r.agentIdField,
+        memberId: r.memberId,
+        memberName: r.memberName,
+        city: r.city,
+        state: r.state,
+        phone: r.phone,
+        product: r.product,
+        monthlyAmount: r.monthlyAmount,
+        paid: r.paid,
+        createdDate: r.createdDate ? new Date(r.createdDate) : null,
+        firstBilling: r.firstBilling ? new Date(r.firstBilling) : null,
+        activeDate: r.activeDate ? new Date(r.activeDate) : null,
+        nextBilling: r.nextBilling ? new Date(r.nextBilling) : null,
+        holdDate: r.holdDate ? new Date(r.holdDate + "T00:00:00") : null,
+        holdReason: r.holdReason,
+        inactive: r.inactive,
+        lastTransactionType: r.lastTransactionType,
+        assignedTo: r.assignedTo,
+        submittedBy: req.user!.id,
+        batchId,
+        rawPaste,
+      })),
+    });
+
+    // Advance the round-robin cursor by exactly the number of rows inserted, inside
+    // the same tx so a thrown error rolls the cursor back to its pre-submit value.
+    await batchRoundRobinAssign("pending_term", created.count, { persist: true, tx });
+
+    return created;
   });
 
-  // Emit CS changed event for real-time updates
+  // Emit CS changed event for real-time updates (post-commit, non-atomic)
   emitCSChanged({ type: "pending_term", batchId, count: result.count });
 
   return res.status(201).json({ count: result.count, batchId });
