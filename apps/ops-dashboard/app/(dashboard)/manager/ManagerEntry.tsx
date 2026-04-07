@@ -418,6 +418,14 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
 
   async function submitSale(e: FormEvent) {
     e.preventDefault(); setMsg(null);
+    // Belt-and-suspenders: if main form is empty but standalone ACA has values, bail out.
+    // The standalone ACA path uses its own Button with type="button" and its own onClick handler.
+    // This guards against any future regression where a nested button bubbles up as form submit.
+    const mainFormEmpty = !form.agentId && !form.productId && !form.memberName.trim() && !form.premium;
+    const standaloneAcaInUse = !!(acaStandaloneAgent || acaStandaloneMemberName.trim() || acaStandaloneCarrier || (acaStandaloneMemberCount && acaStandaloneMemberCount !== "1"));
+    if (mainFormEmpty && standaloneAcaInUse) {
+      return;
+    }
     const errors: Record<string, string> = {};
     if (!form.agentId) errors.agentId = "Select an agent";
     if (!form.productId) errors.productId = "Select a product";
@@ -859,6 +867,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                     </div>
                     <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
                       <Button
+                        type="button"
                         variant="primary"
                         onClick={async () => {
                           if (!acaStandaloneAgent) { setMsg({ text: "Select an agent", type: "error" }); return; }
