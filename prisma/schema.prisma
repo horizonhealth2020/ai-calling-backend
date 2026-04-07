@@ -707,6 +707,7 @@ model AgentPeriodAdjustment {
   bonusFromCarryover      Boolean  @default(false) @map("bonus_from_carryover")
   holdFromCarryover       Boolean  @default(false) @map("hold_from_carryover")
   carryoverSourcePeriodId String?  @map("carryover_source_period_id")
+  carryoverAmount         Decimal? @map("carryover_amount") @db.Decimal(12, 2)
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 

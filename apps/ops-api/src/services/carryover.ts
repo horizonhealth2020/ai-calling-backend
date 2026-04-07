@@ -68,12 +68,14 @@ export async function executeCarryover(periodId: string): Promise<{ carried: num
         holdFromCarryover: true,
         holdLabel: "Fronted Hold",
         carryoverSourcePeriodId: periodId,
+        carryoverAmount: carryHold,
       },
       update: {
         holdAmount: { increment: carryHold },
         holdFromCarryover: true,
         holdLabel: "Fronted Hold",
         carryoverSourcePeriodId: periodId,
+        carryoverAmount: { increment: carryHold },
       },
     });
     carried++;
