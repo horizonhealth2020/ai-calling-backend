@@ -8,58 +8,61 @@ updated: 2026-04-07
 
 ## Current Test
 
-[testing paused — 4 issues + 3 blocked items outstanding]
+[testing paused — 1 issue outstanding (Test 1 round 2)]
 
 ## Tests
 
 ### 1. (46-02) CS chargeback alert pipeline — end-to-end
 expected: Submitting a chargeback from the CS dashboard surfaces a `payrollAlert` row that appears in the payroll dashboard alert area within seconds (Socket.IO `alert:created`). Approving it does NOT double-claw the agent (existing batch-created clawbacks are detected and the alert short-circuits to APPROVED).
 result: issue
-reported: "FAIL NO CHAREBACK ALERT IN PAYROLL WHEN SUBM ITTING IN CS SUBMISSIONS"
+reported: "SUBMITTED CS CHARGEBACK NO ALERT IN PAYROLL"
 severity: major
+round: 2
+notes: |
+  Round 1 fix (GAP-46-UAT-01, commits 6c8e0f9 + c3e7b06) added observability
+  (alertCount/alertAttempted/alertFailed in 201 response, structured warn/error
+  logs, defensive try/catch around emitAlertCreated). Round 2 re-test still
+  shows no alert surfacing in payroll dashboard after a live CS submission.
+  The observability hooks should now reveal WHY (empty alertPayloads vs. per-cb
+  error vs. emit failure vs. frontend not rendering). Need to inspect server
+  logs and the 201 response body from the failed submission.
 
 ### 2. (46-02) Payroll-side chargeback should NOT create alert (DESIGN CORRECTION)
 expected: Submitting a chargeback directly from `PayrollChargebacks.tsx` should DIRECTLY process the clawback against the agent and NOT create a payrollAlert. Payroll is the team that would have approved the alert anyway, so the alert step is redundant for payroll-originated submissions. Plan 46-02 had this inverted — the fix wired createAlertFromChargeback into the shared handler for ALL submissions, which is wrong for the payroll path.
-result: issue
-reported: "THE PAYROLL CHARGEBACK SUBMISSION SHOULDNT CREATE ALERT IT SHOULD PROCESS THE CLAWBACK AGAINST THE AGENT ONCE SUBMITTED"
-severity: major
+result: pass
+round: 2
+notes: "Verified after GAP-46-UAT-02 (commits 8381728 + e252854) — source-aware gating works."
 
 ### 3. (46-03) Collapsed Chargebacks (N) badge — multi-alert period
 expected: Navigate to a payroll period with 3+ open chargebacks. Header shows a single `Chargebacks (3)` button (collapsed by default — table is NOT visible). Click the button → table expands inline (NOT a modal popup) showing each chargeback with agent/customer/amount/date/actions.
-result: issue
-reported: "THERE ARE CHARGEBACKS THAT HAVE BEEN SUBMITTED I SEE NO TABLE OR ALERTS IN PAYROLL"
-severity: major
+result: pass
+round: 2
+notes: "Verified after GAP-46-UAT-03 (commit 6216312) — container always renders, badge collapse intact."
 
 ### 4. (46-03) Single-alert period — N=1 collapse behavior
 expected: Period with exactly 1 chargeback shows `Chargebacks (1)` button, default collapsed (does NOT auto-expand).
-result: blocked
-blocked_by: prior-phase
-reason: "Cannot verify until Test 1 alerts pipeline is fixed and Test 3 container visibility is restored — there is no way to surface a populated badge without working alert data"
+result: pass
+round: 2
 
 ### 5. (46-03) Zero-alert period
 expected: Period with 0 chargebacks shows NO badge and NO container at all (the `borderLeft danger` block is hidden entirely).
-result: blocked
-blocked_by: prior-phase
-reason: "Test 3 raised the design question of whether zero-state should be hidden entirely; revisit after Test 1+3 fixes ship and the chargeback area design is settled"
+result: pass
+round: 2
+notes: "Empty-state container with 'No chargebacks' label confirmed acceptable."
 
 ### 6. (46-03) Approve action while expanded
 expected: Click `Approve Alert` from inside the expanded panel → the period selection dropdown appears, oldest open period is pre-selected, approve still works end-to-end and the alert disappears from the list.
-result: blocked
-blocked_by: prior-phase
-reason: "Cannot verify until Test 1 alerts pipeline is fixed — no alerts exist to approve"
+result: pass
+round: 2
 
 ### 7. (46-04) Print view ACA chip parity
-expected: Open the payroll period print view via the printer icon. For an entry with `acaAttached` set (e.g., Sammy Machado's ACA-bundled core sale), the Core column shows the ACA chip inline (matching what `WeekSection.tsx:272-279` shows on screen — product name + payout amount).
-result: issue
-reported: "IT WORKS PROPERLY WHEN BUNDLED ACA SUBMITTED BUT STANDALONE ACA SUBMISSION ISNT UNIFORM HERES AN EXAMPLE BERNICE KING IS THE EXAMPLE"
-severity: major
+expected: Open the payroll period print view via the printer icon. For an entry with `acaAttached` set (e.g., Sammy Machado's ACA-bundled core sale), the Core column shows the ACA chip inline (matching what `WeekSection.tsx:272-279` shows on screen — product name + payout amount). Standalone ACA_PL entries (e.g. Bernice King) also render with product name in Core column + ACA marker.
+result: pass
+round: 2
 notes: |
-  Folded ACA case (Sammy Machado-style — acaAttached on a core entry) works correctly.
-  Standalone ACA PL case (Bernice King — Ambetter+ACA as the primary product on its own
-  payroll entry row) renders as an all-dash row in print: Core —, Add-on —, AD&D —,
-  Enroll —. The ACA PL product never reaches a column. Phase 46-04's chip injection
-  only fired for entries with acaAttached set, not for entries whose product.type is
-  ACA_PL itself.
+  Verified after GAP-46-UAT-04 (commit 60de89f) — bucketKey ACA_PL→CORE remap +
+  acaStandaloneHtml chip injection. Both folded (Sammy Machado) and standalone
+  (Bernice King) ACA cases now render uniformly in print view.
 
 ### 8. (46-05) Single-click ACA cascade delete
 expected: Sammy Machado's AD&D core sale with an attached ACA child. Click delete ONCE on the parent. Both rows disappear without a second click. Refresh — both stay deleted. Inspect the most recent `app_audit_log` DELETE Sale row → `metadata.cascadedChildSaleIds` is present and contains the ACA child's ID.
@@ -95,31 +98,61 @@ result: pass
 ## Summary
 
 total: 13
-passed: 6
-issues: 4
+passed: 11
+issues: 1
 pending: 0
 skipped: 0
-blocked: 3
+blocked: 0
+round2: tests 1-7 re-tested after gap fixes; only test 1 still failing
 
 ## Gaps
 
 - truth: "Submitting a chargeback from the CS dashboard surfaces a payrollAlert row in the payroll dashboard alert area"
   status: failed
-  reason: "User reported: FAIL NO CHAREBACK ALERT IN PAYROLL WHEN SUBMITTING IN CS SUBMISSIONS"
+  round: 2
+  reason: "Round 2 re-test: User reported 'SUBMITTED CS CHARGEBACK NO ALERT IN PAYROLL'. GAP-46-UAT-01 (commits 6c8e0f9 + c3e7b06) added observability (alertCount in 201 response, structured warn/error logs, defensive emit try/catch) but the underlying root cause remains — alerts still don't surface in the payroll dashboard after a live CS submission."
   severity: major
   test: 1
-  root_cause: "Plan 46-02 wired createAlertFromChargeback into POST /api/chargebacks but the alert is not actually being created for CS submissions. Need to debug whether the post-commit best-effort try/catch is silently swallowing an error, the alert is being created but immediately filtered out, or the wire-up isn't reached on the CS path."
+  root_cause: |
+    DIAGNOSED (round 2 debugger): The CS chargeback submission requires each chargeback's
+    memberId to exactly match exactly one Sale.memberId in the DB. When the auto-match
+    produces UNMATCHED or MULTIPLE (typo, formatting, leading zeros, member with multiple
+    sales), the guard at chargebacks.ts:203-204 calls `continue` and the row is skipped.
+    alertPayloads stays empty, the console.warn fires server-side only (invisible to CS),
+    createAlertFromChargeback is never called, and no payrollAlert row is written.
+
+    The downstream pipeline is verified correct: createAlertFromChargeback unconditionally
+    inserts (alerts.ts:6-29), payroll dashboard fetches on mount AND has socket listener
+    on "alert:created" that calls fetchAlerts (page.tsx:142-219), getPendingAlerts has
+    no hidden filters (alerts.ts:31-37). The bug is upstream silent match failure with
+    zero CS-side feedback.
+
+    User chose Option B: durable fix — allow CS to submit alerts for UNMATCHED/MULTIPLE
+    rows too, carrying raw memberId/memberName. Payroll handles manual sale-picking in
+    the approve UI.
   artifacts:
     - path: "apps/ops-api/src/routes/chargebacks.ts"
-      issue: "post-commit createAlertFromChargeback wire-up may not fire or may silently fail"
+      issue: "MATCHED gate at lines 203-204 silently drops UNMATCHED/MULTIPLE rows from alertPayloads"
     - path: "apps/ops-api/src/services/alerts.ts"
-      issue: "createAlertFromChargeback function — verify it actually inserts a payrollAlert row and emits alert:created"
+      issue: "createAlertFromChargeback assumes a matched saleId exists — must handle null saleId for unmatched alerts"
+    - path: "apps/ops-api/src/services/alerts.ts"
+      issue: "approveAlert needs a manual sale-picker path for alerts with no matchedSaleId"
+    - path: "apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx"
+      issue: "Alert UI must render unmatched chargeback alerts with member info + manual sale picker in approve action"
+    - path: "apps/ops-dashboard/app/(dashboard)/cs/CSSubmissions.tsx"
+      issue: "(supporting) 201 response handler at 597-603 should surface alertAttempted/alertFailed for transparency"
   missing:
-    - "End-to-end trace from CS submit to payrollAlert row to dashboard render"
+    - "Push UNMATCHED/MULTIPLE rows into alertPayloads with null saleId"
+    - "createAlertFromChargeback: support null saleId — store member_id/member_name as fallback identity"
+    - "approveAlert: when alert has no matchedSaleId, require caller to provide a target saleId (manual pick)"
+    - "Payroll dashboard chargeback container: render unmatched alerts with manual-pick affordance"
+    - "Schema/migration: payrollAlert may need a nullable saleId column if it isn't already"
   debug_session: ""
 
 - truth: "Payroll-side chargeback submissions should DIRECTLY process clawback without creating an alert (design correction)"
-  status: failed
+  status: closed
+  round: 2
+  closed_by: "GAP-46-UAT-02 / Plan 46-07 — commits 8381728 (server source gating), e252854 (UI submitters). Verified by user in round 2 re-test."
   reason: "User reported: THE PAYROLL CHARGEBACK SUBMISSION SHOULDNT CREATE ALERT IT SHOULD PROCESS THE CLAWBACK AGAINST THE AGENT ONCE SUBMITTED"
   severity: major
   test: 2
@@ -135,7 +168,9 @@ blocked: 3
   debug_session: ""
 
 - truth: "Payroll dashboard shows a chargeback area when chargebacks have been submitted"
-  status: failed
+  status: closed
+  round: 2
+  closed_by: "GAP-46-UAT-03 / Plan 46-08 — commit 6216312. Container now always renders with empty-state. Verified by user in round 2."
   reason: "User reported: THERE ARE CHARGEBACKS THAT HAVE BEEN SUBMITTED I SEE NO TABLE OR ALERTS IN PAYROLL"
   severity: major
   test: 3
@@ -149,7 +184,9 @@ blocked: 3
   debug_session: ""
 
 - truth: "Standalone ACA PL sales render uniformly with bundled ACA in the print view"
-  status: failed
+  status: closed
+  round: 2
+  closed_by: "GAP-46-UAT-04 / Plan 46-09 — commit 60de89f. bucketKey ACA_PL→CORE remap + acaStandaloneHtml chip injection. Verified by user in round 2."
   reason: "User reported: IT WORKS PROPERLY WHEN BUNDLED ACA SUBMITTED BUT STANDALONE ACA SUBMISSION ISNT UNIFORM HERES AN EXAMPLE BERNICE KING IS THE EXAMPLE"
   severity: major
   test: 7
