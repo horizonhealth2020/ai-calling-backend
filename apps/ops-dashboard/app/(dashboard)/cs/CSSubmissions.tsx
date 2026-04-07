@@ -595,9 +595,28 @@ function SubmissionsContent({
         body: JSON.stringify({ records, rawPaste: rawText, batchId, source: "CS" }),
       });
       if (res.status === 201) {
-        const data = await res.json();
+        const data = await res.json() as {
+          count: number;
+          alertCount?: number;
+          alertAttempted?: number;
+          alertFailed?: number;
+        };
         onRawTextClear();
-        toast("success", `${data.count} chargebacks submitted`);
+        // GAP-46-UAT-05 (46-10): surface alert pipeline outcome so CS sees when
+        // their submission queued alerts (matched or manual-review) and when any
+        // failed to write. Silent on the happy "0 alerts" path to avoid noise.
+        const attempted = data.alertAttempted ?? 0;
+        const failed = data.alertFailed ?? 0;
+        const succeeded = data.alertCount ?? 0;
+        let msg = `${data.count} chargebacks submitted`;
+        if (attempted > 0) {
+          if (failed > 0) {
+            msg += ` · ${succeeded}/${attempted} alerts queued (${failed} failed)`;
+          } else {
+            msg += ` · ${succeeded} alert${succeeded === 1 ? "" : "s"} queued for payroll review`;
+          }
+        }
+        toast(failed > 0 ? "error" : "success", msg);
       } else {
         toast("error", `Failed to submit (${res.status})`);
       }
