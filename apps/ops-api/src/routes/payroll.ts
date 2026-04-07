@@ -297,22 +297,51 @@ router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN
   const { memberId, memberName } = parsed.data;
   if (!memberId && !memberName) return res.status(400).json({ error: "Provide memberId or memberName" });
 
-  const sale = memberId
-    ? await prisma.sale.findFirst({
-        where: { memberId },
-        include: { product: { select: { id: true, name: true, type: true } }, addons: { include: { product: { select: { id: true, name: true, type: true } } } } },
-      })
-    : await prisma.sale.findFirst({
-        where: { memberName },
-        include: { product: { select: { id: true, name: true, type: true } }, addons: { include: { product: { select: { id: true, name: true, type: true } } } } },
-      });
+  const where = memberId ? { memberId } : { memberName };
+  const sale = await prisma.sale.findFirst({
+    where,
+    include: {
+      agent: { select: { id: true, name: true } },
+      product: { select: { id: true, name: true, type: true } },
+      addons: { include: { product: { select: { id: true, name: true, type: true } } } },
+      acaCoveredSales: { where: { product: { type: "ACA_PL" } }, select: { id: true } },
+      payrollEntries: { select: { payoutAmount: true } },
+    },
+  });
   if (!sale) return res.status(404).json({ error: "No matching sale found" });
 
-  const products = [
-    { id: sale.product.id, name: sale.product.name, type: sale.product.type },
-    ...sale.addons.map(a => ({ id: a.product.id, name: a.product.name, type: a.product.type })),
+  const fullPayout = sale.payrollEntries[0] ? Number(sale.payrollEntries[0].payoutAmount) : 0;
+
+  const allProducts = [
+    { id: sale.product.id, name: sale.product.name, type: sale.product.type, premium: Number(sale.premium) },
+    ...sale.addons.map(a => ({
+      id: a.product.id,
+      name: a.product.name,
+      type: a.product.type,
+      premium: Number(a.premium ?? 0),
+    })),
   ];
-  res.json({ saleId: sale.id, memberName: sale.memberName, memberId: sale.memberId, products });
+
+  const productsWithCommission = allProducts.map(p => ({
+    ...p,
+    commission: calculatePerProductCommission(
+      sale as unknown as Parameters<typeof calculatePerProductCommission>[0],
+      [p.id],
+      fullPayout,
+    ),
+  }));
+
+  res.json({
+    saleId: sale.id,
+    memberName: sale.memberName,
+    memberId: sale.memberId,
+    agentName: sale.agent.name,
+    agentId: sale.agent.id,
+    premium: Number(sale.premium),
+    enrollmentFee: sale.enrollmentFee != null ? Number(sale.enrollmentFee) : null,
+    products: productsWithCommission,
+    fullCommission: fullPayout,
+  });
 }));
 
 // ── Payroll Entry adjustments (bonus / fronted) ─────────────────
