@@ -845,14 +845,29 @@ export default function PayrollPeriods({
   return (
     <div className="animate-fade-in" style={{ display: "grid", gap: S[4] }}>
 
-      {/* Chargeback Alerts — collapsed badge with inline expand panel (Phase 46-03) */}
-      {alerts.length > 0 && (
+      {/* Chargeback Alerts — always-visible container (46-08) */}
+      {/* Phase 46-03: collapsed badge + inline expand when N > 0 */}
+      {/* GAP-46-UAT-03: empty-state fallback when N === 0 so user can tell empty vs broken */}
       <div style={{
         background: C.bgSurface,
         borderLeft: `4px solid ${C.danger}`,
         borderRadius: R["2xl"],
         padding: S[4],
       }}>
+        {alerts.length === 0 ? (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            color: C.textMuted,
+          }}>
+            <AlertTriangle size={14} color={C.textMuted} style={{ opacity: 0.6 }} />
+            <span>No chargebacks</span>
+          </div>
+        ) : (
+        <>
         <button
           type="button"
           onClick={() => setShowChargebacks(v => !v)}
@@ -980,8 +995,9 @@ export default function PayrollPeriods({
             </table>
           </div>
         )}
+        </>
+        )}
       </div>
-      )}
 
       {/* Current week summary strip */}
       {currentWeekTotals && (
