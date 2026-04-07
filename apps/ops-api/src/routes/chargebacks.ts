@@ -8,6 +8,7 @@ import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
 import { batchRoundRobinAssign } from "../services/repSync";
+import { createAlertFromChargeback } from "../services/alerts";
 
 const router = Router();
 
@@ -97,7 +98,7 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   // Wrap createMany + matching + clawback creation + cursor advance in a single
   // transaction so a failed insert rolls back the round-robin cursor (Bug 3 fix).
   // Socket emits / audit logs that don't need atomicity stay outside the tx below.
-  const { result, clawbackAuditPayloads } = await prisma.$transaction(async (tx) => {
+  const { result, clawbackAuditPayloads, alertPayloads } = await prisma.$transaction(async (tx) => {
     const created = await tx.chargebackSubmission.createMany({
       data: records.map((r) => ({
         postedDate: r.postedDate ? new Date(r.postedDate) : null,
@@ -191,13 +192,14 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     });
 
     const auditPayloads: Array<{ clawbackId: string; saleId: string; status: string; amount: number }> = [];
+    const alertPayloadsLocal: Array<{ chargebackId: string; agentName?: string; memberName?: string; amount: number }> = [];
 
     for (const cb of refreshedChargebacks) {
       if (cb.matchStatus !== "MATCHED" || !cb.matchedSaleId) continue;
 
       const sale = await tx.sale.findUnique({
         where: { id: cb.matchedSaleId },
-        include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
+        include: { payrollEntries: true, product: true, addons: { include: { product: true } }, agent: true },
       });
       if (!sale) continue;
 
@@ -237,13 +239,19 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
       }
 
       auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount });
+      alertPayloadsLocal.push({
+        chargebackId: cb.id,
+        agentName: sale.agent?.name,
+        memberName: sale.memberName ?? undefined,
+        amount: chargebackAmount,
+      });
     }
 
     // Advance the round-robin cursor by exactly the number of rows inserted, inside
     // the same tx so a thrown error above rolls the cursor back to its pre-submit value.
     await batchRoundRobinAssign("chargeback", created.count, { persist: true, tx });
 
-    return { result: created, clawbackAuditPayloads: auditPayloads };
+    return { result: created, clawbackAuditPayloads: auditPayloads, alertPayloads: alertPayloadsLocal };
   }, { timeout: 30000 });
 
   // Post-commit side effects: audit log writes (best-effort, non-atomic).
@@ -254,6 +262,19 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
       amount: payload.amount,
       batchId,
     });
+  }
+
+  // 46-02 (D-06/D-07): Surface every matched chargeback as a payroll alert so the
+  // payroll dashboard alert area shows it. Without this call, payrollAlert rows are
+  // never inserted (createAlertFromChargeback was previously dead code with zero
+  // callers). Dedupe against the already-created clawback is handled in
+  // alerts.approveAlert so a payroll user clicking Approve does not double-claw.
+  for (const p of alertPayloads) {
+    try {
+      await createAlertFromChargeback(p.chargebackId, p.agentName, p.memberName, p.amount);
+    } catch (err) {
+      console.error("createAlertFromChargeback failed:", err);
+    }
   }
 
   return res.status(201).json({ count: result.count, batchId });

@@ -66,16 +66,33 @@ export async function approveAlert(alertId: string, periodId: string | undefined
   const saleId = alert.chargeback?.matchedSaleId;
   if (!saleId) throw new Error("Chargeback has no matched sale. Match manually before approving.");
 
-  // D-03: Dedupe guard -- prevent double clawbacks for same chargeback/sale combo
+  // D-03: Dedupe guard -- prevent double clawbacks for same chargeback/sale combo.
+  // 46-02: Also catch clawbacks created directly by the chargeback POST handler
+  // (matchedBy "member_id" / "member_name"), which fire BEFORE any alert approval.
+  // In that case the clawback already exists and the alert just needs to leave the
+  // pending queue -- do NOT throw, do NOT create a duplicate clawback.
   const existingClawback = await prisma.clawback.findFirst({
     where: {
       saleId,
-      matchedBy: "chargeback_alert",
-      matchedValue: alert.chargebackSubmissionId,
+      OR: [
+        { matchedBy: "chargeback_alert", matchedValue: alert.chargebackSubmissionId },
+        { matchedBy: { in: ["member_id", "member_name"] } },
+      ],
     },
   });
   if (existingClawback) {
-    throw new Error("Clawback already exists for this chargeback/sale combination");
+    const updatedExisting = await prisma.payrollAlert.update({
+      where: { id: alertId },
+      data: {
+        status: "APPROVED",
+        approvedPeriodId: resolvedPeriodId,
+        approvedBy: userId,
+        approvedAt: new Date(),
+      },
+    });
+    emitAlertResolved({ alertId, status: "APPROVED" });
+    await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId: resolvedPeriodId, clawbackId: existingClawback.id, dedupedFromBatch: true });
+    return updatedExisting;
   }
 
   // D-04: Clawback amount = agent's commission portion from PayrollEntry, NOT chargeback amount
