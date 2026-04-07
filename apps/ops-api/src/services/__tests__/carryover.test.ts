@@ -300,6 +300,50 @@ describe('CARRY-09: lock -> unlock -> edit front -> re-lock carries new amount',
   });
 });
 
+// ── CARRY-11: Next-period selection across timezone boundary ─────
+describe('CARRY-11: executeCarryover writes carryover to NEXT period, not source period (timezone regression)', () => {
+  it('upserts the carryover hold on the next week id, not the source id, across the EDT/UTC boundary', async () => {
+    // Real UTC-midnight dates that exercise the EDT/UTC boundary that broke first-lock.
+    const sourceWeekStart = new Date('2026-03-29T00:00:00.000Z');
+    const sourceWeekEnd = new Date('2026-04-04T00:00:00.000Z');
+    const sourceId = `${sourceWeekStart.toISOString()}_${sourceWeekEnd.toISOString()}`;
+    const expectedNextId = '2026-04-05T00:00:00.000Z_2026-04-11T00:00:00.000Z';
+
+    const adj = makeAdj({ agentId: 'A1', frontedAmount: 200, holdAmount: 0, bonusAmount: 0 });
+    const entry = makeEntry({ agentId: 'A1', payoutAmount: 300, adjustmentAmount: 0 });
+    mockPeriodFindUnique.mockResolvedValueOnce({
+      id: sourceId,
+      weekStart: sourceWeekStart,
+      weekEnd: sourceWeekEnd,
+      carryoverExecuted: false,
+      agentAdjustments: [adj],
+      entries: [entry],
+    });
+    mockPeriodUpsert.mockResolvedValueOnce({ id: expectedNextId });
+    mockAdjUpsert.mockResolvedValueOnce({});
+    mockPeriodUpdate.mockResolvedValueOnce({});
+
+    const result = await executeCarryover(sourceId);
+
+    expect(result).toEqual({ carried: 1, skipped: false });
+
+    // Assertion 1: the "ensure next period exists" upsert targets the next period id.
+    const nextPeriodUpsertCall = mockPeriodUpsert.mock.calls[0][0];
+    expect(nextPeriodUpsertCall.where.id).toBe(expectedNextId);
+    expect(nextPeriodUpsertCall.where.id).not.toBe(sourceId);
+
+    // Assertion 2: the agent adjustment upsert targets the next period.
+    const adjUpsertCall = mockAdjUpsert.mock.calls[0][0];
+    expect(adjUpsertCall.where.agentId_payrollPeriodId.payrollPeriodId).toBe(expectedNextId);
+    expect(adjUpsertCall.where.agentId_payrollPeriodId.payrollPeriodId).not.toBe(sourceId);
+
+    // Assertion 3: hold amount equals the fronted amount (D-09 contract preserved).
+    expect(Number(adjUpsertCall.create.holdAmount)).toBe(200);
+    expect(Number(adjUpsertCall.create.carryoverAmount)).toBe(200);
+    expect(adjUpsertCall.create.carryoverSourcePeriodId).toBe(sourceId);
+  });
+});
+
 // ── CARRY-10: Partial reversal preserves non-carryover hold ──────
 describe('CARRY-10: reverseCarryover preserves hold contributed by other sources', () => {
   it('keeps remaining holdAmount and zeroes carryoverAmount only', async () => {
