@@ -1,10 +1,24 @@
-import { executeCarryover } from '../carryover';
+import { executeCarryover, reverseCarryover } from '../carryover';
 
 // ── Mock @ops/db ──────────────────────────────────────────────────
 const mockPeriodFindUnique = jest.fn();
 const mockPeriodUpsert = jest.fn();
 const mockPeriodUpdate = jest.fn();
 const mockAdjUpsert = jest.fn();
+const mockAdjFindMany = jest.fn();
+const mockAdjUpdate = jest.fn();
+
+// Transaction runner: invokes the callback with a tx proxy that reuses the same mocks.
+const mockTransaction = jest.fn((cb: any) => cb({
+  payrollPeriod: {
+    findUnique: (...args: any[]) => mockPeriodFindUnique(...args),
+    update: (...args: any[]) => mockPeriodUpdate(...args),
+  },
+  agentPeriodAdjustment: {
+    findMany: (...args: any[]) => mockAdjFindMany(...args),
+    update: (...args: any[]) => mockAdjUpdate(...args),
+  },
+}));
 
 jest.mock('@ops/db', () => ({
   __esModule: true,
@@ -16,7 +30,10 @@ jest.mock('@ops/db', () => ({
     },
     agentPeriodAdjustment: {
       upsert: (...args: any[]) => mockAdjUpsert(...args),
+      findMany: (...args: any[]) => mockAdjFindMany(...args),
+      update: (...args: any[]) => mockAdjUpdate(...args),
     },
+    $transaction: (cb: any) => mockTransaction(cb),
   },
   default: {},
 }));
@@ -61,10 +78,14 @@ beforeEach(() => {
   mockPeriodUpsert.mockReset();
   mockPeriodUpdate.mockReset();
   mockAdjUpsert.mockReset();
+  mockAdjFindMany.mockReset();
+  mockAdjUpdate.mockReset();
   // Default: next period upsert returns an object
   mockPeriodUpsert.mockResolvedValue({ id: 'next-period' });
   mockPeriodUpdate.mockResolvedValue({});
   mockAdjUpsert.mockResolvedValue({});
+  mockAdjFindMany.mockResolvedValue([]);
+  mockAdjUpdate.mockResolvedValue({});
 });
 
 // ── CARRY-02: Fronted carries as hold ─────────────────────────────
@@ -170,5 +191,142 @@ describe('No carryover when period has no adjustments', () => {
     expect(mockAdjUpsert).not.toHaveBeenCalled();
     // Should still mark carryoverExecuted
     expect(mockPeriodUpdate).toHaveBeenCalled();
+  });
+});
+
+// ── CARRY-08: Reverse carryover clears next-period hold ──────────
+describe('CARRY-08: reverseCarryover fully clears carryover-only hold', () => {
+  it('zeroes holdAmount, clears metadata, resets source carryoverExecuted', async () => {
+    mockPeriodFindUnique.mockResolvedValue({ id: 'period-1', carryoverExecuted: true });
+    mockAdjFindMany.mockResolvedValue([
+      {
+        id: 'next-adj-1',
+        holdAmount: 200,
+        holdFromCarryover: true,
+        holdLabel: 'Fronted Hold',
+        carryoverSourcePeriodId: 'period-1',
+        carryoverAmount: 200,
+      },
+    ]);
+
+    const result = await reverseCarryover('period-1');
+
+    expect(result.reversed).toBe(200);
+    expect(result.rowsTouched).toBe(1);
+
+    // Row fully drained -> clear all carryover metadata
+    expect(mockAdjUpdate).toHaveBeenCalledWith({
+      where: { id: 'next-adj-1' },
+      data: {
+        holdAmount: 0,
+        holdFromCarryover: false,
+        holdLabel: null,
+        carryoverSourcePeriodId: null,
+        carryoverAmount: null,
+      },
+    });
+
+    // Source period reset so re-lock can carryover again
+    expect(mockPeriodUpdate).toHaveBeenCalledWith({
+      where: { id: 'period-1' },
+      data: { carryoverExecuted: false },
+    });
+  });
+
+  it('is a no-op when source period was never executed', async () => {
+    mockPeriodFindUnique.mockResolvedValue({ id: 'period-1', carryoverExecuted: false });
+
+    const result = await reverseCarryover('period-1');
+
+    expect(result.reversed).toBe(0);
+    expect(result.rowsTouched).toBe(0);
+    expect(mockAdjFindMany).not.toHaveBeenCalled();
+    expect(mockAdjUpdate).not.toHaveBeenCalled();
+    expect(mockPeriodUpdate).not.toHaveBeenCalled();
+  });
+});
+
+// ── CARRY-09: Full cycle — lock, unlock, edit, re-lock ───────────
+describe('CARRY-09: lock -> unlock -> edit front -> re-lock carries new amount', () => {
+  it('first lock carries 200, unlock reverses, re-lock after edit carries 300', async () => {
+    // --- Step 1: first lock with fronted=200 ---
+    const adjV1 = makeAdj({ frontedAmount: 200 });
+    const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 300 });
+    const periodV1 = makePeriod({ agentAdjustments: [adjV1], entries: [entry], carryoverExecuted: false });
+    mockPeriodFindUnique.mockResolvedValueOnce(periodV1);
+
+    const r1 = await executeCarryover('period-1');
+    expect(r1.carried).toBe(1);
+    const firstUpsert = mockAdjUpsert.mock.calls[0][0];
+    expect(firstUpsert.create.holdAmount).toBe(200);
+    expect(firstUpsert.create.carryoverAmount).toBe(200);
+
+    // --- Step 2: unlock -> reverseCarryover ---
+    mockPeriodFindUnique.mockResolvedValueOnce({ id: 'period-1', carryoverExecuted: true });
+    mockAdjFindMany.mockResolvedValueOnce([
+      {
+        id: 'next-adj-1',
+        holdAmount: 200,
+        holdFromCarryover: true,
+        holdLabel: 'Fronted Hold',
+        carryoverSourcePeriodId: 'period-1',
+        carryoverAmount: 200,
+      },
+    ]);
+
+    const r2 = await reverseCarryover('period-1');
+    expect(r2.reversed).toBe(200);
+    expect(r2.rowsTouched).toBe(1);
+    // Source reset
+    expect(mockPeriodUpdate).toHaveBeenCalledWith({
+      where: { id: 'period-1' },
+      data: { carryoverExecuted: false },
+    });
+
+    // --- Step 3: edit fronted to 300 -> re-lock ---
+    mockAdjUpsert.mockClear();
+    const adjV2 = makeAdj({ frontedAmount: 300 });
+    const periodV2 = makePeriod({ agentAdjustments: [adjV2], entries: [entry], carryoverExecuted: false });
+    mockPeriodFindUnique.mockResolvedValueOnce(periodV2);
+
+    const r3 = await executeCarryover('period-1');
+    expect(r3.carried).toBe(1);
+    expect(r3.skipped).toBe(false);
+    const secondUpsert = mockAdjUpsert.mock.calls[0][0];
+    expect(secondUpsert.create.holdAmount).toBe(300);
+    expect(secondUpsert.create.carryoverAmount).toBe(300);
+    expect(secondUpsert.update.holdAmount).toEqual({ increment: 300 });
+    expect(secondUpsert.update.carryoverAmount).toEqual({ increment: 300 });
+  });
+});
+
+// ── CARRY-10: Partial reversal preserves non-carryover hold ──────
+describe('CARRY-10: reverseCarryover preserves hold contributed by other sources', () => {
+  it('keeps remaining holdAmount and zeroes carryoverAmount only', async () => {
+    mockPeriodFindUnique.mockResolvedValue({ id: 'period-1', carryoverExecuted: true });
+    // holdAmount 500 but only 200 came from carryover (300 from some other source)
+    mockAdjFindMany.mockResolvedValue([
+      {
+        id: 'next-adj-1',
+        holdAmount: 500,
+        holdFromCarryover: true,
+        holdLabel: 'Fronted Hold',
+        carryoverSourcePeriodId: 'period-1',
+        carryoverAmount: 200,
+      },
+    ]);
+
+    const result = await reverseCarryover('period-1');
+
+    expect(result.reversed).toBe(200);
+    expect(result.rowsTouched).toBe(1);
+    // Partial reversal: keep metadata, clear carryoverAmount, hold drops by carried amount
+    expect(mockAdjUpdate).toHaveBeenCalledWith({
+      where: { id: 'next-adj-1' },
+      data: {
+        holdAmount: 300,
+        carryoverAmount: null,
+      },
+    });
   });
 });
