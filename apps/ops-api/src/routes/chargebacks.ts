@@ -289,15 +289,49 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   //   so callers can detect the silent mode without scraping logs. Non-MATCHED
   //   chargebacks still flow through the existing /chargebacks UI — this plan
   //   does NOT change the alert-creation gate (that belongs to 46-07).
+  // 46-06: Surface silent failure modes — log when payloads are empty AND track
+  // per-cb success/failure with batchId+cbId context. Without this, the only
+  // signal a CS user gets when their chargeback never reaches the payroll
+  // dashboard is "the alert area is empty", which masks 3 distinct root causes
+  // (no MATCHED rows, throw inside createAlertFromChargeback, downstream filter).
+  if (alertPayloads.length === 0) {
+    console.warn(
+      `[chargebacks] batch ${batchId}: 0 alert payloads built ` +
+      `(${result.count} chargebacks submitted, none reached MATCHED status). ` +
+      `No payrollAlert rows will be created. Check matchStatus on the inserted ` +
+      `chargebackSubmission rows — UNMATCHED/MULTIPLE memberIds do not surface ` +
+      `as alerts via the auto-match path.`,
+    );
+  }
+
+  let alertSuccessCount = 0;
+  const alertErrors: string[] = [];
   for (const p of alertPayloads) {
     try {
       await createAlertFromChargeback(p.chargebackId, p.agentName, p.memberName, p.amount);
+      alertSuccessCount++;
     } catch (err) {
-      console.error("createAlertFromChargeback failed:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[chargebacks] batch ${batchId} cb=${p.chargebackId}: createAlertFromChargeback failed: ${msg}`,
+      );
+      alertErrors.push(`${p.chargebackId}: ${msg}`);
     }
   }
+  if (alertErrors.length > 0) {
+    console.error(
+      `[chargebacks] batch ${batchId}: ${alertErrors.length}/${alertPayloads.length} ` +
+      `alert creations failed (${alertSuccessCount} succeeded)`,
+    );
+  }
 
-  return res.status(201).json({ count: result.count, batchId });
+  return res.status(201).json({
+    count: result.count,
+    batchId,
+    alertCount: alertSuccessCount,
+    alertAttempted: alertPayloads.length,
+    alertFailed: alertErrors.length,
+  });
 }));
 
 router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {

@@ -17,7 +17,14 @@ export async function createAlertFromChargeback(
       amount: amount != null ? amount : null,
     },
   });
-  emitAlertCreated({ alertId: alert.id, agentName, amount });
+  // 46-06: Socket emit is already try/catch'd inside emitAlertCreated, but wrap
+  // here too so any future throw in the emit path cannot abort the alert row
+  // insert that already committed above.
+  try {
+    emitAlertCreated({ alertId: alert.id, agentName, amount });
+  } catch (err) {
+    console.error("[alerts] emitAlertCreated failed (non-fatal):", err);
+  }
   return alert;
 }
 
