@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
 status: executing
-last_updated: "2026-04-07T19:57:36.122Z"
+last_updated: "2026-04-07T21:12:19.709Z"
 last_activity: 2026-04-07
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 20
-  completed_plans: 20
-  percent: 100
+  total_plans: 25
+  completed_plans: 21
+  percent: 84
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 46 — bundle-commission-box-for-add-ons-and-ad-d-when-bundled-with
+**Current focus:** Phase 47 — sale-entry-payroll-ui-chargeback-fixes-bundle-standalone-aca
 
 ## Current Position
 
-Phase: 46 (bundle-commission-box-for-add-ons-and-ad-d-when-bundled-with) — EXECUTING
-Plan: 5 of 9
+Phase: 47 (sale-entry-payroll-ui-chargeback-fixes-bundle-standalone-aca) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
 Last activity: 2026-04-07
 
@@ -51,6 +51,7 @@ v2.2: [##########] 100% (3/3 phases)
 | Phase 46 P7 | 10m | 2 tasks | 3 files |
 | Phase 46 P8 | 5m | 1 tasks | 1 files |
 | Phase 46 P9 | 5m | 1 tasks | 1 files |
+| Phase 47 P01 | 2m | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,7 @@ v2.2: [##########] 100% (3/3 phases)
 - [Phase 45 P02]: Partial reversal preserves holdFromCarryover metadata but zeroes carryoverAmount when other sources contributed to the same hold row
 - [Phase 45 P02]: Unlock error path returns HTTP 500 (unlike lock path which swallows) because stale hold is worse than a failed unlock
 - [Phase 45]: Phase 45 P03: Round-robin cursor split into preview (dry-run) vs commit (transactional); cursor advance moved server-side inside chargeback/pending-term POST transactions so paste/refresh/rep-change can no longer drift assignments
+- [Phase 47]: Sub-feature 1 (standalone ACA submit): one-character type="button" fix on @ops/ui Button + defensive submitSale early-return guard; chose minimum-risk fix over DOM restructure
 
 ### Roadmap Evolution
 
