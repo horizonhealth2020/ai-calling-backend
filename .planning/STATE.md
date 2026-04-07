@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
 status: executing
-last_updated: "2026-04-07T21:17:20.547Z"
+last_updated: "2026-04-07T21:23:35.923Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 25
-  completed_plans: 22
-  percent: 88
+  completed_plans: 23
+  percent: 92
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 ## Current Position
 
 Phase: 47 (sale-entry-payroll-ui-chargeback-fixes-bundle-standalone-aca) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-04-07
 
@@ -53,6 +53,7 @@ v2.2: [##########] 100% (3/3 phases)
 | Phase 46 P9 | 5m | 1 tasks | 1 files |
 | Phase 47 P01 | 2m | 1 tasks | 1 files |
 | Phase 47 P02 | 10m | 2 tasks | 1 files |
+| Phase 47 P03 | 3m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,7 @@ v2.2: [##########] 100% (3/3 phases)
 - [Phase 45]: Phase 45 P03: Round-robin cursor split into preview (dry-run) vs commit (transactional); cursor advance moved server-side inside chargeback/pending-term POST transactions so paste/refresh/rep-change can no longer drift assignments
 - [Phase 47]: Sub-feature 1 (standalone ACA submit): one-character type="button" fix on @ops/ui Button + defensive submitSale early-return guard; chose minimum-risk fix over DOM restructure
 - [Phase 47]: Sub-feature 2 (payroll chrome compression): compress StatMini + summary strip + chargeback banner empty state padding while preserving all 6 KPIs and D-06 visibility guarantees
+- [Phase 47]: [Phase 47] Sub-feature 3 (chargeback lookup info): server-authoritative per-product commission in lookup endpoint + live net deduction useMemo on frontend; preview matches real deduction because both paths use calculatePerProductCommission
 
 ### Roadmap Evolution
 
