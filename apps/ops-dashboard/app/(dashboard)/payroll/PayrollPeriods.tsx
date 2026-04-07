@@ -760,7 +760,12 @@ export default function PayrollPeriods({
     <tbody>` +
           entries.map(e => {
             const byType: Record<string, { name: string; premium?: number }[]> = { CORE: [], ADDON: [], AD_D: [] };
-            if (e.sale?.product?.type) byType[e.sale.product.type]?.push({ name: e.sale.product.name, premium: Number(e.sale.premium) });
+            if (e.sale?.product?.type) {
+              // GAP-46-UAT-04: standalone ACA_PL sales render in the Core column
+              // (mirrors WeekSection.tsx GAP-45-07 screen behavior — commit aeef119)
+              const bucketKey = e.sale.product.type === "ACA_PL" ? "CORE" : e.sale.product.type;
+              byType[bucketKey]?.push({ name: e.sale.product.name, premium: Number(e.sale.premium) });
+            }
             if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push({ name: ad.product.name, premium: ad.premium != null ? Number(ad.premium) : undefined });
             const printProd = (items: { name: string; premium?: number }[]) => items.length
               ? `<div class="prod-group">${items.map(p => `<div class="prod-block"><span class="prod-name">${p.name}</span>${p.premium != null ? `<span class="prod-premium">$${p.premium.toFixed(2)}</span>` : ""}</div>`).join("")}</div>`
@@ -769,6 +774,12 @@ export default function PayrollPeriods({
             // Renders only when entry.acaAttached is set; uses .prod-aca print-friendly style.
             const acaChipHtml = e.acaAttached
               ? `<span class="prod-aca">${e.acaAttached.productName ?? "ACA"}</span><span class="prod-aca-amt">$${Number(e.acaAttached.payoutAmount).toFixed(2)}</span>`
+              : "";
+            // GAP-46-UAT-04: standalone ACA_PL marker chip — mirrors WeekSection.tsx:249 ACA_BADGE.
+            // Only renders when the primary product is ACA_PL AND not the folded acaAttached case
+            // (which is handled by acaChipHtml above).
+            const acaStandaloneHtml = (e.sale?.product?.type === "ACA_PL" && !e.acaAttached)
+              ? `<span class="prod-aca">ACA</span>`
               : "";
             const commFlags: string[] = [];
             if (e.halvingReason && e.sale?.commissionApproved) {
@@ -783,7 +794,7 @@ export default function PayrollPeriods({
             return `<tr>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
         <td>${e.sale?.memberName ?? "\u2014"}</td>
-        <td class="center core">${printProd(byType.CORE)}${acaChipHtml}</td>
+        <td class="center core">${printProd(byType.CORE)}${acaChipHtml}${acaStandaloneHtml}</td>
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}${enrollBonusHtml}</td>
