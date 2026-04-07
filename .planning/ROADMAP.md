@@ -168,6 +168,20 @@ Plans:
 - [x] 45-02-PLAN.md — Bug 2: Reverse carryover on unlock + add carryoverAmount field (schema migration + service helper + route wiring + tests)
 - [x] 45-03-PLAN.md — Bug 3: Split preview vs commit for CS round-robin; wrap chargeback/pending-term submit in $transaction
 
+### Phase 46: Bundle commission box for add-ons and AD&D when bundled with ACA; surface CS-submitted chargebacks in payroll alerts with grouped count; chargeback lookup in payroll should show member name, agent, amount, and product selection from sales row; ACA product badge in print view should match payroll card styling (test: Sammy Machado)
+
+**Goal:** Ship five targeted fixes: (1) new acaBundledCommission rate on ADDON/AD&D products consumed by calculateCommission when a sale has acaCoveringSaleId; (2) surface CS-submitted chargebacks in payroll alerts via diagnostic trace + minimal fix; (3) collapse per-chargeback alert stack into a single `Chargebacks (N)` badge with inline expand panel reusing the form chip UI; (4) render entry.acaAttached as an inline ACA chip inside the print view Core column; (5) cascade-delete ACA child sales atomically when deleting a parent sale so one click removes both rows.
+**Requirements**: TBD
+**Depends on:** Phase 45
+**Plans:** 5 plans
+
+Plans:
+- [ ] 46-P01-aca-bundle-commission-schema-and-calc.md — Schema + migration + calculateCommission wire-up + PayrollProducts form + API route acceptance
+- [ ] 46-P02-cs-chargeback-alert-diagnosis-and-fix.md — Diagnostic trace (46-DIAGNOSIS.md) + minimal fix for CS chargeback alert surfacing
+- [ ] 46-P03-minimized-chargeback-alert-badge.md — Collapsed `Chargebacks (N)` badge + inline expand panel with lifted ProductChipRow component
+- [ ] 46-P04-print-aca-chip-parity.md — printAgentCards inline ACA chip inside Core column (Sammy Machado 04-05→04-11 test case)
+- [ ] 46-P05-aca-cascade-delete.md — DELETE /sales/:id transactional cascade for ACA child sales + extended audit payload
+
 ---
 *Roadmap created: 2026-03-14*
-*Last updated: 2026-04-07 -- Phase 45 P02 complete (carryover reversal on unlock)*
+*Last updated: 2026-04-07 -- Phase 46 planned (5 plans)*

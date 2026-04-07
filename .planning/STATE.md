@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
 status: executing
-last_updated: "2026-04-07T16:00:00.000Z"
-last_activity: 2026-04-07 -- Phase 45 verified (gap closure 45-04/05/06 complete, PASS_WITH_FOLLOWUPS — manual UAT re-run pending)
+last_updated: "2026-04-07T16:46:58.570Z"
+last_activity: 2026-04-07 -- Phase 46 execution started
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 15
+  completed_plans: 10
+  percent: 67
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core Value:** A sale entered once flows correctly to every dashboard with accurate commission calculations -- agents get paid right, managers can track performance, owners see real KPIs.
-**Current focus:** Phase 45 — fix-aca-sales-entry-into-commission-fronts-in-payroll-are-no
+**Current focus:** Phase 46 — bundle-commission-box-for-add-ons-and-ad-d-when-bundled-with
 
 ## Current Position
 
-Phase: 45 (fix-aca-sales-entry-into-commission-fronts-in-payroll-are-no) — VERIFIED
-Plan: 6 of 6
-Status: PASS_WITH_FOLLOWUPS (manual UAT re-run pending for Tests 1, 2, 4)
-Last activity: 2026-04-07 -- Phase 45 gap closure (45-04/05/06) executed and verified
+Phase: 46 (bundle-commission-box-for-add-ons-and-ad-d-when-bundled-with) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 46
+Last activity: 2026-04-07 -- Phase 46 execution started
 
 ## Progress
 
