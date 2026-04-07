@@ -24,6 +24,11 @@ type SaleInfo = {
 type Entry = {
   id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number;
   frontedAmount: number; holdAmount: number; netAmount: number; status: string;
+  acaAttached?: {
+    memberCount: number;
+    flatCommission: number;
+    payoutAmount: number;
+  } | null;
   sale?: SaleInfo; agent?: { name: string };
 };
 type ServiceEntry = {
@@ -124,30 +129,47 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
     // parent entry instead of appearing as its own row.
     type TaggedEntry = { entry: Entry; weekStart: string; weekEnd: string; quarterLabel: string };
     const tagged: TaggedEntry[] = [];
-    for (const p of filtered) {
-      const parentBySaleId = new Map<string, Entry>();
-      for (const e of p.entries) {
-        if (e.sale && !e.sale.acaCoveringSaleId) parentBySaleId.set(e.sale.id, e);
+    for (const period of filtered) {
+      // ── GAP-45-04: order-independent ACA fold (mirrors PayrollPeriods.tsx) ──
+      const acaChildrenByParentId = new Map<string, Entry[]>();
+      for (const e of period.entries) {
+        const parentId = e.sale?.acaCoveringSaleId;
+        if (parentId) {
+          if (!acaChildrenByParentId.has(parentId)) acaChildrenByParentId.set(parentId, []);
+          acaChildrenByParentId.get(parentId)!.push(e);
+        }
       }
       const foldedEntries: Entry[] = [];
-      for (const e of p.entries) {
-        const parentId = e.sale?.acaCoveringSaleId;
-        if (parentId && parentBySaleId.has(parentId)) {
-          const parent = parentBySaleId.get(parentId)!;
+      for (const e of period.entries) {
+        if (e.sale?.acaCoveringSaleId) continue;
+        const saleId = e.sale?.id;
+        const children = saleId ? acaChildrenByParentId.get(saleId) : undefined;
+        if (children && children.length > 0) {
+          const childPayoutTotal = children.reduce((s, c) => s + Number(c.payoutAmount), 0);
+          const firstChild = children[0];
           const merged: Entry = {
-            ...parent,
-            payoutAmount: Number(parent.payoutAmount) + Number(e.payoutAmount),
-            netAmount: Number(parent.netAmount) + Number(e.payoutAmount),
+            ...e,
+            payoutAmount: Number(e.payoutAmount) + childPayoutTotal,
+            netAmount: Number(e.netAmount) + childPayoutTotal,
+            acaAttached: {
+              memberCount: firstChild.sale?.memberCount ?? 1,
+              flatCommission: Number(firstChild.sale?.product?.flatCommission ?? 0),
+              payoutAmount: childPayoutTotal,
+            },
           };
-          parentBySaleId.set(parentId, merged);
-          const idx = foldedEntries.findIndex(x => x.sale?.id === parentId);
-          if (idx >= 0) foldedEntries[idx] = merged;
-          continue;
+          foldedEntries.push(merged);
+        } else {
+          foldedEntries.push(e);
         }
-        foldedEntries.push(e);
+      }
+      for (const [parentId, children] of acaChildrenByParentId) {
+        const hasParent = period.entries.some(e => e.sale?.id === parentId && !e.sale?.acaCoveringSaleId);
+        if (!hasParent) {
+          for (const orphan of children) foldedEntries.push(orphan);
+        }
       }
       for (const e of foldedEntries) {
-        tagged.push({ entry: e, weekStart: p.weekStart, weekEnd: p.weekEnd, quarterLabel: p.quarterLabel });
+        tagged.push({ entry: e, weekStart: period.weekStart, weekEnd: period.weekEnd, quarterLabel: period.quarterLabel });
       }
     }
 
