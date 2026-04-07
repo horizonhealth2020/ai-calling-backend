@@ -36,22 +36,24 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   const parsed = result.data;
   const { addonProductIds, addonPremiums, ...saleData } = parsed;
   const uniqueAddonIds = [...new Set(addonProductIds)];
-  const sale = await prisma.sale.create({
-    data: {
-      ...saleData,
-      saleDate: new Date(parsed.saleDate + "T12:00:00"),
-      effectiveDate: new Date(parsed.effectiveDate + "T12:00:00"),
-      enteredByUserId: req.user!.id,
-      addons: uniqueAddonIds.length > 0 ? {
-        create: uniqueAddonIds.map(productId => ({ productId, premium: addonPremiums[productId] ?? null })),
-      } : undefined,
-    },
+  // Phase 47 WR-02: wrap sale.create + upsertPayrollEntryForSale in a single
+  // transaction so a payroll upsert failure rolls back the sale insert. Previously
+  // the client could get 201 with no payroll entry for the new sale.
+  const sale = await prisma.$transaction(async (tx) => {
+    const created = await tx.sale.create({
+      data: {
+        ...saleData,
+        saleDate: new Date(parsed.saleDate + "T12:00:00"),
+        effectiveDate: new Date(parsed.effectiveDate + "T12:00:00"),
+        enteredByUserId: req.user!.id,
+        addons: uniqueAddonIds.length > 0 ? {
+          create: uniqueAddonIds.map(productId => ({ productId, premium: addonPremiums[productId] ?? null })),
+        } : undefined,
+      },
+    });
+    await upsertPayrollEntryForSale(created.id, tx);
+    return created;
   });
-  try {
-    await upsertPayrollEntryForSale(sale.id);
-  } catch (err) {
-    console.error("Payroll entry failed for sale", sale.id, err);
-  }
   // Emit real-time sale:changed event to all connected dashboards
   try {
     const fullSale = await prisma.sale.findUnique({
@@ -155,6 +157,40 @@ router.post("/sales/aca", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), as
   }
 
   const saleDateStr = parsed.saleDate || new Date().toISOString().slice(0, 10);
+
+  // Phase 47 CR-02: explicit lookup + 400 instead of non-null assertion, which
+  // previously crashed the process with a TypeError when no active lead source
+  // was configured. Also fixes CR-02 companion: validate acaCoveringSaleId if
+  // present (must exist, must belong to same agent).
+  const defaultLeadSource = await prisma.leadSource.findFirst({
+    where: { active: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!defaultLeadSource) {
+    return res.status(400).json({
+      error: "No active lead source configured. Create one before entering ACA sales.",
+    });
+  }
+
+  // Phase 47 WR-05: validate ACA parent link before insert. PATCH /sales/:id
+  // validates this; the POST path was missing the check, allowing orphan FKs,
+  // cross-agent linkages, and attaching to DEAD parents.
+  if (parsed.acaCoveringSaleId) {
+    const parent = await prisma.sale.findUnique({
+      where: { id: parsed.acaCoveringSaleId },
+      select: { id: true, agentId: true, status: true },
+    });
+    if (!parent) {
+      return res.status(404).json({ error: "Covering parent sale not found" });
+    }
+    if (parent.agentId !== parsed.agentId) {
+      return res.status(400).json({ error: "ACA child agent must match parent sale agent" });
+    }
+    if (parent.status === "DEAD" || parent.status === "DECLINED") {
+      return res.status(400).json({ error: "Cannot attach ACA child to a DEAD or DECLINED parent sale" });
+    }
+  }
+
   const sale = await prisma.sale.create({
     data: {
       saleDate: new Date(saleDateStr + "T12:00:00"),
@@ -164,7 +200,7 @@ router.post("/sales/aca", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), as
       productId: parsed.productId,
       premium: 0,
       effectiveDate: new Date(saleDateStr + "T12:00:00"),
-      leadSourceId: (await prisma.leadSource.findFirst({ where: { active: true }, orderBy: { createdAt: "asc" } }))!.id,
+      leadSourceId: defaultLeadSource.id,
       status: "RAN",
       enteredByUserId: req.user!.id,
       memberCount: parsed.memberCount,
@@ -704,18 +740,24 @@ router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADM
 
   // Ran -> Dead/Declined: immediate with commission zeroing
   if (oldStatus === "RAN" && (newStatus === "DEAD" || newStatus === "DECLINED")) {
-    // Cancel any pending change request to prevent orphans
-    await prisma.statusChangeRequest.updateMany({
-      where: { saleId: sale.id, status: "PENDING" },
-      data: { status: "REJECTED", reviewedBy: req.user!.id, reviewedAt: new Date() },
-    });
+    // Phase 47 WR-02: wrap the sale.update + statusChangeRequest cancel +
+    // commission zeroing in a single transaction. Previously the sale.update
+    // could commit but handleCommissionZeroing could fail, leaving sale=DEAD
+    // with live payroll entries and no reconciliation path.
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.statusChangeRequest.updateMany({
+        where: { saleId: sale.id, status: "PENDING" },
+        data: { status: "REJECTED", reviewedBy: req.user!.id, reviewedAt: new Date() },
+      });
 
-    const updated = await prisma.sale.update({
-      where: { id: sale.id },
-      data: { status: newStatus },
-      include: { agent: true, product: true, leadSource: true },
+      const u = await tx.sale.update({
+        where: { id: sale.id },
+        data: { status: newStatus },
+        include: { agent: true, product: true, leadSource: true },
+      });
+      await handleCommissionZeroing(sale.id, tx);
+      return u;
     });
-    await handleCommissionZeroing(sale.id);
     await logAudit(req.user!.id, "UPDATE_STATUS", "Sale", sale.id, { oldStatus, newStatus });
     return res.json(updated);
   }
