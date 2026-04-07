@@ -21,7 +21,8 @@ type Product = {
   id: string; name: string; active: boolean; type: ProductType;
   premiumThreshold?: number | null; commissionBelow?: number | null;
   commissionAbove?: number | null; bundledCommission?: number | null;
-  standaloneCommission?: number | null; enrollFeeThreshold?: number | null;
+  standaloneCommission?: number | null; acaBundledCommission?: number | null;
+  enrollFeeThreshold?: number | null;
   flatCommission?: number | null;
   notes?: string;
   requiredBundleAddonId?: string | null;
@@ -58,6 +59,7 @@ function ProductCard({
     commissionAbove: String(product.commissionAbove ?? ""),
     bundledCommission: String(product.bundledCommission ?? ""),
     standaloneCommission: String(product.standaloneCommission ?? ""),
+    acaBundledCommission: String(product.acaBundledCommission ?? ""),
     enrollFeeThreshold: String(product.enrollFeeThreshold ?? ""),
     flatCommission: String(product.flatCommission ?? ""),
     requiredBundleAddonId: product.requiredBundleAddonId ?? null as string | null,
@@ -103,6 +105,9 @@ function ProductCard({
       saveData.commissionAbove = d.commissionAbove ? Number(d.commissionAbove) : null;
       saveData.bundledCommission = d.bundledCommission ? Number(d.bundledCommission) : null;
       saveData.standaloneCommission = d.standaloneCommission ? Number(d.standaloneCommission) : null;
+      if (d.type === "ADDON" || d.type === "AD_D") {
+        saveData.acaBundledCommission = d.acaBundledCommission ? Number(d.acaBundledCommission) : null;
+      }
       saveData.enrollFeeThreshold = d.enrollFeeThreshold ? Number(d.enrollFeeThreshold) : null;
       if (d.type === "CORE") {
         saveData.requiredBundleAddonId = d.requiredBundleAddonId || null;
@@ -169,6 +174,7 @@ function ProductCard({
                   {product.bundledCommission != null && <span>Bundled: <strong style={{ color: C.textSecondary }}>{product.bundledCommission}%</strong></span>}
                   {product.bundledCommission == null && product.type === "ADDON" && <span style={{ color: C.textMuted }}>Bundled: matches core</span>}
                   {product.standaloneCommission != null && <span> {"\u00B7"} Standalone: <strong style={{ color: C.textSecondary }}>{product.standaloneCommission}%</strong></span>}
+                  {product.acaBundledCommission != null && <span> {"\u00B7"} ACA Bundle: <strong style={{ color: C.textSecondary }}>{product.acaBundledCommission}%</strong></span>}
                 </>
               )}
               {product.type === "ACA_PL" && (
@@ -308,9 +314,10 @@ function ProductCard({
             )}
 
             {(d.type === "ADDON" || d.type === "AD_D") && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: S[2] }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[2] }}>
                 <div><label style={LBL}>Bundled Commission (%){d.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.bundledCommission} placeholder={d.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setD(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.standaloneCommission} placeholder={d.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setD(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+                <div><label style={LBL}>ACA Bundle Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.acaBundledCommission} placeholder="blank = use Bundled" onChange={e => setD(x => ({ ...x, acaBundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={d.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setD(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
               </div>
             )}
@@ -464,12 +471,14 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
   const [newProduct, setNewProduct] = useState<{
     name: string; type: ProductType; notes: string;
     premiumThreshold: string; commissionBelow: string; commissionAbove: string;
-    bundledCommission: string; standaloneCommission: string; enrollFeeThreshold: string;
+    bundledCommission: string; standaloneCommission: string; acaBundledCommission: string;
+    enrollFeeThreshold: string;
     flatCommission: string;
   }>({
     name: "", type: "CORE", notes: "",
     premiumThreshold: "", commissionBelow: "", commissionAbove: "",
-    bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "",
+    bundledCommission: "", standaloneCommission: "", acaBundledCommission: "",
+    enrollFeeThreshold: "",
     flatCommission: "",
   });
 
@@ -550,6 +559,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
       } else {
         if (newProduct.bundledCommission)    body.bundledCommission    = Number(newProduct.bundledCommission);
         if (newProduct.standaloneCommission) body.standaloneCommission = Number(newProduct.standaloneCommission);
+        if (newProduct.acaBundledCommission) body.acaBundledCommission = Number(newProduct.acaBundledCommission);
         if (newProduct.enrollFeeThreshold)   body.enrollFeeThreshold   = Number(newProduct.enrollFeeThreshold);
       }
       const res = await authFetch(`${API}/api/products`, {
@@ -560,7 +570,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
       if (res.ok) {
         const p = await res.json();
         setProducts(prev => [...prev, p]);
-        setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "", flatCommission: "" });
+        setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", acaBundledCommission: "", enrollFeeThreshold: "", flatCommission: "" });
         setCfgMsg("Product added");
         setShowAddProduct(false);
       } else {
@@ -614,9 +624,10 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
               </div>
             )}
             {(newProduct.type === "ADDON" || newProduct.type === "AD_D") && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: S[2] }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S[2] }}>
                 <div><label style={LBL}>Bundled Commission (%){newProduct.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
+                <div><label style={LBL}>ACA Bundle Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.acaBundledCommission} placeholder="blank = use Bundled" onChange={e => setNewProduct(x => ({ ...x, acaBundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setNewProduct(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
               </div>
             )}
