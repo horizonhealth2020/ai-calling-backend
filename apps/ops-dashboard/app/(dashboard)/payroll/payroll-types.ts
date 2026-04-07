@@ -12,6 +12,7 @@ export type SaleInfo = {
   id: string; memberName: string; memberId?: string; carrier: string;
   premium: number; enrollmentFee: number | null; commissionApproved: boolean;
   status: string; notes?: string; memberCount?: number | null;
+  acaCoveringSaleId?: string | null;
   product: { id: string; name: string; type: string; flatCommission?: number | null };
   addons?: SaleAddonInfo[];
 };
@@ -19,6 +20,11 @@ export type Entry = {
   id: string; payoutAmount: number; adjustmentAmount: number; bonusAmount: number;
   frontedAmount: number; holdAmount: number; netAmount: number; status: string;
   halvingReason?: string | null;
+  acaAttached?: {
+    memberCount: number;
+    flatCommission: number;
+    payoutAmount: number;
+  } | null;
   sale?: SaleInfo; agent?: { name: string };
 };
 export type BonusCategory = { name: string; isDeduction: boolean };
