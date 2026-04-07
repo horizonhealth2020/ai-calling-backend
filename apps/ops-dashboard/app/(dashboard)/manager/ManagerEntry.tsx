@@ -449,8 +449,8 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
       if (res.ok) {
         const sale = await res.json();
         /* If ACA checkbox is checked, create linked ACA sale */
-        if (includeAca && acaCarrier.trim()) {
-          const acaProduct = products.find(p => p.type === "ACA_PL");
+        if (includeAca && acaCarrier) {
+          const acaProduct = products.find(p => p.id === acaCarrier && p.type === "ACA_PL");
           if (acaProduct) {
             try {
               await authFetch(`${API}/api/sales/aca`, {
@@ -459,7 +459,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                 body: JSON.stringify({
                   agentId: form.agentId,
                   memberName: form.memberName,
-                  carrier: acaCarrier,
+                  carrier: acaProduct.name,
                   memberCount: parseInt(acaMemberCount, 10) || 1,
                   productId: acaProduct.id,
                   saleDate: form.saleDate || undefined,
@@ -776,13 +776,17 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                     <div style={ACA_FIELDS}>
                       <div>
                         <label style={LBL}>Carrier</label>
-                        <input
+                        <select
                           className="input-focus"
-                          style={baseInputStyle}
-                          placeholder="Enter carrier name"
+                          style={{ ...baseInputStyle, height: 42 }}
                           value={acaCarrier}
                           onChange={(e) => setAcaCarrier(e.target.value)}
-                        />
+                        >
+                          <option value="">Select ACA carrier...</option>
+                          {products.filter(p => p.type === "ACA_PL" && p.active).map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label style={LBL}>Members</label>
@@ -828,13 +832,17 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                       </div>
                       <div>
                         <label style={LBL}>Carrier</label>
-                        <input
+                        <select
                           className="input-focus"
-                          style={baseInputStyle}
-                          placeholder="Enter carrier name"
+                          style={{ ...baseInputStyle, height: 42 }}
                           value={acaStandaloneCarrier}
                           onChange={(e) => setAcaStandaloneCarrier(e.target.value)}
-                        />
+                        >
+                          <option value="">Select ACA carrier...</option>
+                          {products.filter(p => p.type === "ACA_PL" && p.active).map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label style={LBL}>Members</label>
@@ -855,11 +863,11 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                         onClick={async () => {
                           if (!acaStandaloneAgent) { setMsg({ text: "Select an agent", type: "error" }); return; }
                           if (!acaStandaloneMemberName.trim()) { setMsg({ text: "Member name is required", type: "error" }); return; }
-                          if (!acaStandaloneCarrier.trim()) { setMsg({ text: "Carrier name is required for ACA entries", type: "error" }); return; }
+                          if (!acaStandaloneCarrier) { setMsg({ text: "Select an ACA carrier", type: "error" }); return; }
                           const count = parseInt(acaStandaloneMemberCount, 10);
                           if (!count || count < 1) { setMsg({ text: "Member count must be at least 1", type: "error" }); return; }
-                          const acaProduct = products.find(p => p.type === "ACA_PL");
-                          if (!acaProduct) { setMsg({ text: "No ACA product configured", type: "error" }); return; }
+                          const acaProduct = products.find(p => p.id === acaStandaloneCarrier && p.type === "ACA_PL");
+                          if (!acaProduct) { setMsg({ text: "Selected ACA product not found", type: "error" }); return; }
                           try {
                             const resp = await authFetch(`${API}/api/sales/aca`, {
                               method: "POST",
@@ -867,7 +875,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                               body: JSON.stringify({
                                 agentId: acaStandaloneAgent,
                                 memberName: acaStandaloneMemberName,
-                                carrier: acaStandaloneCarrier,
+                                carrier: acaProduct.name,
                                 memberCount: count,
                                 productId: acaProduct.id,
                               }),
