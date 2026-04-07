@@ -25,6 +25,11 @@ export type Entry = {
     flatCommission: number;
     payoutAmount: number;
     productName?: string;
+    // Phase 47 Sub-feature 4: surfaced so EditableSaleRow can render an editable
+    // ACA covering-child row (with X button) and send the correct IDs back via
+    // the PATCH /sales/:id acaChild payload field.
+    productId?: string;
+    childSaleId?: string;
   } | null;
   sale?: SaleInfo; agent?: { name: string };
 };

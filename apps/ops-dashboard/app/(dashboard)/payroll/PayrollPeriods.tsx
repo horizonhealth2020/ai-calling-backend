@@ -184,6 +184,8 @@ export default function PayrollPeriods({
               flatCommission: Number(firstChild.sale?.product?.flatCommission ?? 0),
               payoutAmount: childPayoutTotal,
               productName: firstChild.sale?.product?.name,
+              productId: firstChild.sale?.product?.id,
+              childSaleId: firstChild.sale?.id,
             },
           };
           foldedEntries.push(merged);

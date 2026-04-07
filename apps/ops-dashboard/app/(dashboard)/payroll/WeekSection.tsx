@@ -109,6 +109,19 @@ function EditableSaleRow({
   const [addonItems, setAddonItems] = useState<{ productId: string; premium: string }[]>(
     () => (entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") }))
   );
+  // Phase 47 Sub-feature 4 (D-13/D-17): ACA covering-child edit slot.
+  // Seeded from entry.acaAttached if one exists at edit-open time. null = no child.
+  // Object = create-or-update child. The save handler sends this via PATCH /sales/:id
+  // as the canonical `acaChild` payload field (single source of truth).
+  const [acaChild, setAcaChild] = useState<{ productId: string; memberCount: number } | null>(() => {
+    if (entry.acaAttached?.productId) {
+      return {
+        productId: entry.acaAttached.productId,
+        memberCount: entry.acaAttached.memberCount ?? 1,
+      };
+    }
+    return null;
+  });
   const [saving, setSaving] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const hasNotes = !!entry.sale?.notes;
@@ -201,8 +214,11 @@ function EditableSaleRow({
                 onChange={e => setSaleData(d => ({ ...d, premium: e.target.value }))}
               />
             </div>
-            {/* Addon rows */}
-            {addonItems.map((addon, idx) => (
+            {/* Addon rows (ACA_PL rows render a # members input instead of $ premium) */}
+            {addonItems.map((addon, idx) => {
+              const selectedProduct = products.find(p => p.id === addon.productId);
+              const isAca = selectedProduct?.type === "ACA_PL";
+              return (
               <div key={idx} style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <select
                   className="input-focus"
@@ -215,13 +231,29 @@ function EditableSaleRow({
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
-                <input
-                  className="input-focus"
-                  style={{ ...SMALL_INP, width: 82 }}
-                  type="number" step="0.01" placeholder="Premium"
-                  value={addon.premium}
-                  onChange={e => setAddonItems(prev => prev.map((a, i) => i === idx ? { ...a, premium: e.target.value } : a))}
-                />
+                {isAca ? (
+                  <input
+                    className="input-focus"
+                    style={{ ...SMALL_INP, width: 82 }}
+                    type="number" min={1} step={1} placeholder="# members"
+                    aria-label="Member count"
+                    title="Number of ACA members (commission = flat rate x members)"
+                    value={addon.premium || "1"}
+                    onChange={e => {
+                      const v = parseInt(e.target.value, 10);
+                      const next = Number.isFinite(v) && v >= 1 ? String(v) : "1";
+                      setAddonItems(prev => prev.map((a, i) => i === idx ? { ...a, premium: next } : a));
+                    }}
+                  />
+                ) : (
+                  <input
+                    className="input-focus"
+                    style={{ ...SMALL_INP, width: 82 }}
+                    type="number" step="0.01" placeholder="Premium"
+                    value={addon.premium}
+                    onChange={e => setAddonItems(prev => prev.map((a, i) => i === idx ? { ...a, premium: e.target.value } : a))}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => setAddonItems(prev => prev.filter((_, i) => i !== idx))}
@@ -230,8 +262,50 @@ function EditableSaleRow({
                 >
                   <X size={10} />
                 </button>
+                {isAca && (
+                  <span style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}># members</span>
+                )}
               </div>
-            ))}
+              );
+            })}
+            {/* Phase 47 Sub-feature 4 (D-17): existing ACA covering-child row with X button */}
+            {acaChild && (
+              <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 6px", background: "rgba(14,165,233,0.08)", borderRadius: 4, border: "1px solid rgba(14,165,233,0.2)" }}>
+                <span style={{ fontSize: 10, color: C.info ?? C.accentTeal, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>ACA</span>
+                <select
+                  className="input-focus"
+                  style={{ ...SMALL_INP, width: 130, textAlign: "left" }}
+                  value={acaChild.productId}
+                  onChange={e => setAcaChild(c => (c ? { ...c, productId: e.target.value } : c))}
+                  aria-label="ACA carrier"
+                >
+                  {products.filter(p => p.active && p.type === "ACA_PL").map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <input
+                  className="input-focus"
+                  style={{ ...SMALL_INP, width: 62 }}
+                  type="number" min={1} step={1}
+                  aria-label="ACA member count"
+                  value={String(acaChild.memberCount)}
+                  onChange={e => {
+                    const v = parseInt(e.target.value, 10);
+                    setAcaChild(c => (c ? { ...c, memberCount: Number.isFinite(v) && v >= 1 ? v : 1 } : c));
+                  }}
+                />
+                <span style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}># members</span>
+                <button
+                  type="button"
+                  onClick={() => setAcaChild(null)}
+                  aria-label="Remove ACA child"
+                  title="Remove ACA covering sale"
+                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", borderRadius: 4, padding: "3px 6px", cursor: "pointer", fontSize: 11, lineHeight: 1, marginLeft: "auto" }}
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )}
             {/* Add product button */}
             <button
               type="button"
@@ -322,12 +396,54 @@ function EditableSaleRow({
               disabled={saving}
               onClick={async () => {
                 setSaving(true);
-                const addonProductIds = addonItems.filter(a => a.productId).map(a => a.productId);
+                // Phase 47 Sub-feature 4 — CANONICAL ACA-ROW HOIST FLOW.
+                // ACA_PL rows are HOISTED OUT of addonItems and sent as the
+                // canonical top-level `acaChild` payload field. The backend
+                // PATCH /sales/:id handler expects exactly one ACA field:
+                //   undefined = no change, null = remove, object = create/replace.
+                // If a newly-picked ACA_PL addon row exists AND an existing
+                // acaChild seed exists, the newly-picked row WINS (replaces).
+                const acaRows = addonItems.filter(a => {
+                  if (!a.productId) return false;
+                  const prod = products.find(p => p.id === a.productId);
+                  return prod?.type === "ACA_PL";
+                });
+                const nonAcaAddonItems = addonItems.filter(a => {
+                  if (!a.productId) return false;
+                  const prod = products.find(p => p.id === a.productId);
+                  return prod?.type !== "ACA_PL";
+                });
+
+                let acaChildPayload: { productId: string; memberCount: number } | null | undefined;
+                if (acaRows.length > 0) {
+                  // Newly-picked ACA_PL row wins over any existing acaChild seed.
+                  if (acaChild) {
+                    // eslint-disable-next-line no-console
+                    console.warn("[ACA] Newly-picked ACA_PL addon row replacing existing acaChild seed");
+                  }
+                  const last = acaRows[acaRows.length - 1];
+                  const count = parseInt(last.premium, 10);
+                  acaChildPayload = {
+                    productId: last.productId,
+                    memberCount: Number.isFinite(count) && count >= 1 ? count : 1,
+                  };
+                } else if (entry.acaAttached && !acaChild) {
+                  // User removed the existing child via the X button.
+                  acaChildPayload = null;
+                } else if (acaChild) {
+                  // Existing child edited (or unchanged) via the ACA slot.
+                  acaChildPayload = { productId: acaChild.productId, memberCount: acaChild.memberCount };
+                } else {
+                  acaChildPayload = undefined; // no change
+                }
+
+                const addonProductIds = nonAcaAddonItems.map(a => a.productId);
                 const addonPremiums: Record<string, number> = {};
-                addonItems.filter(a => a.productId).forEach(a => {
+                nonAcaAddonItems.forEach(a => {
                   addonPremiums[a.productId] = a.premium ? Number(a.premium) : 0;
                 });
-                await onSaleUpdate(entry.sale!.id, {
+
+                const payload: Record<string, unknown> = {
                   memberName: saleData.memberName,
                   memberId: saleData.memberId || null,
                   enrollmentFee: saleData.enrollmentFee ? Number(saleData.enrollmentFee) : null,
@@ -336,7 +452,12 @@ function EditableSaleRow({
                   premium: saleData.premium ? Number(saleData.premium) : undefined,
                   addonProductIds,
                   addonPremiums,
-                });
+                };
+                if (acaChildPayload !== undefined) {
+                  payload.acaChild = acaChildPayload;
+                }
+
+                await onSaleUpdate(entry.sale!.id, payload);
                 setEditSale(false); setSaving(false);
               }}
             >
@@ -348,6 +469,9 @@ function EditableSaleRow({
               onClick={() => {
                 setEditSale(false);
                 setAddonItems((entry.sale?.addons ?? []).map(a => ({ productId: a.product.id, premium: String(a.premium ?? "") })));
+                setAcaChild(entry.acaAttached?.productId
+                  ? { productId: entry.acaAttached.productId, memberCount: entry.acaAttached.memberCount ?? 1 }
+                  : null);
               }}
             >
               <X size={12} />
