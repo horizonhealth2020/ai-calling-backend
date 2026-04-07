@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
-import { getSundayWeekRange, findOldestOpenPeriodForAgent } from "../services/payroll";
+import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
@@ -197,31 +197,27 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
       orderBy: { createdAt: "desc" },
     });
 
-    const auditPayloads: Array<{ clawbackId: string; saleId: string; status: string; amount: number }> = [];
+    const auditPayloads: Array<{ clawbackId: string; saleId: string; status: string; amount: number; mode?: string; entryId?: string }> = [];
     const alertPayloadsLocal: Array<{ chargebackId: string; agentName?: string; memberName?: string; amount: number }> = [];
 
     for (const cb of refreshedChargebacks) {
       if (cb.matchStatus === "MATCHED" && cb.matchedSaleId) {
-        // ── EXISTING MATCHED PATH (unchanged behavior) ──
+        // ── EXISTING MATCHED PATH (now uses shared applyChargebackToEntry helper) ──
         const sale = await tx.sale.findUnique({
           where: { id: cb.matchedSaleId },
           include: { payrollEntries: true, product: true, addons: { include: { product: true } }, agent: true },
         });
         if (!sale) continue;
 
-        // Find oldest OPEN payroll period for the agent
-        let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
-        if (!targetPeriodId && sale.payrollEntries.length > 0) {
-          targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
-        }
+        // Reference entry: prefer OPEN-period entry, fall back to first existing.
+        const openPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+        const referenceEntry =
+          (openPeriodId
+            ? sale.payrollEntries.find(e => e.payrollPeriodId === openPeriodId)
+            : undefined) ?? sale.payrollEntries[0];
 
-        const targetEntry = targetPeriodId
-          ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
-          : sale.payrollEntries[0];
+        const chargebackAmount = referenceEntry ? Number(referenceEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
 
-        const chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
-
-        const zeroOut = !targetEntry || targetEntry.status !== "PAID";
         const clawback = await tx.clawback.create({
           data: {
             saleId: sale.id,
@@ -229,22 +225,20 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
             matchedBy: cb.memberId ? "member_id" : "member_name",
             matchedValue: cb.memberId || cb.memberCompany || "",
             amount: chargebackAmount,
-            status: zeroOut ? "ZEROED" : "DEDUCTED",
-            appliedPayrollPeriodId: targetPeriodId || undefined,
+            status: "ZEROED",
+            appliedPayrollPeriodId: openPeriodId || undefined,
             notes: `Batch chargeback (${batchId})`,
           },
         });
 
-        if (targetEntry) {
-          await tx.payrollEntry.update({
-            where: { id: targetEntry.id },
-            data: zeroOut
-              ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
-              : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
-          });
-        }
+        // Shared helper: in-period zero vs cross-period negative insert
+        const outcome = await applyChargebackToEntry(
+          tx,
+          { id: sale.id, agentId: sale.agentId, payrollEntries: sale.payrollEntries },
+          chargebackAmount,
+        );
 
-        auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount });
+        auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount, mode: outcome.mode, entryId: outcome.entryId });
         alertPayloadsLocal.push({
           chargebackId: cb.id,
           agentName: sale.agent?.name,

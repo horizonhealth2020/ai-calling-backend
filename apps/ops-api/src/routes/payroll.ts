@@ -4,7 +4,7 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { executeCarryover, reverseCarryover } from "../services/carryover";
-import { findOldestOpenPeriodForAgent, calculatePerProductCommission } from "../services/payroll";
+import { findOldestOpenPeriodForAgent, calculatePerProductCommission, applyChargebackToEntry } from "../services/payroll";
 import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 
 const router = Router();
@@ -212,27 +212,22 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
       });
   if (!sale) return res.status(404).json({ error: "Matching sale not found" });
 
-  // Find the oldest OPEN period for this agent (instead of first entry)
-  let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
-
-  // Fallback: if no OPEN period, use the most recent payroll entry's period
-  if (!targetPeriodId && sale.payrollEntries.length > 0) {
-    targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
-  }
-
-  // Find the payroll entry in the target period for this sale
-  const targetEntry = targetPeriodId
-    ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
-    : sale.payrollEntries[0];
+  // Determine reference entry for amount calculation: prefer OPEN-period entry,
+  // fall back to the first existing entry (could be in LOCKED/FINALIZED).
+  const openPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+  const referenceEntry =
+    (openPeriodId
+      ? sale.payrollEntries.find(e => e.payrollPeriodId === openPeriodId)
+      : undefined) ?? sale.payrollEntries[0];
 
   // Calculate chargeback amount
   let chargebackAmount: number;
   const productIds = payload.productIds;
   if (productIds && productIds.length > 0) {
-    const fullPayout = targetEntry ? Number(targetEntry.payoutAmount) : 0;
+    const fullPayout = referenceEntry ? Number(referenceEntry.payoutAmount) : 0;
     chargebackAmount = calculatePerProductCommission(sale as Parameters<typeof calculatePerProductCommission>[0], productIds, fullPayout);
   } else {
-    chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : 0;
+    chargebackAmount = referenceEntry ? Number(referenceEntry.netAmount) : 0;
   }
 
   // Build notes with product names for partial chargebacks
@@ -245,45 +240,55 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
     }
   }
 
-  const zeroOut = !targetEntry || targetEntry.status !== "PAID";
-  const clawback = await prisma.clawback.create({
-    data: {
-      saleId: sale.id,
-      agentId: sale.agentId,
-      matchedBy: payload.memberId ? "member_id" : "member_name",
-      matchedValue: payload.memberId || payload.memberName || "",
-      amount: chargebackAmount,
-      status: zeroOut ? "ZEROED" : "DEDUCTED",
-      appliedPayrollPeriodId: targetPeriodId || undefined,
-      notes: notes || undefined,
-    },
+  // Wrap clawback insert + entry mutation in a single transaction so partial
+  // failure cannot leave a clawback row without its corresponding payroll entry.
+  const { clawback, outcome } = await prisma.$transaction(async (tx) => {
+    const created = await tx.clawback.create({
+      data: {
+        saleId: sale.id,
+        agentId: sale.agentId,
+        matchedBy: payload.memberId ? "member_id" : "member_name",
+        matchedValue: payload.memberId || payload.memberName || "",
+        amount: chargebackAmount,
+        status: "ZEROED",
+        appliedPayrollPeriodId: openPeriodId || undefined,
+        notes: notes || undefined,
+      },
+    });
+
+    // Create ClawbackProduct records for per-product tracking
+    if (productIds && productIds.length > 0) {
+      const allProducts = [sale.product, ...sale.addons.map(a => a.product)];
+      const fullPayout = referenceEntry ? Number(referenceEntry.payoutAmount) : 0;
+      const productRecords = productIds
+        .filter(pid => allProducts.some(p => p.id === pid))
+        .map(pid => ({
+          clawbackId: created.id,
+          productId: pid,
+          amount: calculatePerProductCommission(sale as Parameters<typeof calculatePerProductCommission>[0], [pid], fullPayout),
+        }));
+      if (productRecords.length > 0) {
+        await tx.clawbackProduct.createMany({ data: productRecords });
+      }
+    }
+
+    // Apply via shared helper — handles in-period zero vs cross-period insert
+    const applied = await applyChargebackToEntry(
+      tx,
+      { id: sale.id, agentId: sale.agentId, payrollEntries: sale.payrollEntries },
+      chargebackAmount,
+    );
+
+    return { clawback: created, outcome: applied };
   });
 
-  // Create ClawbackProduct records for per-product tracking
-  if (productIds && productIds.length > 0) {
-    const allProducts = [sale.product, ...sale.addons.map(a => a.product)];
-    const fullPayout = targetEntry ? Number(targetEntry.payoutAmount) : 0;
-    const productRecords = productIds
-      .filter(pid => allProducts.some(p => p.id === pid))
-      .map(pid => ({
-        clawbackId: clawback.id,
-        productId: pid,
-        amount: calculatePerProductCommission(sale as Parameters<typeof calculatePerProductCommission>[0], [pid], fullPayout),
-      }));
-    if (productRecords.length > 0) {
-      await prisma.clawbackProduct.createMany({ data: productRecords });
-    }
-  }
-
-  if (targetEntry) {
-    await prisma.payrollEntry.update({
-      where: { id: targetEntry.id },
-      data: zeroOut
-        ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
-        : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
-    });
-  }
-  await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, { saleId: sale.id, status: clawback.status, amount: chargebackAmount });
+  await logAudit(req.user!.id, "CREATE", "Clawback", clawback.id, {
+    saleId: sale.id,
+    status: clawback.status,
+    amount: chargebackAmount,
+    chargebackMode: outcome.mode,
+    appliedEntryId: outcome.entryId,
+  });
   res.status(201).json(clawback);
 }));
 

@@ -1,7 +1,7 @@
 import { prisma } from "@ops/db";
 import { emitAlertCreated, emitAlertResolved, emitClawbackCreated } from "../socket";
 import { logAudit } from "./audit";
-import { findOldestOpenPeriodForAgent } from "./payroll";
+import { findOldestOpenPeriodForAgent, applyChargebackToEntry } from "./payroll";
 
 export async function createAlertFromChargeback(
   chargebackId: string,
@@ -198,6 +198,17 @@ export async function approveAlert(
         notes: `Auto-created from chargeback. Commission clawback: $${clawbackAmount.toFixed(2)}`,
       },
     });
+
+    // Phase 47-05: Apply payroll entry mutation via shared helper for parity
+    // with the single-clawback (routes/payroll.ts) and batch (routes/chargebacks.ts)
+    // paths. In-period zeros original entry; cross-period inserts new negative row.
+    if (sale && sale.payrollEntries && sale.payrollEntries.length > 0) {
+      await applyChargebackToEntry(
+        tx,
+        { id: saleId!, agentId: sale.agentId, payrollEntries: sale.payrollEntries },
+        clawbackAmount,
+      );
+    }
 
     const updated = await tx.payrollAlert.update({
       where: { id: alertId },
