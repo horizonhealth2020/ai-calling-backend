@@ -193,14 +193,22 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   }).safeParse(req.body);
   if (!parsed3.success) return res.status(400).json(zodErr(parsed3.error));
   const payload = parsed3.data;
+  // Phase 46 GAP-46-02: include acaCoveredSales so calculatePerProductCommission
+  // can detect ACA-bundled parent sales and apply acaBundledCommission rate.
+  const saleInclude = {
+    payrollEntries: true,
+    product: true,
+    addons: { include: { product: true } },
+    acaCoveredSales: { where: { product: { type: "ACA_PL" as const } }, select: { id: true } },
+  };
   const sale = payload.memberId
     ? await prisma.sale.findFirst({
         where: { memberId: payload.memberId },
-        include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
+        include: saleInclude,
       })
     : await prisma.sale.findFirst({
         where: { memberName: payload.memberName },
-        include: { payrollEntries: true, product: true, addons: { include: { product: true } } },
+        include: saleInclude,
       });
   if (!sale) return res.status(404).json({ error: "Matching sale not found" });
 

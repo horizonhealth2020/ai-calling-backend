@@ -114,10 +114,11 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
   const addons = sale.addons ?? [];
   let halvingReason: string | null = null;
 
-  // Phase 46: when this sale is bundled with an ACA PL covering sale,
-  // ADDON/AD_D entries should prefer their acaBundledCommission rate over
-  // the regular bundledCommission. Falls back to bundledCommission when null.
-  const isAcaBundled = !!(sale as SaleWithProduct & { acaCoveringSaleId?: string | null }).acaCoveringSaleId;
+  // Phase 46 GAP-46-02: detect "this AD&D/ADDON parent sale has at least one
+  // linked ACA PL child sale". The self-relation is set on the CHILD ACA PL
+  // sale's acaCoveringSaleId column, pointing UP at this parent. So we check
+  // the inverse relation acaCoveredSales (loaded by upsertPayrollEntryForSale).
+  const isAcaBundled = ((sale as SaleWithProduct & { acaCoveredSales?: { id: string }[] }).acaCoveredSales?.length ?? 0) > 0;
 
   // Build product entries with their respective premiums
   const allEntries = [
@@ -337,6 +338,13 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
         },
       },
       addons: { include: { product: true } },
+      // Phase 46 GAP-46-02: detect "this AD&D/ADDON sale has linked ACA PL child(ren)"
+      // so calculateCommission can apply acaBundledCommission rate. The acaCoveringSaleId
+      // self-relation is set on the CHILD ACA PL sale, pointing UP at this parent.
+      acaCoveredSales: {
+        where: { product: { type: "ACA_PL" } },
+        select: { id: true },
+      },
     },
   });
   if (!sale) throw new Error("Sale not found");
@@ -438,8 +446,10 @@ export function calculatePerProductCommission(
   const hasCoreInSale = !!coreEntry;
   const coreSelected = coreEntry ? selectedSet.has(coreEntry.product.id) : false;
 
-  // Phase 46 GAP-46-01: ACA-bundled rate preference for ADDON/AD_D entries
-  const isAcaBundled = !!(sale as SaleWithProduct & { acaCoveringSaleId?: string | null }).acaCoveringSaleId;
+  // Phase 46 GAP-46-02: ACA-bundled rate applies when the parent sale has at
+  // least one linked ACA PL child (acaCoveredSales inverse relation). The
+  // child is what carries acaCoveringSaleId; the parent has the inverse list.
+  const isAcaBundled = ((sale as SaleWithProduct & { acaCoveredSales?: { id: string }[] }).acaCoveredSales?.length ?? 0) > 0;
 
   let totalCommission = 0;
 
