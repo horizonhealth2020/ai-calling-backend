@@ -526,7 +526,29 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
   const saleId = pp.data.id;
   const sale = await prisma.sale.findUnique({ where: { id: saleId }, select: { id: true, memberName: true, agentId: true, premium: true } });
   if (!sale) return res.status(404).json({ error: "Sale not found" });
+
+  // D-18: collect ACA child sale IDs (linked via Phase 42 acaCoveringSaleId self-relation)
+  // BEFORE the transaction so we can cascade their dependents and include the IDs in the audit payload.
+  const childSales = await prisma.sale.findMany({
+    where: { acaCoveringSaleId: saleId },
+    select: { id: true },
+  });
+  const childIds = childSales.map((c) => c.id);
+
+  // D-17, D-18: atomic cascade — delete child dependents + child sales BEFORE parent cleanup
+  // so FK references from child rows are gone before the parent sale is removed.
+  // Note: deleteMany with `id: { in: [] }` is a safe no-op in Prisma, so the cascade block
+  // runs unconditionally with no guard for the no-child case.
   await prisma.$transaction([
+    // --- ACA child cascade ---
+    prisma.saleAddon.deleteMany({ where: { saleId: { in: childIds } } }),
+    prisma.clawback.deleteMany({ where: { saleId: { in: childIds } } }),
+    prisma.payrollEntry.deleteMany({ where: { saleId: { in: childIds } } }),
+    prisma.statusChangeRequest.deleteMany({ where: { saleId: { in: childIds } } }),
+    prisma.saleEditRequest.deleteMany({ where: { saleId: { in: childIds } } }),
+    prisma.sale.deleteMany({ where: { id: { in: childIds } } }),
+
+    // --- parent cleanup (existing logic) ---
     prisma.saleAddon.deleteMany({ where: { saleId } }),
     prisma.clawback.deleteMany({ where: { saleId } }),
     prisma.payrollEntry.deleteMany({ where: { saleId } }),
@@ -534,7 +556,14 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
     prisma.saleEditRequest.deleteMany({ where: { saleId } }),
     prisma.sale.delete({ where: { id: saleId } }),
   ]);
-  await logAudit(req.user!.id, "DELETE", "Sale", saleId, { memberName: sale.memberName, agentId: sale.agentId, premium: Number(sale.premium) });
+
+  // D-19: include cascaded child IDs in the audit payload (do not silently drop them).
+  await logAudit(req.user!.id, "DELETE", "Sale", saleId, {
+    memberName: sale.memberName,
+    agentId: sale.agentId,
+    premium: Number(sale.premium),
+    cascadedChildSaleIds: childIds,
+  });
   return res.status(204).end();
 }));
 
