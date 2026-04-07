@@ -19,10 +19,27 @@ export async function executeCarryover(periodId: string): Promise<{ carried: num
   // CARRY-06: idempotency -- skip if already executed
   if (period.carryoverExecuted) return { carried: 0, skipped: true };
 
-  // Calculate next period dates using getSundayWeekRange
-  const nextDay = new Date(period.weekEnd.getTime() + 86400000);
+  // Calculate next period dates using getSundayWeekRange.
+  // GAP-45-05: derive nextDay from period.weekStart (a Sunday stored as UTC
+  // midnight) plus 7 days 12 hours. The +12h offset lands the timestamp at
+  // UTC noon on the next Sunday, which converts to next-Sunday-morning in
+  // America/New_York regardless of EDT/EST. The previous formulation
+  // (weekEnd + 1 day) produced UTC-midnight Sunday which converts to the
+  // PREVIOUS Saturday 8pm Eastern, causing getSundayWeekRange to return the
+  // SAME week as the source period and the carryover hold to be written to
+  // the source period instead of the next period.
+  const NEXT_PERIOD_OFFSET_MS = (7 * 24 + 12) * 3600 * 1000;
+  const nextDay = new Date(period.weekStart.getTime() + NEXT_PERIOD_OFFSET_MS);
   const { weekStart, weekEnd } = getSundayWeekRange(nextDay);
   const nextPeriodId = `${weekStart.toISOString()}_${weekEnd.toISOString()}`;
+
+  if (nextPeriodId === periodId) {
+    throw new Error(
+      `[carryover] computed nextPeriodId equals sourcePeriodId (${periodId}); ` +
+      `refusing to write carryover to source period. This indicates a bug in ` +
+      `getSundayWeekRange or the offset arithmetic.`
+    );
+  }
 
   // Ensure next period exists
   await prisma.payrollPeriod.upsert({
