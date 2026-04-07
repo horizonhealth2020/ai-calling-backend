@@ -308,21 +308,25 @@ export async function resolveBundleRequirement(
  * - OPEN periods: zero out (payoutAmount=0, netAmount=0, status=ZEROED_OUT)
  * - Finalized/paid periods: apply clawback (negative adjustment, status=CLAWBACK_APPLIED)
  */
-export const handleCommissionZeroing = async (saleId: string) => {
-  const entries = await prisma.payrollEntry.findMany({
+export const handleCommissionZeroing = async (saleId: string, tx?: PrismaTx) => {
+  // Phase 47 WR-02: accept optional tx so callers can atomically wrap the
+  // Sale.update + commission-zeroing mutations. When no tx is supplied, fall
+  // back to the module-level prisma client to preserve existing callers.
+  const db = tx ?? prisma;
+  const entries = await db.payrollEntry.findMany({
     where: { saleId },
     include: { payrollPeriod: true },
   });
 
   for (const entry of entries) {
     if (entry.payrollPeriod.status === 'OPEN') {
-      await prisma.payrollEntry.update({
+      await db.payrollEntry.update({
         where: { id: entry.id },
         data: { payoutAmount: 0, netAmount: 0, status: 'ZEROED_OUT' },
       });
     } else {
       // Finalized/locked/paid: apply clawback pattern (mirrors clawback logic in routes)
-      await prisma.payrollEntry.update({
+      await db.payrollEntry.update({
         where: { id: entry.id },
         data: {
           adjustmentAmount: Number(entry.adjustmentAmount) - Number(entry.netAmount),
@@ -451,20 +455,40 @@ export async function applyChargebackToEntry(
   sale: {
     id: string;
     agentId: string;
-    payrollEntries: { id: string; payrollPeriodId: string; payoutAmount: any }[];
+    payrollEntries: { id: string; payrollPeriodId: string; payoutAmount: any; status?: string; createdAt?: Date }[];
   },
   chargebackAmount: number,
 ): Promise<{ mode: "in_period" | "cross_period"; entryId: string }> {
-  const originalEntry = sale.payrollEntries[0];
-  const originalPeriod = originalEntry
-    ? await tx.payrollPeriod.findUnique({
-        where: { id: originalEntry.payrollPeriodId },
-        select: { status: true },
-      })
-    : null;
+  // Phase 47 CR-01: Select the "original entry" deterministically. Exclude rows
+  // that are themselves products of a prior clawback (CLAWBACK_APPLIED,
+  // ZEROED_OUT_IN_PERIOD, CLAWBACK_CROSS_PERIOD) — those are NOT the live payout
+  // we want to reverse. Prefer the oldest remaining entry (by createdAt asc).
+  const nonClawbackEntries = sale.payrollEntries
+    .filter(e =>
+      e.status !== "CLAWBACK_APPLIED" &&
+      e.status !== "ZEROED_OUT_IN_PERIOD" &&
+      e.status !== "CLAWBACK_CROSS_PERIOD"
+    )
+    .slice()
+    .sort((a, b) => {
+      const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return ad - bd;
+    });
+
+  const originalEntry = nonClawbackEntries[0];
+  if (!originalEntry) {
+    throw new Error(
+      `Sale ${sale.id} has no eligible live payroll entry to apply chargeback to (already fully clawed back)`,
+    );
+  }
+  const originalPeriod = await tx.payrollPeriod.findUnique({
+    where: { id: originalEntry.payrollPeriodId },
+    select: { status: true },
+  });
 
   // IN-PERIOD (OPEN) — zero original row in place, mark yellow
-  if (originalPeriod?.status === "OPEN" && originalEntry) {
+  if (originalPeriod?.status === "OPEN") {
     const updated = await tx.payrollEntry.update({
       where: { id: originalEntry.id },
       data: {
@@ -517,13 +541,15 @@ export function calculatePerProductCommission(
     allProductIds.add(addon.product.id);
   }
 
-  // If all products selected or none specified, return full amount
-  if (productIds.length === 0 || productIds.length >= allProductIds.size) {
-    const allIncluded = productIds.every(id => allProductIds.has(id));
-    if (allIncluded && productIds.length >= allProductIds.size) {
-      return fullPayoutAmount;
-    }
-  }
+  // Phase 47 WR-08: simplified guard. Previously the inner check could never
+  // fire for the empty-list case because `0 >= allProductIds.size` is only true
+  // for zero-product sales (impossible), contradicting the docstring.
+  if (productIds.length === 0) return fullPayoutAmount;
+  const allIncluded =
+    allProductIds.size > 0 &&
+    productIds.length >= allProductIds.size &&
+    productIds.every(id => allProductIds.has(id));
+  if (allIncluded) return fullPayoutAmount;
 
   const selectedSet = new Set(productIds);
   const allEntries = [

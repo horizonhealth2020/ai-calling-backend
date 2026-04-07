@@ -50,7 +50,9 @@ export async function approveAlert(
         include: {
           matchedSale: {
             include: {
-              payrollEntries: true,
+              // Phase 47 CR-01: deterministic ordering so applyChargebackToEntry
+              // selects the correct "original" entry.
+              payrollEntries: { orderBy: { createdAt: "asc" } },
               agent: true,
             },
           },
@@ -102,7 +104,7 @@ export async function approveAlert(
       // Verify the manual pick exists and pull the sale + agent for the rest of the flow.
       const pickedSale = await tx.sale.findUnique({
         where: { id: manualSaleId },
-        include: { payrollEntries: true, agent: true },
+        include: { payrollEntries: { orderBy: { createdAt: "asc" } }, agent: true },
       });
       if (!pickedSale) throw new Error("Manually picked sale not found");
 
@@ -120,7 +122,12 @@ export async function approveAlert(
         include: {
           chargeback: {
             include: {
-              matchedSale: { include: { payrollEntries: true, agent: true } },
+              matchedSale: {
+                include: {
+                  payrollEntries: { orderBy: { createdAt: "asc" } },
+                  agent: true,
+                },
+              },
             },
           },
         },
@@ -155,13 +162,28 @@ export async function approveAlert(
     //   matchedBy: cb.memberId ? "member_id" : "member_name"
     //   matchedValue: cb.memberId || cb.memberCompany || ""
     // so this still catches the legacy auto-match-then-approve dedupe use case.
+    // Phase 47 WR-06: constrain the member_id / member_name dedupe branches
+    // to clawbacks created AFTER the alert's source chargeback row. Without
+    // this bound, two legitimate chargebacks for the same member in different
+    // batches would silently dedupe to the oldest clawback. The exact-match
+    // chargeback_alert branch is still unconstrained because it's keyed on
+    // chargebackSubmissionId (a unique FK) and cannot false-positive.
+    const cbCreatedAt = alert.chargeback?.createdAt ?? new Date(0);
     const existingClawback = await tx.clawback.findFirst({
       where: {
         saleId,
         OR: [
           { matchedBy: "chargeback_alert", matchedValue: alert.chargebackSubmissionId },
-          { matchedBy: "member_id",   matchedValue: alert.chargeback?.memberId ?? "__none__" },
-          { matchedBy: "member_name", matchedValue: alert.chargeback?.memberCompany ?? "__none__" },
+          {
+            matchedBy: "member_id",
+            matchedValue: alert.chargeback?.memberId ?? "__none__",
+            createdAt: { gte: cbCreatedAt },
+          },
+          {
+            matchedBy: "member_name",
+            matchedValue: alert.chargeback?.memberCompany ?? "__none__",
+            createdAt: { gte: cbCreatedAt },
+          },
         ],
       },
     });
@@ -180,9 +202,16 @@ export async function approveAlert(
       return updatedExisting;
     }
 
-    // D-04: Clawback amount = agent's commission portion from PayrollEntry, NOT chargeback amount
+    // D-04: Clawback amount = agent's commission portion from PayrollEntry, NOT chargeback amount.
+    // Phase 47 CR-01/WR-01: pick the oldest non-clawback entry so we anchor to the
+    // original live payout (not a prior clawback's cross-period negative row).
     const sale = alert.chargeback?.matchedSale;
-    const payrollEntry = sale?.payrollEntries?.[0];
+    const liveEntries = (sale?.payrollEntries ?? []).filter((e: any) =>
+      e.status !== "CLAWBACK_APPLIED" &&
+      e.status !== "ZEROED_OUT_IN_PERIOD" &&
+      e.status !== "CLAWBACK_CROSS_PERIOD"
+    );
+    const payrollEntry = liveEntries[0];
     const clawbackAmount = payrollEntry ? Number(payrollEntry.payoutAmount) : Number(alert.amount ?? 0);
 
     // Create clawback with correct sale reference

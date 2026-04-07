@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
-import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry } from "../services/payroll";
+import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry, calculatePerProductCommission } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
@@ -76,18 +76,48 @@ router.post("/chargebacks/preview", requireAuth, requireRole("SUPER_ADMIN", "OWN
     return {
       ...record,
       matchStatus,
-      matchedSales: matchingSales.map(sale => ({
-        id: sale.id,
-        memberName: sale.memberName,
-        agentName: sale.agent.name,
-        agentId: sale.agentId,
-        products: [
-          { id: sale.product.id, name: sale.product.name, type: sale.product.type, premium: Number(sale.premium) },
-          ...sale.addons.map((a: any) => ({
-            id: a.product.id, name: a.product.name, type: a.product.type, premium: Number(a.premium ?? 0),
-          })),
-        ],
-      })),
+      matchedSales: matchingSales.map((sale: any) => {
+        // Phase 47 WR-04: return per-product COMMISSION (not premium) so the
+        // payroll review UI sums to the same number the server will write.
+        // The server uses payoutAmount (sale commission) as the clawback basis;
+        // premium is the wrong signal because premium != commission.
+        const liveEntries = (sale.payrollEntries ?? []).filter((e: any) =>
+          e.status !== "CLAWBACK_APPLIED" &&
+          e.status !== "ZEROED_OUT_IN_PERIOD" &&
+          e.status !== "CLAWBACK_CROSS_PERIOD"
+        );
+        const fullPayout = liveEntries[0] ? Number(liveEntries[0].payoutAmount) : 0;
+        const productCommission = (productId: string) =>
+          calculatePerProductCommission(
+            sale as Parameters<typeof calculatePerProductCommission>[0],
+            [productId],
+            fullPayout,
+          );
+
+        return {
+          id: sale.id,
+          memberName: sale.memberName,
+          agentName: sale.agent.name,
+          agentId: sale.agentId,
+          fullCommission: fullPayout,
+          products: [
+            {
+              id: sale.product.id,
+              name: sale.product.name,
+              type: sale.product.type,
+              premium: Number(sale.premium),
+              commission: productCommission(sale.product.id),
+            },
+            ...sale.addons.map((a: any) => ({
+              id: a.product.id,
+              name: a.product.name,
+              type: a.product.type,
+              premium: Number(a.premium ?? 0),
+              commission: productCommission(a.product.id),
+            })),
+          ],
+        };
+      }),
       selectedSaleId: matchingSales.length === 1 ? matchingSales[0].id : null,
     };
   });
@@ -205,18 +235,34 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
         // ── EXISTING MATCHED PATH (now uses shared applyChargebackToEntry helper) ──
         const sale = await tx.sale.findUnique({
           where: { id: cb.matchedSaleId },
-          include: { payrollEntries: true, product: true, addons: { include: { product: true } }, agent: true },
+          include: {
+            payrollEntries: { orderBy: { createdAt: "asc" } },
+            product: true,
+            addons: { include: { product: true } },
+            agent: true,
+          },
         });
         if (!sale) continue;
 
-        // Reference entry: prefer OPEN-period entry, fall back to first existing.
+        // Reference entry: prefer OPEN-period entry, fall back to oldest non-clawback entry.
+        // Phase 47 CR-01/WR-01: exclude clawback-status rows so we don't anchor to a prior
+        // clawback's cross-period negative row.
         const openPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+        const liveEntries = sale.payrollEntries.filter(e =>
+          e.status !== "CLAWBACK_APPLIED" &&
+          e.status !== "ZEROED_OUT_IN_PERIOD" &&
+          e.status !== "CLAWBACK_CROSS_PERIOD"
+        );
         const referenceEntry =
           (openPeriodId
-            ? sale.payrollEntries.find(e => e.payrollPeriodId === openPeriodId)
-            : undefined) ?? sale.payrollEntries[0];
+            ? liveEntries.find(e => e.payrollPeriodId === openPeriodId)
+            : undefined) ?? liveEntries[0];
 
-        const chargebackAmount = referenceEntry ? Number(referenceEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
+        // Phase 47 WR-01: canonicalize on payoutAmount (the sale's own commission).
+        // netAmount = payoutAmount + adjustment + bonus + fronted - hold, which pulls in
+        // unrelated period-level adjustments. The alerts.ts path already uses payoutAmount;
+        // align chargebacks.ts and payroll.ts with it.
+        const chargebackAmount = referenceEntry ? Number(referenceEntry.payoutAmount) : Math.abs(Number(cb.chargebackAmount));
 
         const clawback = await tx.clawback.create({
           data: {

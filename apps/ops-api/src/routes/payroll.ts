@@ -109,8 +109,14 @@ router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADM
   }
 
   if (entryIds.length > 0) {
+    // Phase 47 WR-03: exclude ZEROED_OUT_IN_PERIOD and CLAWBACK_CROSS_PERIOD as well,
+    // so a bulk "Mark Paid" does not overwrite the visual distinction (yellow/orange)
+    // for already-resolved cross-period chargebacks.
     await prisma.payrollEntry.updateMany({
-      where: { id: { in: entryIds }, status: { not: "ZEROED_OUT" } },
+      where: {
+        id: { in: entryIds },
+        status: { notIn: ["ZEROED_OUT", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"] },
+      },
       data: { status: "PAID", paidAt: new Date() },
     });
   }
@@ -195,8 +201,10 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   const payload = parsed3.data;
   // Phase 46 GAP-46-02: include acaCoveredSales so calculatePerProductCommission
   // can detect ACA-bundled parent sales and apply acaBundledCommission rate.
+  // Phase 47 CR-01: deterministic order on payrollEntries so downstream
+  // applyChargebackToEntry sees entries sorted oldest-first.
   const saleInclude = {
-    payrollEntries: true,
+    payrollEntries: { orderBy: { createdAt: "asc" as const } },
     product: true,
     addons: { include: { product: true } },
     acaCoveredSales: { where: { product: { type: "ACA_PL" as const } }, select: { id: true } },
@@ -213,12 +221,18 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   if (!sale) return res.status(404).json({ error: "Matching sale not found" });
 
   // Determine reference entry for amount calculation: prefer OPEN-period entry,
-  // fall back to the first existing entry (could be in LOCKED/FINALIZED).
+  // fall back to the oldest non-clawback entry (could be in LOCKED/FINALIZED).
+  // Phase 47 CR-01: exclude clawback rows so we anchor to the live original entry.
   const openPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+  const liveEntries = sale.payrollEntries.filter(e =>
+    e.status !== "CLAWBACK_APPLIED" &&
+    e.status !== "ZEROED_OUT_IN_PERIOD" &&
+    e.status !== "CLAWBACK_CROSS_PERIOD"
+  );
   const referenceEntry =
     (openPeriodId
-      ? sale.payrollEntries.find(e => e.payrollPeriodId === openPeriodId)
-      : undefined) ?? sale.payrollEntries[0];
+      ? liveEntries.find(e => e.payrollPeriodId === openPeriodId)
+      : undefined) ?? liveEntries[0];
 
   // Calculate chargeback amount
   let chargebackAmount: number;
@@ -227,7 +241,9 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
     const fullPayout = referenceEntry ? Number(referenceEntry.payoutAmount) : 0;
     chargebackAmount = calculatePerProductCommission(sale as Parameters<typeof calculatePerProductCommission>[0], productIds, fullPayout);
   } else {
-    chargebackAmount = referenceEntry ? Number(referenceEntry.netAmount) : 0;
+    // Phase 47 WR-01: canonicalize on payoutAmount (sale's own commission), not netAmount
+    // which is contaminated by bonus/fronted/hold from the target period.
+    chargebackAmount = referenceEntry ? Number(referenceEntry.payoutAmount) : 0;
   }
 
   // Build notes with product names for partial chargebacks
