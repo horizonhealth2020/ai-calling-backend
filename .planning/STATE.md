@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
 status: executing
-last_updated: "2026-04-07T18:37:48.107Z"
+last_updated: "2026-04-07T19:57:36.122Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 4
   completed_phases: 4
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 20
+  completed_plans: 20
   percent: 100
 ---
 
@@ -108,6 +108,7 @@ v2.2: [##########] 100% (3/3 phases)
 - v2.2 roadmap: 3 phases (42-44) covering 17 requirements
 - Phase 45 added: Fix ACA sales commission entry, payroll fronts carryover to following holds, and CS submissions round-robin uneven assignment on page refresh
 - Phase 46 added: Bundle commission box for add-ons/AD&D when bundled with ACA; CS chargeback alerts in payroll (grouped/minimized count + lookup with member/agent/amount/product); ACA badge parity in print view (test: Sammy Machado)
+- Phase 47 added: Sale entry/payroll UI/chargeback fixes bundle — standalone ACA skips form fields, payroll period spacing prioritizes pay cards (image.png ref), single chargeback lookup shows agent/member/products/amount, ACA edit in payroll uses member count for commission and satisfies addon/AD&D bundles, chargeback from closed period appears as negative payroll row instead of zeroing current sale
 
 ### Research Notes (v2.2)
 
