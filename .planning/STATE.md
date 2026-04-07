@@ -103,6 +103,7 @@ v2.2: [##########] 100% (3/3 phases)
 - v2.1 roadmap: 4 phases (38-41) covering 14 requirements
 - v2.2 roadmap: 3 phases (42-44) covering 17 requirements
 - Phase 45 added: Fix ACA sales commission entry, payroll fronts carryover to following holds, and CS submissions round-robin uneven assignment on page refresh
+- Phase 46 added: Bundle commission box for add-ons/AD&D when bundled with ACA; CS chargeback alerts in payroll (grouped/minimized count + lookup with member/agent/amount/product); ACA badge parity in print view (test: Sammy Machado)
 
 ### Research Notes (v2.2)
 
