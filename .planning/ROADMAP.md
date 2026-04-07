@@ -182,6 +182,20 @@ Plans:
 - [ ] 46-P04-print-aca-chip-parity.md — printAgentCards inline ACA chip inside Core column (Sammy Machado 04-05→04-11 test case)
 - [ ] 46-P05-aca-cascade-delete.md — DELETE /sales/:id transactional cascade for ACA child sales + extended audit payload
 
+### Phase 47: Sale entry, payroll UI, chargeback fixes bundle: standalone ACA skips form, payroll period spacing prioritizes pay cards, single chargeback lookup shows agent/member/products/amount, ACA edit uses member count for commission and satisfies addon/AD&D bundles, chargeback from closed period appears as negative payroll row instead of zeroing current sale
+
+**Goal:** Ship five targeted defect fixes — (1) standalone ACA entry bypasses main-form validation, (2) payroll period UI chrome shrinks so pay cards dominate the viewport, (3) single chargeback lookup surfaces agent/member/premium + live net deduction, (4) payroll row edit accepts ACA_PL via member count and cascades bundled-commission recalc to parent sale, (5) closed-period chargebacks insert a negative row in the oldest OPEN period with orange highlight while in-period zeroed rows get a yellow highlight.
+**Requirements**: D-01 through D-24 (from 47-CONTEXT.md — no formal REQ- IDs this phase)
+**Depends on:** Phase 46
+**Plans:** 5 plans
+
+Plans:
+- [ ] 47-01-PLAN.md — Standalone ACA main-form submit gate fix (type="button" + submitSale guard)
+- [ ] 47-02-PLAN.md — Payroll period spacing: shrink StatMini/summary strip/chargeback banner so pay cards dominate
+- [ ] 47-03-PLAN.md — Single Chargeback Lookup info surfacing (endpoint extension + live net deduction)
+- [ ] 47-04-PLAN.md — Payroll row edit ACA path: member count input, cascade recalc via upsertPayrollEntryForSale, removable ACA child row
+- [ ] 47-05-PLAN.md — Closed-period chargeback → cross-period negative row in oldest OPEN period + orange/yellow highlights (includes schema enum additions + prisma db push)
+
 ---
 *Roadmap created: 2026-03-14*
-*Last updated: 2026-04-07 -- Phase 46 planned (5 plans)*
+*Last updated: 2026-04-07 -- Phase 47 planned (5 plans)*
