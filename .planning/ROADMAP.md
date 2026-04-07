@@ -173,7 +173,7 @@ Plans:
 **Goal:** Ship five targeted fixes: (1) new acaBundledCommission rate on ADDON/AD&D products consumed by calculateCommission when a sale has acaCoveringSaleId; (2) surface CS-submitted chargebacks in payroll alerts via diagnostic trace + minimal fix; (3) collapse per-chargeback alert stack into a single `Chargebacks (N)` badge with inline expand panel reusing the form chip UI; (4) render entry.acaAttached as an inline ACA chip inside the print view Core column; (5) cascade-delete ACA child sales atomically when deleting a parent sale so one click removes both rows.
 **Requirements**: TBD
 **Depends on:** Phase 45
-**Plans:** 7/9 plans executed
+**Plans:** 8/9 plans executed
 
 Plans:
 - [ ] 46-P01-aca-bundle-commission-schema-and-calc.md — Schema + migration + calculateCommission wire-up + PayrollProducts form + API route acceptance
