@@ -102,6 +102,7 @@ export default function PayrollPeriods({
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
   const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
   const [selectedAlertPeriod, setSelectedAlertPeriod] = useState<Record<string, string>>({});
+  const [showChargebacks, setShowChargebacks] = useState<boolean>(false);
 
   /* ── Agent-level expand/collapse state ───────────────────── */
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
@@ -844,34 +845,38 @@ export default function PayrollPeriods({
   return (
     <div className="animate-fade-in" style={{ display: "grid", gap: S[4] }}>
 
-      {/* Chargeback Alerts */}
+      {/* Chargeback Alerts — collapsed badge with inline expand panel (Phase 46-03) */}
+      {alerts.length > 0 && (
       <div style={{
         background: C.bgSurface,
         borderLeft: `4px solid ${C.danger}`,
         borderRadius: R["2xl"],
         padding: S[4],
       }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          marginBottom: alerts.length > 0 ? S[3] : 0,
-          fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const,
-          letterSpacing: "0.06em", color: C.textTertiary,
-        }}>
-          <AlertTriangle size={14} />
-          Chargeback Alerts
-          {alerts.length > 0 && (
-            <span style={{
-              background: C.dangerBg, color: C.danger,
-              fontSize: 11, fontWeight: 700, borderRadius: 9999, padding: "2px 8px",
-            }}>{alerts.length}</span>
-          )}
-        </div>
-        {!loadingAlerts && alerts.length === 0 && (
-          <div style={{ color: C.textMuted, fontSize: 13, padding: `${S[2]}px 0` }}>
-            No pending alerts. Chargeback alerts will appear here when submitted from the CS dashboard.
-          </div>
-        )}
-        {alerts.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowChargebacks(v => !v)}
+          style={{
+            background: "transparent",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: showChargebacks ? S[3] : 0,
+            fontSize: 13,
+            fontWeight: 700,
+            color: C.textPrimary,
+          }}
+        >
+          <AlertTriangle size={14} color={C.danger} />
+          <span>Chargebacks ({alerts.length})</span>
+          <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 500 }}>
+            {showChargebacks ? "(click to collapse)" : "(click to expand)"}
+          </span>
+        </button>
+        {showChargebacks && (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -976,6 +981,7 @@ export default function PayrollPeriods({
           </div>
         )}
       </div>
+      )}
 
       {/* Current week summary strip */}
       {currentWeekTotals && (
