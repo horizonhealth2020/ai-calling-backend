@@ -32,6 +32,12 @@ const chargebackSchema = z.object({
   })),
   rawPaste: z.string().min(1),
   batchId: z.string().min(1),
+  // GAP-46-UAT-02 (46-07): discriminator that decides whether to fire the
+  // CS → payroll alert pipeline. CS-originated submissions create alerts so
+  // payroll can review them; payroll-originated submissions skip the alert
+  // step because payroll IS the team that would otherwise approve. Server
+  // defaults to "PAYROLL" — the safer regression for any unauthored caller.
+  source: z.enum(["CS", "PAYROLL"]).optional().default("PAYROLL"),
 });
 
 const previewSchema = z.object({
@@ -93,7 +99,7 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   const parsed = chargebackSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
 
-  const { records, rawPaste, batchId } = parsed.data;
+  const { records, rawPaste, batchId, source } = parsed.data;
 
   // Wrap createMany + matching + clawback creation + cursor advance in a single
   // transaction so a failed insert rolls back the round-robin cursor (Bug 3 fix).
@@ -294,40 +300,53 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   // signal a CS user gets when their chargeback never reaches the payroll
   // dashboard is "the alert area is empty", which masks 3 distinct root causes
   // (no MATCHED rows, throw inside createAlertFromChargeback, downstream filter).
-  if (alertPayloads.length === 0) {
-    console.warn(
-      `[chargebacks] batch ${batchId}: 0 alert payloads built ` +
-      `(${result.count} chargebacks submitted, none reached MATCHED status). ` +
-      `No payrollAlert rows will be created. Check matchStatus on the inserted ` +
-      `chargebackSubmission rows — UNMATCHED/MULTIPLE memberIds do not surface ` +
-      `as alerts via the auto-match path.`,
-    );
-  }
-
+  // GAP-46-UAT-02 (46-07): alerts are a CS → payroll review queue.
+  // Payroll-originated submissions skip the alert step because payroll IS
+  // the team that would have approved the alert. The 46-06 observability
+  // (empty-payloads warn, per-cb error log, batch summary log, alertCount
+  // in 201 response) is preserved INSIDE the CS branch unchanged.
   let alertSuccessCount = 0;
-  const alertErrors: string[] = [];
-  for (const p of alertPayloads) {
-    try {
-      await createAlertFromChargeback(p.chargebackId, p.agentName, p.memberName, p.amount);
-      alertSuccessCount++;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[chargebacks] batch ${batchId} cb=${p.chargebackId}: createAlertFromChargeback failed: ${msg}`,
+  let alertErrors: string[] = [];
+  if (source === "CS") {
+    if (alertPayloads.length === 0) {
+      console.warn(
+        `[chargebacks] batch ${batchId}: 0 alert payloads built ` +
+        `(${result.count} chargebacks submitted, none reached MATCHED status). ` +
+        `No payrollAlert rows will be created. Check matchStatus on the inserted ` +
+        `chargebackSubmission rows — UNMATCHED/MULTIPLE memberIds do not surface ` +
+        `as alerts via the auto-match path.`,
       );
-      alertErrors.push(`${p.chargebackId}: ${msg}`);
     }
-  }
-  if (alertErrors.length > 0) {
-    console.error(
-      `[chargebacks] batch ${batchId}: ${alertErrors.length}/${alertPayloads.length} ` +
-      `alert creations failed (${alertSuccessCount} succeeded)`,
+
+    for (const p of alertPayloads) {
+      try {
+        await createAlertFromChargeback(p.chargebackId, p.agentName, p.memberName, p.amount);
+        alertSuccessCount++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[chargebacks] batch ${batchId} cb=${p.chargebackId}: createAlertFromChargeback failed: ${msg}`,
+        );
+        alertErrors.push(`${p.chargebackId}: ${msg}`);
+      }
+    }
+    if (alertErrors.length > 0) {
+      console.error(
+        `[chargebacks] batch ${batchId}: ${alertErrors.length}/${alertPayloads.length} ` +
+        `alert creations failed (${alertSuccessCount} succeeded)`,
+      );
+    }
+  } else {
+    console.info(
+      `[chargebacks] batch ${batchId}: source=${source}, skipping ${alertPayloads.length} ` +
+      `alert creation(s) (direct-to-clawback path — payroll-originated submission)`,
     );
   }
 
   return res.status(201).json({
     count: result.count,
     batchId,
+    source,
     alertCount: alertSuccessCount,
     alertAttempted: alertPayloads.length,
     alertFailed: alertErrors.length,
