@@ -17,10 +17,13 @@ router.get("/alerts", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncH
 router.post("/alerts/:id/approve", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const pp = idParamSchema.safeParse(req.params);
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
-  const parsed = z.object({ periodId: z.string().min(1).optional() }).safeParse(req.body);
+  const parsed = z.object({
+    periodId: z.string().min(1).optional(),
+    saleId: z.string().min(1).optional(), // GAP-46-UAT-05 (46-10): manual sale pick for unmatched alerts
+  }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
-  const { periodId } = parsed.data;
-  const alert = await approveAlert(pp.data.id, periodId, req.user!.id);
+  const { periodId, saleId } = parsed.data;
+  const alert = await approveAlert(pp.data.id, periodId, req.user!.id, saleId);
   res.json(alert);
 }));
 

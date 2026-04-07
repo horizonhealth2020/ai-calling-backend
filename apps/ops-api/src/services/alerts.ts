@@ -36,7 +36,13 @@ export async function getPendingAlerts() {
   });
 }
 
-export async function approveAlert(alertId: string, periodId: string | undefined, userId: string) {
+export async function approveAlert(
+  alertId: string,
+  periodId: string | undefined,
+  userId: string,
+  manualSaleId?: string,
+) {
+  // Read-only fetch stays outside the transaction to minimize lock duration.
   const alert = await prisma.payrollAlert.findUnique({
     where: { id: alertId },
     include: {
@@ -55,40 +61,145 @@ export async function approveAlert(alertId: string, periodId: string | undefined
   if (!alert) throw new Error("Alert not found");
   if (alert.status !== "PENDING") throw new Error("Alert already resolved");
 
-  // If no periodId provided, auto-select oldest OPEN period for the agent
+  // If no periodId provided, auto-select oldest OPEN period for the agent.
+  // findOldestOpenPeriodForAgent uses the module-level prisma client by design;
+  // we resolve resolvedPeriodId BEFORE opening the transaction below so the
+  // transaction body is purely the mutation path.
   let resolvedPeriodId = periodId;
   if (!resolvedPeriodId) {
+    // For UNMATCHED alerts, the agent only becomes known after manualSaleId is
+    // resolved inside the transaction; in that case, defer auto-select until
+    // we have the picked sale's agent.
     const agentId = alert.chargeback?.matchedSale?.agentId || alert.agentId;
     if (agentId) {
       resolvedPeriodId = (await findOldestOpenPeriodForAgent(agentId)) ?? undefined;
     }
-    if (!resolvedPeriodId) throw new Error("No open payroll period found for this agent");
+    // If we still don't have one and there is no manual pick to give us an agent,
+    // bail early. If there IS a manual pick, the period will be auto-selected
+    // inside the transaction once we know the picked sale's agent.
+    if (!resolvedPeriodId && !manualSaleId) {
+      throw new Error("No open payroll period found for this agent");
+    }
   }
 
-  // Verify period is OPEN
-  const period = await prisma.payrollPeriod.findUnique({ where: { id: resolvedPeriodId } });
-  if (!period || period.status !== "OPEN") throw new Error("Selected period is not OPEN");
+  // GAP-46-UAT-05 (46-10): Wrap the manual-pick mutation + dedupe + clawback
+  // create + alert update in a single transaction so they all commit or all
+  // roll back together. Without this, the chargebackSubmission could be
+  // permanently mis-marked as MATCHED while the clawback creation fails,
+  // leaving the alert in a state where a retry would silently dedupe.
+  return await prisma.$transaction(async (tx) => {
+    // GAP-46-UAT-05 (46-10): Allow manual sale-pick for UNMATCHED/MULTIPLE alerts.
+    // When the chargeback has no matchedSaleId, the caller MUST supply manualSaleId
+    // (the picked target sale). We then write it onto the chargeback row (also
+    // flipping matchStatus → MATCHED) BEFORE running the existing clawback flow,
+    // so the rest of this function operates on a populated alert.chargeback.matchedSale
+    // unchanged.
+    let saleId = alert.chargeback?.matchedSaleId;
+    if (!saleId) {
+      if (!manualSaleId) {
+        throw new Error("Chargeback has no matched sale. Provide saleId in the approve request body to manually pick a target sale.");
+      }
+      // Verify the manual pick exists and pull the sale + agent for the rest of the flow.
+      const pickedSale = await tx.sale.findUnique({
+        where: { id: manualSaleId },
+        include: { payrollEntries: true, agent: true },
+      });
+      if (!pickedSale) throw new Error("Manually picked sale not found");
 
-  // CLAWBACK-01 fix: Use matchedSaleId, NOT memberId
-  const saleId = alert.chargeback?.matchedSaleId;
-  if (!saleId) throw new Error("Chargeback has no matched sale. Match manually before approving.");
+      // Persist the link on the chargeback row so future operations (UI refreshes,
+      // dedupe checks, audit lookups) see it as a normal MATCHED chargeback.
+      await tx.chargebackSubmission.update({
+        where: { id: alert.chargebackSubmissionId },
+        data: { matchedSaleId: manualSaleId, matchStatus: "MATCHED" },
+      });
 
-  // D-03: Dedupe guard -- prevent double clawbacks for same chargeback/sale combo.
-  // 46-02: Also catch clawbacks created directly by the chargeback POST handler
-  // (matchedBy "member_id" / "member_name"), which fire BEFORE any alert approval.
-  // In that case the clawback already exists and the alert just needs to leave the
-  // pending queue -- do NOT throw, do NOT create a duplicate clawback.
-  const existingClawback = await prisma.clawback.findFirst({
-    where: {
-      saleId,
-      OR: [
-        { matchedBy: "chargeback_alert", matchedValue: alert.chargebackSubmissionId },
-        { matchedBy: { in: ["member_id", "member_name"] } },
-      ],
-    },
-  });
-  if (existingClawback) {
-    const updatedExisting = await prisma.payrollAlert.update({
+      // Re-read the alert with the now-populated matchedSale so the rest of the
+      // function (period selection, dedupe, clawback create) works without branching.
+      const refreshed = await tx.payrollAlert.findUnique({
+        where: { id: alertId },
+        include: {
+          chargeback: {
+            include: {
+              matchedSale: { include: { payrollEntries: true, agent: true } },
+            },
+          },
+        },
+      });
+      if (!refreshed?.chargeback?.matchedSaleId) throw new Error("Failed to attach manual sale to chargeback");
+      // Mutate local `alert` reference so the existing code below sees the picked sale.
+      alert.chargeback = refreshed.chargeback;
+      saleId = manualSaleId;
+
+      // If we deferred period auto-select above (because we didn't know the agent
+      // until we resolved the manual pick), do it now using the picked sale's agent.
+      if (!resolvedPeriodId) {
+        const pickedAgentId = pickedSale.agentId;
+        if (pickedAgentId) {
+          resolvedPeriodId = (await findOldestOpenPeriodForAgent(pickedAgentId)) ?? undefined;
+        }
+        if (!resolvedPeriodId) throw new Error("No open payroll period found for this agent");
+      }
+    }
+
+    // Verify period is OPEN
+    const period = await tx.payrollPeriod.findUnique({ where: { id: resolvedPeriodId! } });
+    if (!period || period.status !== "OPEN") throw new Error("Selected period is not OPEN");
+
+    // D-03: Dedupe guard -- prevent double clawbacks for same chargeback/sale combo.
+    // 46-02: Also catch clawbacks created directly by the chargeback POST handler
+    // (matchedBy "member_id" / "member_name"), which fire BEFORE any alert approval.
+    // GAP-46-UAT-05 (46-10): Tighten the broad branch to constrain on matchedValue
+    // (the chargeback's memberId / memberCompany) so it cannot false-positive
+    // against unrelated prior batches against the same Sale. Verified at
+    // chargebacks.ts that the auto-match path writes
+    //   matchedBy: cb.memberId ? "member_id" : "member_name"
+    //   matchedValue: cb.memberId || cb.memberCompany || ""
+    // so this still catches the legacy auto-match-then-approve dedupe use case.
+    const existingClawback = await tx.clawback.findFirst({
+      where: {
+        saleId,
+        OR: [
+          { matchedBy: "chargeback_alert", matchedValue: alert.chargebackSubmissionId },
+          { matchedBy: "member_id",   matchedValue: alert.chargeback?.memberId ?? "__none__" },
+          { matchedBy: "member_name", matchedValue: alert.chargeback?.memberCompany ?? "__none__" },
+        ],
+      },
+    });
+    if (existingClawback) {
+      const updatedExisting = await tx.payrollAlert.update({
+        where: { id: alertId },
+        data: {
+          status: "APPROVED",
+          approvedPeriodId: resolvedPeriodId,
+          approvedBy: userId,
+          approvedAt: new Date(),
+        },
+      });
+      emitAlertResolved({ alertId, status: "APPROVED" });
+      await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId: resolvedPeriodId, clawbackId: existingClawback.id, dedupedFromBatch: true });
+      return updatedExisting;
+    }
+
+    // D-04: Clawback amount = agent's commission portion from PayrollEntry, NOT chargeback amount
+    const sale = alert.chargeback?.matchedSale;
+    const payrollEntry = sale?.payrollEntries?.[0];
+    const clawbackAmount = payrollEntry ? Number(payrollEntry.payoutAmount) : Number(alert.amount ?? 0);
+
+    // Create clawback with correct sale reference
+    const clawback = await tx.clawback.create({
+      data: {
+        saleId: saleId!,
+        agentId: sale?.agentId || alert.agentId || "",
+        matchedBy: "chargeback_alert",
+        matchedValue: alert.chargebackSubmissionId,
+        amount: clawbackAmount,
+        status: "MATCHED",
+        appliedPayrollPeriodId: resolvedPeriodId,
+        notes: `Auto-created from chargeback. Commission clawback: $${clawbackAmount.toFixed(2)}`,
+      },
+    });
+
+    const updated = await tx.payrollAlert.update({
       where: { id: alertId },
       data: {
         status: "APPROVED",
@@ -97,51 +208,20 @@ export async function approveAlert(alertId: string, periodId: string | undefined
         approvedAt: new Date(),
       },
     });
-    emitAlertResolved({ alertId, status: "APPROVED" });
-    await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId: resolvedPeriodId, clawbackId: existingClawback.id, dedupedFromBatch: true });
-    return updatedExisting;
-  }
 
-  // D-04: Clawback amount = agent's commission portion from PayrollEntry, NOT chargeback amount
-  const sale = alert.chargeback.matchedSale;
-  const payrollEntry = sale?.payrollEntries?.[0];
-  const clawbackAmount = payrollEntry ? Number(payrollEntry.payoutAmount) : Number(alert.amount ?? 0);
-
-  // Create clawback with correct sale reference
-  const clawback = await prisma.clawback.create({
-    data: {
-      saleId,
-      agentId: sale?.agentId || alert.agentId || "",
-      matchedBy: "chargeback_alert",
-      matchedValue: alert.chargebackSubmissionId,
+    // CLAWBACK-05: Emit socket event for real-time payroll dashboard notification.
+    // Inside the transaction callback so it only fires on commit.
+    emitClawbackCreated({
+      clawbackId: clawback.id,
+      saleId: saleId!,
+      agentName: sale?.agent?.name,
       amount: clawbackAmount,
-      status: "MATCHED",
-      appliedPayrollPeriodId: resolvedPeriodId,
-      notes: `Auto-created from chargeback. Commission clawback: $${clawbackAmount.toFixed(2)}`,
-    },
-  });
+    });
 
-  const updated = await prisma.payrollAlert.update({
-    where: { id: alertId },
-    data: {
-      status: "APPROVED",
-      approvedPeriodId: resolvedPeriodId,
-      approvedBy: userId,
-      approvedAt: new Date(),
-    },
-  });
-
-  // CLAWBACK-05: Emit socket event for real-time payroll dashboard notification
-  emitClawbackCreated({
-    clawbackId: clawback.id,
-    saleId,
-    agentName: sale?.agent?.name,
-    amount: clawbackAmount,
-  });
-
-  emitAlertResolved({ alertId, status: "APPROVED" });
-  await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId: resolvedPeriodId, clawbackId: clawback.id });
-  return updated;
+    emitAlertResolved({ alertId, status: "APPROVED" });
+    await logAudit(userId, "alert_approved", "PayrollAlert", alertId, { periodId: resolvedPeriodId, clawbackId: clawback.id });
+    return updated;
+  }, { timeout: 15000 });
 }
 
 export async function clearAlert(alertId: string, userId: string) {

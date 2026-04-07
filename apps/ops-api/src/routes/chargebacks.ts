@@ -201,56 +201,67 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     const alertPayloadsLocal: Array<{ chargebackId: string; agentName?: string; memberName?: string; amount: number }> = [];
 
     for (const cb of refreshedChargebacks) {
-      if (cb.matchStatus !== "MATCHED" || !cb.matchedSaleId) continue;
+      if (cb.matchStatus === "MATCHED" && cb.matchedSaleId) {
+        // ── EXISTING MATCHED PATH (unchanged behavior) ──
+        const sale = await tx.sale.findUnique({
+          where: { id: cb.matchedSaleId },
+          include: { payrollEntries: true, product: true, addons: { include: { product: true } }, agent: true },
+        });
+        if (!sale) continue;
 
-      const sale = await tx.sale.findUnique({
-        where: { id: cb.matchedSaleId },
-        include: { payrollEntries: true, product: true, addons: { include: { product: true } }, agent: true },
-      });
-      if (!sale) continue;
+        // Find oldest OPEN payroll period for the agent
+        let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
+        if (!targetPeriodId && sale.payrollEntries.length > 0) {
+          targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
+        }
 
-      // Find oldest OPEN payroll period for the agent
-      let targetPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
-      if (!targetPeriodId && sale.payrollEntries.length > 0) {
-        targetPeriodId = sale.payrollEntries[0].payrollPeriodId;
-      }
+        const targetEntry = targetPeriodId
+          ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
+          : sale.payrollEntries[0];
 
-      const targetEntry = targetPeriodId
-        ? sale.payrollEntries.find(e => e.payrollPeriodId === targetPeriodId) ?? sale.payrollEntries[0]
-        : sale.payrollEntries[0];
+        const chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
 
-      const chargebackAmount = targetEntry ? Number(targetEntry.netAmount) : Math.abs(Number(cb.chargebackAmount));
+        const zeroOut = !targetEntry || targetEntry.status !== "PAID";
+        const clawback = await tx.clawback.create({
+          data: {
+            saleId: sale.id,
+            agentId: sale.agentId,
+            matchedBy: cb.memberId ? "member_id" : "member_name",
+            matchedValue: cb.memberId || cb.memberCompany || "",
+            amount: chargebackAmount,
+            status: zeroOut ? "ZEROED" : "DEDUCTED",
+            appliedPayrollPeriodId: targetPeriodId || undefined,
+            notes: `Batch chargeback (${batchId})`,
+          },
+        });
 
-      const zeroOut = !targetEntry || targetEntry.status !== "PAID";
-      const clawback = await tx.clawback.create({
-        data: {
-          saleId: sale.id,
-          agentId: sale.agentId,
-          matchedBy: cb.memberId ? "member_id" : "member_name",
-          matchedValue: cb.memberId || cb.memberCompany || "",
+        if (targetEntry) {
+          await tx.payrollEntry.update({
+            where: { id: targetEntry.id },
+            data: zeroOut
+              ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
+              : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
+          });
+        }
+
+        auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount });
+        alertPayloadsLocal.push({
+          chargebackId: cb.id,
+          agentName: sale.agent?.name,
+          memberName: sale.memberName ?? undefined,
           amount: chargebackAmount,
-          status: zeroOut ? "ZEROED" : "DEDUCTED",
-          appliedPayrollPeriodId: targetPeriodId || undefined,
-          notes: `Batch chargeback (${batchId})`,
-        },
-      });
-
-      if (targetEntry) {
-        await tx.payrollEntry.update({
-          where: { id: targetEntry.id },
-          data: zeroOut
-            ? { payoutAmount: 0, netAmount: 0, status: "ZEROED_OUT" }
-            : { adjustmentAmount: Number(targetEntry.adjustmentAmount) - chargebackAmount, status: "CLAWBACK_APPLIED" },
+        });
+      } else {
+        // ── GAP-46-UAT-05 (46-10): UNMATCHED / MULTIPLE — queue an alert for manual review ──
+        // No clawback is created here; payroll will pick a sale during approve and the
+        // existing approveAlert flow will create the clawback at that point.
+        alertPayloadsLocal.push({
+          chargebackId: cb.id,
+          agentName: cb.payeeName ?? cb.memberAgentCompany ?? undefined,
+          memberName: cb.memberCompany ?? cb.memberId ?? undefined,
+          amount: Math.abs(Number(cb.chargebackAmount)),
         });
       }
-
-      auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount });
-      alertPayloadsLocal.push({
-        chargebackId: cb.id,
-        agentName: sale.agent?.name,
-        memberName: sale.memberName ?? undefined,
-        amount: chargebackAmount,
-      });
     }
 
     // Advance the round-robin cursor by exactly the number of rows inserted, inside
@@ -300,6 +311,10 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   // signal a CS user gets when their chargeback never reaches the payroll
   // dashboard is "the alert area is empty", which masks 3 distinct root causes
   // (no MATCHED rows, throw inside createAlertFromChargeback, downstream filter).
+  // GAP-46-UAT-05 (46-10): The MATCHED gate above has been widened — UNMATCHED and
+  // MULTIPLE chargebacks now also push alert payloads (without clawback creation) so
+  // payroll can manually pick a sale during approve. See alerts.ts approveAlert for
+  // the manual-pick branch that consumes this.
   // GAP-46-UAT-02 (46-07): alerts are a CS → payroll review queue.
   // Payroll-originated submissions skip the alert step because payroll IS
   // the team that would have approved the alert. The 46-06 observability
