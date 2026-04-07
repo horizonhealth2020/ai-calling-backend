@@ -28,6 +28,7 @@ type Entry = {
     memberCount: number;
     flatCommission: number;
     payoutAmount: number;
+    productName?: string;
   } | null;
   sale?: SaleInfo; agent?: { name: string };
 };
@@ -155,6 +156,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
               memberCount: firstChild.sale?.memberCount ?? 1,
               flatCommission: Number(firstChild.sale?.product?.flatCommission ?? 0),
               payoutAmount: childPayoutTotal,
+              productName: firstChild.sale?.product?.name,
             },
           };
           foldedEntries.push(merged);

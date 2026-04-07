@@ -24,6 +24,7 @@ export type Entry = {
     memberCount: number;
     flatCommission: number;
     payoutAmount: number;
+    productName?: string;
   } | null;
   sale?: SaleInfo; agent?: { name: string };
 };

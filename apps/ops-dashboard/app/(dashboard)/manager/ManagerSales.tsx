@@ -35,7 +35,7 @@ type Product = {
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
-type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; leadPhone?: string | null; acaCoveringSaleId?: string | null; acaAttached?: boolean; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; leadPhone?: string | null; acaCoveringSaleId?: string | null; acaAttached?: boolean; acaProductName?: string; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 export interface ManagerSalesProps {
   API: string;
@@ -365,8 +365,9 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
   const foldedSales: Sale[] = [];
   for (const s of filtered) {
     if (s.acaCoveringSaleId) continue;
-    if (acaChildrenByParentId.has(s.id)) {
-      foldedSales.push({ ...s, acaAttached: true });
+    const children = acaChildrenByParentId.get(s.id);
+    if (children && children.length > 0) {
+      foldedSales.push({ ...s, acaAttached: true, acaProductName: children[0].product.name });
     } else {
       foldedSales.push(s);
     }
@@ -471,7 +472,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                       <td style={baseTdStyle}>{formatDate(s.saleDate)}</td>
                       <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
                       <td style={baseTdStyle}>{s.carrier}</td>
-                      <td style={baseTdStyle}>{s.product.name}{s.acaAttached ? " + ACA" : ""}</td>
+                      <td style={baseTdStyle}>{s.product.name}{s.acaAttached ? ` + ${s.acaProductName ?? "ACA"}` : ""}</td>
                       <td style={baseTdStyle}>{s.leadSource.name}</td>
                       <td style={baseTdStyle}>
                         {s.leadPhone

@@ -272,7 +272,7 @@ function EditableSaleRow({
             {/* GAP-45-07: ACA rendered as its own product chip with the bundled flat commission */}
             {entry.acaAttached && (
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <Badge color={C.info ?? C.accentTeal} size="sm">ACA</Badge>
+                <Badge color={C.info ?? C.accentTeal} size="sm">{entry.acaAttached.productName ?? "ACA"}</Badge>
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.acaAttached.payoutAmount))}
                 </span>

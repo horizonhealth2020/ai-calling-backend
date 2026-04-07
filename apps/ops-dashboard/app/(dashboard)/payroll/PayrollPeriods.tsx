@@ -167,6 +167,7 @@ export default function PayrollPeriods({
               memberCount: firstChild.sale?.memberCount ?? 1,
               flatCommission: Number(firstChild.sale?.product?.flatCommission ?? 0),
               payoutAmount: childPayoutTotal,
+              productName: firstChild.sale?.product?.name,
             },
           };
           foldedEntries.push(merged);
