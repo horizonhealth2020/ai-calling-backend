@@ -445,9 +445,14 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
     return Array.from({ length: count }, (_, i) => active[(offset + i) % active.length]);
   };
 
-  const handleTextChange = (text: string) => {
+  const handleTextChange = async (text: string) => {
     setRawText(text);
-    if (!text.trim()) {
+    if (text.trim()) {
+      const parsed = parseChargebackText(text);
+      const consolidated = consolidateByMember(parsed);
+      const assignments = await fetchBatchAssign("chargeback", consolidated.length);
+      setRecords(assignRoundRobinLocal(consolidated, assignments));
+    } else {
       setRecords([]);
     }
   };

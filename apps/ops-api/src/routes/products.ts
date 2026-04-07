@@ -23,13 +23,14 @@ router.get("/products", requireAuth, asyncHandler(async (req, res) => {
 router.post("/products", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
-    type: z.enum(["CORE", "ADDON", "AD_D"]).default("CORE"),
+    type: z.enum(["CORE", "ADDON", "AD_D", "ACA_PL"]).default("CORE"),
     premiumThreshold: z.number().min(0).nullable().optional(),
     commissionBelow: z.number().min(0).max(100).nullable().optional(),
     commissionAbove: z.number().min(0).max(100).nullable().optional(),
     bundledCommission: z.number().min(0).max(100).nullable().optional(),
     standaloneCommission: z.number().min(0).max(100).nullable().optional(),
     enrollFeeThreshold: z.number().min(0).nullable().optional(),
+    flatCommission: z.number().min(0).nullable().optional(),
     notes: z.string().optional(),
     requiredBundleAddonId: z.string().nullable().optional(),
     fallbackAddonIds: z.array(z.string()).optional(),
@@ -58,7 +59,7 @@ router.patch("/products/:id", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN")
   const schema = z.object({
     name: z.string().min(1).optional(),
     active: z.boolean().optional(),
-    type: z.enum(["CORE", "ADDON", "AD_D"]).optional(),
+    type: z.enum(["CORE", "ADDON", "AD_D", "ACA_PL"]).optional(),
     premiumThreshold: z.number().min(0).nullable().optional(),
     commissionBelow: z.number().min(0).max(100).nullable().optional(),
     commissionAbove: z.number().min(0).max(100).nullable().optional(),

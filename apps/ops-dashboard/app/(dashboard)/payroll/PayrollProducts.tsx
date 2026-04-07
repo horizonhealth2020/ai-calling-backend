@@ -287,15 +287,14 @@ function ProductCard({
                 <label style={LBL}>Type</label>
                 <select
                   className="input-focus"
-                  style={{ ...inputStyle, height: 42, ...(product.type === "ACA_PL" ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
+                  style={{ ...inputStyle, height: 42 }}
                   value={d.type}
-                  disabled={product.type === "ACA_PL"}
                   onChange={e => setD(x => ({ ...x, type: e.target.value as ProductType }))}
                 >
                   <option value="CORE">Core Product</option>
                   <option value="ADDON">Add-on</option>
                   <option value="AD_D">AD&D</option>
-                  {product.type === "ACA_PL" && <option value="ACA_PL">ACA PL</option>}
+                  <option value="ACA_PL">ACA PL</option>
                 </select>
               </div>
             </div>
@@ -466,10 +465,12 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
     name: string; type: ProductType; notes: string;
     premiumThreshold: string; commissionBelow: string; commissionAbove: string;
     bundledCommission: string; standaloneCommission: string; enrollFeeThreshold: string;
+    flatCommission: string;
   }>({
     name: "", type: "CORE", notes: "",
     premiumThreshold: "", commissionBelow: "", commissionAbove: "",
     bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "",
+    flatCommission: "",
   });
 
   async function saveProduct(id: string, data: Partial<Product>) {
@@ -544,6 +545,8 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         if (newProduct.premiumThreshold) body.premiumThreshold = Number(newProduct.premiumThreshold);
         if (newProduct.commissionBelow)  body.commissionBelow  = Number(newProduct.commissionBelow);
         if (newProduct.commissionAbove)  body.commissionAbove  = Number(newProduct.commissionAbove);
+      } else if (newProduct.type === "ACA_PL") {
+        if (newProduct.flatCommission) body.flatCommission = Number(newProduct.flatCommission);
       } else {
         if (newProduct.bundledCommission)    body.bundledCommission    = Number(newProduct.bundledCommission);
         if (newProduct.standaloneCommission) body.standaloneCommission = Number(newProduct.standaloneCommission);
@@ -557,7 +560,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
       if (res.ok) {
         const p = await res.json();
         setProducts(prev => [...prev, p]);
-        setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "" });
+        setNewProduct({ name: "", type: "CORE", notes: "", premiumThreshold: "", commissionBelow: "", commissionAbove: "", bundledCommission: "", standaloneCommission: "", enrollFeeThreshold: "", flatCommission: "" });
         setCfgMsg("Product added");
         setShowAddProduct(false);
       } else {
@@ -599,6 +602,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
                   <option value="CORE">Core Product</option>
                   <option value="ADDON">Add-on</option>
                   <option value="AD_D">AD&D</option>
+                  <option value="ACA_PL">ACA PL</option>
                 </select>
               </div>
             </div>
@@ -614,6 +618,14 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
                 <div><label style={LBL}>Bundled Commission (%){newProduct.type === "ADDON" ? " \u2014 blank = match core" : ""}</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.bundledCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 70" : "blank = match core"} onChange={e => setNewProduct(x => ({ ...x, bundledCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Standalone Commission (%)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.standaloneCommission} placeholder={newProduct.type === "AD_D" ? "e.g. 35" : "e.g. 30"} onChange={e => setNewProduct(x => ({ ...x, standaloneCommission: e.target.value }))} /></div>
                 <div><label style={LBL}>Enroll Fee Threshold ($)</label><input className="input-focus" style={inputStyle} type="number" step="0.01" value={newProduct.enrollFeeThreshold} placeholder="e.g. 50" onChange={e => setNewProduct(x => ({ ...x, enrollFeeThreshold: e.target.value }))} /></div>
+              </div>
+            )}
+            {newProduct.type === "ACA_PL" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: S[2], maxWidth: 280 }}>
+                <div>
+                  <label style={LBL}>Flat Commission ($ per member)</label>
+                  <input className="input-focus" style={inputStyle} type="number" step="0.01" min="0" value={newProduct.flatCommission} placeholder="e.g. 25.00" onChange={e => setNewProduct(x => ({ ...x, flatCommission: e.target.value }))} />
+                </div>
               </div>
             )}
             <input className="input-focus" style={inputStyle} value={newProduct.notes} placeholder="Notes (optional)" onChange={e => setNewProduct(x => ({ ...x, notes: e.target.value }))} />
@@ -646,22 +658,6 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
           {(["CORE", "ADDON", "AD_D", "ACA_PL"] as ProductType[]).map(type => {
             const group = products.filter(p => p.type === type);
             if (group.length === 0) {
-              if (type === "ACA_PL") {
-                return (
-                  <div key={type}>
-                    <div style={{ display: "flex", alignItems: "center", gap: S[2], marginBottom: S[3] }}>
-                      <div style={{ height: 2, width: 16, background: TYPE_COLORS[type], borderRadius: 1 }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: TYPE_COLORS[type], textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                        {TYPE_LABELS[type]} Products
-                      </span>
-                      <Badge color={TYPE_COLORS[type]} size="sm">0</Badge>
-                    </div>
-                    <p style={{ fontSize: 13, color: C.textMuted, fontStyle: "italic", margin: 0 }}>
-                      ACA PL products appear here after ACA sales are entered.
-                    </p>
-                  </div>
-                );
-              }
               return null;
             }
             return (
