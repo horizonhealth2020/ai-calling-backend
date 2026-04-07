@@ -114,6 +114,11 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
   const addons = sale.addons ?? [];
   let halvingReason: string | null = null;
 
+  // Phase 46: when this sale is bundled with an ACA PL covering sale,
+  // ADDON/AD_D entries should prefer their acaBundledCommission rate over
+  // the regular bundledCommission. Falls back to bundledCommission when null.
+  const isAcaBundled = !!(sale as SaleWithProduct & { acaCoveringSaleId?: string | null }).acaCoveringSaleId;
+
   // Build product entries with their respective premiums
   const allEntries = [
     { product: sale.product, premium: Number(sale.premium) },
@@ -160,16 +165,22 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
     for (const entry of allEntries.filter(
       e => e.product.type === "ADDON" && e.product.bundledCommission !== null
     )) {
-      const addonRate = Number(entry.product.bundledCommission ?? 0);
+      const rawRate = (isAcaBundled && entry.product.acaBundledCommission != null)
+        ? entry.product.acaBundledCommission
+        : entry.product.bundledCommission;
+      const addonRate = Number(rawRate ?? 0);
       totalCommission += entry.premium * (addonRate / 100);
     }
 
     // --- AD&D (separate calculation, bundled rate) ---
     for (const entry of allEntries.filter(e => e.product.type === "AD_D")) {
-      if (entry.product.bundledCommission === null) {
+      const rawRate = (isAcaBundled && entry.product.acaBundledCommission != null)
+        ? entry.product.acaBundledCommission
+        : entry.product.bundledCommission;
+      if (rawRate == null) {
         console.warn(`Product ${entry.product.id} has null bundledCommission rate`);
       }
-      const addDRate = Number(entry.product.bundledCommission ?? 0);
+      const addDRate = Number(rawRate ?? 0);
       totalCommission += entry.premium * (addDRate / 100);
     }
 
