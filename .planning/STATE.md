@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Chargeback Batch Review & Payroll Agent Tabs
 status: executing
-last_updated: "2026-04-07T21:23:35.923Z"
+last_updated: "2026-04-07T21:33:18.680Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 25
-  completed_plans: 23
-  percent: 92
+  completed_plans: 24
+  percent: 96
 ---
 
 # Project State: Ops Platform -- Payroll & Usability Overhaul
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 ## Current Position
 
 Phase: 47 (sale-entry-payroll-ui-chargeback-fixes-bundle-standalone-aca) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-04-07
 
@@ -54,6 +54,7 @@ v2.2: [##########] 100% (3/3 phases)
 | Phase 47 P01 | 2m | 1 tasks | 1 files |
 | Phase 47 P02 | 10m | 2 tasks | 1 files |
 | Phase 47 P03 | 3m | 2 tasks | 2 files |
+| Phase 47 P04 | 18m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,7 @@ v2.2: [##########] 100% (3/3 phases)
 - [Phase 47]: Sub-feature 1 (standalone ACA submit): one-character type="button" fix on @ops/ui Button + defensive submitSale early-return guard; chose minimum-risk fix over DOM restructure
 - [Phase 47]: Sub-feature 2 (payroll chrome compression): compress StatMini + summary strip + chargeback banner empty state padding while preserving all 6 KPIs and D-06 visibility guarantees
 - [Phase 47]: [Phase 47] Sub-feature 3 (chargeback lookup info): server-authoritative per-product commission in lookup endpoint + live net deduction useMemo on frontend; preview matches real deduction because both paths use calculatePerProductCommission
+- [Phase 47]: Sub-feature 4 (ACA in payroll edit): tx-aware upsertPayrollEntryForSale + createAcaChildSale helpers enable atomic ACA attach/detach + parent recalc + audit inside one prisma transaction; single parent upsert IS the sibling recalc because PayrollEntry aggregates all products
 
 ### Roadmap Evolution
 

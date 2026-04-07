@@ -187,13 +187,13 @@ Plans:
 **Goal:** Ship five targeted defect fixes — (1) standalone ACA entry bypasses main-form validation, (2) payroll period UI chrome shrinks so pay cards dominate the viewport, (3) single chargeback lookup surfaces agent/member/premium + live net deduction, (4) payroll row edit accepts ACA_PL via member count and cascades bundled-commission recalc to parent sale, (5) closed-period chargebacks insert a negative row in the oldest OPEN period with orange highlight while in-period zeroed rows get a yellow highlight.
 **Requirements**: D-01 through D-24 (from 47-CONTEXT.md — no formal REQ- IDs this phase)
 **Depends on:** Phase 46
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 - [x] 47-01-PLAN.md — Standalone ACA main-form submit gate fix (type="button" + submitSale guard)
 - [x] 47-02-PLAN.md — Payroll period spacing: shrink StatMini/summary strip/chargeback banner so pay cards dominate
 - [x] 47-03-PLAN.md — Single Chargeback Lookup info surfacing (endpoint extension + live net deduction)
-- [ ] 47-04-PLAN.md — Payroll row edit ACA path: member count input, cascade recalc via upsertPayrollEntryForSale, removable ACA child row
+- [x] 47-04-PLAN.md — Payroll row edit ACA path: member count input, cascade recalc via upsertPayrollEntryForSale, removable ACA child row
 - [ ] 47-05-PLAN.md — Closed-period chargeback → cross-period negative row in oldest OPEN period + orange/yellow highlights (includes schema enum additions + prisma db push)
 
 ---
