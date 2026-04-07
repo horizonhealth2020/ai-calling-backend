@@ -432,7 +432,10 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
 
   const fetchBatchAssign = async (type: "chargeback" | "pending_term", count: number): Promise<string[]> => {
     try {
-      const res = await authFetch(`${API}/api/reps/batch-assign?type=${type}&count=${count}`);
+      // preview=true: client only previews assignments. Cursor advance happens
+      // server-side inside the POST /chargebacks and POST /pending-terms transactions
+      // so paste/refresh/rep-change effects no longer drift the round-robin cursor.
+      const res = await authFetch(`${API}/api/reps/batch-assign?type=${type}&count=${count}&preview=true`);
       if (res.ok) {
         const data = await res.json();
         return data.assignments ?? [];
