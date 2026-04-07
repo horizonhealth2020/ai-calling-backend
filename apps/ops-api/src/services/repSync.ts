@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@ops/db";
 import { logAudit } from "./audit";
 
@@ -112,27 +113,38 @@ export async function getNextRoundRobinRep(type: "chargeback" | "pending_term" =
 
 /**
  * Batch round robin: get the next N reps to assign to.
- * Advances the persisted index by count so subsequent batches continue where this left off.
+ *
+ * By default (`persist: true`), advances the persisted cursor by `count` so subsequent
+ * batches continue where this left off. When `persist: false`, this is a pure dry-run
+ * preview — no cursor mutation, safe to call from paste handlers, refresh effects, etc.
+ *
+ * When called from within a larger transaction (e.g. POST /chargebacks), pass the
+ * transaction client via `tx` so the cursor advance commits/rolls back atomically with
+ * the parent insert.
  */
 export async function batchRoundRobinAssign(
   type: "chargeback" | "pending_term",
   count: number,
+  opts: { persist?: boolean; tx?: Prisma.TransactionClient } = {},
 ): Promise<string[]> {
-  const activeReps = await prisma.csRepRoster.findMany({
-    where: { active: true },
-    orderBy: { name: "asc" },
-  });
-  if (activeReps.length === 0 || count <= 0) return [];
+  const persist = opts.persist !== false; // default true (backwards-compat)
 
   const settingKey = type === "chargeback"
     ? "cs_round_robin_chargeback_index"
     : "cs_round_robin_pending_term_index";
 
-  return prisma.$transaction(async (tx) => {
-    const setting = await tx.salesBoardSetting.findUnique({
+  const run = async (client: Prisma.TransactionClient): Promise<string[]> => {
+    const activeReps = await client.csRepRoster.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+    });
+    if (activeReps.length === 0 || count <= 0) return [];
+
+    const setting = await client.salesBoardSetting.findUnique({
       where: { key: settingKey },
     });
     let idx = setting ? parseInt(setting.value, 10) : 0;
+    if (Number.isNaN(idx) || idx < 0) idx = 0;
 
     const assignments: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -140,14 +152,21 @@ export async function batchRoundRobinAssign(
       idx++;
     }
 
-    await tx.salesBoardSetting.upsert({
-      where: { key: settingKey },
-      update: { value: String(idx % activeReps.length) },
-      create: { key: settingKey, value: String(idx % activeReps.length) },
-    });
+    if (persist) {
+      await client.salesBoardSetting.upsert({
+        where: { key: settingKey },
+        update: { value: String(idx % activeReps.length) },
+        create: { key: settingKey, value: String(idx % activeReps.length) },
+      });
+    }
 
     return assignments;
-  });
+  };
+
+  if (opts.tx) {
+    return run(opts.tx);
+  }
+  return prisma.$transaction((tx) => run(tx));
 }
 
 /**
