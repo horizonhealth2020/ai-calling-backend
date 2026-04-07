@@ -29,6 +29,8 @@ enum PayrollEntryStatus {
   PAID
   ZEROED_OUT
   CLAWBACK_APPLIED
+  ZEROED_OUT_IN_PERIOD
+  CLAWBACK_CROSS_PERIOD
 }
 
 enum SaleStatus {
