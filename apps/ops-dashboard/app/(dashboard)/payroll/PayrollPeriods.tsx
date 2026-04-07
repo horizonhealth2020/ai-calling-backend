@@ -129,39 +129,60 @@ export default function PayrollPeriods({
     }
 
     for (const p of periods) {
-      // ── Fold ACA covering entries into their parent entries (Bug 1 fix) ──
-      // The API returns two PayrollEntry rows per ACA-attached sale: the parent
-      // (e.g. Complete Care) and the ACA child whose sale.acaCoveringSaleId
-      // points back at the parent. Visually we want ONE unified row per member,
-      // so we merge the child's payout into the parent and stash a marker for
-      // the badge renderer.
-      const parentBySaleId = new Map<string, Entry>();
-      for (const e of p.entries) {
-        if (e.sale && !e.sale.acaCoveringSaleId) parentBySaleId.set(e.sale.id, e);
-      }
-      const foldedEntries: Entry[] = [];
+      // ── Fold ACA covering entries into their parent entries (GAP-45-04 fix) ──
+      // Two-pass, order-independent. The previous one-pass version dropped the
+      // ACA child's commission whenever the child appeared before its parent in
+      // p.entries because the merged map value was never re-inserted into
+      // foldedEntries. We now collect children first, then emit parents with
+      // the child contribution baked in.
+
+      // Pass 1: index ACA child entries by their parent saleId.
+      const acaChildrenByParentId = new Map<string, Entry[]>();
       for (const e of p.entries) {
         const parentId = e.sale?.acaCoveringSaleId;
-        if (parentId && parentBySaleId.has(parentId)) {
-          const parent = parentBySaleId.get(parentId)!;
+        if (parentId) {
+          if (!acaChildrenByParentId.has(parentId)) acaChildrenByParentId.set(parentId, []);
+          acaChildrenByParentId.get(parentId)!.push(e);
+        }
+      }
+
+      // Pass 2: emit non-child entries, merging any collected ACA child(ren).
+      const foldedEntries: Entry[] = [];
+      for (const e of p.entries) {
+        // Skip ACA child rows entirely — they get merged into their parent below.
+        if (e.sale?.acaCoveringSaleId) continue;
+
+        const saleId = e.sale?.id;
+        const children = saleId ? acaChildrenByParentId.get(saleId) : undefined;
+        if (children && children.length > 0) {
+          // Sum all child payouts (normally exactly one, but defensive).
+          const childPayoutTotal = children.reduce((s, c) => s + Number(c.payoutAmount), 0);
+          // Use the first child's metadata for the badge tooltip.
+          const firstChild = children[0];
           const merged: Entry = {
-            ...parent,
-            payoutAmount: Number(parent.payoutAmount) + Number(e.payoutAmount),
-            netAmount: Number(parent.netAmount) + Number(e.payoutAmount),
+            ...e,
+            payoutAmount: Number(e.payoutAmount) + childPayoutTotal,
+            netAmount: Number(e.netAmount) + childPayoutTotal,
             acaAttached: {
-              memberCount: e.sale?.memberCount ?? 1,
-              flatCommission: Number(e.sale?.product?.flatCommission ?? 0),
-              payoutAmount: Number(e.payoutAmount),
+              memberCount: firstChild.sale?.memberCount ?? 1,
+              flatCommission: Number(firstChild.sale?.product?.flatCommission ?? 0),
+              payoutAmount: childPayoutTotal,
             },
           };
-          parentBySaleId.set(parentId, merged);
-          // Replace the parent in foldedEntries if it was already pushed
-          const idx = foldedEntries.findIndex(x => x.sale?.id === parentId);
-          if (idx >= 0) foldedEntries[idx] = merged;
-          // Skip pushing the ACA child
-          continue;
+          foldedEntries.push(merged);
+        } else {
+          foldedEntries.push(e);
         }
-        foldedEntries.push(e);
+      }
+
+      // Defensive: if an ACA child has no matching parent in this period
+      // (orphaned data), surface it as a standalone row so payroll is not silently
+      // dropped. This preserves the pre-fold behavior for orphans.
+      for (const [parentId, children] of acaChildrenByParentId) {
+        const hasParent = p.entries.some(e => e.sale?.id === parentId && !e.sale?.acaCoveringSaleId);
+        if (!hasParent) {
+          for (const orphan of children) foldedEntries.push(orphan);
+        }
       }
 
       const byAgent = new Map<string, Entry[]>();
