@@ -115,6 +115,10 @@ export default function PayrollPeriods({
     saleDate: string;
   };
   const [salePickerQuery, setSalePickerQuery] = useState<Record<string, string>>({});
+  // Phase 47 WR-09: per-alert debounce timers + AbortControllers so keystroke
+  // races don't overwrite newer results with stale responses.
+  const salePickerTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
+  const salePickerAbortRef = useRef<Record<string, AbortController | null>>({});
   const [salePickerResults, setSalePickerResults] = useState<Record<string, PickerSale[]>>({});
   const [pickedSaleId, setPickedSaleId] = useState<Record<string, string>>({});
   const [salePickerLoading, setSalePickerLoading] = useState<Record<string, boolean>>({});
@@ -999,26 +1003,44 @@ export default function PayrollPeriods({
                                   placeholder="Search by member id or name…"
                                   style={{ ...inputStyle, fontSize: 12, padding: "4px 8px" }}
                                   value={salePickerQuery[alert.id] ?? (alert.chargeback?.memberId ?? "")}
-                                  onChange={async e => {
+                                  onChange={e => {
                                     const q = e.target.value;
                                     setSalePickerQuery(prev => ({ ...prev, [alert.id]: q }));
+                                    // Phase 47 WR-09: debounce + abort in-flight requests so the last
+                                    // response always wins and the API isn't hit on every keystroke.
+                                    const existingTimer = salePickerTimersRef.current[alert.id];
+                                    if (existingTimer) clearTimeout(existingTimer);
+                                    const existingAbort = salePickerAbortRef.current[alert.id];
+                                    if (existingAbort) existingAbort.abort();
                                     if (q.length < 2) {
                                       setSalePickerResults(prev => ({ ...prev, [alert.id]: [] }));
+                                      setSalePickerLoading(prev => ({ ...prev, [alert.id]: false }));
                                       return;
                                     }
-                                    setSalePickerLoading(prev => ({ ...prev, [alert.id]: true }));
-                                    try {
-                                      const r = await authFetch(`${API}/api/sales`);
-                                      const all: PickerSale[] = r.ok ? await r.json() : [];
-                                      const ql = q.toLowerCase();
-                                      const filtered = all.filter(s =>
-                                        (s.memberId && s.memberId.toLowerCase().includes(ql)) ||
-                                        (s.memberName && s.memberName.toLowerCase().includes(ql))
-                                      ).slice(0, 20);
-                                      setSalePickerResults(prev => ({ ...prev, [alert.id]: filtered }));
-                                    } finally {
-                                      setSalePickerLoading(prev => ({ ...prev, [alert.id]: false }));
-                                    }
+                                    salePickerTimersRef.current[alert.id] = setTimeout(async () => {
+                                      const ctrl = new AbortController();
+                                      salePickerAbortRef.current[alert.id] = ctrl;
+                                      setSalePickerLoading(prev => ({ ...prev, [alert.id]: true }));
+                                      try {
+                                        const r = await authFetch(`${API}/api/sales`, { signal: ctrl.signal });
+                                        const all: PickerSale[] = r.ok ? await r.json() : [];
+                                        if (ctrl.signal.aborted) return;
+                                        const ql = q.toLowerCase();
+                                        const filtered = all.filter(s =>
+                                          (s.memberId && s.memberId.toLowerCase().includes(ql)) ||
+                                          (s.memberName && s.memberName.toLowerCase().includes(ql))
+                                        ).slice(0, 20);
+                                        setSalePickerResults(prev => ({ ...prev, [alert.id]: filtered }));
+                                      } catch (err) {
+                                        if ((err as Error)?.name !== "AbortError") {
+                                          console.error("[sale picker] fetch failed", err);
+                                        }
+                                      } finally {
+                                        if (!ctrl.signal.aborted) {
+                                          setSalePickerLoading(prev => ({ ...prev, [alert.id]: false }));
+                                        }
+                                      }
+                                    }, 300);
                                   }}
                                 />
                                 {salePickerLoading[alert.id] && (
