@@ -4,16 +4,16 @@ export async function matchChargebacksToSales(memberIds: string[]) {
   const uniqueIds = [...new Set(memberIds.filter(Boolean))];
   if (uniqueIds.length === 0) return new Map<string, any[]>();
 
+  // Phase 47 WR-04: include full product + payrollEntries so the preview endpoint
+  // can surface per-product commission (not premium) for the chargeback total.
   const sales = await prisma.sale.findMany({
     where: { memberId: { in: uniqueIds } },
     include: {
       agent: { select: { id: true, name: true } },
-      product: { select: { id: true, name: true, type: true } },
-      addons: {
-        include: {
-          product: { select: { id: true, name: true, type: true } },
-        },
-      },
+      product: true,
+      addons: { include: { product: true } },
+      payrollEntries: { orderBy: { createdAt: "asc" } },
+      acaCoveredSales: { where: { product: { type: "ACA_PL" } }, select: { id: true } },
     },
   });
 

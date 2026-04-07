@@ -37,6 +37,9 @@ interface ReviewProduct {
   name: string;
   type: string;
   premium: number;
+  // Phase 47 WR-04: commission is the actual clawback basis the server uses.
+  // premium is retained for display only; never use it as the chargeback total.
+  commission: number;
   selected: boolean;
 }
 
@@ -45,7 +48,8 @@ interface MatchedSaleInfo {
   memberName: string;
   agentName: string;
   agentId: string;
-  products: Array<{ id: string; name: string; type: string; premium: number }>;
+  fullCommission?: number;
+  products: Array<{ id: string; name: string; type: string; premium: number; commission: number }>;
 }
 
 interface ReviewRow {
@@ -434,7 +438,12 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
       const products = row.products.map(p =>
         p.id === productId ? { ...p, selected: !p.selected } : p
       );
-      const autoAmount = products.filter(p => p.selected).reduce((sum, p) => sum + p.premium, 0);
+      // Phase 47 WR-04: sum per-product COMMISSION (the real clawback basis)
+      // rather than premium. Previously the displayed total could diverge
+      // from what the server actually wrote (server uses payoutAmount).
+      const autoAmount = products
+        .filter(p => p.selected)
+        .reduce((sum, p) => sum + (Number(p.commission) || 0), 0);
       return {
         ...row,
         products,
@@ -449,7 +458,8 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
       const sale = row.matchedSales.find(s => s.id === saleId);
       if (!sale) return row;
       const products: ReviewProduct[] = sale.products.map(p => ({ ...p, selected: true }));
-      const autoAmount = products.reduce((sum, p) => sum + p.premium, 0);
+      // Phase 47 WR-04: use commission, not premium. See toggleProduct comment.
+      const autoAmount = products.reduce((sum, p) => sum + (Number(p.commission) || 0), 0);
       return {
         ...row,
         matchStatus: "MATCHED" as const,
