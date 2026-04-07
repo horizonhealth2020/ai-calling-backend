@@ -457,11 +457,15 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
       if (res.ok) {
         const sale = await res.json();
         /* If ACA checkbox is checked, create linked ACA sale */
+        // Phase 47 WR-07: surface ACA bundle failures. Previously the catch only
+        // console.error'd and the success toast fired regardless, so users saw
+        // "Sale submitted successfully" while the ACA child silently went missing.
+        let acaBundleError: string | null = null;
         if (includeAca && acaCarrier) {
           const acaProduct = products.find(p => p.id === acaCarrier && p.type === "ACA_PL");
           if (acaProduct) {
             try {
-              await authFetch(`${API}/api/sales/aca`, {
+              const acaRes = await authFetch(`${API}/api/sales/aca`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -474,7 +478,14 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                   acaCoveringSaleId: sale.id,
                 }),
               });
+              if (!acaRes.ok) {
+                const err = await acaRes.json().catch(() => ({}));
+                acaBundleError = `Sale saved, but ACA bundle failed (${acaRes.status}): ${err.error ?? "unknown"}. Add the ACA entry manually.`;
+                console.error("ACA entry failed:", acaRes.status, err);
+              }
             } catch (err) {
+              const message = err instanceof Error ? err.message : "network error";
+              acaBundleError = `Sale saved, but ACA bundle request failed: ${message}. Add the ACA entry manually.`;
               console.error("ACA entry failed:", err);
             }
           }
@@ -483,7 +494,11 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           setAcaMemberCount("1");
         }
         setFieldErrors({});
-        setMsg({ text: "Sale submitted successfully", type: "success" });
+        if (acaBundleError) {
+          setMsg({ text: acaBundleError, type: "error" });
+        } else {
+          setMsg({ text: "Sale submitted successfully", type: "success" });
+        }
         clearTimeout(msgTimerRef.current);
         msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
         clearReceipt();
