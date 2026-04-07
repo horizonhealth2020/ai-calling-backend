@@ -246,7 +246,7 @@ function EditableSaleRow({
             {/* Core product */}
             <div style={{ display: "flex", flexDirection: "column" }}>
               <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
-              {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
+              {(entry.sale?.product?.type === "ACA_PL" || entry.acaAttached) && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.sale.premium))}
@@ -293,15 +293,9 @@ function EditableSaleRow({
       </td>
 
       <td style={tdRight}>
-        {entry.sale?.product?.type === "ACA_PL" && entry.sale?.memberCount ? (
-          <span style={{ color: C.textPrimary, fontWeight: 700 }}>
-            ${(Number(entry.sale.product.flatCommission ?? 0)).toFixed(2)} x {entry.sale.memberCount} members = {formatDollar(Number(entry.payoutAmount))}
-          </span>
-        ) : (
-          <span style={{ color: C.textPrimary, fontWeight: 700 }}>
-            {formatDollar(Number(entry.payoutAmount))}
-          </span>
-        )}
+        <span style={{ color: C.textPrimary, fontWeight: 700 }}>
+          {formatDollar(Number(entry.payoutAmount))}
+        </span>
         {entry.halvingReason && (
           <div style={{ fontSize: 11, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
             {entry.halvingReason}

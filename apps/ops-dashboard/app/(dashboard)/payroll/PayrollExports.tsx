@@ -16,8 +16,9 @@ type SaleAddonInfo = { productId: string; premium: number | null; product: { id:
 type SaleInfo = {
   id: string; memberName: string; memberId?: string; carrier: string;
   premium: number; enrollmentFee: number | null; commissionApproved: boolean;
-  status: string; notes?: string;
-  product: { id: string; name: string; type: string };
+  status: string; notes?: string; memberCount?: number | null;
+  acaCoveringSaleId?: string | null;
+  product: { id: string; name: string; type: string; flatCommission?: number | null };
   addons?: SaleAddonInfo[];
 };
 type Entry = {
@@ -117,11 +118,35 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
     const rows: string[][] = [];
 
     // ── Commission Agent Section ───────────────────────────────
-    // Step 1: Collect all entries across periods, tagged with period info
+    // Step 1: Collect all entries across periods, tagged with period info.
+    // Apply the same ACA fold as the dashboard so the print output matches:
+    // an ACA child entry (sale.acaCoveringSaleId set) is merged into its
+    // parent entry instead of appearing as its own row.
     type TaggedEntry = { entry: Entry; weekStart: string; weekEnd: string; quarterLabel: string };
     const tagged: TaggedEntry[] = [];
     for (const p of filtered) {
+      const parentBySaleId = new Map<string, Entry>();
       for (const e of p.entries) {
+        if (e.sale && !e.sale.acaCoveringSaleId) parentBySaleId.set(e.sale.id, e);
+      }
+      const foldedEntries: Entry[] = [];
+      for (const e of p.entries) {
+        const parentId = e.sale?.acaCoveringSaleId;
+        if (parentId && parentBySaleId.has(parentId)) {
+          const parent = parentBySaleId.get(parentId)!;
+          const merged: Entry = {
+            ...parent,
+            payoutAmount: Number(parent.payoutAmount) + Number(e.payoutAmount),
+            netAmount: Number(parent.netAmount) + Number(e.payoutAmount),
+          };
+          parentBySaleId.set(parentId, merged);
+          const idx = foldedEntries.findIndex(x => x.sale?.id === parentId);
+          if (idx >= 0) foldedEntries[idx] = merged;
+          continue;
+        }
+        foldedEntries.push(e);
+      }
+      for (const e of foldedEntries) {
         tagged.push({ entry: e, weekStart: p.weekStart, weekEnd: p.weekEnd, quarterLabel: p.quarterLabel });
       }
     }
@@ -164,9 +189,13 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
 
         for (const t of periodEntries) {
           const e = t.entry;
-          const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [] };
+          const byType: Record<string, string[]> = { CORE: [], ADDON: [], AD_D: [], ACA_PL: [] };
           if (e.sale?.product?.type) byType[e.sale.product.type]?.push(e.sale.product.name);
           if (e.sale?.addons) for (const ad of e.sale.addons) byType[ad.product.type]?.push(ad.product.name);
+          // ACA products print in the Core column alongside the parent core product.
+          if (byType.ACA_PL.length > 0) {
+            byType.CORE.push(...byType.ACA_PL.map((n) => `${n} (ACA)`));
+          }
           const fee = e.sale?.enrollmentFee != null ? Number(e.sale.enrollmentFee).toFixed(2) : "";
           const commission = Number(e.payoutAmount);
           const bonus = Number(e.bonusAmount);

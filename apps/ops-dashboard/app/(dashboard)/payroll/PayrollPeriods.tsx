@@ -129,8 +129,43 @@ export default function PayrollPeriods({
     }
 
     for (const p of periods) {
-      const byAgent = new Map<string, Entry[]>();
+      // ── Fold ACA covering entries into their parent entries (Bug 1 fix) ──
+      // The API returns two PayrollEntry rows per ACA-attached sale: the parent
+      // (e.g. Complete Care) and the ACA child whose sale.acaCoveringSaleId
+      // points back at the parent. Visually we want ONE unified row per member,
+      // so we merge the child's payout into the parent and stash a marker for
+      // the badge renderer.
+      const parentBySaleId = new Map<string, Entry>();
       for (const e of p.entries) {
+        if (e.sale && !e.sale.acaCoveringSaleId) parentBySaleId.set(e.sale.id, e);
+      }
+      const foldedEntries: Entry[] = [];
+      for (const e of p.entries) {
+        const parentId = e.sale?.acaCoveringSaleId;
+        if (parentId && parentBySaleId.has(parentId)) {
+          const parent = parentBySaleId.get(parentId)!;
+          const merged: Entry = {
+            ...parent,
+            payoutAmount: Number(parent.payoutAmount) + Number(e.payoutAmount),
+            netAmount: Number(parent.netAmount) + Number(e.payoutAmount),
+            acaAttached: {
+              memberCount: e.sale?.memberCount ?? 1,
+              flatCommission: Number(e.sale?.product?.flatCommission ?? 0),
+              payoutAmount: Number(e.payoutAmount),
+            },
+          };
+          parentBySaleId.set(parentId, merged);
+          // Replace the parent in foldedEntries if it was already pushed
+          const idx = foldedEntries.findIndex(x => x.sale?.id === parentId);
+          if (idx >= 0) foldedEntries[idx] = merged;
+          // Skip pushing the ACA child
+          continue;
+        }
+        foldedEntries.push(e);
+      }
+
+      const byAgent = new Map<string, Entry[]>();
+      for (const e of foldedEntries) {
         const name = e.agent?.name ?? "Unknown";
         if (!byAgent.has(name)) byAgent.set(name, []);
         byAgent.get(name)!.push(e);
