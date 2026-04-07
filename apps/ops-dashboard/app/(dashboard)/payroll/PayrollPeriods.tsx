@@ -52,13 +52,13 @@ function StatMini({
     <div style={{
       background: C.bgSurfaceRaised,
       borderRadius: R.lg,
-      padding: "14px 16px",
+      padding: "8px 12px",
       display: "flex",
       flexDirection: "column",
-      gap: 4,
+      gap: 2,
     }}>
-      <div style={{ fontSize: 10, color: C.textTertiary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
-      <div style={{ fontWeight: 700, fontSize: 20, color: color ?? C.textPrimary }}>
+      <div style={{ fontSize: 9, color: C.textTertiary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: color ?? C.textPrimary }}>
         <AnimatedNumber value={value} prefix={prefix} decimals={2} />
       </div>
     </div>
@@ -884,8 +884,8 @@ export default function PayrollPeriods({
       <div style={{
         background: C.bgSurface,
         borderLeft: `4px solid ${C.danger}`,
-        borderRadius: R["2xl"],
-        padding: S[4],
+        borderRadius: alerts.length === 0 ? R.lg : R["2xl"],
+        padding: alerts.length === 0 ? S[3] : S[4],
       }}>
         {alerts.length === 0 ? (
           <div style={{
@@ -1174,12 +1174,12 @@ export default function PayrollPeriods({
 
       {/* Current week summary strip */}
       {currentWeekTotals && (
-        <div style={{ marginBottom: S[5] }}>
-          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, marginBottom: S[2], display: "flex", alignItems: "center", gap: S[2] }}>
+        <div style={{ marginBottom: S[3] }}>
+          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: S[2] }}>
             <Calendar size={13} />
             {fmtDate(currentWeekTotals.period.weekStart)} {"\u2013"} {fmtDate(currentWeekTotals.period.weekEnd)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: S[3] }} className="grid-mobile-1">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: S[2] }} className="grid-mobile-1">
             <StatMini label="Entries" value={currentWeekTotals.entries} prefix="" color={C.textPrimary} />
             <StatMini label="Commission" value={currentWeekTotals.gross} />
             <StatMini label="Bonuses" value={currentWeekTotals.bonus} color={C.success} />
