@@ -478,7 +478,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
       const res = await authFetch(`${API}/api/chargebacks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ records: submitRecords, rawPaste: rawText, batchId }),
+        body: JSON.stringify({ records: submitRecords, rawPaste: rawText, batchId, source: "PAYROLL" }),
       });
 
       if (res.status === 201) {
