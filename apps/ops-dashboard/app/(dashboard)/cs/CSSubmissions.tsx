@@ -15,6 +15,7 @@ import {
   baseTdStyle,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
+import { formatDollar } from "@ops/utils";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 type SocketClient = import("socket.io-client").Socket;
@@ -575,6 +576,7 @@ function SubmissionsContent({
   API,
 }: SubmissionsContentProps) {
   const { toast } = useToast();
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
 
   const handleSubmit = async () => {
     if (records.length === 0) {
@@ -745,6 +747,158 @@ function SubmissionsContent({
             />
           )}
         </Card>
+
+        {/* Preview Table */}
+        {records.length > 0 && (
+          <Card padding="none">
+            <div style={{ padding: `${spacing[4]}px ${spacing[6]}px 0` }}>
+              <h3 style={SECTION_HEADING}>
+                Preview ({records.length} record{records.length !== 1 ? "s" : ""})
+              </h3>
+            </div>
+            <div style={TABLE_WRAP}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...baseThStyle, width: 120 }}>Date Posted</th>
+                    <th style={baseThStyle}>Member</th>
+                    <th style={{ ...baseThStyle, width: 110 }}>Member ID</th>
+                    <th style={baseThStyle}>Product</th>
+                    <th style={{ ...baseThStyle, width: 140 }}>Agent</th>
+                    <th style={{ ...baseThStyle, width: 160 }}>Transaction Type</th>
+                    <th style={{ ...baseThStyle, width: 110 }}>Total</th>
+                    <th style={{ ...baseThStyle, width: 140 }}>Assigned To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map((rec, idx) => (
+                    <tr
+                      key={idx}
+                      onMouseEnter={() => setHoveredRow(idx)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                      style={{
+                        background: hoveredRow === idx ? colors.bgSurfaceRaised : "transparent",
+                        transition: `background ${motion.duration.fast} ${motion.easing.out}`,
+                      }}
+                    >
+                      <td style={baseTdStyle}>
+                        <input
+                          type="date"
+                          style={COMPACT_INPUT}
+                          value={rec.postedDate ?? ""}
+                          onChange={(e) => updateRecord(idx, "postedDate", e.target.value)}
+                          disabled={submitting}
+                        />
+                      </td>
+                      <td style={baseTdStyle}>
+                        <input
+                          type="text"
+                          style={COMPACT_INPUT}
+                          value={rec.memberCompany}
+                          onChange={(e) => updateRecord(idx, "memberCompany", e.target.value)}
+                          disabled={submitting}
+                        />
+                      </td>
+                      <td style={baseTdStyle}>
+                        <span style={{ color: colors.textSecondary }}>{rec.memberId || "--"}</span>
+                      </td>
+                      <td style={baseTdStyle}>
+                        <span
+                          style={{
+                            display: "block",
+                            maxWidth: 240,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: colors.textSecondary,
+                          }}
+                          title={rec.product || undefined}
+                        >
+                          {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
+                        </span>
+                      </td>
+                      <td style={baseTdStyle}>
+                        <select
+                          style={{ ...COMPACT_INPUT, color: rec.memberAgentCompany ? colors.textPrimary : colors.textMuted }}
+                          value={rec.memberAgentCompany ?? ""}
+                          onChange={(e) => updateRecord(idx, "memberAgentCompany", e.target.value)}
+                          disabled={submitting}
+                        >
+                          <option value="">Unknown</option>
+                          {agents.map((a) => (
+                            <option key={a.id} value={a.name}>{a.name}</option>
+                          ))}
+                          {rec.memberAgentCompany && !agents.some(a => a.name === rec.memberAgentCompany) && (
+                            <option value={rec.memberAgentCompany}>{rec.memberAgentCompany}</option>
+                          )}
+                        </select>
+                      </td>
+                      <td style={baseTdStyle}>
+                        <select
+                          style={COMPACT_INPUT}
+                          value={rec.type ?? ""}
+                          onChange={(e) => updateRecord(idx, "type", e.target.value)}
+                          disabled={submitting}
+                        >
+                          <option value="">--</option>
+                          {TYPE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                          {rec.type && !TYPE_OPTIONS.includes(rec.type) && (
+                            <option value={rec.type}>{rec.type}</option>
+                          )}
+                        </select>
+                      </td>
+                      <td style={baseTdStyle}>
+                        <input
+                          type="text"
+                          style={COMPACT_INPUT}
+                          value={formatDollar(rec.totalAmount)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, "");
+                            const num = parseFloat(raw);
+                            if (!isNaN(num)) updateRecord(idx, "totalAmount", num);
+                          }}
+                          disabled={submitting}
+                        />
+                      </td>
+                      <td style={baseTdStyle}>
+                        <select
+                          style={COMPACT_INPUT}
+                          value={rec.assignedTo}
+                          onChange={(e) => updateRecord(idx, "assignedTo", e.target.value)}
+                          disabled={submitting}
+                        >
+                          <option value="">Unassigned</option>
+                          {activeRepNames.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Submit Bar */}
+            <div style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              padding: `${spacing[4]}px ${spacing[6]}px`,
+              borderTop: `1px solid ${colors.borderSubtle}`,
+            }}>
+              <Button
+                variant="primary"
+                onClick={handleSubmit}
+                disabled={submitting || records.length === 0}
+                loading={submitting}
+              >
+                {submitting ? "Submitting..." : "Submit Chargebacks"}
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Pending Terms Parser */}
         <Card>
