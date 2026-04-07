@@ -420,6 +420,88 @@ export async function findOldestOpenPeriodForAgent(agentId: string): Promise<str
 }
 
 /**
+ * Find the oldest OPEN payroll period (agent-agnostic).
+ * Used by cross-period chargeback insertion where the target period may have
+ * no existing entries for the agent yet.
+ */
+export async function findOldestOpenPeriod(
+  tx: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<{ id: string; weekStart: Date; weekEnd: Date } | null> {
+  return tx.payrollPeriod.findFirst({
+    where: { status: "OPEN" },
+    orderBy: { weekStart: "asc" },
+    select: { id: true, weekStart: true, weekEnd: true },
+  });
+}
+
+/**
+ * Apply a chargeback to a sale's payroll entry.
+ *
+ * - If the sale's PayrollEntry lives in an OPEN period: zero in place with
+ *   status=ZEROED_OUT_IN_PERIOD (yellow highlight in dashboard).
+ * - If the sale's PayrollEntry lives in a LOCKED or FINALIZED period:
+ *   insert a NEW negative PayrollEntry into the oldest OPEN period
+ *   (agent-agnostic) with status=CLAWBACK_CROSS_PERIOD (orange highlight).
+ *
+ * Safe because PayrollEntry has @@unique([payrollPeriodId, saleId]) — the same
+ * sale can have entries in multiple periods.
+ */
+export async function applyChargebackToEntry(
+  tx: Prisma.TransactionClient,
+  sale: {
+    id: string;
+    agentId: string;
+    payrollEntries: { id: string; payrollPeriodId: string; payoutAmount: any }[];
+  },
+  chargebackAmount: number,
+): Promise<{ mode: "in_period" | "cross_period"; entryId: string }> {
+  const originalEntry = sale.payrollEntries[0];
+  const originalPeriod = originalEntry
+    ? await tx.payrollPeriod.findUnique({
+        where: { id: originalEntry.payrollPeriodId },
+        select: { status: true },
+      })
+    : null;
+
+  // IN-PERIOD (OPEN) — zero original row in place, mark yellow
+  if (originalPeriod?.status === "OPEN" && originalEntry) {
+    const updated = await tx.payrollEntry.update({
+      where: { id: originalEntry.id },
+      data: {
+        payoutAmount: 0,
+        netAmount: 0,
+        status: "ZEROED_OUT_IN_PERIOD",
+      },
+    });
+    return { mode: "in_period", entryId: updated.id };
+  }
+
+  // CROSS-PERIOD (LOCKED or FINALIZED) — insert new negative row in oldest OPEN period
+  const oldestOpen = await tx.payrollPeriod.findFirst({
+    where: { status: "OPEN" },
+    orderBy: { weekStart: "asc" },
+    select: { id: true },
+  });
+  if (!oldestOpen) {
+    throw new Error("No OPEN payroll period exists for cross-period chargeback");
+  }
+
+  // Safe because @@unique([payrollPeriodId, saleId]) allows same sale in different periods
+  const created = await tx.payrollEntry.create({
+    data: {
+      payrollPeriodId: oldestOpen.id,
+      saleId: sale.id,
+      agentId: sale.agentId,
+      payoutAmount: 0,
+      adjustmentAmount: -chargebackAmount,
+      netAmount: -chargebackAmount,
+      status: "CLAWBACK_CROSS_PERIOD",
+    },
+  });
+  return { mode: "cross_period", entryId: created.id };
+}
+
+/**
  * Calculate commission for specific products in a sale (partial chargeback).
  * If productIds includes all products or is empty, returns the full payout amount.
  */
