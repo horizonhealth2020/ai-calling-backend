@@ -725,6 +725,8 @@ export default function PayrollPeriods({
   .prod-block { display: inline-flex; flex-direction: column; align-items: center; }
   .prod-name { font-size: 11px; font-weight: 600; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
   .prod-premium { font-size: 10px; color: #64748b; }
+  .prod-aca { display: inline-block; padding: 2px 6px; margin-left: 4px; border: 1px solid #0891b2; background: #e0f7fa; color: #0c4a5f; font-size: 10px; font-weight: 700; border-radius: 3px; vertical-align: middle; }
+  .prod-aca-amt { font-size: 9px; color: #0c4a5f; font-weight: 600; margin-left: 2px; }
   .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-right: 4px; }
   .pill-approved { background: #d1fae5; color: #059669; }
   .pill-warn { background: #fef3c7; color: #d97706; }
@@ -762,6 +764,11 @@ export default function PayrollPeriods({
             const printProd = (items: { name: string; premium?: number }[]) => items.length
               ? `<div class="prod-group">${items.map(p => `<div class="prod-block"><span class="prod-name">${p.name}</span>${p.premium != null ? `<span class="prod-premium">$${p.premium.toFixed(2)}</span>` : ""}</div>`).join("")}</div>`
               : "\u2014";
+            // 46-04 D-13..D-16: mirror WeekSection.tsx ACA chip inline inside the Core column.
+            // Renders only when entry.acaAttached is set; uses .prod-aca print-friendly style.
+            const acaChipHtml = e.acaAttached
+              ? `<span class="prod-aca">${e.acaAttached.productName ?? "ACA"}</span><span class="prod-aca-amt">$${Number(e.acaAttached.payoutAmount).toFixed(2)}</span>`
+              : "";
             const commFlags: string[] = [];
             if (e.halvingReason && e.sale?.commissionApproved) {
               commFlags.push(`<div class="pill pill-approved">Approved</div>`);
@@ -775,7 +782,7 @@ export default function PayrollPeriods({
             return `<tr>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
         <td>${e.sale?.memberName ?? "\u2014"}</td>
-        <td class="center core">${printProd(byType.CORE)}</td>
+        <td class="center core">${printProd(byType.CORE)}${acaChipHtml}</td>
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}${enrollBonusHtml}</td>
