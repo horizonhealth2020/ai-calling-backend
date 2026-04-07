@@ -1,6 +1,9 @@
 import { prisma } from "@ops/db";
-import type { Product, Sale, SaleAddon } from "@prisma/client";
+import type { Product, Sale, SaleAddon, Prisma } from "@prisma/client";
 import { DateTime } from 'luxon';
+
+/** Prisma transaction client — use for composable helpers callable inside $transaction. */
+export type PrismaTx = Prisma.TransactionClient;
 
 const TIMEZONE = 'America/New_York';
 
@@ -242,15 +245,18 @@ export async function resolveBundleRequirement(
   },
   memberState: string,
   saleAddonProductIds: string[],
-  saleId?: string
+  saleId?: string,
+  tx?: PrismaTx,
 ): Promise<BundleRequirementContext> {
   if (!coreProduct.requiredBundleAddonId) return null;
+
+  const db = tx ?? prisma;
 
   // D-03 (Phase 42): ACA PL auto-satisfies bundle requirement regardless of which
   // addon is configured as requiredBundleAddonId. This check must remain BEFORE the
   // state availability lookups so ACA covering sales bypass all fallback logic.
   if (saleId) {
-    const acaCovering = await prisma.sale.findFirst({
+    const acaCovering = await db.sale.findFirst({
       where: { acaCoveringSaleId: saleId, product: { type: "ACA_PL" }, status: "RAN" },
     });
     if (acaCovering) {
@@ -258,7 +264,7 @@ export async function resolveBundleRequirement(
     }
   }
 
-  const requiredAvail = await prisma.productStateAvailability.findUnique({
+  const requiredAvail = await db.productStateAvailability.findUnique({
     where: { productId_stateCode: { productId: coreProduct.requiredBundleAddonId, stateCode: memberState } }
   });
   const requiredAddonInSale = saleAddonProductIds.includes(coreProduct.requiredBundleAddonId);
@@ -280,7 +286,7 @@ export async function resolveBundleRequirement(
   // Only reach fallback loop when primary is NOT available in state (!requiredAvail)
   const fallbacks = coreProduct.fallbackAddons ?? [];
   for (const fb of fallbacks) {
-    const fbAvail = await prisma.productStateAvailability.findUnique({
+    const fbAvail = await db.productStateAvailability.findUnique({
       where: { productId_stateCode: { productId: fb.fallbackProduct.id, stateCode: memberState } }
     });
     const fbInSale = saleAddonProductIds.includes(fb.fallbackProduct.id);
@@ -327,8 +333,9 @@ export const handleCommissionZeroing = async (saleId: string) => {
   }
 };
 
-export const upsertPayrollEntryForSale = async (saleId: string) => {
-  const sale = await prisma.sale.findUnique({
+export const upsertPayrollEntryForSale = async (saleId: string, tx?: PrismaTx) => {
+  const db = tx ?? prisma;
+  const sale = await db.sale.findUnique({
     where: { id: saleId },
     include: {
       product: {
@@ -351,7 +358,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
 
   const addonProductIds = (sale.addons ?? []).map(a => a.productId);
   const bundleCtx = sale.memberState
-    ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds, saleId)
+    ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds, saleId, tx)
     : null;
   const result = calculateCommission(sale as Parameters<typeof calculateCommission>[0], bundleCtx);
   const payoutAmount = sale.status === 'RAN' ? result.commission : 0;
@@ -360,7 +367,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   const shiftWeeks = sale.paymentType === 'ACH' ? 1 : 0;
   const { weekStart, weekEnd } = getSundayWeekRange(sale.saleDate, shiftWeeks);
 
-  const period = await prisma.payrollPeriod.upsert({
+  const period = await db.payrollPeriod.upsert({
     where: { id: `${weekStart.toISOString()}_${weekEnd.toISOString()}` },
     create: {
       id: `${weekStart.toISOString()}_${weekEnd.toISOString()}`,
@@ -373,7 +380,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   });
 
   // Check if an existing entry has bonus/fronted/hold to preserve those values
-  const existing = await prisma.payrollEntry.findUnique({
+  const existing = await db.payrollEntry.findUnique({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
   });
   const bonus = existing ? Number(existing.bonusAmount) : 0;
@@ -382,7 +389,7 @@ export const upsertPayrollEntryForSale = async (saleId: string) => {
   const adjustment = existing ? Number(existing.adjustmentAmount) : 0;
   const netAmount = payoutAmount + adjustment + bonus + fronted - hold;
 
-  return prisma.payrollEntry.upsert({
+  return db.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
     create: {
       payrollPeriodId: period.id,

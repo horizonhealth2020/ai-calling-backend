@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, resolveBundleRequirement } from "../services/payroll";
+import { createAcaChildSale, removeAcaChildSale } from "../services/sales";
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
 import { shiftRange } from "../services/reporting";
@@ -380,6 +381,18 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     leadPhone: z.string().nullable().optional(),
     notes: z.string().nullable().optional(),
     commissionApproved: z.boolean().optional(),
+    // Phase 47 Sub-feature 4: ACA covering-child management from the payroll edit row.
+    // - object → create (if none exists) or update (if one exists) the child
+    // - null   → remove the existing child
+    // - undefined (omitted) → no change
+    // The FK direction is: child.acaCoveringSaleId → parent.id. Parent NEVER holds it.
+    acaChild: z.union([
+      z.null(),
+      z.object({
+        productId: z.string(),
+        memberCount: z.number().int().min(1),
+      }),
+    ]).optional(),
   });
   const parsed = editSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
@@ -390,7 +403,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
 
   if (isPrivileged) {
     // ── PAYROLL / SUPER_ADMIN: apply directly ──
-    const { addonProductIds, addonPremiums, ...saleFields } = parsed.data;
+    const { addonProductIds, addonPremiums, acaChild, ...saleFields } = parsed.data;
     const updateData: Record<string, unknown> = { ...saleFields };
     if (updateData.saleDate) updateData.saleDate = new Date(updateData.saleDate + "T12:00:00");
     if (updateData.effectiveDate) updateData.effectiveDate = new Date(updateData.effectiveDate + "T12:00:00");
@@ -399,6 +412,16 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     if (!oldSale) return res.status(404).json({ error: "Sale not found" });
     const oldAgentId = oldSale.agentId;
 
+    // Recalculate commission if any financial/product/agent/date/paymentType field changed
+    // (or if an ACA child is being attached/updated/removed — bundled rate can change).
+    const financialFields = ['premium', 'enrollmentFee', 'productId', 'agentId', 'saleDate', 'effectiveDate', 'paymentType', 'commissionApproved', 'addonProductIds'];
+    const needsRecalc =
+      financialFields.some(f => (parsed.data as Record<string, unknown>)[f] !== undefined) ||
+      acaChild !== undefined;
+
+    // Phase 47 Sub-feature 4: ACA attach/detach/update + parent recalc MUST run inside
+    // the transaction so D-16 audit atomicity holds (a crashed recalc cannot leave the
+    // child-create committed but the parent payout stale).
     await prisma.$transaction(async (tx) => {
       await tx.sale.update({ where: { id: saleId }, data: updateData });
 
@@ -413,19 +436,86 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
           });
         }
       }
+
+      // If agent changed, delete old payroll entries for old agent (inside tx for atomicity)
+      if (updateData.agentId && updateData.agentId !== oldAgentId) {
+        await tx.payrollEntry.deleteMany({ where: { saleId, agentId: oldAgentId } });
+      }
+
+      // ── ACA covering-child handling (Phase 47 Sub-feature 4 / D-13..D-17) ──
+      // The FK lives on the CHILD, not the parent. Parent reads via the
+      // acaCoveredSales inverse relation. Single upsertPayrollEntryForSale
+      // call after the mutation IS the sibling recalc because PayrollEntry
+      // is one row per (period, sale) aggregating all products.
+      if (acaChild !== undefined) {
+        const parentWithCovered = await tx.sale.findUnique({
+          where: { id: saleId },
+          include: {
+            acaCoveredSales: {
+              where: { product: { type: "ACA_PL" } },
+              select: { id: true },
+            },
+          },
+        });
+        const existingChildId = parentWithCovered?.acaCoveredSales[0]?.id ?? null;
+
+        if (acaChild === null && existingChildId) {
+          // D-17 REMOVAL — delete child + its PayrollEntry, recalc parent without bundled rates
+          await removeAcaChildSale(tx, saleId, existingChildId);
+          await upsertPayrollEntryForSale(saleId, tx);
+          await logAudit(
+            req.user!.id,
+            "edit_sale_aca_removed",
+            "Sale",
+            saleId,
+            { removedChildSaleId: existingChildId },
+          );
+        } else if (acaChild && !existingChildId) {
+          // D-13 ATTACH — create child, then recalc parent (picks up acaBundledCommission)
+          const child = await createAcaChildSale(tx, saleId, {
+            productId: acaChild.productId,
+            memberCount: acaChild.memberCount,
+            userId: req.user!.id,
+          });
+          await upsertPayrollEntryForSale(saleId, tx);   // D-14: parent bundled-rate recalc
+          await upsertPayrollEntryForSale(child.id, tx); // child's own flat-commission entry
+          await logAudit(
+            req.user!.id,
+            "edit_sale_aca_attached",
+            "Sale",
+            saleId,
+            { createdAcaChildSaleId: child.id, memberCount: acaChild.memberCount, productId: acaChild.productId },
+          );
+        } else if (acaChild && existingChildId) {
+          // UPDATE — change product/memberCount on the existing child
+          await tx.sale.update({
+            where: { id: existingChildId },
+            data: {
+              productId: acaChild.productId,
+              memberCount: acaChild.memberCount,
+            },
+          });
+          await upsertPayrollEntryForSale(saleId, tx);
+          await upsertPayrollEntryForSale(existingChildId, tx);
+          await logAudit(
+            req.user!.id,
+            "edit_sale_aca_updated",
+            "Sale",
+            saleId,
+            { childSaleId: existingChildId, memberCount: acaChild.memberCount, productId: acaChild.productId },
+          );
+        } else {
+          // acaChild === null with no existing child — no-op, but still recalc if
+          // other financial fields changed (handled below via needsRecalc path).
+          if (needsRecalc) {
+            await upsertPayrollEntryForSale(saleId, tx);
+          }
+        }
+      } else if (needsRecalc) {
+        // No ACA change — normal financial recalc path, still inside the transaction.
+        await upsertPayrollEntryForSale(saleId, tx);
+      }
     });
-
-    // If agent changed, delete old payroll entries for old agent
-    if (updateData.agentId && updateData.agentId !== oldAgentId) {
-      await prisma.payrollEntry.deleteMany({ where: { saleId, agentId: oldAgentId } });
-    }
-
-    // Recalculate commission if any financial/product/agent/date/paymentType field changed
-    const financialFields = ['premium', 'enrollmentFee', 'productId', 'agentId', 'saleDate', 'effectiveDate', 'paymentType', 'commissionApproved', 'addonProductIds'];
-    const needsRecalc = financialFields.some(f => (parsed.data as Record<string, unknown>)[f] !== undefined);
-    if (needsRecalc) {
-      await upsertPayrollEntryForSale(saleId);
-    }
 
     const updatedSale = await prisma.sale.findUnique({
       where: { id: saleId },
