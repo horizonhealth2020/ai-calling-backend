@@ -264,11 +264,31 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     });
   }
 
-  // 46-02 (D-06/D-07): Surface every matched chargeback as a payroll alert so the
-  // payroll dashboard alert area shows it. Without this call, payrollAlert rows are
-  // never inserted (createAlertFromChargeback was previously dead code with zero
-  // callers). Dedupe against the already-created clawback is handled in
-  // alerts.approveAlert so a payroll user clicking Approve does not double-claw.
+  // GAP-46-UAT-01 diagnosis (46-06):
+  // Root cause: Hypothesis A — alertPayloads is silently empty for CS-submitted
+  //   chargebacks whose member has 0 or >1 sales in the DB. The matching loop
+  //   at chargebacks.ts:157-186 only flips matchStatus="MATCHED" when exactly
+  //   one sale exists for cb.memberId; the alertPayloads push at :242-247 is
+  //   gated on "matchStatus === MATCHED" at :198. UAT round 1 Test 1 ("no
+  //   alert in payroll") and Test 3 ("chargebacks exist, no alerts at all")
+  //   are both explained by chargebacks landing in UNMATCHED/MULTIPLE with
+  //   zero observable logging. createAlertFromChargeback + GET /api/alerts +
+  //   payroll page.tsx:143 all work correctly end-to-end — the pipeline is
+  //   starved at the source. Evidence:
+  //     - chargebacks.ts:198 (gate)
+  //     - chargebacks.ts:242-247 (push only when matched)
+  //     - alerts.ts:24-30 getPendingAlerts (no hidden filter)
+  //     - routes/alerts.ts:11-14 GET /alerts (no hidden filter)
+  //     - payroll/page.tsx:143 + PayrollPeriods.tsx:849 (renders alerts.length>0)
+  //     - CSSubmissions.tsx:595 sends {records, rawPaste, batchId} with no
+  //       selectedSaleId, so every CS row auto-matches by memberId only.
+  // Fix in Task 2: Make the silent empty-payloads path loud with a structured
+  //   warn log (batchId, chargeback count, matched count, unmatched/multiple
+  //   counts), track alertSuccessCount / alertErrors around createAlertFromChargeback
+  //   with batchId + cbId context, and return alertCount in the 201 response
+  //   so callers can detect the silent mode without scraping logs. Non-MATCHED
+  //   chargebacks still flow through the existing /chargebacks UI — this plan
+  //   does NOT change the alert-creation gate (that belongs to 46-07).
   for (const p of alertPayloads) {
     try {
       await createAlertFromChargeback(p.chargebackId, p.agentName, p.memberName, p.amount);
