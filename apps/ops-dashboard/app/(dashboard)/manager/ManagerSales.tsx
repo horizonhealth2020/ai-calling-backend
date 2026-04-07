@@ -35,7 +35,7 @@ type Product = {
   bundledCommission?: number | null; standaloneCommission?: number | null; enrollFeeThreshold?: number | null; notes?: string | null;
 };
 type LeadSource = { id: string; name: string; listId?: string; costPerLead: number; active?: boolean; callBufferSeconds?: number };
-type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; leadPhone?: string | null; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
+type Sale = { id: string; saleDate: string; memberName: string; memberId?: string; carrier: string; premium: number; status: string; hasPendingStatusChange?: boolean; hasPendingEditRequest?: boolean; notes?: string; leadPhone?: string | null; acaCoveringSaleId?: string | null; agent: { id: string; name: string }; product: { id: string; name: string }; leadSource: { id: string; name: string } };
 
 export interface ManagerSalesProps {
   API: string;
@@ -344,8 +344,39 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
     ? salesList
     : salesList.filter(s => getDayOfWeek(s.saleDate.slice(0, 10)) === DAYS.indexOf(salesDay as typeof DAYS[number]));
 
-  const byAgent = new Map<string, Sale[]>();
+  // ── GAP-45-06: Fold ACA covering child sales into their parent rows ──
+  // Mirrors the two-pass fold in PayrollPeriods.tsx (GAP-45-04). The API
+  // returns two Sale rows for an ACA-attached entry: the parent (Complete
+  // Care, etc.) and the ACA child whose acaCoveringSaleId points back at
+  // the parent. Visually we want ONE row per logical sale and the per-agent
+  // 'N sales' badge to count logical (post-fold) sales.
+  //
+  // Pass 1: index ACA child sales by parent id.
+  const acaChildrenByParentId = new Map<string, Sale[]>();
   for (const s of filtered) {
+    if (s.acaCoveringSaleId) {
+      if (!acaChildrenByParentId.has(s.acaCoveringSaleId)) acaChildrenByParentId.set(s.acaCoveringSaleId, []);
+      acaChildrenByParentId.get(s.acaCoveringSaleId)!.push(s);
+    }
+  }
+  // Pass 2: emit non-child rows; skip child rows that have a present parent.
+  const foldedSales: Sale[] = [];
+  for (const s of filtered) {
+    if (s.acaCoveringSaleId) continue;
+    foldedSales.push(s);
+  }
+  // Pass 3 (defensive): if an ACA child has no matching parent in the
+  // current visible window (orphaned data), surface it as a standalone row
+  // so payroll is not silently dropped.
+  for (const [parentId, children] of acaChildrenByParentId) {
+    const hasParent = filtered.some(s => s.id === parentId && !s.acaCoveringSaleId);
+    if (!hasParent) {
+      for (const orphan of children) foldedSales.push(orphan);
+    }
+  }
+
+  const byAgent = new Map<string, Sale[]>();
+  for (const s of foldedSales) {
     const name = s.agent.name;
     if (!byAgent.has(name)) byAgent.set(name, []);
     byAgent.get(name)!.push(s);
