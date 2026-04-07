@@ -88,6 +88,17 @@ export type Alert = {
   customerName: string | null;
   amount: number | null;
   createdAt: string;
+  // GAP-46-UAT-05 (46-10): identity + match status from the chargeback include
+  chargebackSubmissionId: string;
+  chargeback?: {
+    id: string;
+    matchStatus: "MATCHED" | "MULTIPLE" | "UNMATCHED" | null;
+    matchedSaleId: string | null;
+    memberId: string | null;
+    memberCompany: string | null;
+    payeeName: string | null;
+    memberAgentCompany: string | null;
+  } | null;
 };
 
 export type AlertPeriod = { id: string; weekStart: string; weekEnd: string };

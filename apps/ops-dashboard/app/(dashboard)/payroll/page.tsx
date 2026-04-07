@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import PayrollPeriods from "./PayrollPeriods";
+import type { Alert } from "./payroll-types";
 import PayrollChargebacks from "./PayrollChargebacks";
 import PayrollExports from "./PayrollExports";
 import PayrollProducts from "./PayrollProducts";
@@ -71,15 +72,6 @@ type SaleEditRequest = {
   requestedAt: string;
   sale: { agentId: string; memberName: string; memberId?: string; product: { name: string } };
   requester: { name: string; email: string };
-};
-
-type Alert = {
-  id: string;
-  agentId: string | null;
-  agentName: string | null;
-  customerName: string | null;
-  amount: number | null;
-  createdAt: string;
 };
 
 type Tab = "periods" | "chargebacks" | "exports" | "products" | "service";

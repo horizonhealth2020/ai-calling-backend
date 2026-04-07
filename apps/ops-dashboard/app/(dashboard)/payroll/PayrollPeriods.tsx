@@ -104,6 +104,21 @@ export default function PayrollPeriods({
   const [selectedAlertPeriod, setSelectedAlertPeriod] = useState<Record<string, string>>({});
   const [showChargebacks, setShowChargebacks] = useState<boolean>(false);
 
+  // GAP-46-UAT-05 (46-10): manual sale picker state for UNMATCHED/MULTIPLE alerts.
+  // Keyed by alertId so two simultaneous picks don't collide.
+  type PickerSale = {
+    id: string;
+    memberName: string | null;
+    memberId: string | null;
+    agent: { name: string };
+    product: { name: string } | null;
+    saleDate: string;
+  };
+  const [salePickerQuery, setSalePickerQuery] = useState<Record<string, string>>({});
+  const [salePickerResults, setSalePickerResults] = useState<Record<string, PickerSale[]>>({});
+  const [pickedSaleId, setPickedSaleId] = useState<Record<string, string>>({});
+  const [salePickerLoading, setSalePickerLoading] = useState<Record<string, boolean>>({});
+
   /* ── Agent-level expand/collapse state ───────────────────── */
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const [expandedWeeks, setExpandedWeeks] = useState<Map<string, Set<string>>>(new Map());
@@ -492,16 +507,23 @@ export default function PayrollPeriods({
     }
   }
 
-  async function handleApproveAlert(alertId: string, periodId: string) {
+  async function handleApproveAlert(alertId: string, periodId: string, manualSaleId?: string) {
     try {
+      // GAP-46-UAT-05 (46-10): forward saleId when payroll manually picked a sale for an UNMATCHED/MULTIPLE alert.
+      const body: { periodId: string; saleId?: string } = { periodId };
+      if (manualSaleId) body.saleId = manualSaleId;
       const res = await authFetch(`${API}/api/alerts/${alertId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodId }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         setAlerts(prev => prev.filter(a => a.id !== alertId));
         setApprovingAlertId(null);
+        // Clean up picker state for this alertId.
+        setPickedSaleId(prev => { const next = { ...prev }; delete next[alertId]; return next; });
+        setSalePickerQuery(prev => { const next = { ...prev }; delete next[alertId]; return next; });
+        setSalePickerResults(prev => { const next = { ...prev }; delete next[alertId]; return next; });
         toast("success", "Alert approved and clawback created");
         refreshPeriods();
       } else {
@@ -918,49 +940,184 @@ export default function PayrollPeriods({
                 {alerts.map(alert => {
                   const highlighted = highlightedAlertIds.has(alert.id);
                   const HIGHLIGHT_GLOW = { boxShadow: "0 0 20px rgba(20,184,166,0.4), inset 0 0 20px rgba(20,184,166,0.05)" };
+                  // GAP-46-UAT-05 (46-10): UNMATCHED/MULTIPLE detection + raw member identity for the picker.
+                  const isUnmatched = !alert.chargeback?.matchedSaleId;
+                  const memberLabel = alert.chargeback?.memberId ?? alert.chargeback?.memberCompany ?? "—";
                   return (
                     <tr key={alert.id} style={{
                       ...(highlighted ? HIGHLIGHT_GLOW : {}),
                       transition: "background 0.3s",
                     }}>
                       <td style={tdStyle}>{alert.agentName || "Unknown"}</td>
-                      <td style={tdStyle}>{alert.customerName || "Unknown"}</td>
+                      <td style={tdStyle}>
+                        {alert.customerName || alert.chargeback?.memberCompany || "Unknown"}
+                        {isUnmatched && (
+                          <span style={{
+                            marginLeft: 8,
+                            padding: "2px 6px",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            background: "rgba(220,38,38,0.15)",
+                            color: C.danger,
+                            borderRadius: R.sm,
+                            border: `1px solid ${C.danger}`,
+                          }}>
+                            Unmatched
+                          </span>
+                        )}
+                        {isUnmatched && (
+                          <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                            Member: {memberLabel}
+                          </div>
+                        )}
+                      </td>
                       <td style={tdRight}>{alert.amount != null ? formatDollar(Number(alert.amount)) : "--"}</td>
                       <td style={tdStyle}>{formatDate(alert.createdAt)}</td>
                       <td style={{ ...tdCenter, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
                         {approvingAlertId === alert.id ? (
                           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                              <span style={{ fontSize: 11, color: C.textMuted, fontStyle: "italic" }}>Oldest open period pre-selected</span>
-                              <select
-                                style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
-                                value={selectedAlertPeriod[alert.id] || ""}
-                                onChange={e => setSelectedAlertPeriod(prev => ({ ...prev, [alert.id]: e.target.value }))}
-                              >
-                                {(!alertPeriods[alert.id] || alertPeriods[alert.id].length === 0) ? (
-                                  <option value="" disabled>No open periods found</option>
-                                ) : (
-                                  (alertPeriods[alert.id] || []).map((p: AlertPeriod) => (
-                                    <option key={p.id} value={p.id}>
-                                      {fmtDate(p.weekStart)} {"\u2013"} {fmtDate(p.weekEnd)}
-                                    </option>
-                                  ))
+                            {isUnmatched && !pickedSaleId[alert.id] ? (
+                              /* GAP-46-UAT-05 (46-10) Step 1: manual sale picker */
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 280 }}>
+                                <span style={{ fontSize: 11, color: C.textMuted, fontStyle: "italic" }}>
+                                  Pick the sale this chargeback belongs to:
+                                </span>
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  placeholder="Search by member id or name…"
+                                  style={{ ...inputStyle, fontSize: 12, padding: "4px 8px" }}
+                                  value={salePickerQuery[alert.id] ?? (alert.chargeback?.memberId ?? "")}
+                                  onChange={async e => {
+                                    const q = e.target.value;
+                                    setSalePickerQuery(prev => ({ ...prev, [alert.id]: q }));
+                                    if (q.length < 2) {
+                                      setSalePickerResults(prev => ({ ...prev, [alert.id]: [] }));
+                                      return;
+                                    }
+                                    setSalePickerLoading(prev => ({ ...prev, [alert.id]: true }));
+                                    try {
+                                      const r = await authFetch(`${API}/api/sales`);
+                                      const all: PickerSale[] = r.ok ? await r.json() : [];
+                                      const ql = q.toLowerCase();
+                                      const filtered = all.filter(s =>
+                                        (s.memberId && s.memberId.toLowerCase().includes(ql)) ||
+                                        (s.memberName && s.memberName.toLowerCase().includes(ql))
+                                      ).slice(0, 20);
+                                      setSalePickerResults(prev => ({ ...prev, [alert.id]: filtered }));
+                                    } finally {
+                                      setSalePickerLoading(prev => ({ ...prev, [alert.id]: false }));
+                                    }
+                                  }}
+                                />
+                                {salePickerLoading[alert.id] && (
+                                  <span style={{ fontSize: 11, color: C.textMuted }}>Searching…</span>
                                 )}
-                              </select>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="success"
-                              disabled={!selectedAlertPeriod[alert.id]}
-                              onClick={() => {
-                                if (selectedAlertPeriod[alert.id]) {
-                                  handleApproveAlert(alert.id, selectedAlertPeriod[alert.id]);
-                                }
-                              }}
-                            >
-                              <Check size={12} style={{ marginRight: 3 }} /> Approve
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setApprovingAlertId(null)}>Cancel</Button>
+                                {(salePickerResults[alert.id] ?? []).length > 0 && (
+                                  <div style={{
+                                    background: C.bgSurfaceRaised,
+                                    border: `1px solid ${C.borderDefault}`,
+                                    borderRadius: R.sm,
+                                    maxHeight: 220,
+                                    overflowY: "auto",
+                                  }}>
+                                    {(salePickerResults[alert.id] ?? []).map(s => (
+                                      <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setPickedSaleId(prev => ({ ...prev, [alert.id]: s.id }));
+                                          // Fetch open periods so the period dropdown can render in step 2.
+                                          authFetch(`${API}/api/payroll/periods`).then(r => r.ok ? r.json() : []).then(data => {
+                                            const openPeriods = ((data || []) as (AlertPeriod & { status?: string })[])
+                                              .filter((p) => p.status === "OPEN")
+                                              .map((p) => ({ id: p.id, weekStart: p.weekStart, weekEnd: p.weekEnd }))
+                                              .sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+                                            setAlertPeriods(prev => ({ ...prev, [alert.id]: openPeriods }));
+                                            if (openPeriods.length > 0) {
+                                              setSelectedAlertPeriod(prev => ({ ...prev, [alert.id]: openPeriods[0].id }));
+                                            }
+                                          });
+                                        }}
+                                        style={{
+                                          display: "block",
+                                          width: "100%",
+                                          textAlign: "left",
+                                          padding: "6px 8px",
+                                          background: "transparent",
+                                          border: "none",
+                                          borderBottom: `1px solid ${C.borderDefault}`,
+                                          cursor: "pointer",
+                                          fontSize: 12,
+                                          color: C.textPrimary,
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 600 }}>
+                                          {s.memberName || "—"}{" "}
+                                          <span style={{ color: C.textMuted, fontWeight: 400 }}>· {s.memberId || "—"}</span>
+                                        </div>
+                                        <div style={{ fontSize: 11, color: C.textMuted }}>
+                                          {s.agent?.name} · {s.product?.name || "—"} · {formatDate(s.saleDate)}
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                <Button size="sm" variant="ghost" onClick={() => {
+                                  setApprovingAlertId(null);
+                                  setPickedSaleId(prev => { const next = { ...prev }; delete next[alert.id]; return next; });
+                                  setSalePickerQuery(prev => { const next = { ...prev }; delete next[alert.id]; return next; });
+                                  setSalePickerResults(prev => { const next = { ...prev }; delete next[alert.id]; return next; });
+                                }}>Cancel</Button>
+                              </div>
+                            ) : (
+                              /* Step 2 (post-pick) OR Step 1 (matched alerts): period dropdown + Approve */
+                              <>
+                                {isUnmatched && pickedSaleId[alert.id] && (
+                                  <span style={{ fontSize: 11, color: C.success, fontStyle: "italic" }}>
+                                    Sale picked ✓
+                                  </span>
+                                )}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                  <span style={{ fontSize: 11, color: C.textMuted, fontStyle: "italic" }}>Oldest open period pre-selected</span>
+                                  <select
+                                    style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
+                                    value={selectedAlertPeriod[alert.id] || ""}
+                                    onChange={e => setSelectedAlertPeriod(prev => ({ ...prev, [alert.id]: e.target.value }))}
+                                  >
+                                    {(!alertPeriods[alert.id] || alertPeriods[alert.id].length === 0) ? (
+                                      <option value="" disabled>No open periods found</option>
+                                    ) : (
+                                      (alertPeriods[alert.id] || []).map((p: AlertPeriod) => (
+                                        <option key={p.id} value={p.id}>
+                                          {fmtDate(p.weekStart)} {"\u2013"} {fmtDate(p.weekEnd)}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  disabled={!selectedAlertPeriod[alert.id] || (isUnmatched && !pickedSaleId[alert.id])}
+                                  onClick={() => {
+                                    if (selectedAlertPeriod[alert.id]) {
+                                      handleApproveAlert(alert.id, selectedAlertPeriod[alert.id], pickedSaleId[alert.id]);
+                                    }
+                                  }}
+                                >
+                                  <Check size={12} style={{ marginRight: 3 }} /> Approve
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => {
+                                  setApprovingAlertId(null);
+                                  setPickedSaleId(prev => { const next = { ...prev }; delete next[alert.id]; return next; });
+                                  setSalePickerQuery(prev => { const next = { ...prev }; delete next[alert.id]; return next; });
+                                  setSalePickerResults(prev => { const next = { ...prev }; delete next[alert.id]; return next; });
+                                }}>Cancel</Button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <>
@@ -969,6 +1126,11 @@ export default function PayrollPeriods({
                               variant="success"
                               onClick={() => {
                                 setApprovingAlertId(alert.id);
+                                if (isUnmatched) {
+                                  // GAP-46-UAT-05 (46-10): pre-seed picker query with raw memberId so the picker is one click away.
+                                  setSalePickerQuery(prev => ({ ...prev, [alert.id]: alert.chargeback?.memberId ?? "" }));
+                                  return; // Sale picker step gates the period fetch.
+                                }
                                 if (alert.agentId) {
                                   fetchAgentPeriods(alert.agentId, alert.id);
                                 } else {
