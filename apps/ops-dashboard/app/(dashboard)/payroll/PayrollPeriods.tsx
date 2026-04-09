@@ -401,7 +401,7 @@ export default function PayrollPeriods({
     if (!target) return null;
     const entries = target.entries;
     if (entries.length === 0) return null;
-    const paidStatuses = ["PAID", "ZEROED_OUT", "CLAWBACK_APPLIED"];
+    const paidStatuses = ["PAID", "ZEROED_OUT", "CLAWBACK_APPLIED", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"];
     const allPaid = entries.every(e => paidStatuses.includes(e.status));
     const nonePaid = entries.every(e => !paidStatuses.includes(e.status));
     if (allPaid) return "paid";

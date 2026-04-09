@@ -631,7 +631,7 @@ export function WeekSection({
     });
   }, [entries]);
 
-  const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED");
+  const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED" || e.status === "ZEROED_OUT_IN_PERIOD" || e.status === "CLAWBACK_CROSS_PERIOD");
   const hasPaidSiblings = entries.some(e => e.status === "PAID");
   const isLateEntry = (e: Entry) => e.status === "PENDING" && hasPaidSiblings;
 
