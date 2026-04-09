@@ -326,7 +326,11 @@ router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN
       product: { select: { id: true, name: true, type: true } },
       addons: { include: { product: { select: { id: true, name: true, type: true } } } },
       acaCoveredSales: { where: { product: { type: "ACA_PL" } }, select: { id: true } },
-      payrollEntries: { select: { payoutAmount: true } },
+      payrollEntries: {
+        where: { status: { notIn: ["CLAWBACK_APPLIED", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"] } },
+        orderBy: { createdAt: "asc" },
+        select: { payoutAmount: true },
+      },
     },
   });
   if (!sale) return res.status(404).json({ error: "No matching sale found" });
