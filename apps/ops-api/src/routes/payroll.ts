@@ -329,13 +329,14 @@ router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN
       payrollEntries: {
         where: { status: { notIn: ["CLAWBACK_APPLIED", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"] } },
         orderBy: { createdAt: "asc" },
-        select: { payoutAmount: true },
+        select: { payoutAmount: true, status: true },
       },
     },
   });
   if (!sale) return res.status(404).json({ error: "No matching sale found" });
 
   const fullPayout = sale.payrollEntries[0] ? Number(sale.payrollEntries[0].payoutAmount) : 0;
+  console.log("[DEBUG lookup]", { memberId, memberName, saleId: sale.id, entryCount: sale.payrollEntries.length, fullPayout, statuses: sale.payrollEntries.map((e: any) => e.status) });
 
   const allProducts = [
     { id: sale.product.id, name: sale.product.name, type: sale.product.type, premium: Number(sale.premium) },
