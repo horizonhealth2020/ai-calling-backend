@@ -943,6 +943,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                 value={chargebackForm.memberId}
                 placeholder="e.g. M-12345"
                 onChange={e => handleInputChange("memberId", e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (!lookupResult) lookupSale(); } }}
               />
             </div>
             <div>
@@ -953,6 +954,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                 value={chargebackForm.memberName}
                 placeholder="e.g. John Doe"
                 onChange={e => handleInputChange("memberName", e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (!lookupResult) lookupSale(); } }}
               />
             </div>
 
