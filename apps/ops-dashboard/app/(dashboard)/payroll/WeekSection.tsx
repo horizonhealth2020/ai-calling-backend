@@ -380,8 +380,10 @@ function EditableSaleRow({
       </td>
 
       <td style={tdRight}>
-        <span style={{ color: C.textPrimary, fontWeight: 700 }}>
-          {formatDollar(Number(entry.payoutAmount))}
+        <span style={{ color: (entry.status === "CLAWBACK_CROSS_PERIOD" || entry.status === "ZEROED_OUT_IN_PERIOD") ? C.danger : C.textPrimary, fontWeight: 700 }}>
+          {(entry.status === "CLAWBACK_CROSS_PERIOD" || entry.status === "ZEROED_OUT_IN_PERIOD")
+            ? formatDollar(Number(entry.netAmount ?? 0))
+            : formatDollar(Number(entry.payoutAmount))}
         </span>
         {entry.halvingReason && (
           <div style={{ fontSize: 11, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
