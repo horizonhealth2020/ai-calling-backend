@@ -6,6 +6,7 @@ import {
   Card,
   EmptyState,
   ProgressRing,
+  useToast,
   colors,
   spacing,
   radius,
@@ -135,6 +136,7 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 /* -- Component -- */
 
 export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
+  const { toast } = useToast();
   const [audits, setAudits] = useState<CallAudit[]>([]);
   const [expandedAudit, setExpandedAudit] = useState<string | null>(null);
   const [editingAudit, setEditingAudit] = useState<string | null>(null);
@@ -148,7 +150,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
 
   useEffect(() => {
     // Fetch agent list for filter dropdown
-    authFetch(`${API}/api/call-audits/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
+    authFetch(`${API}/api/call-audits/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => { toast("error", "Failed to load audit agents"); });
   }, [API]);
 
   useEffect(() => {
@@ -163,7 +165,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
         setAudits(data.audits);
         setNextCursor(data.nextCursor);
       })
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load audits"); });
   }, [API, selectedAgentId]);
 
   const loadMore = async () => {
@@ -181,7 +183,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
         setAudits(prev => [...prev, ...data.audits]);
         setNextCursor(data.nextCursor);
       }
-    } catch { /* ignore */ } finally {
+    } catch { toast("error", "Failed to run audit"); } finally {
       setLoadingMore(false);
     }
   };
@@ -248,7 +250,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                   setAudits(data.audits);
                   setNextCursor(data.nextCursor);
                 })
-                .catch(() => {});
+                .catch(() => { toast("error", "Failed to refresh audits"); });
             }}
           >
             <RefreshCw size={14} />Refresh

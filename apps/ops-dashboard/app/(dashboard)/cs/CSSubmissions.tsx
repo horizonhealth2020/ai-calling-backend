@@ -438,6 +438,7 @@ interface CSSubmissionsProps {
 /* -- Main Component -- */
 
 export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
+  const { toast } = useToast();
   const [rawText, setRawText] = useState("");
   const [records, setRecords] = useState<ConsolidatedRecord[]>([]);
   const [reps, setReps] = useState<RepRoster[]>([]);
@@ -462,12 +463,12 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
         const data = await res.json();
         setReps(data);
       }
-    } catch { /* ignore */ }
+    } catch { toast("error", "Failed to submit records"); }
   }, [API]);
 
   useEffect(() => {
     fetchReps();
-    authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
+    authFetch(`${API}/api/agents`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => { toast("error", "Failed to load agents"); });
   }, [fetchReps, API]);
 
   const fetchBatchAssign = async (type: "chargeback" | "pending_term", count: number): Promise<string[]> => {
@@ -480,7 +481,7 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
         const data = await res.json();
         return data.assignments ?? [];
       }
-    } catch { /* fallback below */ }
+    } catch { toast("error", "Failed to load roster"); }
     console.warn(`[CSSubmissions] batch-assign API failed for type=${type}, using local fallback`);
     // Fallback: local round-robin with random offset to avoid always-start-at-0 bias
     const active = repsRef.current.filter((r) => r.active).map((r) => r.name);
@@ -776,7 +777,7 @@ function SubmissionsContent({
           onRecordsChange(await rerunRoundRobin(records, newActive));
         }
       }
-    } catch { /* ignore */ }
+    } catch { toast("error", "Failed to add rep"); }
   };
 
   const handleToggleRep = async (rep: RepRoster) => {
@@ -795,7 +796,7 @@ function SubmissionsContent({
           onRecordsChange(await rerunRoundRobin(records, newActive));
         }
       }
-    } catch { /* ignore */ }
+    } catch { toast("error", "Failed to toggle rep status"); }
   };
 
   const handleRemoveRep = async (rep: RepRoster) => {
@@ -811,7 +812,7 @@ function SubmissionsContent({
           onRecordsChange(await rerunRoundRobin(records, newActive));
         }
       }
-    } catch { /* ignore */ }
+    } catch { toast("error", "Failed to remove rep"); }
   };
 
   return (

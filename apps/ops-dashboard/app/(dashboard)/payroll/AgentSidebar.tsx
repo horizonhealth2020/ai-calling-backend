@@ -1,6 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 import { Badge } from "@ops/ui";
 import { colors, spacing, radius, motion, baseInputStyle } from "@ops/ui";
 import { formatDollar } from "@ops/utils";
@@ -141,9 +150,10 @@ export function AgentSidebar({
   onSelectAgent,
 }: AgentSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedQuery = useDebounce(searchQuery, 300);
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
 
-  const query = searchQuery.toLowerCase();
+  const query = debouncedQuery.toLowerCase();
   const filteredSales = salesAgents.filter((a) =>
     a.agentName.toLowerCase().includes(query)
   );

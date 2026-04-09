@@ -1,5 +1,14 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 import {
   Card,
   EmptyState,
@@ -190,6 +199,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
 
   // Search (shared between both tables)
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
   // Chargeback filters
   const [cbFiltersOpen, setCbFiltersOpen] = useState(false);
@@ -262,9 +272,9 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     if (cbStatusFilter === "open") result = result.filter((cb) => !cb.resolvedAt);
     else if (cbStatusFilter === "resolved") result = result.filter((cb) => !!cb.resolvedAt);
 
-    // Search (case-insensitive partial match)
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+    // Search (case-insensitive partial match, debounced)
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       result = result.filter((cb) =>
         (cb.payeeName || "").toLowerCase().includes(q) ||
         (cb.memberAgentCompany || "").toLowerCase().includes(q) ||
@@ -297,7 +307,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     }
 
     return result;
-  }, [chargebacks, searchTerm, cbFilters, cbSortKey, cbSortDir, cbStatusFilter]);
+  }, [chargebacks, debouncedSearch, cbFilters, cbSortKey, cbSortDir, cbStatusFilter]);
 
   // Pending terms filter + search + sort pipeline
   const filteredPending = useMemo(() => {
@@ -307,9 +317,9 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     if (ptStatusFilter === "open") result = result.filter((pt) => !pt.resolvedAt);
     else if (ptStatusFilter === "resolved") result = result.filter((pt) => !!pt.resolvedAt);
 
-    // Shared search (case-insensitive partial match)
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+    // Shared search (case-insensitive partial match, debounced)
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       result = result.filter((pt) =>
         (pt.memberName || "").toLowerCase().includes(q) ||
         (pt.memberId || "").toLowerCase().includes(q) ||
@@ -348,7 +358,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     }
 
     return result;
-  }, [pendingTerms, searchTerm, ptFilters, ptSortKey, ptSortDir, ptStatusFilter]);
+  }, [pendingTerms, debouncedSearch, ptFilters, ptSortKey, ptSortDir, ptStatusFilter]);
 
   // Summary bar stats (computed from FULL unfiltered dataset, not filtered)
   const ptSummary = useMemo(() => {
@@ -388,7 +398,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       if (res.ok || res.status === 204) {
         setPendingTerms((prev) => prev.filter((pt) => pt.id !== id));
       }
-    } catch { /* ignore */ }
+    } catch { toast("error", "Failed to delete pending term"); }
   };
 
   // Resolve/Unresolve handlers

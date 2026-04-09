@@ -12,6 +12,7 @@ import {
   radius,
   typography,
   motion,
+  useToast,
   baseCardStyle,
   baseThStyle,
   baseTdStyle,
@@ -348,6 +349,7 @@ function DashboardSection({
 /* -- OwnerOverview -- */
 
 export default function OwnerOverview({ socket, API }: { socket: SocketClient | null; API: string }) {
+  const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
   const [summary, setSummary] = useState<Summary | null>(null);
   const [tracker, setTracker] = useState<TrackerEntry[]>([]);
@@ -389,7 +391,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
     authFetch(`${API}/api/reporting/periods?view=${periodView}`)
       .then(res => res.ok ? res.json() : { periods: [] })
       .then(data => setPeriods(data.periods ?? []))
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load overview data"); });
   }, [API, periodView]);
 
   // Socket.IO: real-time KPI patching
@@ -443,7 +445,7 @@ export default function OwnerOverview({ socket, API }: { socket: SocketClient | 
       authFetch(`${API}/api/reporting/periods?view=${periodView}`)
         .then(res => res.ok ? res.json() : { periods: [] })
         .then(data => setPeriods(data.periods ?? []))
-        .catch(() => {});
+        .catch(() => { toast("error", "Failed to load agent data"); });
     };
     socket.on("service-payroll:changed", handler);
     return () => { socket.off("service-payroll:changed", handler); };

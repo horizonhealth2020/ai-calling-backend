@@ -345,7 +345,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
     try {
       const res = await authFetch(`${API}/api/cs-rep-roster`);
       if (res.ok) setReps(await res.json());
-    } catch { /* ignore */ }
+    } catch { toast("error", "Failed to load chargeback data"); }
   }, [API]);
 
   useEffect(() => { fetchReps(); }, [fetchReps]);
@@ -359,7 +359,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
         const data = await res.json();
         return data.assignments ?? [];
       }
-    } catch { /* fallback below */ }
+    } catch { toast("error", "Failed to parse batch data"); }
     const active = repsRef.current.filter((r) => r.active).map((r) => r.name);
     if (active.length === 0) return Array(count).fill("");
     const offset = Math.floor(Math.random() * active.length);

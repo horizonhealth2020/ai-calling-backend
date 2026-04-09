@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { PageShell, ToastProvider, Button, colors, radius } from "@ops/ui";
+import { PageShell, ToastProvider, useToast, Button, colors, radius } from "@ops/ui";
 import { useSocketContext } from "@/lib/SocketProvider";
 import { decodeRolesFromToken } from "@/lib/auth";
 import { getToken, authFetch } from "@ops/auth/client";
@@ -37,6 +37,7 @@ const STORAGE_ALERT: React.CSSProperties = {
 };
 
 function OwnerPageInner() {
+  const { toast } = useToast();
   const { socket } = useSocketContext();
   const [activeTab, setActiveTab] = useState<ActiveSection>(() => {
     if (typeof window !== "undefined") {
@@ -58,7 +59,7 @@ function OwnerPageInner() {
     }
 
     // Fetch storage stats on mount
-    authFetch(`${API}/api/storage-stats`).then((r) => r.ok ? r.json() : null).then(setStorageStats).catch(() => {});
+    authFetch(`${API}/api/storage-stats`).then((r) => r.ok ? r.json() : null).then(setStorageStats).catch(() => { toast("error", "Failed to load storage stats"); });
   }, []);
 
   const navItems = [

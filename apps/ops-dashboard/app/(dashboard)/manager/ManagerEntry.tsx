@@ -557,7 +557,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
           <div className="animate-fade-in-up stagger-1">
             <label style={LBL}>Lead Source</label>
-            <select className="input-focus" style={baseInputStyle} value={form.leadSourceId} required onChange={e => setForm(f => ({ ...f, leadSourceId: e.target.value }))}>
+            <select className="input-focus" style={baseInputStyle} value={form.leadSourceId} required onChange={e => { setForm(f => ({ ...f, leadSourceId: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.leadSourceId; return n; }); }}>
               <option value="" disabled>Select lead source...</option>
               {leadSources.filter(ls => ls.active !== false).map(ls => (
                 <option key={ls.id} value={ls.id}>{ls.name}</option>
@@ -569,7 +569,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
           <div className="animate-fade-in-up stagger-2">
             <label style={LBL}>Member ID</label>
-            <input className="input-focus" style={baseInputStyle} value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} />
+            <input className="input-focus" style={baseInputStyle} value={form.memberId} onChange={e => { setForm(f => ({ ...f, memberId: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.memberId; return n; }); }} />
           </div>
           <div className="animate-fade-in-up stagger-3">
             <label style={LBL}>Member State</label>
@@ -595,7 +595,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
           <div className="animate-fade-in-up stagger-5">
             <label style={LBL}>Carrier</label>
-            <input className="input-focus" style={baseInputStyle} value={form.carrier} placeholder="Optional" onChange={e => setForm(f => ({ ...f, carrier: e.target.value }))} />
+            <input className="input-focus" style={baseInputStyle} value={form.carrier} placeholder="Optional" onChange={e => { setForm(f => ({ ...f, carrier: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.carrier; return n; }); }} />
           </div>
           <div className="animate-fade-in-up stagger-5">
             <Select label="Status *" error={fieldErrors.status} value={form.status} required onChange={e => { setForm(f => ({ ...f, status: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.status; return n; }); }}>
@@ -610,11 +610,11 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
           <div className="animate-fade-in-up stagger-6">
             <label style={LBL}>Enrollment Fee ($)</label>
-            <input className="input-focus" style={baseInputStyle} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => { setForm(f => ({ ...f, enrollmentFee: e.target.value })); triggerPreview(false); }} />
+            <input className="input-focus" style={baseInputStyle} type="number" step="0.01" min="0" value={form.enrollmentFee} onChange={e => { setForm(f => ({ ...f, enrollmentFee: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.enrollmentFee; return n; }); triggerPreview(false); }} />
           </div>
           <div className="animate-fade-in-up stagger-7" style={{ gridColumn: "1/-1" }}>
             <label style={LBL}>Notes</label>
-            <input className="input-focus" style={baseInputStyle} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            <input className="input-focus" style={baseInputStyle} value={form.notes} onChange={e => { setForm(f => ({ ...f, notes: e.target.value })); setFieldErrors(fe => { const n = { ...fe }; delete n.notes; return n; }); }} />
           </div>
 
           {/* Payment type selector */}
@@ -649,7 +649,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                     name="paymentType"
                     value={pt}
                     checked={form.paymentType === pt}
-                    onChange={() => { setForm(f => ({ ...f, paymentType: pt })); triggerPreview(true); }}
+                    onChange={() => { setForm(f => ({ ...f, paymentType: pt })); setFieldErrors(fe => { const n = { ...fe }; delete n.paymentType; return n; }); triggerPreview(true); }}
                     style={{ accentColor: colors.primary500 }}
                   />
                   {pt === "CC" ? "Credit Card" : "ACH / Bank"}

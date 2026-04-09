@@ -742,7 +742,7 @@ export default function OwnerUsers({ API }: { API: string }) {
     authFetch(`${API}/api/permissions`)
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { setPermData(d); })
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load users"); });
   }, [API]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {

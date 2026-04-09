@@ -7,6 +7,7 @@ import {
   EmptyState,
   DateRangeFilter,
   KPI_PRESETS,
+  useToast,
   colors,
   spacing,
   radius,
@@ -96,6 +97,7 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
 /* -- Component -- */
 
 export default function ManagerTracker({ API, tracker, setTracker, highlightedAgentNames }: ManagerTrackerProps) {
+  const { toast } = useToast();
   const [dateRangeCtx, setDateRangeCtx] = useState<DateRangeFilterValue>({ preset: "today" });
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
   const [, setCallCountsLoaded] = useState(false);
@@ -103,7 +105,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
 
   useEffect(() => {
     const dp = buildDateParams(dateRangeCtx);
-    authFetch(`${API}/api/call-counts${dp ? `?${dp}` : "?range=week"}`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => {});
+    authFetch(`${API}/api/call-counts${dp ? `?${dp}` : "?range=week"}`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => { toast("error", "Failed to load call counts"); });
     setCallCountsLoaded(true);
   }, [API, dateRangeCtx]);
 
@@ -111,7 +113,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
   useEffect(() => {
     const dp = buildDateParams(dateRangeCtx);
     const url = `${API}/api/tracker/summary${dp ? `?${dp}` : ""}`;
-    authFetch(url).then(r => r.ok ? r.json() : { agents: [] }).then(data => { setTracker(data.agents ?? []); setConvosoConfigured(!!data.convosoConfigured); }).catch(() => {});
+    authFetch(url).then(r => r.ok ? r.json() : { agents: [] }).then(data => { setTracker(data.agents ?? []); setConvosoConfigured(!!data.convosoConfigured); }).catch(() => { toast("error", "Failed to load tracker data"); });
   }, [API, dateRangeCtx, setTracker]);
 
   const callCountByAgent = new Map<string, number>();

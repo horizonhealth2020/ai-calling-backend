@@ -11,6 +11,7 @@ import {
   radius,
   typography,
   motion,
+  useToast,
   baseCardStyle,
   baseThStyle,
   baseTdStyle,
@@ -202,6 +203,7 @@ function buildDateParams(dr: DateRangeFilterValue): string {
 /* -- OwnerKPIs -- */
 
 export default function OwnerKPIs({ API }: { API: string }) {
+  const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "today" });
   const [kpiData, setKpiData] = useState<KpiData | null>(null);
 
@@ -211,7 +213,7 @@ export default function OwnerKPIs({ API }: { API: string }) {
     authFetch(`${API}/api/agent-kpis${qs}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { setKpiData(d); })
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load KPI data"); });
   }, [API, dateRange]);
 
   return (

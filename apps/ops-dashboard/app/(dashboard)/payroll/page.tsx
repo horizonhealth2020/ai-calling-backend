@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { PageShell, SkeletonCard, ToastProvider } from "@ops/ui";
+import { PageShell, SkeletonCard, ToastProvider, useToast } from "@ops/ui";
 import type { NavItem } from "@ops/ui";
 import { spacing } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -99,6 +99,7 @@ function LoadingSkeleton() {
 /* ── Orchestrator inner (needs toast context) ───────────────── */
 
 function PayrollInner() {
+  const { toast } = useToast();
   const { socket, disconnected } = useSocketContext();
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
@@ -134,7 +135,7 @@ function PayrollInner() {
   const fetchAlerts = useCallback(() => {
     authFetch(`${API}/api/alerts`).then(r => r.ok ? r.json() : []).then(data => {
       if (Array.isArray(data)) setAlerts(data);
-    }).catch(() => {});
+    }).catch(() => { toast("error", "Failed to load payroll data"); });
   }, []);
 
   /* ── Socket event handling ────────────────────────────────── */

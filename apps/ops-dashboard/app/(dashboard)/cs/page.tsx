@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { PageShell } from "@ops/ui";
+import { PageShell, ToastProvider, useToast } from "@ops/ui";
 import type { NavItem } from "@ops/ui";
 import { useSocketContext } from "@/lib/SocketProvider";
 import { authFetch } from "@ops/auth/client";
@@ -11,7 +11,8 @@ import { ClipboardList, BarChart3, FileCheck } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
-export default function CSPage() {
+function CSPageInner() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("tracking");
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const { socket } = useSocketContext();
@@ -25,7 +26,7 @@ export default function CSPage() {
           const data = await res.json();
           setUserRoles(data.roles || []);
         }
-      } catch { /* ignore */ }
+      } catch { toast("error", "Failed to load CS role data"); }
     })();
   }, []);
 
@@ -54,5 +55,13 @@ export default function CSPage() {
       {effectiveTab === "tracking" && <CSTracking socket={socket} API={API} userRoles={userRoles} canManageCS={canManageCS} />}
       {effectiveTab === "resolved-log" && <CSResolvedLog API={API} />}
     </PageShell>
+  );
+}
+
+export default function CSPage() {
+  return (
+    <ToastProvider>
+      <CSPageInner />
+    </ToastProvider>
   );
 }

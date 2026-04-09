@@ -290,7 +290,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         }
         setEditingSaleId(null);
         setEditForm({});
-        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
+        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => { toast("error", "Failed to refresh sales"); });
         onSalesChanged?.();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -327,7 +327,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
           clearTimeout(msgTimerRef.current);
           msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
         }
-        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
+        authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => { toast("error", "Failed to refresh sales"); });
         onSalesChanged?.();
       } else {
         const err = await res.json().catch(() => ({}));

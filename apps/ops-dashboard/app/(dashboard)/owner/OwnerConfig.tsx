@@ -108,11 +108,11 @@ function ConfigSection({
           setBudgetInput(String(d.dailyBudget));
         }
       })
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load budget config"); });
     authFetch(`${API}/api/settings/ai-scoring-enabled`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d) setAiScoringEnabled(d.enabled); })
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load lead sources"); });
     authFetch(`${API}/api/settings/convoso-polling`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -122,7 +122,7 @@ function ConfigSection({
           setBizEnd(d.businessHoursEnd);
         }
       })
-      .catch(() => {});
+      .catch(() => { toast("error", "Failed to load agents"); });
   }, [API]);
 
   async function handleAutoScore() {
@@ -778,6 +778,7 @@ function DataArchiveSection({ API }: { API: string }) {
 /* -- OwnerConfig -- */
 
 export default function OwnerConfig({ API }: { API: string }) {
+  const { toast } = useToast();
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiPromptLoaded, setAiPromptLoaded] = useState(false);
@@ -787,7 +788,7 @@ export default function OwnerConfig({ API }: { API: string }) {
 
   useEffect(() => {
     // Fetch agents
-    authFetch(`${API}/api/agents`).then((r) => r.ok ? r.json() : []).then(setAgents).catch(() => {});
+    authFetch(`${API}/api/agents`).then((r) => r.ok ? r.json() : []).then(setAgents).catch(() => { toast("error", "Failed to load agents"); });
 
     // Fetch audit duration
     authFetch(`${API}/api/settings/audit-duration`)

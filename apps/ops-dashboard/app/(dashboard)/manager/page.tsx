@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { PageShell } from "@ops/ui";
 import type { NavItem } from "@ops/ui";
-import { SkeletonCard, ToastProvider } from "@ops/ui";
+import { SkeletonCard, ToastProvider, useToast } from "@ops/ui";
 import { useSocketContext } from "@/lib/SocketProvider";
 import { captureTokenFromUrl, authFetch } from "@ops/auth/client";
 import type { SaleChangedPayload } from "@ops/socket";
@@ -48,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
 /* -- Inner component that uses ToastProvider context -- */
 
 function ManagerPageInner() {
+  const { toast } = useToast();
   const { socket } = useSocketContext();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
@@ -84,23 +85,23 @@ function ManagerPageInner() {
   /* -- Shared data loaders -- */
 
   const loadAgents = useCallback(() => {
-    return authFetch(`${API}/api/agents?all=true`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => {});
+    return authFetch(`${API}/api/agents?all=true`).then(r => r.ok ? r.json() : []).then(setAgents).catch(() => { toast("error", "Failed to load agents"); });
   }, []);
 
   const loadProducts = useCallback(() => {
-    return authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).then(setProducts).catch(() => {});
+    return authFetch(`${API}/api/products`).then(r => r.ok ? r.json() : []).then(setProducts).catch(() => { toast("error", "Failed to load products"); });
   }, []);
 
   const loadLeadSources = useCallback(() => {
-    return authFetch(`${API}/api/lead-sources`).then(r => r.ok ? r.json() : []).then(setLeadSources).catch(() => {});
+    return authFetch(`${API}/api/lead-sources`).then(r => r.ok ? r.json() : []).then(setLeadSources).catch(() => { toast("error", "Failed to load lead sources"); });
   }, []);
 
   const loadTracker = useCallback(() => {
-    return authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : { agents: [] }).then(data => setTracker(data.agents ?? [])).catch(() => {});
+    return authFetch(`${API}/api/tracker/summary`).then(r => r.ok ? r.json() : { agents: [] }).then(data => setTracker(data.agents ?? [])).catch(() => { toast("error", "Failed to load tracker"); });
   }, []);
 
   const loadSales = useCallback(() => {
-    return authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => {});
+    return authFetch(`${API}/api/sales?range=week`).then(r => r.ok ? r.json() : []).then(setSalesList).catch(() => { toast("error", "Failed to load sales"); });
   }, []);
 
   /* -- Initial load -- */
