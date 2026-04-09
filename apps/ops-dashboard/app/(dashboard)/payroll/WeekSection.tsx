@@ -142,6 +142,8 @@ function EditableSaleRow({
     ? { backgroundColor: "rgba(251,191,36,0.08)", borderLeft: "3px solid rgba(251,191,36,0.4)" }
     : needsApproval
     ? { borderLeft: "3px solid rgba(248,113,113,0.5)" }
+    : entry.sale?.paymentType === "ACH"
+    ? { backgroundColor: "rgba(52,211,153,0.08)", borderLeft: "3px solid rgba(52,211,153,0.5)" }
     : { borderLeft: "3px solid transparent" };
 
   return (

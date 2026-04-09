@@ -17,7 +17,7 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
       },
       entries: {
         include: {
-          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, memberCount: true, acaCoveringSaleId: true, product: { select: { id: true, name: true, type: true, flatCommission: true } }, addons: { select: { productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } } } },
+          sale: { select: { id: true, memberName: true, memberId: true, carrier: true, premium: true, enrollmentFee: true, commissionApproved: true, status: true, notes: true, memberCount: true, acaCoveringSaleId: true, paymentType: true, product: { select: { id: true, name: true, type: true, flatCommission: true } }, addons: { select: { productId: true, premium: true, product: { select: { id: true, name: true, type: true } } } } } },
           agent: { select: { name: true } },
         },
       },

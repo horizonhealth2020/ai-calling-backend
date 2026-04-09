@@ -178,8 +178,8 @@ function parseReceipt(text: string): ParseResult {
       const nameMatch = bt.match(/^([A-Za-z][A-Za-z0-9&$\s/+'.()-]+?)(?:\s+(?:Individual|Family|Employee|Member)\b|\s+-\s+ID:)/i);
       if (nameMatch) {
         const rawName = nameMatch[1].trim();
-        const isAddon = /[-\u2013]\s*Add-on/i.test(rawName) || /\bAdd-on\b/i.test(rawName);
-        const cleanName = rawName.replace(/\s*[-\u2013]\s*Add-on\s*/gi, "").replace(/\s+Add-on\s*/gi, "").trim();
+        const isAddon = /[-\u2013]\s*Add[-\s]?on/i.test(rawName) || /\bAdd[-\s]?on\b/i.test(rawName);
+        const cleanName = rawName.replace(/\s*[-\u2013]\s*Add[-\s]?on\s*/gi, "").replace(/\s+Add[-\s]?on\s*/gi, "").trim();
         const efMatch = bt.match(/Enrollment\s+\$?([\d,]+\.?\d*)/);
         let enrollFee: string | undefined;
         if (efMatch) {
@@ -275,6 +275,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
   const [acaStandaloneMemberName, setAcaStandaloneMemberName] = useState("");
   const [acaStandaloneCarrier, setAcaStandaloneCarrier] = useState("");
   const [acaStandaloneMemberCount, setAcaStandaloneMemberCount] = useState("1");
+  const [acaStandaloneSaleDate, setAcaStandaloneSaleDate] = useState(new Date().toISOString().slice(0, 10));
 
   const [parsedInfo, setParsedInfo] = useState<{
     enrollmentFee?: string; premium?: string; totalPremium?: string; coreProduct?: string;
@@ -879,6 +880,16 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                           onChange={(e) => setAcaStandaloneMemberCount(e.target.value)}
                         />
                       </div>
+                      <div>
+                        <label style={LBL}>Sale Date</label>
+                        <input
+                          type="date"
+                          className="input-focus"
+                          style={baseInputStyle}
+                          value={acaStandaloneSaleDate}
+                          onChange={(e) => setAcaStandaloneSaleDate(e.target.value)}
+                        />
+                      </div>
                     </div>
                     <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
                       <Button
@@ -902,6 +913,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                                 carrier: acaProduct.name,
                                 memberCount: count,
                                 productId: acaProduct.id,
+                                saleDate: acaStandaloneSaleDate || undefined,
                               }),
                             });
                             if (!resp.ok) {
@@ -915,6 +927,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                             setAcaStandaloneMemberName("");
                             setAcaStandaloneCarrier("");
                             setAcaStandaloneMemberCount("1");
+                            setAcaStandaloneSaleDate(new Date().toISOString().slice(0, 10));
                             onSaleCreated?.();
                           } catch (err: unknown) {
                             const message = err instanceof Error ? err.message : "Request failed. Check connection and try again.";

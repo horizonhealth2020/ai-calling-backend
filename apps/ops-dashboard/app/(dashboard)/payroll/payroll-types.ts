@@ -12,7 +12,7 @@ export type SaleInfo = {
   id: string; memberName: string; memberId?: string; carrier: string;
   premium: number; enrollmentFee: number | null; commissionApproved: boolean;
   status: string; notes?: string; memberCount?: number | null;
-  acaCoveringSaleId?: string | null;
+  acaCoveringSaleId?: string | null; paymentType?: string | null;
   product: { id: string; name: string; type: string; flatCommission?: number | null };
   addons?: SaleAddonInfo[];
 };
