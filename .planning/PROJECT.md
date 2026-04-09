@@ -127,18 +127,23 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - ✓ Carryover idempotent on lock/unlock cycles — v2.1 (Phase 40)
 - ✓ Payroll cards restructured: agent-level collapsible cards with week-by-week entries — v2.1 (Phase 41)
 
+- ✓ ACA product visible and editable in Products tab with flat commission rate — v2.2 (Phase 42)
+- ✓ ACA product satisfies full commission bundle requirement for addons — v2.2 (Phase 42)
+- ✓ Chargeback batch parser: paste multiple chargebacks, parse all at once — v2.2 (Phase 44)
+- ✓ Pre-submit review table: matched agent, member name/ID, products with partial chargeback selection — v2.2 (Phase 44)
+- ✓ Payroll agent tabs: left sidebar with agent names, paginated pay periods, status badges — v2.2 (Phase 43)
+- ✓ ACA bundled commission rates on ADDON/AD&D when sale has ACA covering — v2.2 (Phase 46)
+- ✓ CS-submitted chargebacks surfaced in payroll alerts with grouped Chargebacks(N) badge — v2.2 (Phase 46)
+- ✓ ACA payroll row editor with Member Count input and transactional bundled-rate recalc — v2.2 (Phase 47)
+- ✓ Cross-period chargebacks: locked-period sales get negative entry in oldest OPEN period (orange), in-period zeroes get yellow highlight — v2.2 (Phase 47)
+- ✓ Server-authoritative per-product commission in chargeback lookup with live net deduction preview — v2.2 (Phase 47)
+- ✓ Carryover system for fronted/hold between pay periods with timezone-correct date math — v2.2 (Phase 45)
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] ACA product visible and editable in Products tab with flat commission rate
-- [ ] ACA product satisfies full commission bundle requirement for addons
-- [ ] Chargeback batch parser: paste multiple chargebacks, parse all at once
-- [ ] Pre-submit review table: matched agent, member name/ID, products with partial chargeback selection, chargeback amount per entry
-- [ ] Confirm/edit each parsed chargeback before bulk submit
-- [ ] Payroll agent tabs: left sidebar with agent names replacing scrollable card list
-- [ ] Agent tab shows last 4 pay periods (most recent with entries)
-- [ ] "Load More" button to fetch older pay periods per agent
+(No active milestone — run /gsd-new-milestone to start v2.3)
 
 ### Out of Scope
 
@@ -148,19 +153,14 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - Custom report builder — predefined reports + date range covers the use case
 - Client-side commission calculation — must be server-authoritative for payroll accuracy
 
-## Current Milestone: v2.2 Chargeback Batch Review & Payroll Agent Tabs
+## Current Milestone: None (v2.2 shipped)
 
-**Goal:** Streamline chargeback submission with batch parsing and pre-submit review, and restructure payroll into agent-tabbed navigation with paginated pay periods.
-
-**Target features:**
-- Chargeback batch parser with multi-entry paste-to-parse
-- Pre-submit review table with agent match, member info, partial product selection, amounts
-- Payroll agent tabs in left sidebar with last 4 periods per agent and load-more pagination
+Run `/gsd-new-milestone` to define v2.3.
 
 ## Current State
 
-**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31) → v2.1 (2026-04-01)
-**Total:** 12 milestones, 42 phases across 21 days
+**Shipped:** v1.0 (2026-03-17) → v1.1 (2026-03-18) → v1.2 (2026-03-19) → v1.3 (2026-03-23) → v1.4 (2026-03-23) → v1.5 (2026-03-24) → v1.6 (2026-03-25) → v1.7 (2026-03-26) → v1.8 (2026-03-30) → v1.9 (2026-03-30) → v2.0 (2026-03-31) → v2.1 (2026-04-01) → v2.2 (2026-04-09)
+**Total:** 13 milestones, 47 phases across 24 days
 **LOC:** ~135,000 TypeScript/TSX
 
 The platform is fully operational with a unified dashboard app, 1 standalone sales board, 1 API, and shared @ops/* packages:
