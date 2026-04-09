@@ -49,9 +49,14 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-09
-Stopped at: v2.4 milestone complete
-Next action: /paul:discuss-milestone for next milestone
-Resume file: .paul/phases/49-payroll-chargeback-fixes/49-01-SUMMARY.md
+Stopped at: v2.5 discussion ready — UX audit complete, MILESTONE-CONTEXT.md written
+Next action: /paul:discuss-milestone for v2.5 Professional Polish
+Resume file: .paul/HANDOFF-2026-04-09-v2.md
+Resume context:
+- UX audit across all 5 dashboards complete (15 prioritized findings)
+- MILESTONE-CONTEXT.md has full audit findings + 6 skill library references
+- Suggested 3 phases: shared UI hardening, dashboard interaction fixes, visual consistency
+- Skills to load during planning: design-taste-frontend, ui-ux-pro-max, high-end-visual-design, form-cro, redesign-existing-projects, frontend-developer
 
 ---
 *STATE.md — Updated after every significant action*
