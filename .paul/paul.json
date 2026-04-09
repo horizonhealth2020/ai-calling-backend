@@ -1,14 +1,14 @@
 {
   "name": "ai-calling-backend",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "milestone": {
-    "name": "Parser & Payroll Fixes",
-    "version": "2.3.0",
+    "name": "Payroll & Chargeback Fixes",
+    "version": "2.4.0",
     "status": "complete"
   },
   "phase": {
-    "number": 48,
-    "name": "Parser & Payroll Quick Fixes",
+    "number": 49,
+    "name": "Payroll & Chargeback Fixes",
     "status": "complete"
   },
   "loop": {

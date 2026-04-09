@@ -229,6 +229,7 @@ export default function PayrollPeriods({
         const active = entries.filter(isActiveEntry);
         const adj = p.agentAdjustments?.find(a => a.agent?.name === agentName);
         const gross = active.reduce((s, e) => s + Number(e.payoutAmount), 0);
+        const entryAdj = active.reduce((s, e) => s + Number(e.adjustmentAmount), 0);
         const bonus = adj ? Number(adj.bonusAmount) : 0;
         const fronted = adj ? Number(adj.frontedAmount) : 0;
         const hold = adj ? Number(adj.holdAmount) : 0;
@@ -237,7 +238,7 @@ export default function PayrollPeriods({
           entries,
           adjustment: adj,
           gross,
-          net: gross + bonus + fronted - hold,
+          net: gross + bonus + fronted - hold + entryAdj,
           activeCount: active.length,
         });
       }
@@ -761,15 +762,18 @@ export default function PayrollPeriods({
   .pill-warn { background: #fef3c7; color: #d97706; }
   .row-cross-period { background: #fed7aa; border-left: 3px solid #f97316; }
   .row-in-period-zero { background: #fef3c7; border-left: 3px solid #eab308; }
+  .row-clawback-applied { background: #fee2e2; border-left: 3px solid #ef4444; }
+  .row-ach { background: #d1fae5; border-left: 3px solid #059669; }
   @media print { body { padding: 0; } .agent-card { padding: 2px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
         const agentGross   = entries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+        const agentEntryAdj = entries.reduce((s, e) => s + Number(e.adjustmentAmount), 0);
         const agentAdj = period.agentAdjustments?.find((a: AgentAdjustment) => a.agent?.name === agentName);
         const agentBonus   = agentAdj ? Number(agentAdj.bonusAmount) : 0;
         const agentFronted = agentAdj ? Number(agentAdj.frontedAmount) : 0;
         const agentHold    = agentAdj ? Number(agentAdj.holdAmount) : 0;
-        const agentNet     = agentGross + agentBonus + agentFronted - agentHold;
+        const agentNet     = agentGross + agentBonus + agentFronted - agentHold + agentEntryAdj;
         return `<div class="agent-card">
   <div class="header">
     <h1>${agentName} <span style="font-size:13px;font-weight:400;color:#64748b;margin-left:8px">${entries.length} sale${entries.length !== 1 ? "s" : ""}</span></h1>
@@ -780,6 +784,7 @@ export default function PayrollPeriods({
     <div class="summary-item"><div class="summary-label">Bonuses</div><div class="summary-value green">+$${agentBonus.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Fronted</div><div class="summary-value" style="color:#f59e0b">+$${agentFronted.toFixed(2)}</div></div>
     <div class="summary-item"><div class="summary-label">Hold</div><div class="summary-value" style="color:#ef4444">-$${agentHold.toFixed(2)}</div></div>
+    ${agentEntryAdj !== 0 ? `<div class="summary-item"><div class="summary-label">Adjustments</div><div class="summary-value red">$${agentEntryAdj.toFixed(2)}</div></div>` : ""}
     <div class="summary-item"><div class="summary-label">Net Payout</div><div class="summary-value green">$${agentNet.toFixed(2)}</div></div>
   </div>
   <table>
@@ -822,9 +827,12 @@ export default function PayrollPeriods({
             const enrollBonusHtml = enrollFee >= 125 ? `<div class="flag flag-bonus">+$10</div>` : "";
             const fee = e.sale?.enrollmentFee != null ? `$${Number(e.sale.enrollmentFee).toFixed(2)}` : "\u2014";
             // Phase 47-05 D-21/D-22: orange for cross-period chargeback, yellow for in-period zero
+            // Phase 49-01: added CLAWBACK_APPLIED red + ACH green (mirrors WeekSection.tsx priority)
             const rowClass =
               e.status === "CLAWBACK_CROSS_PERIOD" ? "row-cross-period"
               : e.status === "ZEROED_OUT_IN_PERIOD" ? "row-in-period-zero"
+              : e.status === "CLAWBACK_APPLIED" ? "row-clawback-applied"
+              : e.sale?.paymentType === "ACH" ? "row-ach"
               : "";
             return `<tr${rowClass ? ` class="${rowClass}"` : ""}>
         <td>${e.sale?.memberId ?? "\u2014"}</td>

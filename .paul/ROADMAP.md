@@ -10,10 +10,11 @@ A sales operations platform evolving from initial setup through full role-based 
 |---------|------|--------|--------|-----------|
 | v2.2 | Chargeback Batch Review & Payroll Agent Tabs | 44-47 | Shipped | 2026-04-09 |
 | v2.3 | Parser & Payroll Fixes | 48 | Shipped | 2026-04-09 |
+| v2.4 | Payroll & Chargeback Fixes | 49 | Shipped | 2026-04-09 |
 
-## Active Milestone: v2.3 Parser & Payroll Fixes
+## Active Milestone: v2.4 Payroll & Chargeback Fixes
 
-**Goal:** Fix receipt parser product misclassification, add ACH payroll row highlighting, and add sale date to standalone ACA entry.
+**Goal:** Fix payroll chargeback deduction logic, add print color coding, and expand batch parser to handle new tab-separated format.
 **Status:** Complete
 **Progress:** [██████████] 100%
 
@@ -21,24 +22,34 @@ A sales operations platform evolving from initial setup through full role-based 
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
-| 48 | Parser & Payroll Quick Fixes | 1 | Complete | 2026-04-09 |
+| 49 | Payroll & Chargeback Fixes | 1 | Complete | 2026-04-09 |
 
 ## Phase Details
 
-### Phase 48: Parser & Payroll Quick Fixes
+### Phase 49: Payroll & Chargeback Fixes
 
-**Goal:** Fix three production issues — receipt parser addon detection, ACH payroll row highlighting, and standalone ACA sale date field.
-**Depends on:** Phase 47 (v2.2 complete)
+**Goal:** Fix chargeback net deduction logic, add print view status colors, and support new tab-separated chargeback batch parser format.
+**Depends on:** Phase 48 (v2.3 complete)
 **Research:** Unlikely (internal patterns, known code)
 
 **Scope:**
-- Fix "Add on" (no hyphen) not matching addon regex in receipt parser
-- Add green highlight for ACH-shifted payroll rows
-- Add sale date field to standalone ACA entry form
+- Chargeback net deduction — closed week: deduct from net; open week: zero out commission
+- Print view status colors — ACH green, chargeback orange/red in printed payroll cards
+- Chargeback batch parser — new tab-separated format (policy ID + name columns)
 
 **Plans:**
-- [x] 48-01: Fix parser addon detection, ACH row highlight, ACA sale date
+- [x] 49-01: Net deduction fix, print status colors, simple batch parser
+
+---
+
+## Completed Milestones
+
+### v2.3 Parser & Payroll Fixes (Shipped 2026-04-09)
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 48 | Parser & Payroll Quick Fixes | 1 | Complete | 2026-04-09 |
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-09*
+*Last updated: 2026-04-09 — v2.4 shipped*

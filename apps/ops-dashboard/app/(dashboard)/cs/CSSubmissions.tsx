@@ -90,6 +90,45 @@ interface ConsolidatedPendingRecord extends Omit<PendingParsedRow, 'product' | '
 
 /* -- Parser Functions -- */
 
+/** Detect simple chargeback list format: numeric ID + name parts per line, no financial data */
+function isSimpleChargebackFormat(raw: string): boolean {
+  const lines = raw.split("\n").filter(l => l.trim().length > 0);
+  if (lines.length === 0) return false;
+  const sample = lines.slice(0, Math.min(3, lines.length));
+  return sample.every(line => {
+    const fields = line.trim().split(/\t+|\s{2,}/);
+    return fields.length >= 2
+      && /^\d{6,}$/.test(fields[0])
+      && !fields.some(f => /^\d{1,2}-[A-Za-z]{3}-\d{2}$/.test(f) || /\$/.test(f) || /%/.test(f));
+  });
+}
+
+/** Parse simple tab/whitespace-separated chargeback list (policy ID + member name) */
+function parseSimpleChargebackList(raw: string): ConsolidatedRecord[] {
+  const lines = raw.split("\n").filter(l => l.trim().length > 0);
+  return lines.map(line => {
+    const fields = line.trim().split(/\t+|\s{2,}/);
+    const memberId = fields[0] || "";
+    const memberName = fields.slice(1).join(" ").trim();
+    return {
+      postedDate: null,
+      type: "Chargeback",
+      payeeId: null,
+      payeeName: memberName,
+      payoutPercent: null,
+      chargebackAmount: 0,
+      totalAmount: 0,
+      transactionDescription: null,
+      product: "",
+      memberCompany: memberName,
+      memberId,
+      memberAgentCompany: null,
+      memberAgentId: null,
+      assignedTo: "",
+    };
+  });
+}
+
 const MONTH_MAP: Record<string, number> = {
   jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
   jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
@@ -452,8 +491,18 @@ export default function CSSubmissions({ socket, API }: CSSubmissionsProps) {
   const handleTextChange = async (text: string) => {
     setRawText(text);
     if (text.trim()) {
-      const parsed = parseChargebackText(text);
-      const consolidated = consolidateByMember(parsed);
+      let consolidated: ConsolidatedRecord[];
+      if (isSimpleChargebackFormat(text)) {
+        consolidated = parseSimpleChargebackList(text);
+        // Fallback: if simple format returned 0 records, try financial format
+        if (consolidated.length === 0) {
+          const parsed = parseChargebackText(text);
+          consolidated = consolidateByMember(parsed);
+        }
+      } else {
+        const parsed = parseChargebackText(text);
+        consolidated = consolidateByMember(parsed);
+      }
       const assignments = await fetchBatchAssign("chargeback", consolidated.length);
       setRecords(assignRoundRobinLocal(consolidated, assignments));
     } else {
