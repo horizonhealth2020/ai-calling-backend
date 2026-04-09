@@ -56,6 +56,7 @@ function SpinnerIcon() {
   return (
     <svg
       className="animate-spin"
+      aria-hidden="true"
       width="14"
       height="14"
       viewBox="0 0 24 24"
@@ -69,7 +70,15 @@ function SpinnerIcon() {
   );
 }
 
-export function Button({
+const DISABLED_STYLE: React.CSSProperties = {
+  background: colors.bgSurfaceInset,
+  color: colors.textMuted,
+  border: `1px solid ${colors.borderSubtle}`,
+  cursor: "not-allowed",
+  opacity: 1,
+};
+
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant = "primary",
   size = "md",
   loading = false,
@@ -81,15 +90,17 @@ export function Button({
   style,
   className,
   ...rest
-}: ButtonProps) {
+}, ref) {
+  const isDisabled = disabled || loading;
+
   const composedStyle: React.CSSProperties = {
     ...baseButtonStyle,
     ...SIZE_STYLES[size],
     ...VARIANT_STYLES[variant],
     borderRadius: radius.md,
     width: fullWidth ? "100%" : undefined,
-    opacity: disabled || loading ? 0.6 : 1,
-    cursor: disabled || loading ? "not-allowed" : "pointer",
+    ...(disabled && !loading ? DISABLED_STYLE : {}),
+    ...(loading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
     ...style,
   };
 
@@ -97,9 +108,12 @@ export function Button({
 
   return (
     <button
-      className={["btn-hover", className].filter(Boolean).join(" ")}
+      ref={ref}
+      className={[isDisabled ? undefined : "btn-hover", className].filter(Boolean).join(" ")}
       style={composedStyle}
-      disabled={disabled || loading}
+      disabled={isDisabled}
+      aria-disabled={isDisabled || undefined}
+      aria-busy={loading || undefined}
       {...rest}
     >
       {resolvedIcon && iconPosition === "left" && resolvedIcon}
@@ -107,4 +121,4 @@ export function Button({
       {resolvedIcon && iconPosition === "right" && resolvedIcon}
     </button>
   );
-}
+});

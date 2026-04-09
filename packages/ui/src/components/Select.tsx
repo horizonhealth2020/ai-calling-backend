@@ -17,21 +17,24 @@ export function Select({
   className,
   id,
   children,
+  disabled,
   ...rest
 }: SelectProps) {
   const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+  const errorId = error && selectId ? `${selectId}-error` : undefined;
 
   const selectStyle: React.CSSProperties = {
     ...baseInputStyle,
     appearance: "none",
-    borderColor: error ? colors.danger : undefined,
+    borderColor: error ? colors.danger : disabled ? colors.borderSubtle : undefined,
     paddingLeft: icon ? 38 : undefined,
     paddingRight: 36,
     boxSizing: "border-box",
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
     backgroundRepeat: "no-repeat",
     backgroundPosition: "right 12px center",
-    cursor: "pointer",
+    cursor: disabled ? "not-allowed" : "pointer",
+    ...(disabled ? { background: colors.bgRoot, color: colors.textMuted } : {}),
     ...style,
   };
 
@@ -76,12 +79,15 @@ export function Select({
           id={selectId}
           className={["input-focus", className].filter(Boolean).join(" ")}
           style={selectStyle}
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={errorId}
           {...rest}
         >
           {children}
         </select>
       </div>
-      {error && <span style={errorStyle}>{error}</span>}
+      {error && <span id={errorId} style={errorStyle}>{error}</span>}
     </div>
   );
 }

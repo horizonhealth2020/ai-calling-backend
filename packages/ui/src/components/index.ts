@@ -12,3 +12,5 @@ export { EmptyState } from "./EmptyState";
 export { ProgressRing } from "./ProgressRing";
 export { DateRangeFilter, KPI_PRESETS } from "./DateRangeFilter";
 export type { DateRangeFilterValue, DateRangeFilterProps } from "./DateRangeFilter";
+export { ConfirmModal } from "./ConfirmModal";
+export type { ConfirmModalProps } from "./ConfirmModal";

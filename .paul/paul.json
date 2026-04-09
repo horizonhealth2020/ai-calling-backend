@@ -1,15 +1,15 @@
 {
   "name": "ai-calling-backend",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "milestone": {
-    "name": "Payroll & Chargeback Fixes",
-    "version": "2.4.0",
-    "status": "complete"
+    "name": "Professional Polish",
+    "version": "2.5.0",
+    "status": "in_progress"
   },
   "phase": {
-    "number": 49,
-    "name": "Payroll & Chargeback Fixes",
-    "status": "complete"
+    "number": 51,
+    "name": "Dashboard Interaction Fixes",
+    "status": "not_started"
   },
   "loop": {
     "plan": null,

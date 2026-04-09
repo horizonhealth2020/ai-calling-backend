@@ -16,15 +16,18 @@ export function Input({
   style,
   className,
   id,
+  disabled,
   ...rest
 }: InputProps) {
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+  const errorId = error && inputId ? `${inputId}-error` : undefined;
 
   const inputStyle: React.CSSProperties = {
     ...baseInputStyle,
-    borderColor: error ? colors.danger : undefined,
+    borderColor: error ? colors.danger : disabled ? colors.borderSubtle : undefined,
     paddingLeft: icon ? 38 : undefined,
     boxSizing: "border-box",
+    ...(disabled ? { background: colors.bgRoot, color: colors.textMuted, cursor: "not-allowed" } : {}),
     ...style,
   };
 
@@ -69,10 +72,13 @@ export function Input({
           id={inputId}
           className={["input-focus", className].filter(Boolean).join(" ")}
           style={inputStyle}
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={errorId}
           {...rest}
         />
       </div>
-      {error && <span style={errorStyle}>{error}</span>}
+      {error && <span id={errorId} style={errorStyle}>{error}</span>}
     </div>
   );
 }

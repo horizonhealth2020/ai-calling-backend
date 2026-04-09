@@ -13,7 +13,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.4.0 |
+| Version | 2.5.0 |
 | Status | Production |
 | Last Updated | 2026-04-09 |
 | Milestones shipped | 14 (v1.0 through v2.4) |
@@ -123,7 +123,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Simple chargeback batch parser (policy ID + member name tab-separated format)
 
 ### Active (In Progress)
-None.
+- v2.5 Professional Polish — focus rings, disabled states, confirm modals, loading feedback, design tokens, ARIA labels, debounce, error surfacing, responsive grids, typography tokens
 
 ### Planned (Next)
 - Bulk sale import from CSV
@@ -189,6 +189,10 @@ None.
 | ACA flat commission early return | Avoids bundle/enrollment fee interference in calc path | Active |
 | Cross-period chargeback helper | Shared applyChargebackToEntry for single, batch, and alert paths | Active |
 | Store exact carryoverAmount | Eliminates drift when fronts edited between lock and unlock | Active |
+| Disabled state: flat inset bg + muted text | Visually distinct from enabled (not just opacity) | Active |
+| ConfirmModal: inline z-index, no portal | Internal ops tool — z-index 10000 sufficient | Active |
+| ARIA error linking via {id}-error pattern | aria-invalid + aria-describedby on Input/Select | Active |
+| Button forwardRef | Enables ref-based focus management (ConfirmModal) | Active |
 
 ## Success Metrics
 
