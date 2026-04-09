@@ -6,6 +6,7 @@ import {
   EmptyState,
   ToastProvider,
   useToast,
+  ConfirmModal,
   spacing,
   colors,
   typography,
@@ -630,6 +631,21 @@ function SubmissionsContent({
   const { toast } = useToast();
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
 
+  /* ── Confirm modal state ─────────────────────────────────── */
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; message: string;
+    variant: "primary" | "danger"; confirmLabel: string;
+    loading: boolean; onConfirm: () => Promise<void> | void;
+  }>({ open: false, title: "", message: "", variant: "primary", confirmLabel: "Confirm", loading: false, onConfirm: () => {} });
+
+  function requestConfirm(title: string, message: string, variant: "primary" | "danger", confirmLabel: string, action: () => Promise<void> | void) {
+    setConfirmState({ open: true, title, message, variant, confirmLabel, loading: false, onConfirm: action });
+  }
+  async function handleConfirm() {
+    setConfirmState(s => ({ ...s, loading: true }));
+    try { await confirmState.onConfirm(); } finally { setConfirmState(s => ({ ...s, open: false, loading: false })); }
+  }
+
   const handleSubmit = async () => {
     if (records.length === 0) {
       toast("error", "No valid records to submit");
@@ -1158,7 +1174,7 @@ function SubmissionsContent({
                 key={rep.id}
                 rep={rep}
                 onToggle={() => handleToggleRep(rep)}
-                onRemove={() => handleRemoveRep(rep)}
+                onRemove={() => requestConfirm("Remove Rep", `Remove ${rep.name} from the CS rep roster?`, "danger", "Remove", () => handleRemoveRep(rep))}
               />
             ))}
           </div>
@@ -1204,6 +1220,7 @@ function SubmissionsContent({
           </div>
         </div>
       </div>
+      <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} variant={confirmState.variant} confirmLabel={confirmState.confirmLabel} loading={confirmState.loading} onConfirm={handleConfirm} onCancel={() => setConfirmState(s => ({ ...s, open: false }))} />
     </div>
   );
 }

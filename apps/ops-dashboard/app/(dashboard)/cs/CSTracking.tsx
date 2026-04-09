@@ -19,6 +19,7 @@ import {
   baseLabelStyle,
   baseButtonStyle,
   radius,
+  ConfirmModal,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -164,6 +165,21 @@ export default function CSTracking({ socket, API, userRoles, canManageCS }: CSTr
 }
 
 function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingProps) {
+  /* ── Confirm modal state ─────────────────────────────────── */
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; message: string;
+    variant: "primary" | "danger"; confirmLabel: string;
+    loading: boolean; onConfirm: () => Promise<void> | void;
+  }>({ open: false, title: "", message: "", variant: "primary", confirmLabel: "Confirm", loading: false, onConfirm: () => {} });
+
+  function requestConfirm(title: string, message: string, variant: "primary" | "danger", confirmLabel: string, action: () => Promise<void> | void) {
+    setConfirmState({ open: true, title, message, variant, confirmLabel, loading: false, onConfirm: action });
+  }
+  async function handleConfirm() {
+    setConfirmState(s => ({ ...s, loading: true }));
+    try { await confirmState.onConfirm(); } finally { setConfirmState(s => ({ ...s, open: false, loading: false })); }
+  }
+
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
   // Data
   const [chargebacks, setChargebacks] = useState<Chargeback[]>([]);
@@ -881,7 +897,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                   {cb.resolutionNote}
                                 </div>
                               )}
-                              <button onClick={() => handleUnresolveCb(cb.id)} style={{
+                              <button onClick={() => requestConfirm("Unresolve Chargeback", "This will move the chargeback back to active tracking. Continue?", "danger", "Unresolve", () => handleUnresolveCb(cb.id))} style={{
                                 color: colors.textTertiary, background: "transparent", border: "none",
                                 cursor: "pointer", fontSize: typography.sizes.sm.fontSize, padding: 0, marginTop: 4,
                               }}>Unresolve</button>
@@ -889,7 +905,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                           )}
                           {canManageCS && !cb.resolvedAt && (
                             <button
-                              onClick={() => handleDeleteCb(cb.id)}
+                              onClick={() => requestConfirm("Delete Chargeback", "Permanently delete this chargeback record?", "danger", "Delete", () => handleDeleteCb(cb.id))}
                               aria-label="Delete record"
                               style={{
                                 background: "transparent", border: "none", cursor: "pointer",
@@ -1099,7 +1115,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                   {pt.resolutionNote}
                                 </div>
                               )}
-                              <button onClick={() => handleUnresolvePt(pt.id)} style={{
+                              <button onClick={() => requestConfirm("Unresolve Pending Term", "This will move the pending term back to active tracking. Continue?", "danger", "Unresolve", () => handleUnresolvePt(pt.id))} style={{
                                 color: colors.textTertiary, background: "transparent", border: "none",
                                 cursor: "pointer", fontSize: typography.sizes.sm.fontSize, padding: 0, marginTop: 4,
                               }}>Unresolve</button>
@@ -1107,7 +1123,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                           )}
                           {canManageCS && !pt.resolvedAt && (
                             <button
-                              onClick={() => handleDeletePt(pt.id)}
+                              onClick={() => requestConfirm("Delete Pending Term", "Permanently delete this pending term record?", "danger", "Delete", () => handleDeletePt(pt.id))}
                               aria-label="Delete record"
                               style={{
                                 background: "transparent", border: "none", cursor: "pointer",
@@ -1193,6 +1209,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
           </div>
         )}
       </Card>
+      <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} variant={confirmState.variant} confirmLabel={confirmState.confirmLabel} loading={confirmState.loading} onConfirm={handleConfirm} onCancel={() => setConfirmState(s => ({ ...s, open: false }))} />
     </div>
   );
 }

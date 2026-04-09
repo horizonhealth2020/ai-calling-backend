@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { Badge, AnimatedNumber, Button } from "@ops/ui";
+import { Badge, AnimatedNumber, Button, ConfirmModal } from "@ops/ui";
 import { colors, spacing, radius, motion } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
@@ -86,10 +86,10 @@ function EditableSaleRow({
   entry, onSaleUpdate, onApprove, onUnapprove, onDelete, products, highlighted, isPaid, isLate,
 }: {
   entry: Entry;
-  onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
-  onApprove: (saleId: string) => Promise<void>;
-  onUnapprove: (saleId: string) => Promise<void>;
-  onDelete: (saleId: string) => Promise<void>;
+  onSaleUpdate: (saleId: string, data: Record<string, unknown>) => void | Promise<void>;
+  onApprove: (saleId: string) => void | Promise<void>;
+  onUnapprove: (saleId: string) => void | Promise<void>;
+  onDelete: (saleId: string) => void | Promise<void>;
   products: Product[];
   highlighted?: boolean;
   isPaid?: boolean;
@@ -582,17 +582,17 @@ interface WeekSectionProps {
   isSelected: boolean;
   onToggleExpand: () => void;
   onSelect: () => void;
-  onSaleUpdate: (saleId: string, data: Record<string, unknown>) => Promise<void>;
-  onApprove: (saleId: string) => Promise<void>;
-  onUnapprove: (saleId: string) => Promise<void>;
-  onDelete: (saleId: string) => Promise<void>;
+  onSaleUpdate: (saleId: string, data: Record<string, unknown>) => void | Promise<void>;
+  onApprove: (saleId: string) => void | Promise<void>;
+  onUnapprove: (saleId: string) => void | Promise<void>;
+  onDelete: (saleId: string) => void | Promise<void>;
   onPrint: () => void;
   onMarkPaid: () => void;
   onMarkUnpaid: () => void;
-  onApproveChangeRequest: (id: string) => Promise<void>;
-  onRejectChangeRequest: (id: string) => Promise<void>;
-  onApproveEditRequest: (id: string) => Promise<void>;
-  onRejectEditRequest: (id: string) => Promise<void>;
+  onApproveChangeRequest: (id: string) => void | Promise<void>;
+  onRejectChangeRequest: (id: string) => void | Promise<void>;
+  onApproveEditRequest: (id: string) => void | Promise<void>;
+  onRejectEditRequest: (id: string) => void | Promise<void>;
   highlightedEntryIds: Set<string>;
   API: string;
   refreshPeriods: () => Promise<void>;
@@ -612,6 +612,21 @@ export function WeekSection({
   onApproveEditRequest, onRejectEditRequest,
   highlightedEntryIds, API, refreshPeriods,
 }: WeekSectionProps) {
+  /* ── Confirm modal state ─────────────────────────────────── */
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; message: string;
+    variant: "primary" | "danger"; confirmLabel: string;
+    loading: boolean; onConfirm: () => Promise<void> | void;
+  }>({ open: false, title: "", message: "", variant: "primary", confirmLabel: "Confirm", loading: false, onConfirm: () => {} });
+
+  function requestConfirm(title: string, message: string, variant: "primary" | "danger", confirmLabel: string, action: () => Promise<void> | void) {
+    setConfirmState({ open: true, title, message, variant, confirmLabel, loading: false, onConfirm: action });
+  }
+  async function handleConfirm() {
+    setConfirmState(s => ({ ...s, loading: true }));
+    try { await confirmState.onConfirm(); } finally { setConfirmState(s => ({ ...s, open: false, loading: false })); }
+  }
+
   const totalBonus = adjustment ? Number(adjustment.bonusAmount) : 0;
   const totalFronted = adjustment ? Number(adjustment.frontedAmount) : 0;
   const totalHold = adjustment ? Number(adjustment.holdAmount) : 0;
@@ -713,17 +728,19 @@ export function WeekSection({
             <span
               style={{ cursor: "pointer" }}
               title={period.status === "OPEN" ? "Click to close period" : "Click to reopen period"}
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 const newStatus = period.status === "OPEN" ? "LOCKED" : "OPEN";
                 const label = newStatus === "LOCKED" ? "close" : "reopen";
-                if (!window.confirm(`Are you sure you want to ${label} this period?`)) return;
-                const res = await authFetch(`${API}/api/payroll/periods/${period.id}/status`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status: newStatus }),
+                const btnLabel = newStatus === "LOCKED" ? "Close" : "Reopen";
+                requestConfirm(`${btnLabel} Period`, `Are you sure you want to ${label} this period?`, "primary", btnLabel, async () => {
+                  const res = await authFetch(`${API}/api/payroll/periods/${period.id}/status`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: newStatus }),
+                  });
+                  if (res.ok) refreshPeriods();
                 });
-                if (res.ok) refreshPeriods();
               }}
             >
               <Badge color={statusCfg.color} dot>{statusCfg.label}</Badge>
@@ -917,7 +934,7 @@ export function WeekSection({
                     products={products}
                     onSaleUpdate={onSaleUpdate}
                     onApprove={onApprove}
-                    onUnapprove={onUnapprove}
+                    onUnapprove={(saleId: string) => requestConfirm("Unapprove Commission", "This will revert the approved commission. Continue?", "danger", "Unapprove", async () => onUnapprove(saleId))}
                     onDelete={onDelete}
                     highlighted={highlightedEntryIds.has(e.id)}
                     isPaid={allPaid}
@@ -1046,6 +1063,7 @@ export function WeekSection({
           )}
         </div>
       )}
+      <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} variant={confirmState.variant} confirmLabel={confirmState.confirmLabel} loading={confirmState.loading} onConfirm={handleConfirm} onCancel={() => setConfirmState(s => ({ ...s, open: false }))} />
     </div>
   );
 }

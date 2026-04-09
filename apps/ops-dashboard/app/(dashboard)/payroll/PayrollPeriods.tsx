@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState } from "@ops/ui";
+import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState, ConfirmModal } from "@ops/ui";
 import { colors, spacing, radius } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
@@ -98,6 +98,21 @@ export default function PayrollPeriods({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [approvingEditId, setApprovingEditId] = useState<string | null>(null);
   const [rejectingEditId, setRejectingEditId] = useState<string | null>(null);
+
+  /* ── Confirm modal state ─────────────────────────────────── */
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; message: string;
+    variant: "primary" | "danger"; confirmLabel: string;
+    loading: boolean; onConfirm: () => Promise<void> | void;
+  }>({ open: false, title: "", message: "", variant: "primary", confirmLabel: "Confirm", loading: false, onConfirm: () => {} });
+
+  function requestConfirm(title: string, message: string, variant: "primary" | "danger", confirmLabel: string, action: () => Promise<void> | void) {
+    setConfirmState({ open: true, title, message, variant, confirmLabel, loading: false, onConfirm: action });
+  }
+  async function handleConfirm() {
+    setConfirmState(s => ({ ...s, loading: true }));
+    try { await confirmState.onConfirm(); } finally { setConfirmState(s => ({ ...s, open: false, loading: false })); }
+  }
   const [highlightedEntryIds] = useState<Set<string>>(new Set());
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
   const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
@@ -540,21 +555,22 @@ export default function PayrollPeriods({
     } catch { toast("error", "Failed to approve alert"); }
   }
 
-  async function handleClearAlert(alertId: string) {
-    if (!confirm("Clear this alert? It will be permanently dismissed and no clawback will be created.")) return;
-    try {
-      const res = await authFetch(`${API}/api/alerts/${alertId}/clear`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        setAlerts(prev => prev.filter(a => a.id !== alertId));
-        toast("success", "Alert cleared");
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast("error", err.error || `Request failed (${res.status})`);
-      }
-    } catch { toast("error", "Failed to clear alert"); }
+  function handleClearAlert(alertId: string) {
+    requestConfirm("Clear Alert", "Clear this alert? It will be permanently dismissed and no clawback will be created.", "danger", "Clear", async () => {
+      try {
+        const res = await authFetch(`${API}/api/alerts/${alertId}/clear`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res.ok) {
+          setAlerts(prev => prev.filter(a => a.id !== alertId));
+          toast("success", "Alert cleared");
+        } else {
+          const err = await res.json().catch(() => ({}));
+          toast("error", err.error || `Request failed (${res.status})`);
+        }
+      } catch { toast("error", "Failed to clear alert"); }
+    });
   }
 
   /* ── Change / edit request handlers ──────────────────────── */
@@ -596,56 +612,59 @@ export default function PayrollPeriods({
     }
   }
 
-  async function approveEditRequest(requestId: string, saleInFinalized?: boolean) {
-    if (saleInFinalized) {
-      const confirmed = window.confirm(
-        "Approving this edit will create an adjustment entry in the next open period. Commission difference will be applied there. Continue?"
-      );
-      if (!confirmed) return;
-    }
-    setApprovingEditId(requestId);
-    try {
-      const res = await authFetch(`${API}/api/sale-edit-requests/${requestId}/approve`, { method: "POST" });
-      if (res.ok) {
-        setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
-        await refreshPeriods();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
+  function approveEditRequest(requestId: string, saleInFinalized?: boolean) {
+    const doApprove = async () => {
+      setApprovingEditId(requestId);
+      try {
+        const res = await authFetch(`${API}/api/sale-edit-requests/${requestId}/approve`, { method: "POST" });
+        if (res.ok) {
+          setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
+          await refreshPeriods();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
+        }
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "network error";
+        toast("error", `Error: Unable to reach API \u2014 ${message}`);
+      } finally {
+        setApprovingEditId(null);
       }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "network error";
-      toast("error", `Error: Unable to reach API \u2014 ${message}`);
-    } finally {
-      setApprovingEditId(null);
+    };
+    if (saleInFinalized) {
+      requestConfirm("Approve Edit", "Approving this edit will create an adjustment entry in the next open period. Commission difference will be applied there. Continue?", "primary", "Approve", doApprove);
+    } else {
+      doApprove();
     }
   }
 
-  async function rejectEditRequest(requestId: string) {
-    if (!window.confirm("Reject this edit request? The sale will remain unchanged.")) return;
-    setRejectingEditId(requestId);
-    try {
-      const res = await authFetch(`${API}/api/sale-edit-requests/${requestId}/reject`, { method: "POST" });
-      if (res.ok) {
-        setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
+  function rejectEditRequest(requestId: string) {
+    requestConfirm("Reject Edit Request", "Reject this edit request? The sale will remain unchanged.", "danger", "Reject", async () => {
+      setRejectingEditId(requestId);
+      try {
+        const res = await authFetch(`${API}/api/sale-edit-requests/${requestId}/reject`, { method: "POST" });
+        if (res.ok) {
+          setPendingEditRequests(prev => prev.filter(r => r.id !== requestId));
+        } else {
+          const err = await res.json().catch(() => ({}));
+          toast("error", `Error: ${err.error ?? `Request failed (${res.status})`}`);
+        }
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "network error";
+        toast("error", `Error: Unable to reach API \u2014 ${message}`);
+      } finally {
+        setRejectingEditId(null);
       }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "network error";
-      toast("error", `Error: Unable to reach API \u2014 ${message}`);
-    } finally {
-      setRejectingEditId(null);
-    }
+    });
   }
 
   /* ── Sale handlers ───────────────────────────────────────── */
 
-  async function deleteSale(saleId: string) {
-    if (!window.confirm("Permanently delete this sale? This removes it from payroll and tracking.")) return;
-    const res = await authFetch(`${API}/api/sales/${saleId}`, { method: "DELETE" });
-    if (res.ok) await refreshPeriods();
+  function deleteSale(saleId: string) {
+    requestConfirm("Delete Sale", "Permanently delete this sale? This removes it from payroll and tracking.", "danger", "Delete", async () => {
+      const res = await authFetch(`${API}/api/sales/${saleId}`, { method: "DELETE" });
+      if (res.ok) await refreshPeriods();
+    });
   }
 
   async function updateSale(saleId: string, data: Record<string, unknown>) {
@@ -686,11 +705,31 @@ export default function PayrollPeriods({
 
   /* ── Paid/unpaid handlers ────────────────────────────────── */
 
-  async function markEntriesPaid(entryIds: string[], serviceEntryIds: string[], label: string) {
+  function markEntriesPaid(entryIds: string[], serviceEntryIds: string[], label: string) {
     if (entryIds.length === 0 && serviceEntryIds.length === 0) return;
-    if (!window.confirm(`Mark ${label} as PAID?`)) return;
-    try {
-      const res = await authFetch(`${API}/api/payroll/mark-paid`, {
+    requestConfirm("Mark as Paid", `Mark ${label} as PAID?`, "primary", "Mark Paid", async () => {
+      try {
+        const res = await authFetch(`${API}/api/payroll/mark-paid`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entryIds, serviceEntryIds }),
+        });
+        if (res.ok) {
+          await refreshPeriods();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          toast("error", err.error ?? `Request failed (${res.status})`);
+        }
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "network error";
+        toast("error", `Unable to reach API \u2014 ${message}`);
+      }
+    });
+  }
+
+  function markEntriesUnpaid(entryIds: string[], serviceEntryIds: string[], label: string) {
+    requestConfirm("Mark Unpaid", `Mark this period as unpaid? This will revert the paid status for ${label}.`, "danger", "Mark Unpaid", async () => {
+      const res = await authFetch(`${API}/api/payroll/mark-unpaid`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entryIds, serviceEntryIds }),
@@ -698,28 +737,10 @@ export default function PayrollPeriods({
       if (res.ok) {
         await refreshPeriods();
       } else {
-        const err = await res.json().catch(() => ({}));
-        toast("error", err.error ?? `Request failed (${res.status})`);
+        const err = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+        toast("error", err.error || `Request failed (${res.status})`);
       }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "network error";
-      toast("error", `Unable to reach API \u2014 ${message}`);
-    }
-  }
-
-  async function markEntriesUnpaid(entryIds: string[], serviceEntryIds: string[], label: string) {
-    if (!window.confirm(`Mark this period as unpaid? This will revert the paid status for ${label}.`)) return;
-    const res = await authFetch(`${API}/api/payroll/mark-unpaid`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entryIds, serviceEntryIds }),
     });
-    if (res.ok) {
-      await refreshPeriods();
-    } else {
-      const err = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
-      alert(err.error || `Request failed (${res.status})`);
-    }
   }
 
   /* ── Print functions ─────────────────────────────────────── */
@@ -1461,6 +1482,7 @@ export default function PayrollPeriods({
           </div>
         </div>
       )}
+      <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} variant={confirmState.variant} confirmLabel={confirmState.confirmLabel} loading={confirmState.loading} onConfirm={handleConfirm} onCancel={() => setConfirmState(s => ({ ...s, open: false }))} />
     </div>
   );
 }

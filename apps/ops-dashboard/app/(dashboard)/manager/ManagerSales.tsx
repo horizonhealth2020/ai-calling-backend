@@ -17,7 +17,7 @@ import {
 } from "@ops/ui";
 import { authFetch, getToken } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
-import { useToast } from "@ops/ui";
+import { useToast, ConfirmModal } from "@ops/ui";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import {
   Edit3,
@@ -132,6 +132,22 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ManagerSales({ API, agents, products, leadSources, salesList, setSalesList, highlightedSaleIds, onSalesChanged }: ManagerSalesProps) {
   const { toast } = useToast();
+
+  /* ── Confirm modal state ─────────────────────────────────── */
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; message: string;
+    variant: "primary" | "danger"; confirmLabel: string;
+    loading: boolean; onConfirm: () => Promise<void> | void;
+  }>({ open: false, title: "", message: "", variant: "primary", confirmLabel: "Confirm", loading: false, onConfirm: () => {} });
+
+  function requestConfirm(title: string, message: string, variant: "primary" | "danger", confirmLabel: string, action: () => Promise<void> | void) {
+    setConfirmState({ open: true, title, message, variant, confirmLabel, loading: false, onConfirm: action });
+  }
+  async function handleConfirm() {
+    setConfirmState(s => ({ ...s, loading: true }));
+    try { await confirmState.onConfirm(); } finally { setConfirmState(s => ({ ...s, open: false, loading: false })); }
+  }
+
   const [salesDay, setSalesDay] = useState<string>("all");
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const msgTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -291,8 +307,13 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
   async function handleStatusChange(saleId: string, newStatus: string, currentStatus: string) {
     const isReactivation = (currentStatus === "DEAD" || currentStatus === "DECLINED") && newStatus === "RAN";
     if (isReactivation) {
-      if (!window.confirm("This will create a change request for payroll approval. Continue?")) return;
+      requestConfirm("Create Change Request", "This will create a change request for payroll approval. Continue?", "primary", "Create Request", () => doStatusChange(saleId, newStatus));
+      return;
     }
+    doStatusChange(saleId, newStatus);
+  }
+
+  async function doStatusChange(saleId: string, newStatus: string) {
     try {
       const res = await authFetch(`${API}/api/sales/${saleId}/status`, {
         method: "PATCH",
@@ -318,21 +339,22 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
     }
   }
 
-  async function deleteSale(id: string) {
-    if (!window.confirm("Permanently delete this sale? This removes it from payroll and tracking.")) return;
-    try {
-      const res = await authFetch(`${API}/api/sales/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setSalesList(prev => prev.filter(s => s.id !== id));
-        onSalesChanged?.();
-        setMsg({ text: "Sale deleted", type: "success" });
-        clearTimeout(msgTimerRef.current);
-        msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setMsg({ text: `Failed to delete sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
-      }
-    } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setMsg({ text: `Unable to reach API \u2014 ${message}`, type: "error" }); }
+  function deleteSale(id: string) {
+    requestConfirm("Delete Sale", "Permanently delete this sale? This removes it from payroll and tracking.", "danger", "Delete", async () => {
+      try {
+        const res = await authFetch(`${API}/api/sales/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          setSalesList(prev => prev.filter(s => s.id !== id));
+          onSalesChanged?.();
+          setMsg({ text: "Sale deleted", type: "success" });
+          clearTimeout(msgTimerRef.current);
+          msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          setMsg({ text: `Failed to delete sale (${res.status}): ${err.error ?? "Unknown error"}`, type: "error" });
+        }
+      } catch (e: unknown) { const message = e instanceof Error ? e.message : "network error"; setMsg({ text: `Unable to reach API \u2014 ${message}`, type: "error" }); }
+    });
   }
 
   const getDayOfWeek = (dateStr: string) => {
@@ -777,6 +799,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
           </Card>
         );
       })}
+      <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} variant={confirmState.variant} confirmLabel={confirmState.confirmLabel} loading={confirmState.loading} onConfirm={handleConfirm} onCancel={() => setConfirmState(s => ({ ...s, open: false }))} />
     </div>
   );
 }
