@@ -327,16 +327,16 @@ router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN
       addons: { include: { product: { select: { id: true, name: true, type: true } } } },
       acaCoveredSales: { where: { product: { type: "ACA_PL" } }, select: { id: true } },
       payrollEntries: {
-        where: { status: { notIn: ["CLAWBACK_APPLIED", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"] } },
-        orderBy: { createdAt: "asc" },
+        orderBy: { payoutAmount: "desc" },
         select: { payoutAmount: true, status: true },
       },
     },
   });
   if (!sale) return res.status(404).json({ error: "No matching sale found" });
 
+  // Pick the entry with the highest payoutAmount (the original commission before any chargeback zeroing)
   const fullPayout = sale.payrollEntries[0] ? Number(sale.payrollEntries[0].payoutAmount) : 0;
-  console.log("[DEBUG lookup]", { memberId, memberName, saleId: sale.id, entryCount: sale.payrollEntries.length, fullPayout, statuses: sale.payrollEntries.map((e: any) => e.status) });
+  res.set("Cache-Control", "no-store");
 
   const allProducts = [
     { id: sale.product.id, name: sale.product.name, type: sale.product.type, premium: Number(sale.premium) },
