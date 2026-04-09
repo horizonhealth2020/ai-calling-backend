@@ -323,8 +323,8 @@ router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN
     where,
     include: {
       agent: { select: { id: true, name: true } },
-      product: { select: { id: true, name: true, type: true } },
-      addons: { include: { product: { select: { id: true, name: true, type: true } } } },
+      product: true,
+      addons: { include: { product: true } },
       acaCoveredSales: { where: { product: { type: "ACA_PL" } }, select: { id: true } },
       payrollEntries: {
         orderBy: { payoutAmount: "desc" },
