@@ -323,9 +323,14 @@ function EditableSaleRow({
           </div>
         ) : (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {/* Core product */}
+            {/* Core product — color by actual product type */}
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <Badge color={semanticColors.accentBlue} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
+              <Badge color={
+                entry.sale?.product?.type === "ACA_PL" ? semanticColors.accentPurple
+                : entry.sale?.product?.type === "ADDON" ? semanticColors.accentGreenMid
+                : entry.sale?.product?.type === "AD_D" ? C.warning
+                : semanticColors.accentBlue
+              } size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
               {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
@@ -337,7 +342,12 @@ function EditableSaleRow({
             {entry.sale?.addons?.map((addon) => (
               <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
                 <Badge
-                  color={addon.product.type === "AD_D" ? C.warning : semanticColors.accentGreenMid}
+                  color={
+                    addon.product.type === "AD_D" ? C.warning
+                    : addon.product.type === "ACA_PL" ? semanticColors.accentPurple
+                    : addon.product.type === "CORE" ? semanticColors.accentBlue
+                    : semanticColors.accentGreenMid
+                  }
                   size="sm"
                 >
                   {addon.product.name}
@@ -352,7 +362,7 @@ function EditableSaleRow({
             {/* GAP-45-07: ACA rendered as its own product chip with the bundled flat commission */}
             {entry.acaAttached && (
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <Badge color={C.info ?? C.accentTeal} size="sm">{entry.acaAttached.productName ?? "ACA"}</Badge>
+                <Badge color={semanticColors.accentPurple} size="sm">{entry.acaAttached.productName ?? "ACA"}</Badge>
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.acaAttached.payoutAmount))}
                 </span>
