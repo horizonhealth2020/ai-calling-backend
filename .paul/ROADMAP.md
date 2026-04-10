@@ -17,14 +17,14 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Elevate the platform from functional to professional-grade — proper interaction states, consistent design tokens, and accessibility foundations.
 **Status:** In Progress
-**Progress:** [███░░░░░░░] 33%
+**Progress:** [██████░░░░] 66%
 
 ## Phases
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 50 | Shared UI Hardening | 1 | Complete | 2026-04-09 |
-| 51 | Dashboard Interaction Fixes | 2 | Planning | - |
+| 51 | Dashboard Interaction Fixes | 2 | Complete | 2026-04-10 |
 | 52 | Visual Consistency Pass | TBD | Not started | - |
 
 ## Phase Details
@@ -64,7 +64,8 @@ A sales operations platform evolving from initial setup through full role-based 
 **Skills:** form-cro, high-end-visual-design, react-patterns
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 51-01: Replace window.confirm with ConfirmModal (9 replaced + 5 new confirmations)
+- [x] 51-02: Error surfacing (toast feedback), debounce search inputs, form error clearing
 
 ### Phase 52: Visual Consistency Pass
 
@@ -102,4 +103,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-09 — Phase 50 complete*
+*Last updated: 2026-04-10 — Phase 51 complete*
