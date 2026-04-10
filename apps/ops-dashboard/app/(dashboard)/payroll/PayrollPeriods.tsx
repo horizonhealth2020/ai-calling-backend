@@ -367,16 +367,22 @@ export default function PayrollPeriods({
   const currentPeriodId = useMemo(() => {
     if (periods.length === 0) return null;
     const today = new Date().toISOString().slice(0, 10);
-    // Find period where today falls between weekStart and weekEnd
-    const current = periods.find(p =>
+    // Sort periods by weekStart descending for ordered traversal
+    const sorted = [...periods].sort((a, b) =>
+      new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+    );
+    // Find the period containing today
+    const todayIdx = sorted.findIndex(p =>
       p.weekStart.slice(0, 10) <= today && today <= p.weekEnd.slice(0, 10)
     );
-    if (current) return current.id;
-    // Fallback: most recent period that has already started (not future)
-    const past = periods
-      .filter(p => p.weekStart.slice(0, 10) <= today)
-      .sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime());
-    return past[0]?.id ?? periods[0]?.id ?? null;
+    // Week-in-arrears: the period being PAID this Friday is the one BEFORE today's period
+    if (todayIdx >= 0 && todayIdx + 1 < sorted.length) {
+      return sorted[todayIdx + 1].id; // previous period (arrears)
+    }
+    // Fallback: if today's period is the oldest, or today not in any period,
+    // use most recent past period
+    const past = sorted.filter(p => p.weekStart.slice(0, 10) <= today);
+    return past[0]?.id ?? sorted[sorted.length - 1]?.id ?? null;
   }, [periods]);
 
   const sortedAgents = useMemo(() => {
