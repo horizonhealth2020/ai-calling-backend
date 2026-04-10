@@ -944,7 +944,7 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
 
   const [
     agents, priorSales, allLeadSources, callLogs,
-    cbThisWeekAgg, cbLastWeekAgg, arrearsPeriod,
+    cbThisWeekAgg, cbLastWeekAgg, arrearsPeriod, commissionByAgent,
   ] = await Promise.all([
     // Current period agents + sales
     prisma.agent.findMany({
@@ -972,7 +972,14 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
         serviceEntries: { select: { totalPay: true } },
       },
     }),
+    // Commission per agent for leaderboard
+    prisma.payrollEntry.groupBy({
+      by: ["agentId"],
+      _sum: { payoutAmount: true },
+      where: { sale: { status: "RAN", ...(dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {}) } },
+    }),
   ]);
+  const commMap = new Map(commissionByAgent.map((c: { agentId: string; _sum: { payoutAmount: unknown } }) => [c.agentId, Number(c._sum.payoutAmount ?? 0)]));
 
   // ── Hero metrics ──
   let salesCount = 0;
@@ -1044,6 +1051,7 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
         salesCount: sales.salesCount,
         premiumTotal: sales.premiumTotal,
         costPerSale: sales.salesCount > 0 ? sales.totalLeadCost / sales.salesCount : 0,
+        commissionTotal: commMap.get(agent.id) ?? 0,
         callsByTier: callMetrics?.tiers ?? { short: 0, contacted: 0, engaged: 0, deep: 0 },
       };
     })

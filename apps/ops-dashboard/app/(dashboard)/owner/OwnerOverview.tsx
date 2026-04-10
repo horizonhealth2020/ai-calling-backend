@@ -53,6 +53,7 @@ type LeaderboardEntry = {
   salesCount: number;
   premiumTotal: number;
   costPerSale: number;
+  commissionTotal: number;
   callsByTier: CallTiers;
 };
 
@@ -396,25 +397,9 @@ function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
         marginTop: 16,
       }}
     >
-      {/* This Week Premium */}
-      <div
-        className="stagger-1"
-        style={{
-          ...STAT_CARD,
-          borderLeft: `3px solid ${semanticColors.accentTealMid}`,
-        }}
-      >
-        <div style={STAT_LABEL}>This Week Premium</div>
-        <div style={STAT_VALUE}>{fmtDollar(stats.thisWeekPremium)}</div>
-        <DeltaBadge
-          current={stats.thisWeekPremium}
-          prior={stats.priorWeekPremium}
-        />
-      </div>
-
       {/* Commission Friday */}
       <div
-        className="stagger-2"
+        className="stagger-1"
         style={{
           ...STAT_CARD,
           borderLeft: `3px solid ${semanticColors.accentBlue}`,
@@ -426,7 +411,7 @@ function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
 
       {/* Chargebacks */}
       <div
-        className={chargebackDanger ? "stagger-3 animate-pulse" : "stagger-3"}
+        className={chargebackDanger ? "stagger-2 animate-pulse" : "stagger-2"}
         style={{
           ...STAT_CARD,
           borderLeft: `3px solid ${chargebackDanger ? semanticColors.dangerLight : colors.danger}`,
@@ -454,7 +439,7 @@ function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
 
       {/* Lead ROI */}
       <div
-        className="stagger-4"
+        className="stagger-3"
         style={{
           ...STAT_CARD,
           borderLeft: `3px solid ${semanticColors.warningAmber}`,
@@ -511,6 +496,7 @@ function LeaderboardSection({
               <th style={{ ...baseThStyle, textAlign: "right" }}>Avg</th>
               <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
               <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
+              <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
               <th style={{ ...baseThStyle, textAlign: "right" }}>Cost/Sale</th>
               <th style={{ ...baseThStyle, textAlign: "center" }}>Quality</th>
             </tr>
@@ -518,7 +504,7 @@ function LeaderboardSection({
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <EmptyState
                     icon={<BarChart3 size={32} />}
                     title="No agent data yet"
@@ -632,6 +618,20 @@ function LeaderboardSection({
                         />
                       </span>
                     )}
+                  </td>
+
+                  {/* Commission */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "right",
+                      fontWeight: typography.weights.semibold,
+                      color: semanticColors.accentGreenMid,
+                    }}
+                  >
+                    {row.commissionTotal > 0
+                      ? fmtDollar(row.commissionTotal)
+                      : "\u2014"}
                   </td>
 
                   {/* Cost/Sale */}
