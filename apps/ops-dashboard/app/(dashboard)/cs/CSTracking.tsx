@@ -617,7 +617,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       <DateRangeFilter value={dateRange} onChange={setDateRange} presets={KPI_PRESETS} />
 
       {/* KPI Bar */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: `${spacing[4]}px` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: `${spacing[4]}px` }}>
         {/* Total Chargebacks */}
         <Card style={{ ...baseCardStyle, background: colors.dangerBg }}>
           <span style={TICKER_LABEL}>TOTAL CHARGEBACKS</span>

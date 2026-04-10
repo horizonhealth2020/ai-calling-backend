@@ -332,7 +332,7 @@ export default function OwnerScoring({ API }: { API: string }) {
           {/* Aggregate KPI StatCards */}
           <div
             className="grid-mobile-1"
-            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}
           >
             <StatCard
               label="Average Score"

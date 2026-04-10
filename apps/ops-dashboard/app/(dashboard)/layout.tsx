@@ -90,6 +90,7 @@ function DashboardInner({ tabs, children }: { tabs: TabConfig[]; children: React
       )}
       {tabs.length > 1 && (
         <nav
+          onTouchEnd={(e) => { e.preventDefault(); setHovered(h => !h); }}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           style={{

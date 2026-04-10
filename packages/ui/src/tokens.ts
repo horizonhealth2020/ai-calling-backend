@@ -130,6 +130,63 @@ export const motion = {
   },
 } as const;
 
+/* ── Semantic Color Aliases ────────────────────────────────────── */
+/* Static hex values for status/accent colors that are theme-independent. */
+/* Use these to replace hardcoded hex in dashboard components.           */
+/* For theme-aware colors (bg, border, text), use the `colors` export.  */
+
+export const semanticColors = {
+  // Status (sale/payroll)
+  statusRan: "#22c55e",
+  statusDead: "#ef4444",
+  statusDeclined: "#f97316",
+  statusPending: "#fbbf24",
+
+  // Accent greens
+  accentGreen: "#4ade80",
+  accentGreenDark: "#059669",
+  accentGreenMid: "#10b981",
+  accentGreenBright: "#34d399",
+
+  // Accent teals
+  accentTealDark: "#0d9488",
+  accentTealMid: "#14b8a6",
+  accentTealLight: "#2dd4bf",
+  accentTealDeep: "#0f766e",
+
+  // Accent blues/purples
+  accentBlue: "#3b82f6",
+  accentBlueBright: "#60a5fa",
+  accentPurple: "#a855f7",
+
+  // Alert/danger
+  dangerLight: "#f87171",
+  dangerDark: "#dc2626",
+  warningAmber: "#f59e0b",
+  warningGold: "#eab308",
+  warningOrange: "#fb923c",
+  warningBrown: "#d97706",
+
+  // Neutrals
+  neutralSlate: "#64748b",
+  neutralGray: "#6b7280",
+  neutralLightGray: "#94a3b8",
+  neutralBorder: "#cbd5e1",
+  neutralBorderLight: "#e2e8f0",
+  neutralBg: "#f1f5f9",
+  neutralDark: "#1e293b",
+  neutralDarkTeal: "#0c4a5f",
+  white: "#ffffff",
+} as const;
+
+/** Convert hex + alpha to rgba string. Replaces hardcoded rgba() patterns. */
+export function colorAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 /* ── Inline-style helpers ─────────────────────────────────────── */
 
 export const baseCardStyle: React.CSSProperties = {

@@ -97,7 +97,7 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
       {/* Summary stat cards */}
       <div
         className="grid-mobile-1"
-        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}
       >
         <StatCard
           label="Total Chargebacks"

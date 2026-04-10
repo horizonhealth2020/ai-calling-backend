@@ -413,7 +413,7 @@ function ProductCard({
                       <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: 12 }} onClick={() => setSelectedStates(US_STATES.map(s => s.code))}>Select All</button>
                       <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: 12 }} onClick={() => setSelectedStates([])}>Clear All</button>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, maxHeight: 200, overflowY: "auto" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 4, maxHeight: 200, overflowY: "auto" }}>
                       {US_STATES.filter(s =>
                         !stateSearch || s.name.toLowerCase().includes(stateSearch.toLowerCase()) || s.code.toLowerCase().includes(stateSearch.toLowerCase())
                       ).map(s => (

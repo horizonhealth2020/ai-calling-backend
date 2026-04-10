@@ -682,7 +682,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                   </div>
 
                                   {/* Row 5: Carrier | Member Name | Member State | Phone (4 cols) */}
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: spacing[4], gridColumn: "1 / -1" }}>
                                     <div>
                                       <label style={LBL}>Carrier</label>
                                       <input className="input-focus" style={baseInputStyle} value={editForm.carrier ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, carrier: e.target.value }))} />
@@ -711,7 +711,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                   </div>
 
                                   {/* Row 6: Sale Date | Effective Date | Lead Source (3 cols) */}
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing[4], gridColumn: "1 / -1" }}>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: spacing[4], gridColumn: "1 / -1" }}>
                                     <div>
                                       <label style={LBL}>Sale Date</label>
                                       <input className="input-focus" style={baseInputStyle} type="date" value={editForm.saleDate ?? ""} onChange={e => setEditForm((f: Record<string, any>) => ({ ...f, saleDate: e.target.value }))} />

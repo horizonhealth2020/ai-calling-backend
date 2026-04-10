@@ -25,7 +25,7 @@ A sales operations platform evolving from initial setup through full role-based 
 |-------|------|-------|--------|-----------|
 | 50 | Shared UI Hardening | 1 | Complete | 2026-04-09 |
 | 51 | Dashboard Interaction Fixes | 2 | Complete | 2026-04-10 |
-| 52 | Visual Consistency Pass | TBD | Not started | - |
+| 52 | Visual Consistency Pass | 2 | Planning | - |
 
 ## Phase Details
 

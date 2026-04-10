@@ -83,7 +83,7 @@ const SECTION_SUBTITLE: React.CSSProperties = {
 function DashboardSkeleton() {
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
         {[0, 1, 2, 3].map((i) => (
           <SkeletonCard key={i} height={120} />
         ))}
@@ -132,7 +132,7 @@ function DashboardSection({
       {/* KPI stat cards */}
       <div
         className="grid-mobile-1"
-        style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}
       >
         <StatCard
           label="Total Sales"
