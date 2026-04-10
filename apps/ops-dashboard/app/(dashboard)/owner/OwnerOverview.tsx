@@ -33,6 +33,10 @@ import {
   AlertTriangle,
   TrendingUp,
   BarChart3,
+  Edit3,
+  CheckCircle,
+  Clock,
+  Activity,
 } from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────────── */
@@ -55,6 +59,16 @@ type LeaderboardEntry = {
   costPerSale: number;
   commissionTotal: number;
   callsByTier: CallTiers;
+};
+
+type FeedEvent = {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  details: Record<string, unknown>;
+  createdAt: string;
+  actorName: string;
 };
 
 type CommandCenterData = {
@@ -104,6 +118,43 @@ function fmtDollar(n: number): string {
 
 function fmtDollarExact(n: number): string {
   return `$${n.toFixed(2)}`;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function formatFeedEvent(event: FeedEvent): { icon: React.ReactNode; color: string; description: string } {
+  const d = event.details as Record<string, string | number | undefined>;
+  if (event.entityType === "Sale" && event.action === "CREATE") {
+    return { icon: <DollarSign size={14} />, color: semanticColors.accentTealMid, description: `entered a sale — ${d.productName ?? "Sale"} ${d.premium ? fmtDollar(Number(d.premium)) : ""} for ${d.memberName ?? ""}`.trim() };
+  }
+  if (event.entityType === "Sale" && event.action === "UPDATE") {
+    return { icon: <Edit3 size={14} />, color: semanticColors.accentBlue, description: `updated sale — ${d.memberName ?? ""}` };
+  }
+  if (event.entityType === "Sale" && event.action === "DELETE") {
+    return { icon: <AlertTriangle size={14} />, color: semanticColors.dangerLight, description: `deleted sale — ${d.memberName ?? ""}` };
+  }
+  if (event.entityType === "ChargebackSubmission" && event.action === "CREATE") {
+    return { icon: <AlertTriangle size={14} />, color: semanticColors.dangerLight, description: `filed chargeback — ${d.payeeName ?? ""} ${d.totalAmount ? fmtDollar(Number(d.totalAmount)) : ""}`.trim() };
+  }
+  if (event.entityType === "ChargebackSubmission" && event.action === "UPDATE") {
+    return { icon: <CheckCircle size={14} />, color: semanticColors.accentGreenMid, description: `resolved chargeback — ${d.payeeName ?? ""}` };
+  }
+  if (event.entityType === "PendingTerm" && event.action === "CREATE") {
+    return { icon: <Clock size={14} />, color: semanticColors.warningAmber, description: `submitted pending term — ${d.memberName ?? ""}` };
+  }
+  if (event.entityType === "PendingTerm" && event.action === "UPDATE") {
+    return { icon: <CheckCircle size={14} />, color: semanticColors.accentGreenMid, description: `resolved pending term — ${d.memberName ?? ""}` };
+  }
+  return { icon: <Activity size={14} />, color: colors.textMuted, description: `${event.action.toLowerCase()} ${event.entityType}` };
 }
 
 function computeDelta(
@@ -692,6 +743,118 @@ function LeaderboardSection({
   );
 }
 
+/* ── Activity Feed ────────────────────────────────────────────── */
+
+function ActivityFeed({ events }: { events: FeedEvent[] }) {
+  return (
+    <div
+      className="animate-fade-in-up stagger-8"
+      style={{
+        ...baseCardStyle,
+        borderRadius: radius["2xl"],
+        padding: 0,
+        overflow: "hidden",
+        marginTop: 16,
+      }}
+    >
+      <div
+        style={{
+          padding: "16px 24px",
+          borderBottom: `1px solid ${colors.borderSubtle}`,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <Activity size={16} color={colors.textTertiary} />
+        <span
+          style={{
+            fontSize: typography.sizes.sm.fontSize,
+            fontWeight: typography.weights.semibold,
+            color: colors.textSecondary,
+          }}
+        >
+          Live Activity
+        </span>
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: semanticColors.accentGreenMid,
+            display: "inline-block",
+            marginLeft: 4,
+          }}
+          className="animate-live-pulse"
+        />
+      </div>
+
+      {events.length === 0 ? (
+        <div style={{ padding: 32, textAlign: "center" }}>
+          <EmptyState
+            icon={<Activity size={28} />}
+            title="No recent activity"
+            description="Events will appear here as sales and chargebacks are entered."
+          />
+        </div>
+      ) : (
+        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+          {events.map((event, i) => {
+            const { icon, color, description } = formatFeedEvent(event);
+            return (
+              <div
+                key={event.id}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  padding: "12px 24px",
+                  borderBottom: i < events.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined,
+                  transition: `background ${motion.duration.fast} ${motion.easing.out}`,
+                }}
+                className="row-hover"
+              >
+                <span
+                  style={{
+                    color,
+                    flexShrink: 0,
+                    marginTop: 2,
+                    width: 24,
+                    height: 24,
+                    borderRadius: radius.md,
+                    background: colorAlpha(color, 0.1),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {icon}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
+                    <span style={{ fontWeight: typography.weights.semibold }}>{event.actorName}</span>{" "}
+                    <span style={{ color: colors.textSecondary }}>{description}</span>
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: typography.sizes.xs.fontSize,
+                    color: colors.textMuted,
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {timeAgo(event.createdAt)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Component ──────────────────────────────────────────── */
 
 export default function OwnerOverview({
@@ -707,6 +870,7 @@ export default function OwnerOverview({
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({
     preset: "week",
   });
+  const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
   const [compact, setCompact] = useState(false);
   const [heroGlow, setHeroGlow] = useState(false);
   const dateRangeRef = useRef(dateRange);
@@ -807,6 +971,7 @@ export default function OwnerOverview({
             salesCount: 1,
             premiumTotal: totalPrem,
             costPerSale: 0,
+            commissionTotal: 0,
             callsByTier: { short: 0, contacted: 0, engaged: 0, deep: 0 },
           },
         ];
@@ -833,6 +998,29 @@ export default function OwnerOverview({
       socket.off("connect", handleReconnect);
     };
   }, [socket, fetchData]);
+
+  /* ── Activity Feed ──────────────────────────────────────────── */
+
+  const refetchFeed = useCallback(() => {
+    authFetch(`${API}/api/activity-feed?limit=20`)
+      .then(r => r.ok ? r.json() : { events: [] })
+      .then((d: { events: FeedEvent[] }) => setFeedEvents(d.events ?? []))
+      .catch(() => {});
+  }, [API]);
+
+  // Initial feed load
+  useEffect(() => { refetchFeed(); }, [refetchFeed]);
+
+  // Refetch feed on socket events
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("sale:changed", refetchFeed);
+    socket.on("cs:changed", refetchFeed);
+    return () => {
+      socket.off("sale:changed", refetchFeed);
+      socket.off("cs:changed", refetchFeed);
+    };
+  }, [socket, refetchFeed]);
 
   /* ── Render ─────────────────────────────────────────────────── */
 
@@ -861,6 +1049,7 @@ export default function OwnerOverview({
             leaderboard={data.leaderboard}
             compact={compact}
           />
+          <ActivityFeed events={feedEvents} />
         </>
       )}
     </div>
