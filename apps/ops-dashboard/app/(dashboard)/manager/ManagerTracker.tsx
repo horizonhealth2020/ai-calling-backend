@@ -186,7 +186,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Rank", "Agent", "Calls", "Avg Call", "Longest", "Quality", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
+              {["Rank", "Agent", "Avg Call", "Longest", "Quality", "Calls", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
                 <th key={h} style={{ ...baseThStyle, textAlign: h === "Quality" ? "left" : i >= 2 ? "right" : "left", ...(h === "Quality" ? { minWidth: 120 } : {}) }}>{h}</th>
               ))}
             </tr>
@@ -228,9 +228,6 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                   <td style={{ ...baseTdStyle, fontWeight: isTop ? 700 : 500, color: isTop ? colors.textPrimary : colors.textSecondary, fontSize: isTop ? 14 : 13 }}>
                     {row.agent}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
-                    {agentCalls ? <AnimatedNumber value={agentCalls} /> : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
-                  </td>
                   <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
                     {fmtDuration(agentMetrics[row.agent]?.avgCallLength ?? 0)}
                   </td>
@@ -239,6 +236,9 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                   </td>
                   <td style={{ ...baseTdStyle }}>
                     <CallQualityBar tiers={agentMetrics[row.agent]?.callsByTier ?? { short: 0, contacted: 0, engaged: 0, deep: 0 }} />
+                  </td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
+                    {agentCalls ? <AnimatedNumber value={agentCalls} /> : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                   </td>
                   <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: isTop ? 700 : 400, color: colors.textPrimary }}>
                     <AnimatedNumber value={row.salesCount} />
