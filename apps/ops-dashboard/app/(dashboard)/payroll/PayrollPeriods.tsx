@@ -366,10 +366,17 @@ export default function PayrollPeriods({
   // Identify the current (most recent) period for sidebar earnings
   const currentPeriodId = useMemo(() => {
     if (periods.length === 0) return null;
-    const sorted = [...periods].sort((a, b) =>
-      new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+    const today = new Date().toISOString().slice(0, 10);
+    // Find period where today falls between weekStart and weekEnd
+    const current = periods.find(p =>
+      p.weekStart.slice(0, 10) <= today && today <= p.weekEnd.slice(0, 10)
     );
-    return sorted[0].id;
+    if (current) return current.id;
+    // Fallback: most recent period that has already started (not future)
+    const past = periods
+      .filter(p => p.weekStart.slice(0, 10) <= today)
+      .sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime());
+    return past[0]?.id ?? periods[0]?.id ?? null;
   }, [periods]);
 
   const sortedAgents = useMemo(() => {

@@ -13,7 +13,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.5.0 |
+| Version | 2.6.0 |
 | Status | Production |
 | Last Updated | 2026-04-09 |
 | Milestones shipped | 15 (v1.0 through v2.5) |
@@ -135,7 +135,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] 324 hardcoded visual values migrated to design tokens
 
 ### Active (In Progress)
-None.
+- v2.6 Payroll Accuracy & Product Colors — sidebar commission fix for ACH deferral, product type color coding
 
 ### Planned (Next)
 - Bulk sale import from CSV

@@ -1,15 +1,15 @@
 {
   "name": "ai-calling-backend",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "milestone": {
-    "name": "Professional Polish",
-    "version": "2.5.0",
-    "status": "complete"
+    "name": "Payroll Accuracy & Product Colors",
+    "version": "2.6.0",
+    "status": "in_progress"
   },
   "phase": {
-    "number": 52,
-    "name": "Visual Consistency Pass",
-    "status": "complete"
+    "number": 53,
+    "name": "Payroll Sidebar Commission Fix",
+    "status": "not_started"
   },
   "loop": {
     "plan": null,
