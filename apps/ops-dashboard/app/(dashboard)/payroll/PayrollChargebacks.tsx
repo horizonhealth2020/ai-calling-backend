@@ -294,10 +294,10 @@ const REMOVE_BTN: React.CSSProperties = {
 };
 
 const PRODUCT_TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
-  CORE: { bg: colorAlpha(semanticColors.accentTealMid, 0.15), fg: semanticColors.accentTealMid },
-  ADDON: { bg: "rgba(13,148,136,0.15)", fg: semanticColors.accentTealDark },
-  AD_D: { bg: "rgba(217,119,6,0.15)", fg: semanticColors.warningBrown },
-  ACA_PL: { bg: colorAlpha(semanticColors.accentBlue, 0.15), fg: semanticColors.accentBlue },
+  CORE: { bg: colorAlpha(semanticColors.accentBlue, 0.15), fg: semanticColors.accentBlue },
+  ADDON: { bg: colorAlpha(semanticColors.accentGreenMid, 0.15), fg: semanticColors.accentGreenMid },
+  AD_D: { bg: colorAlpha(semanticColors.warningBrown, 0.15), fg: semanticColors.warningBrown },
+  ACA_PL: { bg: colorAlpha(semanticColors.accentPurple, 0.15), fg: semanticColors.accentPurple },
 };
 
 /* ── Props ──────────────────────────────────────────────────── */

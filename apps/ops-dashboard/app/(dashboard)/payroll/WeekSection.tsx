@@ -325,7 +325,7 @@ function EditableSaleRow({
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {/* Core product */}
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <Badge color={C.primary400} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
+              <Badge color={semanticColors.accentBlue} size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
               {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
                 <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
@@ -337,7 +337,7 @@ function EditableSaleRow({
             {entry.sale?.addons?.map((addon) => (
               <div key={addon.product.id} style={{ display: "flex", flexDirection: "column" }}>
                 <Badge
-                  color={addon.product.type === "AD_D" ? C.warning : C.accentTeal}
+                  color={addon.product.type === "AD_D" ? C.warning : semanticColors.accentGreenMid}
                   size="sm"
                 >
                   {addon.product.name}

@@ -1,5 +1,5 @@
 import React from "react";
-import { colors, spacing, radius, baseInputStyle, baseThStyle, baseTdStyle } from "@ops/ui";
+import { colors, spacing, radius, baseInputStyle, baseThStyle, baseTdStyle, semanticColors, colorAlpha } from "@ops/ui";
 
 const C = colors;
 const S = spacing;
@@ -203,8 +203,8 @@ export const ACA_BADGE: React.CSSProperties = {
   alignItems: "center",
   fontSize: 11,
   fontWeight: 600,
-  color: C.info,
-  background: C.infoBg,
+  color: semanticColors.accentPurple,
+  background: colorAlpha(semanticColors.accentPurple, 0.12),
   padding: "4px 8px",
   borderRadius: 9999,
   marginLeft: 8,

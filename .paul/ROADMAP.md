@@ -12,7 +12,7 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.3 | Parser & Payroll Fixes | 48 | Shipped | 2026-04-09 |
 | v2.4 | Payroll & Chargeback Fixes | 49 | Shipped | 2026-04-09 |
 | v2.5 | Professional Polish | 50-52 | Shipped | 2026-04-10 |
-| v2.6 | Payroll Accuracy & Product Colors | 53-54 | In Progress | - |
+| v2.6 | Payroll Accuracy & Product Colors | 53-54 | Shipped | 2026-04-10 |
 
 ## Active Milestone: v2.5 Professional Polish
 
@@ -93,14 +93,14 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Fix commission display accuracy for ACH-deferred sales and add product type color coding for visual differentiation.
 **Status:** In Progress
-**Progress:** [█████░░░░░] 50%
+**Progress:** [██████████] 100%
 
 ## Phases
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 53 | Payroll Sidebar Commission Fix | 1 | Complete | 2026-04-10 |
-| 54 | Product Type Color Coding | TBD | Not started | - |
+| 54 | Product Type Color Coding | 1 | Complete | 2026-04-10 |
 
 ## Phase Details
 
@@ -129,7 +129,7 @@ A sales operations platform evolving from initial setup through full role-based 
 - Apply to payroll entry pills/badges (WeekSection.tsx, PayrollPeriods.tsx)
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 54-01: ACA=purple, Core=blue, Add-ons=green, AD&D=amber
 
 ---
 
@@ -159,4 +159,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-10 — v2.6 milestone created*
+*Last updated: 2026-04-10 — v2.6 shipped*

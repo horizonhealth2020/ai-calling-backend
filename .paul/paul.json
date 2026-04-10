@@ -4,12 +4,12 @@
   "milestone": {
     "name": "Payroll Accuracy & Product Colors",
     "version": "2.6.0",
-    "status": "in_progress"
+    "status": "complete"
   },
   "phase": {
-    "number": 53,
-    "name": "Payroll Sidebar Commission Fix",
-    "status": "not_started"
+    "number": 54,
+    "name": "Product Type Color Coding",
+    "status": "complete"
   },
   "loop": {
     "plan": null,

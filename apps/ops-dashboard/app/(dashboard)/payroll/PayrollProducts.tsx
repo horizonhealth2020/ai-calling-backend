@@ -36,7 +36,7 @@ const TYPE_LABELS: Record<ProductType, string> = {
 };
 
 const TYPE_COLORS: Record<ProductType, string> = {
-  CORE: C.primary400, ADDON: C.accentTeal, AD_D: C.warning, ACA_PL: C.info,
+  CORE: semanticColors.accentBlue, ADDON: semanticColors.accentGreenMid, AD_D: C.warning, ACA_PL: semanticColors.accentPurple,
 };
 
 /* ── Product Card ─────────────────────────────────────────────── */

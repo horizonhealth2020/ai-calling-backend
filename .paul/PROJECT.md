@@ -16,8 +16,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Version | 2.6.0 |
 | Status | Production |
 | Last Updated | 2026-04-09 |
-| Milestones shipped | 15 (v1.0 through v2.5) |
-| Total phases | 52 |
+| Milestones shipped | 16 (v1.0 through v2.6) |
+| Total phases | 54 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -134,8 +134,12 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Touch-friendly sidebar navigation
 - [x] 324 hardcoded visual values migrated to design tokens
 
+**v2.6 — Payroll Accuracy & Product Colors (2026-04-10)**
+- [x] Payroll sidebar commission fix — date-based period selection instead of most-recent
+- [x] Product type color coding — ACA=purple, Core=blue, Add-ons=green, AD&D=amber
+
 ### Active (In Progress)
-- v2.6 Payroll Accuracy & Product Colors — sidebar commission fix for ACH deferral, product type color coding
+None.
 
 ### Planned (Next)
 - Bulk sale import from CSV
