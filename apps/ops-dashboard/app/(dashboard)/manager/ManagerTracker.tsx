@@ -34,6 +34,43 @@ import { computeCompositeScores } from "../../../lib/compositeScore";
 
 type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
 type CallCount = { agentId: string; agentName: string; leadSourceId: string; leadSourceName: string; callCount: number; totalLeadCost: number };
+type CallTiers = { short: number; contacted: number; engaged: number; deep: number };
+type AgentMetrics = { callsByTier: CallTiers; avgCallLength: number; longestCall: number };
+
+function fmtDuration(seconds: number): string {
+  if (!seconds) return "\u2014";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+const TIER_COLORS: { key: keyof CallTiers; color: string; label: string }[] = [
+  { key: "short", color: semanticColors.dangerLight, label: "Short (<30s)" },
+  { key: "contacted", color: semanticColors.warningAmber, label: "Contacted (30s-2m)" },
+  { key: "engaged", color: semanticColors.accentBlue, label: "Engaged (2-5m)" },
+  { key: "deep", color: semanticColors.accentGreenMid, label: "Deep (5m+)" },
+];
+
+function CallQualityBar({ tiers }: { tiers: CallTiers }) {
+  const total = tiers.short + tiers.contacted + tiers.engaged + tiers.deep;
+  if (total === 0) return <span style={{ color: colors.textMuted }}>{"\u2014"}</span>;
+  return (
+    <div style={{ display: "flex", height: 8, borderRadius: radius.full, overflow: "hidden", minWidth: 100, maxWidth: 160 }}>
+      {TIER_COLORS.map(({ key, color, label }) => {
+        const count = tiers[key];
+        if (count === 0) return null;
+        const pct = (count / total) * 100;
+        return (
+          <div
+            key={key}
+            title={`${label}: ${count} (${Math.round(pct)}%)`}
+            style={{ width: `${pct}%`, background: color, minWidth: count > 0 ? 2 : 0 }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 export interface ManagerTrackerProps {
   API: string;
@@ -102,12 +139,13 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
   const { toast } = useToast();
   const [dateRangeCtx, setDateRangeCtx] = useState<DateRangeFilterValue>({ preset: "today" });
   const [callCounts, setCallCounts] = useState<CallCount[]>([]);
+  const [agentMetrics, setAgentMetrics] = useState<Record<string, AgentMetrics>>({});
   const [, setCallCountsLoaded] = useState(false);
   const [convosoConfigured, setConvosoConfigured] = useState(false);
 
   useEffect(() => {
     const dp = buildDateParams(dateRangeCtx);
-    authFetch(`${API}/api/call-counts${dp ? `?${dp}` : "?range=week"}`).then(r => r.ok ? r.json() : []).then(setCallCounts).catch(() => { toast("error", "Failed to load call counts"); });
+    authFetch(`${API}/api/call-counts${dp ? `?${dp}` : "?range=week"}`).then(r => r.ok ? r.json() : { counts: [], agentMetrics: {} }).then((data: { counts: CallCount[]; agentMetrics: Record<string, AgentMetrics> }) => { setCallCounts(data.counts); setAgentMetrics(data.agentMetrics ?? {}); }).catch(() => { toast("error", "Failed to load call counts"); });
     setCallCountsLoaded(true);
   }, [API, dateRangeCtx]);
 
@@ -148,8 +186,8 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Rank", "Agent", "Calls", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
-                <th key={h} style={{ ...baseThStyle, textAlign: i >= 2 ? "right" : "left" }}>{h}</th>
+              {["Rank", "Agent", "Calls", "Avg Call", "Longest", "Quality", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
+                <th key={h} style={{ ...baseThStyle, textAlign: h === "Quality" ? "left" : i >= 2 ? "right" : "left", ...(h === "Quality" ? { minWidth: 120 } : {}) }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -193,6 +231,15 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                   <td style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
                     {agentCalls ? <AnimatedNumber value={agentCalls} /> : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                   </td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
+                    {fmtDuration(agentMetrics[row.agent]?.avgCallLength ?? 0)}
+                  </td>
+                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
+                    {fmtDuration(agentMetrics[row.agent]?.longestCall ?? 0)}
+                  </td>
+                  <td style={{ ...baseTdStyle }}>
+                    <CallQualityBar tiers={agentMetrics[row.agent]?.callsByTier ?? { short: 0, contacted: 0, engaged: 0, deep: 0 }} />
+                  </td>
                   <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: isTop ? 700 : 400, color: colors.textPrimary }}>
                     <AnimatedNumber value={row.salesCount} />
                   </td>
@@ -220,7 +267,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
             })}
             {tracker.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={10}>
                   <EmptyState icon={<BarChart3 size={32} />} title="No sales data yet" description="Sales will appear here once agents submit entries." />
                 </td>
               </tr>

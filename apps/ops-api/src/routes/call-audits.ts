@@ -185,7 +185,42 @@ router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
     };
   });
 
-  res.json(result);
+  // Per-agent call quality aggregation (tier breakdown, avg/longest call)
+  const agentQuality = new Map<string, {
+    tiers: { short: number; contacted: number; engaged: number; deep: number };
+    totalDuration: number; callCount: number; longestCall: number;
+  }>();
+  for (const log of logs) {
+    const lsInfo = lsMap.get(log.leadSourceId!);
+    const buffer = lsInfo?.callBufferSeconds ?? 0;
+    if (buffer > 0 && log.callDurationSeconds !== null && log.callDurationSeconds < buffer) continue;
+    const aid = log.agentId!;
+    if (!agentQuality.has(aid)) agentQuality.set(aid, {
+      tiers: { short: 0, contacted: 0, engaged: 0, deep: 0 },
+      totalDuration: 0, callCount: 0, longestCall: 0,
+    });
+    const q = agentQuality.get(aid)!;
+    const dur = log.callDurationSeconds;
+    if (dur === null) { /* live call — skip tier */ }
+    else if (dur < 30) q.tiers.short++;
+    else if (dur < 120) q.tiers.contacted++;
+    else if (dur < 300) q.tiers.engaged++;
+    else q.tiers.deep++;
+    if (dur !== null) {
+      q.totalDuration += dur;
+      q.callCount++;
+      if (dur > q.longestCall) q.longestCall = dur;
+    }
+  }
+  const agentMetrics = Object.fromEntries(
+    [...agentQuality.entries()].map(([id, q]) => [agentMap.get(id) ?? id, {
+      callsByTier: q.tiers,
+      avgCallLength: q.callCount > 0 ? Math.round(q.totalDuration / q.callCount) : 0,
+      longestCall: q.longestCall,
+    }])
+  );
+
+  res.json({ counts: result, agentMetrics });
 }));
 
 // ── AI Audit System Prompt Settings ─────────────────────────────
