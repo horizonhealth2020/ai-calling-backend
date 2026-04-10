@@ -1,68 +1,213 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef } from "react";
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  StatCard,
-  Badge,
   AnimatedNumber,
-  EmptyState,
-  SkeletonCard,
   DateRangeFilter,
   KPI_PRESETS,
+  Card,
+  SkeletonCard,
+  EmptyState,
+  Badge,
+  useToast,
   colors,
+  spacing,
   radius,
   typography,
   motion,
-  useToast,
   baseCardStyle,
   baseThStyle,
   baseTdStyle,
   semanticColors,
+  colorAlpha,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { HIGHLIGHT_GLOW } from "@ops/socket";
 import type { SaleChangedPayload } from "@ops/socket";
 import {
-  BarChart3,
+  Trophy,
+  Medal,
+  Award,
   DollarSign,
   AlertTriangle,
-  Award,
-  Clock,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
-import LeadTimingSection from "../manager/LeadTimingSection";
+
+/* ── Types ────────────────────────────────────────────────────── */
 
 type SocketClient = import("socket.io-client").Socket;
 
-type Summary = {
-  salesCount: number; premiumTotal: number; clawbacks: number; openPayrollPeriods: number;
-  trends: { salesCount: { priorWeek: number; priorMonth: number }; premiumTotal: { priorWeek: number; priorMonth: number }; clawbacks: { priorWeek: number; priorMonth: number } } | null;
+type CallTiers = {
+  short: number;
+  contacted: number;
+  engaged: number;
+  deep: number;
 };
-type TrackerEntry = { agent: string; salesCount: number; premiumTotal: number; totalLeadCost: number; costPerSale: number; commissionTotal: number };
-type PeriodSummary = { period: string; salesCount: number; premiumTotal: number; commissionPaid: number; csPayrollTotal: number; periodStatus?: string };
 
-function computeTrend(current: number, prior: number): { value: number; direction: "up" | "down" | "flat" } {
-  if (prior === 0) return current > 0 ? { value: 100, direction: "up" } : { value: 0, direction: "flat" };
-  const pct = Math.round(((current - prior) / prior) * 100);
-  if (pct === 0) return { value: 0, direction: "flat" };
-  return { value: Math.abs(pct), direction: pct > 0 ? "up" : "down" };
-}
+type LeaderboardEntry = {
+  agent: string;
+  calls: number;
+  avgCallLength: number;
+  salesCount: number;
+  premiumTotal: number;
+  costPerSale: number;
+  callsByTier: CallTiers;
+};
 
-const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+type CommandCenterData = {
+  hero: {
+    salesCount: number;
+    premiumTotal: number;
+    priorSalesCount: number;
+    priorPremiumTotal: number;
+  };
+  statCards: {
+    thisWeekPremium: number;
+    priorWeekPremium: number;
+    commissionOwedFriday: number;
+    chargebackCount: number;
+    chargebackDollars: number;
+    priorChargebackCount: number;
+    avgCostPerSale: number;
+    priorAvgCostPerSale: number;
+    convosoConfigured: boolean;
+  };
+  leaderboard: LeaderboardEntry[];
+};
+
+/* ── Helpers ──────────────────────────────────────────────────── */
 
 function buildDateParams(dr: DateRangeFilterValue): string {
-  if (dr.preset === "custom" && dr.from && dr.to) return `from=${dr.from}&to=${dr.to}`;
+  if (dr.preset === "custom" && dr.from && dr.to)
+    return `from=${dr.from}&to=${dr.to}`;
   if (dr.preset && dr.preset !== "custom") return `range=${dr.preset}`;
   return "";
 }
 
-const RANK_COLORS = [semanticColors.statusPending, semanticColors.neutralLightGray, semanticColors.warningBrown] as const;
-const RANK_LABELS = ["Gold", "Silver", "Bronze"] as const;
+function fmtDuration(seconds: number): string {
+  if (!seconds) return "\u2014";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
-/* -- Inline style constants -- */
+function fmtDollar(n: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
-const CARD: React.CSSProperties = {
+function fmtDollarExact(n: number): string {
+  return `$${n.toFixed(2)}`;
+}
+
+function computeDelta(
+  current: number,
+  prior: number
+): { pct: number; direction: "up" | "down" | "flat" } {
+  if (prior === 0)
+    return current > 0
+      ? { pct: 100, direction: "up" }
+      : { pct: 0, direction: "flat" };
+  const pct = Math.round(((current - prior) / prior) * 100);
+  return {
+    pct: Math.abs(pct),
+    direction: pct > 0 ? "up" : pct < 0 ? "down" : "flat",
+  };
+}
+
+/* ── Style Constants ─────────────────────────────────────────── */
+
+const HERO_CARD: React.CSSProperties = {
   ...baseCardStyle,
   borderRadius: radius["2xl"],
+  padding: 24,
+  borderLeft: `4px solid ${semanticColors.accentTealMid}`,
+  position: "relative",
+  overflow: "hidden",
+  transition: `box-shadow ${motion.duration.slow} ${motion.easing.out}`,
+};
+
+const HERO_PREMIUM: React.CSSProperties = {
+  fontSize: 36,
+  fontWeight: 800,
+  letterSpacing: typography.tracking.tight,
+  backgroundImage: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid})`,
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+  backgroundClip: "text",
+  lineHeight: 1.1,
+  margin: 0,
+};
+
+const HERO_LABEL: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: colors.textTertiary,
+  textTransform: "uppercase",
+  letterSpacing: typography.tracking.caps,
+  marginBottom: 4,
+};
+
+const HERO_SALES: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: typography.weights.semibold,
+  color: colors.textSecondary,
+  marginTop: 4,
+};
+
+const STAT_CARD: React.CSSProperties = {
+  ...baseCardStyle,
+  borderRadius: radius.xl,
+  padding: 20,
+  position: "relative",
+};
+
+const STAT_LABEL: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: colors.textTertiary,
+  textTransform: "uppercase",
+  letterSpacing: typography.tracking.caps,
+  marginBottom: 8,
+};
+
+const STAT_VALUE: React.CSSProperties = {
+  fontSize: 22,
+  fontWeight: typography.weights.bold,
+  color: colors.textPrimary,
+  lineHeight: 1.2,
+};
+
+const DELTA_BADGE_BASE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
+  fontSize: 11,
+  fontWeight: typography.weights.semibold,
+  padding: "2px 8px",
+  borderRadius: radius.full,
+  marginTop: 6,
+};
+
+const LEADERBOARD_CARD: React.CSSProperties = {
+  ...baseCardStyle,
+  borderRadius: radius["2xl"],
+  padding: 0,
+  overflow: "hidden",
+  marginTop: 16,
+};
+
+const LEADERBOARD_HEADER: React.CSSProperties = {
+  padding: "16px 24px",
+  borderBottom: `1px solid ${colors.borderSubtle}`,
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
 };
 
 const SECTION_TITLE: React.CSSProperties = {
@@ -76,408 +221,616 @@ const SECTION_TITLE: React.CSSProperties = {
 const SECTION_SUBTITLE: React.CSSProperties = {
   fontSize: typography.sizes.sm.fontSize,
   color: colors.textTertiary,
-  margin: "4px 0 0",
+  margin: "2px 0 0",
 };
 
-/* -- DashboardSkeleton -- */
+/* ── Delta Badge ─────────────────────────────────────────────── */
 
-function DashboardSkeleton() {
+function DeltaBadge({
+  current,
+  prior,
+  invertColor = false,
+}: {
+  current: number;
+  prior: number;
+  invertColor?: boolean;
+}) {
+  const { pct, direction } = computeDelta(current, prior);
+  if (direction === "flat") return null;
+
+  const isPositive = direction === "up";
+  const isGood = invertColor ? !isPositive : isPositive;
+
+  const bgColor = isGood
+    ? colorAlpha(semanticColors.accentGreenMid, 0.15)
+    : colorAlpha(semanticColors.dangerLight, 0.15);
+  const textColor = isGood
+    ? semanticColors.accentGreenBright
+    : semanticColors.dangerLight;
+  const arrow = isPositive ? "\u2191" : "\u2193";
+
   return (
-    <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
+    <span style={{ ...DELTA_BADGE_BASE, background: bgColor, color: textColor }}>
+      {arrow} {pct}%
+    </span>
+  );
+}
+
+/* ── Quality Dot ─────────────────────────────────────────────── */
+
+function QualityDot({ tiers }: { tiers: CallTiers }) {
+  const total = tiers.short + tiers.contacted + tiers.engaged + tiers.deep;
+  if (total === 0) return <span style={{ color: colors.textMuted }}>{"\u2014"}</span>;
+
+  const qualityRatio = (tiers.engaged + tiers.deep) / total;
+  const pctLabel = `${Math.round(qualityRatio * 100)}% quality`;
+
+  let dotColor: string;
+  if (qualityRatio > 0.6) {
+    dotColor = semanticColors.accentGreenMid;
+  } else if (qualityRatio > 0.3) {
+    dotColor = semanticColors.warningAmber;
+  } else {
+    dotColor = semanticColors.dangerLight;
+  }
+
+  return (
+    <span
+      title={pctLabel}
+      style={{
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        borderRadius: radius.full,
+        background: dotColor,
+        verticalAlign: "middle",
+      }}
+    />
+  );
+}
+
+/* ── Rank Icon ───────────────────────────────────────────────── */
+
+function RankIcon({ rank }: { rank: number }) {
+  if (rank === 0)
+    return <Trophy size={16} color={colors.gold} strokeWidth={2.5} />;
+  if (rank === 1)
+    return <Medal size={16} color={colors.silver} strokeWidth={2.5} />;
+  if (rank === 2)
+    return <Award size={16} color={colors.bronze} strokeWidth={2.5} />;
+  return (
+    <span
+      style={{
+        color: colors.textMuted,
+        fontSize: typography.sizes.sm.fontSize,
+        fontWeight: typography.weights.medium,
+      }}
+    >
+      #{rank + 1}
+    </span>
+  );
+}
+
+/* ── Skeleton Loading ────────────────────────────────────────── */
+
+function CommandCenterSkeleton() {
+  return (
+    <div>
+      <SkeletonCard height={140} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 16,
+          marginTop: 16,
+        }}
+      >
         {[0, 1, 2, 3].map((i) => (
-          <SkeletonCard key={i} height={120} />
+          <SkeletonCard key={i} height={100} />
         ))}
       </div>
-      <SkeletonCard height={400} />
-    </>
+      <div style={{ marginTop: 16 }}>
+        <SkeletonCard height={300} />
+      </div>
+    </div>
   );
 }
 
-/* -- DashboardSection -- */
+/* ── Hero Section ────────────────────────────────────────────── */
 
-function DashboardSection({
-  summary,
-  tracker,
+function HeroSection({
+  hero,
   dateRange,
   onDateRangeChange,
-  highlightedCards,
-  periods,
-  periodView,
-  onPeriodViewChange,
-  convosoConfigured,
+  compact,
+  glowing,
 }: {
-  summary: Summary | null;
-  tracker: TrackerEntry[];
+  hero: CommandCenterData["hero"];
   dateRange: DateRangeFilterValue;
   onDateRangeChange: (v: DateRangeFilterValue) => void;
-  highlightedCards: Set<string>;
-  periods: PeriodSummary[];
-  periodView: "weekly" | "monthly";
-  onPeriodViewChange: (v: "weekly" | "monthly") => void;
-  convosoConfigured: boolean;
+  compact: boolean;
+  glowing: boolean;
 }) {
-  const sortedTracker = [...tracker].sort((a, b) => b.premiumTotal - a.premiumTotal);
+  const glowStyle: React.CSSProperties = glowing
+    ? { boxShadow: `0 0 30px ${colorAlpha(semanticColors.accentGreenBright, 0.2)}, 0 0 60px ${colorAlpha(semanticColors.accentGreenBright, 0.08)}` }
+    : {};
 
   return (
-    <>
-      {/* Range + KPI row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>Performance Overview</h2>
-          <p style={SECTION_SUBTITLE}>Real-time sales metrics and agent leaderboard</p>
+    <div style={{ ...HERO_CARD, ...glowStyle, display: "flex", flexDirection: compact ? "column" : "row", alignItems: compact ? "stretch" : "center", justifyContent: "space-between", gap: 20 }}>
+      {/* Left: Premium + Sales */}
+      <div style={{ flex: 1 }}>
+        <div style={HERO_LABEL}>Total Premium</div>
+        <div style={HERO_PREMIUM}>
+          <AnimatedNumber value={hero.premiumTotal} prefix="$" decimals={0} />
         </div>
-        <DateRangeFilter value={dateRange} onChange={onDateRangeChange} presets={KPI_PRESETS} />
+        <div style={HERO_SALES}>
+          <AnimatedNumber value={hero.salesCount} decimals={0} /> sales
+        </div>
+        <DeltaBadge current={hero.premiumTotal} prior={hero.priorPremiumTotal} />
       </div>
 
-      {/* KPI stat cards */}
-      <div
-        className="grid-mobile-1"
-        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}
-      >
-        <StatCard
-          label="Total Sales"
-          value={summary ? summary.salesCount : "\u2014"}
-          icon={<BarChart3 size={18} />}
-          accent={colors.accentTeal}
-          className="stagger-1"
-          style={{ borderTop: `3px solid ${colors.accentTeal}`, transition: "box-shadow 1.5s ease-out", ...(highlightedCards.has("salesCount") ? HIGHLIGHT_GLOW : {}) }}
-          trend={summary?.trends ? computeTrend(summary.salesCount, summary.trends.salesCount.priorWeek) : undefined}
-        />
-        <StatCard
-          label="Premium Total"
-          value={summary ? fmt.format(Number(summary.premiumTotal)) : "\u2014"}
-          icon={<DollarSign size={18} />}
-          accent={colors.success}
-          className="stagger-2"
-          style={{ borderTop: `3px solid ${colors.success}`, transition: "box-shadow 1.5s ease-out", ...(highlightedCards.has("premiumTotal") ? HIGHLIGHT_GLOW : {}) }}
-          trend={summary?.trends ? computeTrend(Number(summary.premiumTotal), summary.trends.premiumTotal.priorWeek) : undefined}
-        />
-        <StatCard
-          label="Chargebacks"
-          value={summary ? summary.clawbacks : "\u2014"}
-          icon={<AlertTriangle size={18} />}
-          accent={colors.danger}
-          className="stagger-3"
-          style={{ borderTop: `3px solid ${colors.danger}` }}
-          trend={summary?.trends ? computeTrend(summary.clawbacks, summary.trends.clawbacks.priorWeek) : undefined}
-        />
-        <StatCard
-          label="Open Payroll"
-          value={summary ? summary.openPayrollPeriods : "\u2014"}
-          icon={<Clock size={18} />}
-          accent={colors.warning}
-          className="stagger-4"
-          style={{ borderTop: `3px solid ${colors.warning}` }}
+      {/* Right: Date filter */}
+      <div style={{ flexShrink: 0 }}>
+        <DateRangeFilter
+          value={dateRange}
+          onChange={onDateRangeChange}
+          presets={KPI_PRESETS}
         />
       </div>
-
-      {/* Agent performance table */}
-      <div
-        className="animate-fade-in-up stagger-5"
-        style={{ ...CARD, padding: 0, overflow: "hidden" }}
-      >
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", gap: 10 }}>
-          <Award size={18} color={colors.warning} />
-          <div>
-            <h3 style={SECTION_TITLE}>Agent Performance</h3>
-            <p style={SECTION_SUBTITLE}>Ranked by premium total for selected period</p>
-          </div>
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: colors.bgSurfaceInset }}>
-                <th style={baseThStyle}>Rank</th>
-                <th style={baseThStyle}>Agent</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Avg / Sale</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Lead Spend</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Cost / Sale</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTracker.length === 0 && (
-                <tr>
-                  <td colSpan={8}>
-                    <EmptyState
-                      icon={<BarChart3 size={32} />}
-                      title="No agent data yet"
-                      description="Sales data will appear here once agents start submitting."
-                    />
-                  </td>
-                </tr>
-              )}
-              {sortedTracker.map((row, i) => {
-                const isTop3 = i < 3;
-                const rankColor = isTop3 ? RANK_COLORS[i] : colors.textMuted;
-                return (
-                  <tr
-                    key={row.agent}
-                    className="row-hover animate-fade-in-up"
-                    style={{
-                      borderLeft: isTop3 ? `3px solid ${rankColor}` : "3px solid transparent",
-                      transition: `background ${motion.duration.fast} ${motion.easing.out}`,
-                    }}
-                  >
-                    <td style={{ ...baseTdStyle, paddingLeft: isTop3 ? 13 : 16 }}>
-                      {isTop3 ? (
-                        <Badge color={rankColor} variant="subtle" size="sm">
-                          #{i + 1} {RANK_LABELS[i]}
-                        </Badge>
-                      ) : (
-                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.medium }}>
-                          #{i + 1}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ ...baseTdStyle, fontWeight: isTop3 ? typography.weights.bold : typography.weights.semibold, color: isTop3 ? colors.textPrimary : colors.textSecondary }}>
-                      {row.agent}
-                    </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold, color: colors.textSecondary }}>
-                      <AnimatedNumber value={row.salesCount} />
-                    </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.extrabold }}>
-                      {i === 0 ? (
-                        <span
-                          style={{
-                            backgroundImage: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid}, ${semanticColors.accentGreenDark})`,
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                            backgroundClip: "text",
-                          }}
-                        >
-                          <AnimatedNumber value={Number(row.premiumTotal)} prefix="$" decimals={0} />
-                        </span>
-                      ) : (
-                        <span style={{ color: colors.success }}>
-                          <AnimatedNumber value={Number(row.premiumTotal)} prefix="$" decimals={0} />
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", color: colors.textTertiary }}>
-                      {row.salesCount > 0 ? fmt.format(Number(row.premiumTotal) / row.salesCount) : "\u2014"}
-                    </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.semibold }}>
-                      {!convosoConfigured
-                        ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
-                        : row.totalLeadCost > 0
-                          ? <span style={{ color: colors.textPrimary }}>${Number(row.totalLeadCost).toFixed(2)}</span>
-                          : <span style={{ color: colors.textSecondary }}>$0.00</span>}
-                    </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: typography.weights.semibold }}>
-                      {!convosoConfigured
-                        ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
-                        : row.salesCount > 0 && row.totalLeadCost > 0
-                          ? <span style={{ color: colors.textPrimary }}>${Number(row.costPerSale).toFixed(2)}</span>
-                          : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
-                    </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold, color: colors.accentTeal }}>
-                      {row.commissionTotal > 0 ? fmt.format(row.commissionTotal) : "\u2014"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Period Summary */}
-      <div className="animate-fade-in-up stagger-6" style={{ ...CARD, padding: 0, overflow: "hidden", marginTop: 24 }}>
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Clock size={18} color={colors.accentTeal} />
-            <div>
-              <h3 style={SECTION_TITLE}>Period Summary</h3>
-              <p style={SECTION_SUBTITLE}>Aggregate totals by pay period</p>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["weekly", "monthly"] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => onPeriodViewChange(v)}
-                style={{
-                  padding: "6px 14px", borderRadius: radius.md, border: "none", cursor: "pointer",
-                  fontSize: typography.sizes.xs2.fontSize, fontWeight: 600, textTransform: "capitalize",
-                  background: periodView === v ? colors.primary500 : colors.bgSurfaceInset,
-                  color: periodView === v ? semanticColors.white : colors.textSecondary,
-                }}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: colors.bgSurfaceInset }}>
-                <th style={baseThStyle}>Period</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Commission</th>
-                <th style={{ ...baseThStyle, textAlign: "right" }}>Service Payroll</th>
-                {periodView === "weekly" && <th style={baseThStyle}>Status</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {periods.length === 0 && (
-                <tr><td colSpan={periodView === "weekly" ? 6 : 5}><EmptyState icon={<Clock size={32} />} title="No period data" description="Period summaries appear once sales are entered." /></td></tr>
-              )}
-              {periods.map(p => (
-                <tr key={p.period} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
-                  <td style={baseTdStyle}>{p.period}</td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: typography.weights.bold }}>{p.salesCount}</td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.success }}>{fmt.format(p.premiumTotal)}</td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.accentTeal }}>{fmt.format(p.commissionPaid)}</td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning }}>{fmt.format(p.csPayrollTotal ?? 0)}</td>
-                  {periodView === "weekly" && <td style={baseTdStyle}><Badge color={p.periodStatus === "OPEN" ? colors.success : colors.textMuted} variant="subtle" size="sm">{p.periodStatus}</Badge></td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
 
-/* -- OwnerOverview -- */
+/* ── Stat Cards Row ──────────────────────────────────────────── */
 
-export default function OwnerOverview({ socket, API }: { socket: SocketClient | null; API: string }) {
+function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
+  const chargebackDanger =
+    stats.chargebackCount > stats.priorChargebackCount;
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: 16,
+        marginTop: 16,
+      }}
+    >
+      {/* This Week Premium */}
+      <div
+        className="stagger-1"
+        style={{
+          ...STAT_CARD,
+          borderLeft: `3px solid ${semanticColors.accentTealMid}`,
+        }}
+      >
+        <div style={STAT_LABEL}>This Week Premium</div>
+        <div style={STAT_VALUE}>{fmtDollar(stats.thisWeekPremium)}</div>
+        <DeltaBadge
+          current={stats.thisWeekPremium}
+          prior={stats.priorWeekPremium}
+        />
+      </div>
+
+      {/* Commission Friday */}
+      <div
+        className="stagger-2"
+        style={{
+          ...STAT_CARD,
+          borderLeft: `3px solid ${semanticColors.accentBlue}`,
+        }}
+      >
+        <div style={STAT_LABEL}>Commission Friday</div>
+        <div style={STAT_VALUE}>{fmtDollar(stats.commissionOwedFriday)}</div>
+      </div>
+
+      {/* Chargebacks */}
+      <div
+        className={chargebackDanger ? "stagger-3 animate-pulse" : "stagger-3"}
+        style={{
+          ...STAT_CARD,
+          borderLeft: `3px solid ${chargebackDanger ? semanticColors.dangerLight : colors.danger}`,
+        }}
+      >
+        <div style={STAT_LABEL}>Chargebacks</div>
+        <div style={STAT_VALUE}>
+          {stats.chargebackCount}{" "}
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: typography.weights.medium,
+              color: colors.textTertiary,
+            }}
+          >
+            ({fmtDollar(stats.chargebackDollars)})
+          </span>
+        </div>
+        <DeltaBadge
+          current={stats.chargebackCount}
+          prior={stats.priorChargebackCount}
+          invertColor
+        />
+      </div>
+
+      {/* Lead ROI */}
+      <div
+        className="stagger-4"
+        style={{
+          ...STAT_CARD,
+          borderLeft: `3px solid ${semanticColors.warningAmber}`,
+        }}
+      >
+        <div style={STAT_LABEL}>Lead ROI</div>
+        <div style={STAT_VALUE}>
+          {stats.convosoConfigured
+            ? `${fmtDollarExact(stats.avgCostPerSale)}/sale`
+            : "\u2014"}
+        </div>
+        {stats.convosoConfigured && (
+          <DeltaBadge
+            current={stats.avgCostPerSale}
+            prior={stats.priorAvgCostPerSale}
+            invertColor
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Leaderboard Section ─────────────────────────────────────── */
+
+function LeaderboardSection({
+  leaderboard,
+  compact,
+}: {
+  leaderboard: LeaderboardEntry[];
+  compact: boolean;
+}) {
+  const sorted = [...leaderboard].sort(
+    (a, b) => b.premiumTotal - a.premiumTotal
+  );
+
+  return (
+    <div style={LEADERBOARD_CARD} className="animate-fade-in-up stagger-5">
+      <div style={LEADERBOARD_HEADER}>
+        <BarChart3 size={18} color={colors.accentTeal} />
+        <div>
+          <h3 style={SECTION_TITLE}>Agent Leaderboard</h3>
+          <p style={SECTION_SUBTITLE}>Ranked by premium total</p>
+        </div>
+      </div>
+
+      <div style={{ overflowX: compact ? "auto" : undefined }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: colors.bgSurfaceInset }}>
+              <th style={baseThStyle}>Rank</th>
+              <th style={baseThStyle}>Agent</th>
+              <th style={{ ...baseThStyle, textAlign: "right" }}>Calls</th>
+              <th style={{ ...baseThStyle, textAlign: "right" }}>Avg</th>
+              <th style={{ ...baseThStyle, textAlign: "right" }}>Sales</th>
+              <th style={{ ...baseThStyle, textAlign: "right" }}>Premium</th>
+              <th style={{ ...baseThStyle, textAlign: "right" }}>Cost/Sale</th>
+              <th style={{ ...baseThStyle, textAlign: "center" }}>Quality</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={8}>
+                  <EmptyState
+                    icon={<BarChart3 size={32} />}
+                    title="No agent data yet"
+                    description="Sales data will appear here once agents start submitting."
+                  />
+                </td>
+              </tr>
+            )}
+            {sorted.map((row, i) => {
+              const isTop3 = i < 3;
+              return (
+                <tr
+                  key={row.agent}
+                  className="row-hover animate-fade-in-up"
+                  style={{
+                    transition: `background ${motion.duration.fast} ${motion.easing.out}`,
+                  }}
+                >
+                  {/* Rank */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "center",
+                      width: 50,
+                    }}
+                  >
+                    <RankIcon rank={i} />
+                  </td>
+
+                  {/* Agent */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      fontWeight: isTop3
+                        ? typography.weights.bold
+                        : typography.weights.semibold,
+                      color: isTop3
+                        ? colors.textPrimary
+                        : colors.textSecondary,
+                    }}
+                  >
+                    {row.agent}
+                  </td>
+
+                  {/* Calls */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "right",
+                      fontWeight: typography.weights.semibold,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    {row.calls}
+                  </td>
+
+                  {/* Avg Call Length */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "right",
+                      color: colors.textTertiary,
+                      fontFamily: typography.fontMono,
+                      fontSize: typography.sizes.xs2.fontSize,
+                    }}
+                  >
+                    {fmtDuration(row.avgCallLength)}
+                  </td>
+
+                  {/* Sales */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "right",
+                      fontWeight: typography.weights.bold,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    <AnimatedNumber value={row.salesCount} />
+                  </td>
+
+                  {/* Premium */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "right",
+                      fontWeight: typography.weights.extrabold,
+                    }}
+                  >
+                    {i === 0 ? (
+                      <span
+                        style={{
+                          backgroundImage: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid}, ${semanticColors.accentGreenDark})`,
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                          backgroundClip: "text",
+                        }}
+                      >
+                        <AnimatedNumber
+                          value={row.premiumTotal}
+                          prefix="$"
+                          decimals={0}
+                        />
+                      </span>
+                    ) : (
+                      <span style={{ color: colors.success }}>
+                        <AnimatedNumber
+                          value={row.premiumTotal}
+                          prefix="$"
+                          decimals={0}
+                        />
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Cost/Sale */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "right",
+                      fontWeight: typography.weights.semibold,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    {row.costPerSale > 0
+                      ? fmtDollarExact(row.costPerSale)
+                      : "\u2014"}
+                  </td>
+
+                  {/* Quality */}
+                  <td
+                    style={{
+                      ...baseTdStyle,
+                      textAlign: "center",
+                    }}
+                  >
+                    <QualityDot tiers={row.callsByTier} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Component ──────────────────────────────────────────── */
+
+export default function OwnerOverview({
+  socket,
+  API,
+}: {
+  socket: SocketClient | null;
+  API: string;
+}) {
   const { toast } = useToast();
-  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "week" });
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [tracker, setTracker] = useState<TrackerEntry[]>([]);
+  const [data, setData] = useState<CommandCenterData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [periodView, setPeriodView] = useState<"weekly" | "monthly">("weekly");
-  const [periods, setPeriods] = useState<PeriodSummary[]>([]);
-  const [highlightedCards, setHighlightedCards] = useState<Set<string>>(new Set());
-  const [convosoConfigured, setConvosoConfigured] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({
+    preset: "week",
+  });
+  const [compact, setCompact] = useState(false);
+  const [heroGlow, setHeroGlow] = useState(false);
   const dateRangeRef = useRef(dateRange);
   dateRangeRef.current = dateRange;
 
-  const highlightCard = (cardKey: string) => {
-    setHighlightedCards(prev => new Set(prev).add(cardKey));
-    setTimeout(() => {
-      setHighlightedCards(prev => { const next = new Set(prev); next.delete(cardKey); return next; });
-    }, 100);
-  };
+  /* Responsive */
+  useEffect(() => {
+    const check = () => setCompact(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-  const fetchData = useCallback((dr: DateRangeFilterValue) => {
-    setLoading(true);
-    const dp = buildDateParams(dr);
-    const qs = dp ? `?${dp}` : "";
-    Promise.all([
-      authFetch(`${API}/api/owner/summary${qs}`).then((res) => res.ok ? res.json() : null).catch(() => null),
-      authFetch(`${API}/api/tracker/summary${qs}`).then((res) => res.ok ? res.json() : { agents: [] }).catch(() => ({ agents: [] })),
-      authFetch(`${API}/api/reporting/periods?view=${periodView}`).then(res => res.ok ? res.json() : { periods: [] }).catch(() => ({ periods: [] })),
-    ]).then(([s, t, periodData]) => {
-      setSummary(s);
-      setTracker(t?.agents ?? t ?? []);
-      setConvosoConfigured(!!t?.convosoConfigured);
-      setPeriods(periodData.periods ?? []);
-      setLoading(false);
-    });
-  }, [API, periodView]);
-
-  useEffect(() => { fetchData(dateRange); }, [dateRange, fetchData]);
+  /* Fetch data */
+  const fetchData = useCallback(
+    (dr: DateRangeFilterValue) => {
+      setLoading(true);
+      const dp = buildDateParams(dr);
+      const qs = dp ? `?${dp}` : "";
+      authFetch(`${API}/api/command-center${qs}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Request failed (${res.status})`);
+          return res.json();
+        })
+        .then((d: CommandCenterData) => {
+          setData(d);
+          setLoading(false);
+        })
+        .catch(() => {
+          toast("error", "Failed to load command center data");
+          setLoading(false);
+        });
+    },
+    [API, toast]
+  );
 
   useEffect(() => {
-    authFetch(`${API}/api/reporting/periods?view=${periodView}`)
-      .then(res => res.ok ? res.json() : { periods: [] })
-      .then(data => setPeriods(data.periods ?? []))
-      .catch(() => { toast("error", "Failed to load overview data"); });
-  }, [API, periodView]);
+    fetchData(dateRange);
+  }, [dateRange, fetchData]);
 
-  // Socket.IO: real-time KPI patching
+  /* Socket: real-time sale updates */
   const handleSaleChanged = useCallback((payload: SaleChangedPayload) => {
     if (payload.sale.status !== "RAN") return;
     if (payload.type !== "created" && payload.type !== "status_changed") return;
 
-    highlightCard("salesCount");
-    highlightCard("premiumTotal");
-
-    const addonPrem = payload.sale.addons?.reduce((s: number, a) => s + Number((a as { premium?: number | null }).premium ?? 0), 0) ?? 0;
+    const addonPrem =
+      payload.sale.addons?.reduce(
+        (s: number, a) =>
+          s + Number((a as { premium?: number | null }).premium ?? 0),
+        0
+      ) ?? 0;
     const totalPrem = payload.sale.premium + addonPrem;
 
-    setSummary(prev => prev ? {
-      ...prev,
-      salesCount: (prev.salesCount || 0) + 1,
-      premiumTotal: (prev.premiumTotal || 0) + totalPrem,
-    } : prev);
+    /* Flash the hero */
+    setHeroGlow(true);
+    setTimeout(() => setHeroGlow(false), 1500);
 
-    setTracker(prev => {
+    setData((prev) => {
+      if (!prev) return prev;
+
+      /* Update hero */
+      const hero = {
+        ...prev.hero,
+        salesCount: prev.hero.salesCount + 1,
+        premiumTotal: prev.hero.premiumTotal + totalPrem,
+      };
+
+      /* Update stat cards */
+      const statCards = {
+        ...prev.statCards,
+        thisWeekPremium: prev.statCards.thisWeekPremium + totalPrem,
+      };
+
+      /* Update leaderboard */
       const agentName = payload.sale.agent.name;
-      const existing = prev.find(t => t.agent === agentName);
-      if (existing) {
-        return prev.map(t => t.agent === agentName ? {
-          ...t,
-          salesCount: t.salesCount + 1,
-          premiumTotal: t.premiumTotal + totalPrem,
-        } : t);
+      const existingIdx = prev.leaderboard.findIndex(
+        (e) => e.agent === agentName
+      );
+      let leaderboard: LeaderboardEntry[];
+
+      if (existingIdx >= 0) {
+        leaderboard = prev.leaderboard.map((e, idx) =>
+          idx === existingIdx
+            ? {
+                ...e,
+                salesCount: e.salesCount + 1,
+                premiumTotal: e.premiumTotal + totalPrem,
+              }
+            : e
+        );
+      } else {
+        leaderboard = [
+          ...prev.leaderboard,
+          {
+            agent: agentName,
+            calls: 0,
+            avgCallLength: 0,
+            salesCount: 1,
+            premiumTotal: totalPrem,
+            costPerSale: 0,
+            callsByTier: { short: 0, contacted: 0, engaged: 0, deep: 0 },
+          },
+        ];
       }
-      return [...prev, {
-        agent: agentName,
-        salesCount: 1,
-        premiumTotal: totalPrem,
-        totalLeadCost: 0,
-        costPerSale: 0,
-        commissionTotal: 0,
-      }];
+
+      return { hero, statCards, leaderboard };
     });
   }, []);
 
   useEffect(() => {
     if (!socket) return;
     socket.on("sale:changed", handleSaleChanged);
-    return () => { socket.off("sale:changed", handleSaleChanged); };
+    return () => {
+      socket.off("sale:changed", handleSaleChanged);
+    };
   }, [socket, handleSaleChanged]);
 
-  // Socket.IO: refetch periods when service payroll changes
-  useEffect(() => {
-    if (!socket) return;
-    const handler = () => {
-      authFetch(`${API}/api/reporting/periods?view=${periodView}`)
-        .then(res => res.ok ? res.json() : { periods: [] })
-        .then(data => setPeriods(data.periods ?? []))
-        .catch(() => { toast("error", "Failed to load agent data"); });
-    };
-    socket.on("service-payroll:changed", handler);
-    return () => { socket.off("service-payroll:changed", handler); };
-  }, [socket, API, periodView]);
-
-  // Refetch on reconnect
+  /* Reconnect refetch */
   useEffect(() => {
     if (!socket) return;
     const handleReconnect = () => fetchData(dateRangeRef.current);
     socket.on("connect", handleReconnect);
-    return () => { socket.off("connect", handleReconnect); };
+    return () => {
+      socket.off("connect", handleReconnect);
+    };
   }, [socket, fetchData]);
+
+  /* ── Render ─────────────────────────────────────────────────── */
 
   return (
     <div className="animate-fade-in">
-      {loading ? (
-        <DashboardSkeleton />
+      {loading || !data ? (
+        <CommandCenterSkeleton />
       ) : (
-        <DashboardSection
-          summary={summary}
-          tracker={tracker}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          highlightedCards={highlightedCards}
-          periods={periods}
-          periodView={periodView}
-          onPeriodViewChange={setPeriodView}
-          convosoConfigured={convosoConfigured}
-        />
+        <>
+          <HeroSection
+            hero={data.hero}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            compact={compact}
+            glowing={heroGlow}
+          />
+          <StatCardsRow stats={data.statCards} />
+          <LeaderboardSection
+            leaderboard={data.leaderboard}
+            compact={compact}
+          />
+        </>
       )}
-      <LeadTimingSection API={API} />
     </div>
   );
 }
