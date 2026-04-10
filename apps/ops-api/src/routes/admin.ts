@@ -140,7 +140,7 @@ router.get("/activity-feed", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
     prisma.appAuditLog.findMany({
       where: {
         entityType: { in: ["Sale", "ChargebackSubmission", "PendingTerm"] },
-        action: { in: ["CREATE", "UPDATE", "DELETE", "UPDATE_STATUS", "REQUEST_STATUS_CHANGE"] },
+        action: { notIn: ["APPROVE_COMMISSION", "REVOKE_COMMISSION", "UNAPPROVE_COMMISSION"] },
       },
       orderBy: { createdAt: "desc" },
       take: limit,
@@ -150,7 +150,7 @@ router.get("/activity-feed", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
     prisma.appAuditLog.count({
       where: {
         entityType: { in: ["Sale", "ChargebackSubmission", "PendingTerm"] },
-        action: { in: ["CREATE", "UPDATE", "DELETE", "UPDATE_STATUS", "REQUEST_STATUS_CHANGE"] },
+        action: { notIn: ["APPROVE_COMMISSION", "REVOKE_COMMISSION", "UNAPPROVE_COMMISSION"] },
       },
     }),
   ]);
