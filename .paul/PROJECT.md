@@ -15,9 +15,9 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Type | Application |
 | Version | 2.7.0 |
 | Status | Production |
-| Last Updated | 2026-04-09 |
-| Milestones shipped | 16 (v1.0 through v2.6) |
-| Total phases | 54 |
+| Last Updated | 2026-04-10 |
+| Milestones shipped | 17 (v1.0 through v2.7) |
+| Total phases | 59 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -139,10 +139,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Product type color coding — ACA=purple, Core=blue, Add-ons=green, AD&D=amber
 
 ### Active (In Progress)
-- v2.7 Analytics & Command Center — owner command center, manager tracker upgrade, CS analytics, owner trends, fontSize cleanup
+None.
 
 ### Planned (Next)
 None.
+
+**v2.7 — Analytics & Command Center (2026-04-10)**
+- [x] fontSize standardization (97 remaining values → tokens)
+- [x] Manager tracker upgrade (call quality tiers, KPI sparklines, longest call, conversion eligibility)
+- [x] Owner command center (today's pulse, stat cards, leaderboard, activity feed)
+- [x] Owner trends tab (Recharts: revenue trends, agent KPI trends, lead source effectiveness, call quality distribution)
+- [x] CS analytics tab (rep performance, chargeback patterns, pending term categories, drill-down, CSV export)
 
 ### Removed
 - Bulk sale import from CSV — no longer needed

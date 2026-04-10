@@ -4,12 +4,12 @@
   "milestone": {
     "name": "Analytics & Command Center",
     "version": "2.7.0",
-    "status": "in_progress"
+    "status": "complete"
   },
   "phase": {
     "number": 59,
     "name": "CS Analytics Tab",
-    "status": "not_started"
+    "status": "complete"
   },
   "loop": {
     "plan": null,

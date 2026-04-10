@@ -3,9 +3,35 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createSyncedRep, getNextRoundRobinRep, batchRoundRobinAssign, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
+import { getCsAnalytics, getRepDrillDown } from "../services/csAnalyticsAggregator";
 import { zodErr, asyncHandler, idParamSchema, dateRange, dateRangeQuerySchema } from "./helpers";
 
 const router = Router();
+
+// ─── CS Analytics (Aggregated Metrics) ───────────────────────────
+
+router.get("/cs/analytics", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
+  if (!dr) return res.status(400).json({ error: "A valid date range is required (range, or from+to)" });
+  const analytics = await getCsAnalytics(dr);
+  res.set("Cache-Control", "private, max-age=60");
+  res.json(analytics);
+}));
+
+router.get("/cs/analytics/rep/:repName", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const repName = decodeURIComponent(req.params.repName);
+  if (!repName) return res.status(400).json({ error: "repName is required" });
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
+  if (!dr) return res.status(400).json({ error: "A valid date range is required (range, or from+to)" });
+  const limitParam = Math.min(Math.max(parseInt(String(req.query.limit ?? "50"), 10) || 50, 1), 200);
+  const offsetParam = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+  const result = await getRepDrillDown(repName, dr, limitParam, offsetParam);
+  res.json(result);
+}));
 
 // ─── Resolved Log (Audit Trail) ──────────────────────────────────
 
