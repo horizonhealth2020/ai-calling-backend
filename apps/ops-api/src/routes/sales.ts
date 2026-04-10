@@ -938,7 +938,8 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
   const priorSaleWhere = priorDr ? { status: "RAN" as const, saleDate: { gte: priorDr.gte, lt: priorDr.lt }, product: { type: { not: "ACA_PL" as const } } } : undefined;
 
   const now = new Date();
-  const cbThisWeek = getSundayWeekRange(now);
+  const cbThisWeekRaw = getSundayWeekRange(now);
+  const cbThisWeek = { gte: cbThisWeekRaw.weekStart, lt: cbThisWeekRaw.weekEnd };
   const cbLastWeek = shiftRange(cbThisWeek, 7);
 
   const [
