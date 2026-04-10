@@ -341,7 +341,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
           <Card padding="sm" style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: C.textPrimary, marginBottom: 4 }}>Summary CSV</div>
-              <div style={{ fontSize: 12, color: C.textMuted }}>Week range, status, entries count, gross and net per period</div>
+              <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted }}>Week range, status, entries count, gross and net per period</div>
             </div>
             <Button
               variant="ghost"
@@ -356,7 +356,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
           <Card padding="sm" style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: C.textPrimary, marginBottom: 4 }}>Detailed CSV</div>
-              <div style={{ fontSize: 12, color: C.textMuted }}>Per-entry rows -- agent, member, products, fees, commission, bonus, fronted, net</div>
+              <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted }}>Per-entry rows -- agent, member, products, fees, commission, bonus, fronted, net</div>
             </div>
             <Button
               variant="primary"

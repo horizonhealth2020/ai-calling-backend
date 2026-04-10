@@ -216,7 +216,7 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
             minWidth: 150,
           }}>
             <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, marginBottom: 2 }}>{tooltip.sourceName}</div>
-            <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>{tooltip.groupLabel} &middot; {hourLabel(tooltip.cell.hour)}</div>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textSecondary, marginBottom: 2 }}>{tooltip.groupLabel} &middot; {hourLabel(tooltip.cell.hour)}</div>
             <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary, fontWeight: 600 }}>Close rate: {(tooltip.cell.closeRate * 100).toFixed(1)}%</div>
             <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary }}>Calls: {tooltip.cell.calls}</div>
             <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary }}>Sales: {tooltip.cell.sales}</div>

@@ -1010,7 +1010,7 @@ export default function PayrollPeriods({
                           <span style={{
                             marginLeft: 8,
                             padding: "2px 6px",
-                            fontSize: 10,
+                            fontSize: typography.sizes["2xs"].fontSize,
                             fontWeight: 700,
                             letterSpacing: "0.04em",
                             textTransform: "uppercase",
@@ -1043,7 +1043,7 @@ export default function PayrollPeriods({
                                   type="text"
                                   autoFocus
                                   placeholder="Search by member id or name…"
-                                  style={{ ...inputStyle, fontSize: 12, padding: "4px 8px" }}
+                                  style={{ ...inputStyle, fontSize: typography.sizes.xs2.fontSize, padding: "4px 8px" }}
                                   value={salePickerQuery[alert.id] ?? (alert.chargeback?.memberId ?? "")}
                                   onChange={e => {
                                     const q = e.target.value;
@@ -1123,7 +1123,7 @@ export default function PayrollPeriods({
                                           border: "none",
                                           borderBottom: `1px solid ${C.borderDefault}`,
                                           cursor: "pointer",
-                                          fontSize: 12,
+                                          fontSize: typography.sizes.xs2.fontSize,
                                           color: C.textPrimary,
                                         }}
                                       >
@@ -1156,7 +1156,7 @@ export default function PayrollPeriods({
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                   <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted, fontStyle: "italic" }}>Oldest open period pre-selected</span>
                                   <select
-                                    style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
+                                    style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: typography.sizes.xs2.fontSize, padding: "4px 8px" }}
                                     value={selectedAlertPeriod[alert.id] || ""}
                                     onChange={e => setSelectedAlertPeriod(prev => ({ ...prev, [alert.id]: e.target.value }))}
                                   >
@@ -1248,7 +1248,7 @@ export default function PayrollPeriods({
       {/* Current week summary strip */}
       {currentWeekTotals && (
         <div style={{ marginBottom: S[3] }}>
-          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: S[2] }}>
+          <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: S[2] }}>
             <Calendar size={13} />
             {fmtDate(currentWeekTotals.period.weekStart)} {"\u2013"} {fmtDate(currentWeekTotals.period.weekEnd)}
           </div>
@@ -1452,19 +1452,19 @@ export default function PayrollPeriods({
                               </div>
                             </div>
 
-                            <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: 12, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
+                            <div style={{ padding: `${S[2]}px ${S[5]}px`, fontSize: typography.sizes.xs2.fontSize, color: C.textMuted, borderBottom: `1px solid ${C.borderSubtle}` }}>
                               Sunday {fmtDate(p.weekStart)} {"\u2013"} Saturday {fmtDate(p.weekEnd)}
                             </div>
 
                             <div style={{ padding: `${S[4]}px ${S[5]}px` }}>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: S[3] }}>
                                 <div>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Base Pay</div>
+                                  <div style={{ fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Base Pay</div>
                                   <div style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</div>
                                 </div>
                                 {seFronted > 0 && (
                                   <div>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Fronted</div>
+                                    <div style={{ fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Fronted</div>
                                     <div style={{ fontSize: 15, fontWeight: 700, color: C.danger }}>{formatDollar(seFronted)}</div>
                                   </div>
                                 )}
@@ -1473,13 +1473,13 @@ export default function PayrollPeriods({
                                   if (amt === 0) return null;
                                   return (
                                     <div key={cat.name}>
-                                      <div style={{ fontSize: 10, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{cat.name}</div>
+                                      <div style={{ fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{cat.name}</div>
                                       <div style={{ fontSize: 15, fontWeight: 700, color: cat.isDeduction ? C.danger : C.success }}>{formatDollar(amt)}</div>
                                     </div>
                                   );
                                 })}
                                 <div>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Total Pay</div>
+                                  <div style={{ fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700, color: C.info, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Total Pay</div>
                                   <div style={{ fontSize: 15, fontWeight: 700, color: C.info }}>{formatDollar(Number(se.totalPay))}</div>
                                 </div>
                               </div>

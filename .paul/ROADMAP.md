@@ -13,6 +13,7 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.4 | Payroll & Chargeback Fixes | 49 | Shipped | 2026-04-09 |
 | v2.5 | Professional Polish | 50-52 | Shipped | 2026-04-10 |
 | v2.6 | Payroll Accuracy & Product Colors | 53-54 | Shipped | 2026-04-10 |
+| v2.7 | Analytics & Command Center | 55-59 | In Progress | - |
 
 ## Active Milestone: v2.5 Professional Polish
 
@@ -133,7 +134,117 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 
+## Active Milestone: v2.7 Analytics & Command Center
+
+**Goal:** Transform the owner dashboard into a real-time command center, upgrade manager tracker with unsurfaced call data, add CS analytics for owner visibility, and standardize remaining fontSize values.
+**Status:** In Progress
+**Progress:** [██░░░░░░░░] 20%
+
+## Phases
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 55 | fontSize Standardization | 1 | Complete | 2026-04-10 |
+| 56 | Manager Tracker Upgrade | TBD | Not started | - |
+| 57 | Owner Command Center | TBD | Not started | - |
+| 58 | Owner Trends Tab | TBD | Not started | - |
+| 59 | CS Analytics Tab | TBD | Not started | - |
+
+## Phase Details
+
+### Phase 55: fontSize Standardization
+
+**Goal:** Migrate 97 remaining non-exact fontSize values to nearest tokens or document as intentional exceptions.
+**Depends on:** Phase 54 (v2.6 complete)
+**Research:** Unlikely (mechanical, same pattern as Phase 52)
+
+**Scope:**
+- fontSize: 12 (59 instances) — decide: new token at 12, or round to sm (13)
+- fontSize: 10 (17 instances) — decide: new token at 10, or round to xs (11)
+- fontSize: 15, 20, 9 (21 instances) — case-by-case
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 56: Manager Tracker Upgrade
+
+**Goal:** Surface unsurfaced call data in the manager tracker — call quality tier breakdown, agent KPI trends, conversion eligibility, longest call metric.
+**Depends on:** Phase 55 (fontSize stable)
+**Research:** Likely — verify AgentCallKpi historical snapshot API availability
+
+**Scope:**
+- Call quality tier breakdown per agent (callsByTier JSON → visual distribution)
+- Agent KPI 30-day trend sparklines from historical snapshots
+- Conversion eligibility flag display
+- Longest call metric per agent
+
+**Skills:** analytics-tracking, design-taste-frontend
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 57: Owner Command Center
+
+**Goal:** Replace the generic Overview tab with a real-time command center answering "how is my office doing RIGHT NOW?" — today's pulse, weekly money view, agent leaderboard, activity feed.
+**Depends on:** Phase 56 (manager patterns established)
+**Research:** Likely — need new API endpoints for today's pulse aggregation
+
+**Scope:**
+- Today's Pulse: sales today, active agents, calls today (tier breakdown), best agent
+- This Week vs Last Week: premium, commission owed Friday, chargebacks, lead spend ROI
+- Agent Leaderboard: ranked live with calls, close rate, cost per sale
+- Activity Feed: last 10 events via Socket.IO
+
+**Skills:** kpi-dashboard-design, business-analyst, design-taste-frontend, frontend-design
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 58: Owner Trends Tab
+
+**Goal:** Replace generic KPIs tab with historical trend analysis — agent KPI trends, revenue trends, lead source effectiveness, call quality trends.
+**Depends on:** Phase 57 (command center patterns established)
+**Research:** Likely — need historical aggregation endpoints
+
+**Scope:**
+- Agent KPI trend charts from AgentCallKpi snapshots (30-day)
+- Revenue trend: weekly/monthly premium, commission, chargeback totals
+- Lead source effectiveness: conversion rate + cost per acquisition by source
+- Call quality trends: callsByTier distribution over time
+
+**Skills:** business-analyst, analytics-tracking, revops
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 59: CS Analytics Tab
+
+**Goal:** Add owner/admin-only analytics tab to CS dashboard replacing resolved log — rep performance, chargeback resolution patterns, pending term categories with drill-down.
+**Depends on:** Phase 58 (analytics patterns established)
+**Research:** Likely — need rep aggregation endpoint
+
+**Scope:**
+- Rep performance aggregate: submissions per rep, resolution rate, turnaround time
+- Chargeback resolution patterns: reversal vs matched vs void distribution
+- Pending term categories: holdReason distribution, resolution type breakdown
+- Drill-down: click rep → individual activity detail
+- Restricted to OWNER_VIEW + SUPER_ADMIN roles
+
+**Skills:** support-analytics-reporter, redesign-existing-projects
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+---
+
 ## Completed Milestones
+
+### v2.6 Payroll Accuracy & Product Colors (Shipped 2026-04-10)
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 53 | Payroll Sidebar Commission Fix | 1 | Complete | 2026-04-10 |
+| 54 | Product Type Color Coding | 1 | Complete | 2026-04-10 |
 
 ### v2.5 Professional Polish (Shipped 2026-04-10)
 
@@ -159,4 +270,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-10 — v2.6 shipped*
+*Last updated: 2026-04-10 — v2.7 milestone created*

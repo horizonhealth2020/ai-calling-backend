@@ -13,7 +13,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.6.0 |
+| Version | 2.7.0 |
 | Status | Production |
 | Last Updated | 2026-04-09 |
 | Milestones shipped | 16 (v1.0 through v2.6) |
@@ -139,10 +139,13 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Product type color coding — ACA=purple, Core=blue, Add-ons=green, AD&D=amber
 
 ### Active (In Progress)
-None.
+- v2.7 Analytics & Command Center — owner command center, manager tracker upgrade, CS analytics, owner trends, fontSize cleanup
 
 ### Planned (Next)
-- Bulk sale import from CSV
+None.
+
+### Removed
+- Bulk sale import from CSV — no longer needed
 
 ### Out of Scope
 - Morgan voice service behavior changes — file relocation only

@@ -707,7 +707,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={baseLabelStyle}>Chargeback Filters</span>
             {hasCbFilters && (
-              <button onClick={clearCbFilters} style={{ background: "transparent", border: "none", color: colors.accentTeal, cursor: "pointer", fontSize: 12 }}>
+              <button onClick={clearCbFilters} style={{ background: "transparent", border: "none", color: colors.accentTeal, cursor: "pointer", fontSize: typography.sizes.xs2.fontSize }}>
                 Clear Filters
               </button>
             )}
@@ -756,7 +756,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={baseLabelStyle}>Pending Terms Filters</span>
             {hasPtFilters && (
-              <button onClick={clearPtFilters} style={{ background: "transparent", border: "none", color: colors.accentTeal, cursor: "pointer", fontSize: 12 }}>
+              <button onClick={clearPtFilters} style={{ background: "transparent", border: "none", color: colors.accentTeal, cursor: "pointer", fontSize: typography.sizes.xs2.fontSize }}>
                 Clear Filters
               </button>
             )}
@@ -1022,7 +1022,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                 padding: "4px 10px",
                 background: colors.bgSurfaceInset,
                 borderRadius: radius.md,
-                fontSize: 12,
+                fontSize: typography.sizes.xs2.fontSize,
                 color: colors.textSecondary,
               }}>
                 {reason.toUpperCase()}: {count}

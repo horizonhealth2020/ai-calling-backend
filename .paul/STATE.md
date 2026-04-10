@@ -5,26 +5,26 @@
 See: .paul/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v2.6 complete — ready for next milestone
+**Current focus:** v2.7 Analytics & Command Center
 
 ## Current Position
 
-Milestone: v2.6 Payroll Accuracy & Product Colors — Complete
-Phase: 54 of 2 (Product Type Color Coding) — Complete
-Plan: 54-01 — Complete
-Status: Loop closed, milestone complete
-Last activity: 2026-04-10 — Phase 54 complete, v2.6 shipped
+Milestone: v2.7 Analytics & Command Center
+Phase: 56 of 5 (Manager Tracker Upgrade) — Not started
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-04-10 — Phase 55 complete, transitioned to Phase 56
 
 Progress:
-- Milestone: [██████████] 100%
-- Phase 54: [██████████] 100%
+- Milestone: [██░░░░░░░░] 20%
+- Phase 56: [░░░░░░░░░░] 0%
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Loop complete - ready for next milestone]
+  ○        ○        ○     [Ready for Phase 56 PLAN]
 ```
 
 ## Accumulated Context
@@ -32,11 +32,13 @@ PLAN ──▶ APPLY ──▶ UNIFY
 ### Decisions
 - Express + Next.js 15 monorepo with inline CSSProperties styling (pre-init)
 - 2026-04-10: Product type colors — ACA=purple, Core=blue, Add-ons=green, AD&D=amber
-- 2026-04-10: currentPeriodId uses date-range match, not most-recent-by-weekStart
+- 2026-04-10: currentPeriodId uses arrears period (1 week back from today)
+- 2026-04-10: v2.7 scope — 5 phases, owner command center, manager tracker upgrade, CS analytics, fontSize cleanup
+- 2026-04-10: Bulk CSV import removed from planned features
 
 ### Deferred Issues
-- Dashboard visual refresh (lead analytics, manager KPIs, owner scoring) — deferred from v2.4
-- Non-exact fontSize values (9, 10, 12, 15, 20) still hardcoded
+- Non-exact fontSize values (9, 10, 12, 15, 20) — Phase 55 addresses this
+- Dashboard visual refresh — Phases 56-59 address this
 
 ### Blockers/Concerns
 None.
@@ -44,9 +46,17 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-10
-Stopped at: v2.6 milestone complete
-Next action: /paul:discuss-milestone for v2.7
+Stopped at: v2.7 milestone created, ready to plan Phase 55
+Next action: /paul:plan for Phase 55 (fontSize Standardization)
 Resume file: .paul/ROADMAP.md
+Resume context:
+- v2.7 Analytics & Command Center — 5 phases (55-59)
+- Phase 55: fontSize standardization (97 values, mechanical)
+- Phase 56: Manager tracker upgrade (call tiers, trends)
+- Phase 57: Owner Command Center (real-time pulse, leaderboard, activity feed)
+- Phase 58: Owner Trends Tab (KPI trends, revenue, lead source)
+- Phase 59: CS Analytics Tab (rep performance, chargeback/pending term patterns)
+- 8 skills mapped, ~3-4 new API endpoints needed
 
 ---
 *STATE.md — Updated after every significant action*

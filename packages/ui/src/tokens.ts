@@ -77,7 +77,9 @@ export const typography = {
   fontMono: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
 
   sizes: {
+    "2xs": { fontSize: 10, lineHeight: "1.4" },
     xs: { fontSize: 11, lineHeight: "1.45" },
+    xs2: { fontSize: 12, lineHeight: "1.5" },
     sm: { fontSize: 13, lineHeight: "1.5" },
     base: { fontSize: 14, lineHeight: "1.6" },
     md: { fontSize: 16, lineHeight: "1.5" },

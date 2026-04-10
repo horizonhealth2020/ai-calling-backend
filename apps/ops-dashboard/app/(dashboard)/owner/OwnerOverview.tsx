@@ -303,7 +303,7 @@ function DashboardSection({
                 onClick={() => onPeriodViewChange(v)}
                 style={{
                   padding: "6px 14px", borderRadius: radius.md, border: "none", cursor: "pointer",
-                  fontSize: 12, fontWeight: 600, textTransform: "capitalize",
+                  fontSize: typography.sizes.xs2.fontSize, fontWeight: 600, textTransform: "capitalize",
                   background: periodView === v ? colors.primary500 : colors.bgSurfaceInset,
                   color: periodView === v ? semanticColors.white : colors.textSecondary,
                 }}

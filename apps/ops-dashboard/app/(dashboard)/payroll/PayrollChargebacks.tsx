@@ -102,7 +102,7 @@ type LookupResult = {
 };
 
 const MINI_LABEL: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: typography.sizes["2xs"].fontSize,
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
@@ -1058,7 +1058,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                       />
                       <span style={{ fontSize: typography.sizes.sm.fontSize, color: C.textPrimary }}>{p.name}</span>
                       <span style={{
-                        fontSize: 10, fontWeight: 700, padding: "2px 6px",
+                        fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700, padding: "2px 6px",
                         borderRadius: 4, background: typeColor.bg, color: typeColor.fg,
                         textTransform: "uppercase" as const,
                       }}>

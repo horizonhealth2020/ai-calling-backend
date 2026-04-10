@@ -104,7 +104,7 @@ function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: 
               alignItems: "center",
               gap: 6,
               cursor: "pointer",
-              fontSize: 12,
+              fontSize: typography.sizes.xs2.fontSize,
               fontWeight: checked ? 700 : 500,
               padding: "6px 12px",
               borderRadius: radius.full,

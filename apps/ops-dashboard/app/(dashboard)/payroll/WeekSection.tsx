@@ -164,7 +164,7 @@ function EditableSaleRow({
       <td style={tdCenter}>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700,
+          padding: "3px 8px", borderRadius: 6, fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700,
           background: statusCfg.bg, color: statusCfg.color,
           textTransform: "uppercase", letterSpacing: "0.04em",
         }}>
@@ -269,7 +269,7 @@ function EditableSaleRow({
                   <X size={10} />
                 </button>
                 {isAca && (
-                  <span style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}># members</span>
+                  <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.textMuted, fontStyle: "italic" }}># members</span>
                 )}
               </div>
               );
@@ -277,7 +277,7 @@ function EditableSaleRow({
             {/* Phase 47 Sub-feature 4 (D-17): existing ACA covering-child row with X button */}
             {acaChild && (
               <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 6px", background: "rgba(14,165,233,0.08)", borderRadius: 4, border: "1px solid rgba(14,165,233,0.2)" }}>
-                <span style={{ fontSize: 10, color: C.info ?? C.accentTeal, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>ACA</span>
+                <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.info ?? C.accentTeal, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>ACA</span>
                 <select
                   className="input-focus"
                   style={{ ...SMALL_INP, width: 130, textAlign: "left" }}
@@ -300,7 +300,7 @@ function EditableSaleRow({
                     setAcaChild(c => (c ? { ...c, memberCount: Number.isFinite(v) && v >= 1 ? v : 1 } : c));
                   }}
                 />
-                <span style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}># members</span>
+                <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.textMuted, fontStyle: "italic" }}># members</span>
                 <button
                   type="button"
                   onClick={() => setAcaChild(null)}
@@ -333,7 +333,7 @@ function EditableSaleRow({
               } size="sm">{entry.sale?.product?.name ?? "\u2014"}</Badge>
               {entry.sale?.product?.type === "ACA_PL" && <span style={ACA_BADGE}>ACA</span>}
               {entry.sale?.premium != null && (
-                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.sale.premium))}
                 </span>
               )}
@@ -353,7 +353,7 @@ function EditableSaleRow({
                   {addon.product.name}
                 </Badge>
                 {addon.premium != null && (
-                  <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                  <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.textMuted, marginTop: 2 }}>
                     {formatDollar(Number(addon.premium))}
                   </span>
                 )}
@@ -363,7 +363,7 @@ function EditableSaleRow({
             {entry.acaAttached && (
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <Badge color={semanticColors.accentPurple} size="sm">{entry.acaAttached.productName ?? "ACA"}</Badge>
-                <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.textMuted, marginTop: 2 }}>
                   {formatDollar(Number(entry.acaAttached.payoutAmount))}
                 </span>
               </div>
@@ -995,10 +995,10 @@ export function WeekSection({
                         }}>Status Change</span>
                         {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} {"\u2014"} {req.sale.product.name}
                       </div>
-                      <div style={{ fontSize: 12, color: C.textMuted }}>
+                      <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted }}>
                         <span style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
-                          padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                          padding: "2px 6px", borderRadius: 4, fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700,
                           background: SALE_STATUS_COLORS[req.oldStatus]?.bg ?? "transparent",
                           color: SALE_STATUS_COLORS[req.oldStatus]?.color ?? C.textMuted,
                         }}>
@@ -1007,7 +1007,7 @@ export function WeekSection({
                         <span style={{ margin: "0 4px", color: C.textTertiary }}>{"\u2192"}</span>
                         <span style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
-                          padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                          padding: "2px 6px", borderRadius: 4, fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700,
                           background: SALE_STATUS_COLORS[req.newStatus]?.bg ?? "transparent",
                           color: SALE_STATUS_COLORS[req.newStatus]?.color ?? C.textMuted,
                         }}>
@@ -1045,7 +1045,7 @@ export function WeekSection({
                         }}>Edit Request</span>
                         {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} {"\u2014"} {req.sale.product.name}
                       </div>
-                      <div style={{ fontSize: 12, color: C.textMuted }}>
+                      <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted }}>
                         {Object.entries(req.changes).map(([field, val]) => (
                           <span key={field} style={{ marginRight: 8 }}>
                             <strong style={{ color: C.textSecondary }}>{field}:</strong>{" "}

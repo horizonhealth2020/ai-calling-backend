@@ -136,7 +136,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
             onClick={() => exportAgentPerformanceCSV(tracker)}
             style={{
               padding: "6px 14px", borderRadius: radius.md, border: `1px solid ${colors.borderDefault}`,
-              background: colors.bgSurface, color: colors.textSecondary, fontSize: 12, fontWeight: 600,
+              background: colors.bgSurface, color: colors.textSecondary, fontSize: typography.sizes.xs2.fontSize, fontWeight: 600,
               cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
             }}
           >

@@ -659,7 +659,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               ))}
             </div>
             {!form.paymentType && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: colors.warning }}>Please select a payment type before submitting</p>
+              <p style={{ margin: "6px 0 0", fontSize: typography.sizes.xs2.fontSize, color: colors.warning }}>Please select a payment type before submitting</p>
             )}
           </div>
 
@@ -778,7 +778,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                           : `2px solid ${colors.borderDefault}`,
                         background: acaMode === mode ? colorAlpha(semanticColors.accentTealMid, 0.1) : "transparent",
                         cursor: "pointer",
-                        fontSize: 12,
+                        fontSize: typography.sizes.xs2.fontSize,
                         fontWeight: acaMode === mode ? 700 : 500,
                         color: acaMode === mode ? colors.primary300 : colors.textSecondary,
                         transition: `all ${motion.duration.fast} ${motion.easing.out}`,
@@ -1001,7 +1001,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                     {parsedInfo.parsedProducts.map((pp, i) => {
                       const matched = matchProduct(pp.name, products);
                       return (
-                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
+                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: typography.sizes.xs2.fontSize }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             {matched ? <Check size={12} color={colors.success} /> : <XCircle size={12} color={colors.danger} />}
                             <span style={{ color: colors.textPrimary }}>{matched ? matched.name : pp.name}</span>
@@ -1048,7 +1048,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                 </label>
                 <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[2] }}>
                   {addonProducts.length === 0 ? (
-                    <span style={{ fontSize: 12, color: colors.textTertiary }}>No add-on products available</span>
+                    <span style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textTertiary }}>No add-on products available</span>
                   ) : (
                     addonProducts.map(ap => {
                       const isChecked = form.addonProductIds.includes(ap.id);
@@ -1069,7 +1069,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                                 triggerPreview(true);
                               }}
                             />
-                            <span style={{ fontSize: 12, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
+                            <span style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textPrimary, flex: 1 }}>{ap.name}</span>
                             <Badge color={ap.type === "AD_D" ? colors.warning : colors.info} variant="subtle" size="sm">
                               {ap.type === "AD_D" ? "AD&D" : "ADDON"}
                             </Badge>

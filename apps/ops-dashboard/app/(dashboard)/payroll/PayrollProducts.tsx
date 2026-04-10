@@ -162,7 +162,7 @@ function ProductCard({
               </div>
             </div>
 
-            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted, lineHeight: 1.7 }}>
               {product.type === "CORE" && (
                 <>
                   {product.commissionBelow != null && <span>Below ${product.premiumThreshold}: <strong style={{ color: C.textSecondary }}>{product.commissionBelow}%</strong></span>}
@@ -203,7 +203,7 @@ function ProductCard({
               }
               const uncoveredCount = 51 - coveredStates.size;
               return (
-                <div style={{ marginTop: S[2], fontSize: 12 }}>
+                <div style={{ marginTop: S[2], fontSize: typography.sizes.xs2.fontSize }}>
                   <span style={{ color: C.textMuted }}>
                     Bundle: {product.requiredBundleAddon?.name ?? "?"}
                     {fallbackAddons.length > 0 ? ` / fallbacks: ${fallbackAddons.map(f => f.name).join(", ")}` : ""}
@@ -224,7 +224,7 @@ function ProductCard({
 
             {/* State count for ADDON/AD_D products */}
             {(product.type === "ADDON" || product.type === "AD_D") && product.stateAvailability && product.stateAvailability.length > 0 && (
-              <div style={{ marginTop: S[1], fontSize: 12, color: C.textMuted }}>
+              <div style={{ marginTop: S[1], fontSize: typography.sizes.xs2.fontSize, color: C.textMuted }}>
                 Available in {product.stateAvailability.length} state{product.stateAvailability.length !== 1 ? "s" : ""}
               </div>
             )}
@@ -368,7 +368,7 @@ function ProductCard({
                       <label style={LBL}>Fallback Addons (any qualifies)</label>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, maxHeight: 150, overflowY: "auto", marginTop: 4 }}>
                         {allProducts.filter(p => (p.type === "ADDON" || p.type === "AD_D") && p.id !== product.id && p.active && p.id !== d.requiredBundleAddonId).map(p => (
-                          <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.textSecondary, cursor: "pointer" }}>
+                          <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: typography.sizes.xs2.fontSize, color: C.textSecondary, cursor: "pointer" }}>
                             <input
                               type="checkbox"
                               checked={d.fallbackAddonIds.includes(p.id)}
@@ -410,14 +410,14 @@ function ProductCard({
                       onChange={e => setStateSearch(e.target.value)}
                     />
                     <div style={{ display: "flex", gap: S[2], marginBottom: S[2] }}>
-                      <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: 12 }} onClick={() => setSelectedStates(US_STATES.map(s => s.code))}>Select All</button>
-                      <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: 12 }} onClick={() => setSelectedStates([])}>Clear All</button>
+                      <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: typography.sizes.xs2.fontSize }} onClick={() => setSelectedStates(US_STATES.map(s => s.code))}>Select All</button>
+                      <button style={{ background: "transparent", border: "none", color: C.primary400, cursor: "pointer", fontSize: typography.sizes.xs2.fontSize }} onClick={() => setSelectedStates([])}>Clear All</button>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 4, maxHeight: 200, overflowY: "auto" }}>
                       {US_STATES.filter(s =>
                         !stateSearch || s.name.toLowerCase().includes(stateSearch.toLowerCase()) || s.code.toLowerCase().includes(stateSearch.toLowerCase())
                       ).map(s => (
-                        <label key={s.code} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.textSecondary, cursor: "pointer" }}>
+                        <label key={s.code} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: typography.sizes.xs2.fontSize, color: C.textSecondary, cursor: "pointer" }}>
                           <input
                             type="checkbox"
                             checked={selectedStates.includes(s.code)}
@@ -675,7 +675,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
               <div key={type}>
                 <div style={{ display: "flex", alignItems: "center", gap: S[2], marginBottom: S[3] }}>
                   <div style={{ height: 2, width: 16, background: TYPE_COLORS[type], borderRadius: 1 }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: TYPE_COLORS[type], textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <span style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: TYPE_COLORS[type], textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {TYPE_LABELS[type]} Products
                   </span>
                   <Badge color={TYPE_COLORS[type]} size="sm">{group.length}</Badge>
@@ -705,7 +705,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
         background: C.bgSurface,
         border: `1px solid ${C.borderSubtle}`,
         borderRadius: R.lg,
-        fontSize: 12, color: C.textMuted, lineHeight: 1.7,
+        fontSize: typography.sizes.xs2.fontSize, color: C.textMuted, lineHeight: 1.7,
       }}>
         <strong style={{ color: C.textTertiary }}>Enrollment fee rules:</strong>{" "}
         $125 {"\u2192"} +$10 bonus {"\u00B7"} $99 {"\u2192"} $0 {"\u00B7"} Below $99 {"\u2192"} halves all commission (unless approved) {"\u00B7"} Standalone add-ons: $50 threshold instead of $99

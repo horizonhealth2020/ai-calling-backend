@@ -124,7 +124,7 @@ function AgentRow({ agent, onSave, onDelete }: {
     <div className="row-hover" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, transition: `background ${motion.duration.fast}` }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: colors.textPrimary }}>{agent.name}</div>
-        <div style={{ fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
+        <div style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textTertiary, marginTop: 2 }}>
           {agent.email ? `CRM: ${agent.email}` : ""}
           {agent.email && agent.extension ? " \u00b7 " : ""}
           {agent.extension ? `Ext: ${agent.extension}` : ""}
@@ -133,7 +133,7 @@ function AgentRow({ agent, onSave, onDelete }: {
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {confirmDelete ? (
           <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: colors.dangerBg, border: `1px solid ${colorAlpha(semanticColors.dangerLight, 0.25)}`, borderRadius: radius.md, padding: "6px 10px" }}>
-            <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove agent?</span>
+            <span style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.danger, fontWeight: 600 }}>Remove agent?</span>
             <Button variant="secondary" size="sm" style={{ padding: "4px 10px", borderColor: colorAlpha(semanticColors.statusPending, 0.4), color: semanticColors.statusPending }} onClick={() => { onDelete(agent.id, false); setConfirmDelete(false); }}>Deactivate</Button>
             <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id, true); setConfirmDelete(false); }}>Delete Permanently</Button>
             <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>Cancel</Button>
@@ -194,14 +194,14 @@ function LeadSourceRow({ ls, onSave, onDelete }: {
     <div className="row-hover" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, transition: `background ${motion.duration.fast}` }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: colors.textPrimary }}>{ls.name}</div>
-        <div style={{ fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
+        <div style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textTertiary, marginTop: 2 }}>
           ${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}{(ls.callBufferSeconds ?? 0) > 0 ? ` \u00b7 Buffer: ${ls.callBufferSeconds}s` : ""}
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {confirmDelete ? (
           <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid ${colorAlpha(semanticColors.dangerLight, 0.25)}`, borderRadius: radius.md, padding: "6px 10px" }}>
-            <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove source?</span>
+            <span style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.danger, fontWeight: 600 }}>Remove source?</span>
             <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(ls.id); setConfirmDelete(false); }}>Yes</Button>
             <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</Button>
           </div>
@@ -313,7 +313,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
             onSubmit={addAgent}
             style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}
           >
-            <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Agent</div>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Agent</div>
             <Input label="Name" error={cfgFieldErrors.agentName} value={newAgent.name} onChange={e => { setNewAgent(x => ({ ...x, name: e.target.value })); setCfgFieldErrors(fe => { const n = { ...fe }; delete n.agentName; return n; }); }} />
             <Input label="CRM User ID" value={newAgent.email} onChange={e => setNewAgent(x => ({ ...x, email: e.target.value }))} />
             <Input label="Tracking Extension" value={newAgent.extension} onChange={e => setNewAgent(x => ({ ...x, extension: e.target.value }))} />
@@ -335,7 +335,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
             onSubmit={addLeadSource}
             style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.borderSubtle}`, display: "grid", gap: 8 }}
           >
-            <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Lead Source</div>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, marginBottom: 4, textTransform: "uppercase", letterSpacing: typography.tracking.caps }}>Add Lead Source</div>
             <Input label="Name" error={cfgFieldErrors.lsName} value={newLS.name} onChange={e => { setNewLS(x => ({ ...x, name: e.target.value })); setCfgFieldErrors(fe => { const n = { ...fe }; delete n.lsName; return n; }); }} />
             <Input label="CRM List ID" value={newLS.listId} onChange={e => setNewLS(x => ({ ...x, listId: e.target.value }))} />
             <Input label="Cost per lead ($)" type="number" step="0.01" value={newLS.costPerLead} onChange={e => setNewLS(x => ({ ...x, costPerLead: e.target.value }))} />

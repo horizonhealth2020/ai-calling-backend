@@ -83,7 +83,7 @@ function ServiceAgentCard({
         <>
           <div>
             <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: C.textPrimary }}>{agent.name}</div>
-            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, color: C.textMuted, marginTop: 2 }}>
               Base Pay: <span style={{ color: C.textSecondary, fontWeight: 600 }}>{formatDollar(Number(agent.basePay))}</span>
               {!agent.active && <span style={{ marginLeft: 6, color: C.textMuted }}> {"\u00B7"} Inactive</span>}
             </div>
@@ -265,7 +265,7 @@ export default function PayrollService({
 
           {/* Add agent form */}
           <form onSubmit={addServiceAgent} style={{ borderTop: `1px solid ${C.borderSubtle}`, paddingTop: S[4], display: "grid", gap: S[2] }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: S[1] }}>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: C.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: S[1] }}>
               Add Agent
             </div>
             <input className="input-focus" style={inputStyle} value={newServiceAgent.name} placeholder="Full name *" required onChange={e => setNewServiceAgent(x => ({ ...x, name: e.target.value }))} />
@@ -318,7 +318,7 @@ export default function PayrollService({
 
           {/* Add category */}
           <div style={{ borderTop: `1px solid ${C.borderSubtle}`, paddingTop: S[4] }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: S[3] }}>
+            <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: C.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: S[3] }}>
               Add Category
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: S[2], alignItems: "end" }}>
@@ -332,7 +332,7 @@ export default function PayrollService({
                   onChange={e => setNewCatName(e.target.value)}
                 />
               </div>
-              <label style={{ display: "flex", alignItems: "center", gap: S[1], fontSize: 12, color: C.textSecondary, paddingBottom: 4, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: S[1], fontSize: typography.sizes.xs2.fontSize, color: C.textSecondary, paddingBottom: 4, cursor: "pointer", whiteSpace: "nowrap" }}>
                 <input type="checkbox" checked={newCatDeduction} onChange={e => setNewCatDeduction(e.target.checked)} />
                 Deduction
               </label>
@@ -419,7 +419,7 @@ export default function PayrollService({
                       <td style={{ ...tdStyle, fontWeight: 600, color: C.textPrimary }}>
                         {agent.name}
                         {existingEntry && (
-                          <span style={{ fontSize: 10, color: C.info, marginLeft: 6, fontWeight: 500 }}>
+                          <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.info, marginLeft: 6, fontWeight: 500 }}>
                             saved
                           </span>
                         )}

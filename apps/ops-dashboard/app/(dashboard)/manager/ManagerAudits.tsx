@@ -229,7 +229,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
             <Filter size={14} style={{ color: colors.textMuted }} />
             <select
               className="input-focus"
-              style={{ ...baseInputStyle, width: 180, fontSize: 12, padding: "4px 8px" }}
+              style={{ ...baseInputStyle, width: 180, fontSize: typography.sizes.xs2.fontSize, padding: "4px 8px" }}
               value={selectedAgentId}
               onChange={e => setSelectedAgentId(e.target.value)}
             >
@@ -385,7 +385,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                           >
                             <Edit3 size={12} />Edit
                           </Button>
-                          <span style={{ color: colors.textMuted, fontSize: 12 }}>
+                          <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs2.fontSize }}>
                             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </span>
                         </div>
@@ -421,7 +421,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                               <div style={{ marginBottom: 20 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                                   <Target size={15} style={{ color: colors.primary400 }} />
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                  <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                     Coaching Priorities
                                   </div>
                                 </div>
@@ -468,7 +468,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                               <div style={{ marginBottom: 20 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                                   <AlertCircle size={15} style={{ color: colors.danger }} />
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                  <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                     Issues ({a.issues.length})
                                   </div>
                                 </div>
@@ -522,7 +522,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                               <div style={{ marginBottom: 20 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                                   <Star size={15} style={{ color: semanticColors.statusPending }} />
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                  <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                     Wins ({a.wins.length})
                                   </div>
                                 </div>
@@ -551,7 +551,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                               <div style={{ marginBottom: 20 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                                   <Lightbulb size={15} style={{ color: semanticColors.statusPending }} />
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                  <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                     Missed Opportunities ({a.missedOpportunities.length})
                                   </div>
                                 </div>
@@ -563,7 +563,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                       background: colors.bgSurface,
                                       border: `1px solid ${colorAlpha(semanticColors.statusPending, 0.15)}`,
                                     }}>
-                                      <div style={{ fontSize: 12, fontWeight: 700, color: semanticColors.statusPending, marginBottom: 6 }}>{mo.moment}</div>
+                                      <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: semanticColors.statusPending, marginBottom: 6 }}>{mo.moment}</div>
                                       <p style={{ margin: "0 0 8px", fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, lineHeight: 1.6 }}>
                                         <span style={{ fontWeight: 600, color: colors.textPrimary }}>What should have happened: </span>
                                         {mo.what_should_have_happened}
@@ -597,7 +597,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                 {transcriptOpen === a.id && (
                                   <div className="animate-slide-down" style={{
                                     color: colors.textSecondary,
-                                    fontSize: 12,
+                                    fontSize: typography.sizes.xs2.fontSize,
                                     maxHeight: 300,
                                     overflowY: "auto",
                                     whiteSpace: "pre-wrap",
@@ -624,7 +624,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="btn-hover"
-                                    style={{ ...baseButtonStyle, padding: "6px 12px", background: "transparent", border: `1px solid ${colors.borderDefault}`, color: colors.textSecondary, borderRadius: radius.md, fontSize: 12, display: "inline-flex", textDecoration: "none" }}
+                                    style={{ ...baseButtonStyle, padding: "6px 12px", background: "transparent", border: `1px solid ${colors.borderDefault}`, color: colors.textSecondary, borderRadius: radius.md, fontSize: typography.sizes.xs2.fontSize, display: "inline-flex", textDecoration: "none" }}
                                   >
                                     <Mic size={14} />Listen to Recording
                                   </a>

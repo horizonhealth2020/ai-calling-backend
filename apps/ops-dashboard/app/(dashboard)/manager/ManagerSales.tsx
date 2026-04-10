@@ -520,7 +520,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                             onChange={e => handleStatusChange(s.id, e.target.value, s.status)}
                             style={{
                               padding: "4px 8px",
-                              fontSize: 12,
+                              fontSize: typography.sizes.xs2.fontSize,
                               fontWeight: 600,
                               borderRadius: radius.full,
                               border: "none",
@@ -663,7 +663,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                       {products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D")).map(ap => {
                                         const isChecked = (editForm.addonProductIds || []).includes(ap.id);
                                         return (
-                                          <label key={ap.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: colors.textPrimary, cursor: "pointer" }}>
+                                          <label key={ap.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: typography.sizes.xs2.fontSize, color: colors.textPrimary, cursor: "pointer" }}>
                                             <input type="checkbox" checked={isChecked} style={{ accentColor: colors.primary400 }}
                                               onChange={e => {
                                                 if (e.target.checked) {

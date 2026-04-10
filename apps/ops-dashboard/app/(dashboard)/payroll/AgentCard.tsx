@@ -115,7 +115,7 @@ export function AgentCard({
         <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
           <span style={{ fontWeight: 700, fontSize: typography.sizes.md.fontSize, color: C.textPrimary }}>{agentName}</span>
           {isTopEarner && <Badge color={C.primary400}>Top Earner</Badge>}
-          <span style={{ fontSize: 12, fontWeight: 400, color: C.textMuted }}>
+          <span style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 400, color: C.textMuted }}>
             {saleCount} sale{saleCount !== 1 ? "s" : ""}
           </span>
         </div>

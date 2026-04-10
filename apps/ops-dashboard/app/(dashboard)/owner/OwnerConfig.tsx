@@ -287,7 +287,7 @@ function ConfigSection({
             <h3 style={SECTION_TITLE}>Call Audit System Prompt</h3>
             <p style={{ ...SECTION_SUBTITLE, marginTop: 4 }}>
               Instructs GPT-4o-mini how to evaluate call transcriptions. Should request a JSON response with{" "}
-              <code style={{ fontSize: 12, color: colors.primary400, background: colors.bgSurfaceInset, padding: "1px 5px", borderRadius: 3 }}>
+              <code style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.primary400, background: colors.bgSurfaceInset, padding: "1px 5px", borderRadius: 3 }}>
                 score, summary, coachingNotes
               </code>{" "}
               fields.
@@ -372,7 +372,7 @@ function ConfigSection({
                 {a.name}
               </span>
               {a.email && (
-                <span style={{ fontSize: 12, color: colors.textTertiary }}>({a.email})</span>
+                <span style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textTertiary }}>({a.email})</span>
               )}
               <div style={{ marginLeft: "auto" }}>
                 {a.auditEnabled ? (
@@ -442,7 +442,7 @@ function ConfigSection({
             disabled={togglingAiScoring}
             style={{
               padding: "6px 16px", borderRadius: radius.lg, border: "none", cursor: "pointer",
-              fontSize: 12, fontWeight: 700,
+              fontSize: typography.sizes.xs2.fontSize, fontWeight: 700,
               background: aiScoringEnabled ? colors.success : colorAlpha(semanticColors.statusDead, 0.15),
               color: aiScoringEnabled ? semanticColors.white : colors.danger,
               opacity: togglingAiScoring ? 0.6 : 1,
@@ -461,7 +461,7 @@ function ConfigSection({
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                 {formatDollar(aiStats.todaySpent)}
               </div>
-              <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+              <div style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.textMuted, marginTop: 2 }}>
                 of {formatDollar(aiStats.dailyBudget)} budget
               </div>
             </div>
@@ -531,7 +531,7 @@ function ConfigSection({
             disabled={togglingConvoso}
             style={{
               padding: "6px 16px", borderRadius: radius.lg, border: "none", cursor: "pointer",
-              fontSize: 12, fontWeight: 700,
+              fontSize: typography.sizes.xs2.fontSize, fontWeight: 700,
               background: convosoEnabled ? colors.success : colorAlpha(semanticColors.statusDead, 0.15),
               color: convosoEnabled ? semanticColors.white : colors.danger,
               opacity: togglingConvoso ? 0.6 : 1,
@@ -544,7 +544,7 @@ function ConfigSection({
 
         {/* Business Hours */}
         <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 12 }}>
+          <div style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 12 }}>
             Business Hours
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -753,7 +753,7 @@ function DataArchiveSection({ API }: { API: string }) {
                           borderRadius: radius.md,
                           color: colors.primary500,
                           cursor: restoring === b.batchId ? "wait" : "pointer",
-                          fontSize: 12,
+                          fontSize: typography.sizes.xs2.fontSize,
                           fontWeight: typography.weights.semibold,
                           padding: "4px 10px",
                           display: "inline-flex",
