@@ -384,7 +384,7 @@ function HeroSection({
 
 /* ── Stat Cards Row ──────────────────────────────────────────── */
 
-function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
+function StatCardsRow({ stats, hero }: { stats: CommandCenterData["statCards"]; hero: CommandCenterData["hero"] }) {
   const chargebackDanger =
     stats.chargebackCount > stats.priorChargebackCount;
 
@@ -392,14 +392,39 @@ function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
         gap: 16,
-        marginTop: 16,
       }}
     >
-      {/* Commission Friday */}
+      {/* Total Sales */}
       <div
         className="stagger-1"
+        style={{
+          ...STAT_CARD,
+          borderLeft: `3px solid ${colors.accentTeal}`,
+        }}
+      >
+        <div style={STAT_LABEL}>Sales</div>
+        <div style={STAT_VALUE}><AnimatedNumber value={hero.salesCount} decimals={0} /></div>
+        <DeltaBadge current={hero.salesCount} prior={hero.priorSalesCount} />
+      </div>
+
+      {/* Total Premium */}
+      <div
+        className="stagger-2"
+        style={{
+          ...STAT_CARD,
+          borderLeft: `3px solid ${semanticColors.accentGreenMid}`,
+        }}
+      >
+        <div style={STAT_LABEL}>Premium</div>
+        <div style={STAT_VALUE}>{fmtDollar(hero.premiumTotal)}</div>
+        <DeltaBadge current={hero.premiumTotal} prior={hero.priorPremiumTotal} />
+      </div>
+
+      {/* Commission Friday */}
+      <div
+        className="stagger-3"
         style={{
           ...STAT_CARD,
           borderLeft: `3px solid ${semanticColors.accentBlue}`,
@@ -411,7 +436,7 @@ function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
 
       {/* Chargebacks */}
       <div
-        className={chargebackDanger ? "stagger-2 animate-pulse" : "stagger-2"}
+        className={chargebackDanger ? "stagger-4 animate-pulse" : "stagger-4"}
         style={{
           ...STAT_CARD,
           borderLeft: `3px solid ${chargebackDanger ? semanticColors.dangerLight : colors.danger}`,
@@ -439,7 +464,7 @@ function StatCardsRow({ stats }: { stats: CommandCenterData["statCards"] }) {
 
       {/* Lead ROI */}
       <div
-        className="stagger-3"
+        className="stagger-5"
         style={{
           ...STAT_CARD,
           borderLeft: `3px solid ${semanticColors.warningAmber}`,
@@ -817,14 +842,21 @@ export default function OwnerOverview({
         <CommandCenterSkeleton />
       ) : (
         <>
-          <HeroSection
-            hero={data.hero}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            compact={compact}
-            glowing={heroGlow}
-          />
-          <StatCardsRow stats={data.statCards} />
+          {/* Period Selector Bar */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+            ...(heroGlow ? { filter: `drop-shadow(0 0 8px ${colorAlpha(semanticColors.accentGreenBright, 0.3)})`, transition: "filter 1.5s ease-out" } : {}),
+          }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: typography.sizes.lg.fontSize, fontWeight: typography.weights.bold, color: colors.textPrimary }}>Command Center</h2>
+              <p style={{ margin: "4px 0 0", fontSize: typography.sizes.sm.fontSize, color: colors.textTertiary }}>Office performance at a glance</p>
+            </div>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} presets={KPI_PRESETS} />
+          </div>
+          <StatCardsRow stats={data.statCards} hero={data.hero} />
           <LeaderboardSection
             leaderboard={data.leaderboard}
             compact={compact}
