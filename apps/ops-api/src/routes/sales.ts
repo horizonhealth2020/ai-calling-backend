@@ -923,6 +923,156 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
   res.json({ ...current, trends, convosoConfigured });
 }));
 
+// ── Command Center (aggregated owner endpoint) ────────────────────
+router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
+  const priorDr = dr ? shiftRange(dr, Math.round((dr.lt.getTime() - dr.gte.getTime()) / 86400000)) : undefined;
+
+  // ── Parallel data fetch ──
+  const callWhere: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
+  if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
+
+  const saleWhere = { status: "RAN" as const, ...(dr ? { saleDate: { gte: dr.gte, lt: dr.lt } } : {}), product: { type: { not: "ACA_PL" as const } } };
+  const priorSaleWhere = priorDr ? { status: "RAN" as const, saleDate: { gte: priorDr.gte, lt: priorDr.lt }, product: { type: { not: "ACA_PL" as const } } } : undefined;
+
+  const now = new Date();
+  const cbThisWeek = getSundayWeekRange(now);
+  const cbLastWeek = shiftRange(cbThisWeek, 7);
+
+  const [
+    agents, priorSales, allLeadSources, callLogs,
+    cbThisWeekAgg, cbLastWeekAgg, arrearsPeriod,
+  ] = await Promise.all([
+    // Current period agents + sales
+    prisma.agent.findMany({
+      where: { active: true },
+      include: { sales: { where: saleWhere, include: { addons: { select: { premium: true } } } } },
+    }),
+    // Prior period sales
+    priorSaleWhere
+      ? prisma.sale.findMany({ where: priorSaleWhere, select: { premium: true, addons: { select: { premium: true } } } })
+      : Promise.resolve([]),
+    // Lead sources for cost calculation
+    prisma.leadSource.findMany({ select: { id: true, costPerLead: true, callBufferSeconds: true } }),
+    // Call logs for quality metrics
+    prisma.convosoCallLog.findMany({ where: callWhere, select: { agentId: true, leadSourceId: true, callDurationSeconds: true } }),
+    // Chargebacks this week
+    prisma.chargebackSubmission.aggregate({ where: { createdAt: { gte: cbThisWeek.gte, lt: cbThisWeek.lt } }, _count: true, _sum: { totalAmount: true } }),
+    // Chargebacks last week (trend)
+    prisma.chargebackSubmission.aggregate({ where: { createdAt: { gte: cbLastWeek.gte, lt: cbLastWeek.lt } }, _count: true, _sum: { totalAmount: true } }),
+    // Arrears period for commission owed Friday
+    prisma.payrollPeriod.findFirst({
+      where: { weekEnd: { lt: now } },
+      orderBy: { weekStart: "desc" },
+      include: {
+        entries: { select: { payoutAmount: true, adjustmentAmount: true, bonusAmount: true, frontedAmount: true, holdAmount: true } },
+        serviceEntries: { select: { totalPay: true } },
+      },
+    }),
+  ]);
+
+  // ── Hero metrics ──
+  let salesCount = 0;
+  let premiumTotal = 0;
+  const agentSalesMap = new Map<string, { salesCount: number; premiumTotal: number; totalLeadCost: number }>();
+
+  for (const agent of agents) {
+    const sc = agent.sales.length;
+    const pt = agent.sales.reduce((s, sale) => s + Number(sale.premium ?? 0) + (sale.addons?.reduce((a: number, ad) => a + Number(ad.premium ?? 0), 0) ?? 0), 0);
+    salesCount += sc;
+    premiumTotal += pt;
+    agentSalesMap.set(agent.name, { salesCount: sc, premiumTotal: pt, totalLeadCost: 0 });
+  }
+
+  const priorSalesCount = priorSales.length;
+  const priorPremiumTotal = priorSales.reduce((s, sale) => s + Number(sale.premium ?? 0) + (sale.addons?.reduce((a: number, ad) => a + Number(ad.premium ?? 0), 0) ?? 0), 0);
+
+  // ── Lead cost per agent ──
+  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+  const agentCallMetrics = new Map<string, { calls: number; tiers: { short: number; contacted: number; engaged: number; deep: number }; totalDuration: number; callCount: number }>();
+
+  for (const log of callLogs) {
+    if (!log.agentId || !log.leadSourceId) continue;
+    const ls = lsMap.get(log.leadSourceId);
+    if (!ls) continue;
+    if (ls.callBufferSeconds > 0 && (log.callDurationSeconds ?? 0) < ls.callBufferSeconds) continue;
+
+    // Lead cost
+    const agentEntry = [...agents].find(a => a.id === log.agentId);
+    if (agentEntry) {
+      const existing = agentSalesMap.get(agentEntry.name);
+      if (existing) existing.totalLeadCost += ls.costPerLead;
+    }
+
+    // Call quality metrics
+    const aid = log.agentId;
+    if (!agentCallMetrics.has(aid)) agentCallMetrics.set(aid, { calls: 0, tiers: { short: 0, contacted: 0, engaged: 0, deep: 0 }, totalDuration: 0, callCount: 0 });
+    const m = agentCallMetrics.get(aid)!;
+    m.calls++;
+    const dur = log.callDurationSeconds;
+    if (dur !== null) {
+      if (dur < 30) m.tiers.short++;
+      else if (dur < 120) m.tiers.contacted++;
+      else if (dur < 300) m.tiers.engaged++;
+      else m.tiers.deep++;
+      m.totalDuration += dur;
+      m.callCount++;
+    }
+  }
+
+  // ── Commission owed Friday (arrears period net) ──
+  let commissionOwedFriday = 0;
+  if (arrearsPeriod) {
+    commissionOwedFriday = arrearsPeriod.entries.reduce((s, e) =>
+      s + Number(e.payoutAmount) + Number(e.adjustmentAmount) + Number(e.bonusAmount) + Number(e.frontedAmount) - Number(e.holdAmount), 0);
+    commissionOwedFriday += arrearsPeriod.serviceEntries.reduce((s, e) => s + Number(e.totalPay), 0);
+  }
+
+  // ── Leaderboard ──
+  const agentIdToName = new Map(agents.map(a => [a.id, a.name]));
+  const leaderboard = agents
+    .map(agent => {
+      const sales = agentSalesMap.get(agent.name) ?? { salesCount: 0, premiumTotal: 0, totalLeadCost: 0 };
+      const callMetrics = agentCallMetrics.get(agent.id);
+      return {
+        agent: agent.name,
+        calls: callMetrics?.calls ?? 0,
+        avgCallLength: callMetrics && callMetrics.callCount > 0 ? Math.round(callMetrics.totalDuration / callMetrics.callCount) : 0,
+        salesCount: sales.salesCount,
+        premiumTotal: sales.premiumTotal,
+        costPerSale: sales.salesCount > 0 ? sales.totalLeadCost / sales.salesCount : 0,
+        callsByTier: callMetrics?.tiers ?? { short: 0, contacted: 0, engaged: 0, deep: 0 },
+      };
+    })
+    .sort((a, b) => b.premiumTotal - a.premiumTotal || b.salesCount - a.salesCount);
+
+  // ── Total lead cost for ROI ──
+  let totalLeadCost = 0;
+  for (const [, v] of agentSalesMap) totalLeadCost += v.totalLeadCost;
+  const avgCostPerSale = salesCount > 0 ? totalLeadCost / salesCount : 0;
+  const priorAvgCostPerSale = priorSalesCount > 0 ? totalLeadCost / priorSalesCount : 0; // approximate
+
+  const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;
+
+  res.json({
+    hero: { salesCount, premiumTotal, priorSalesCount, priorPremiumTotal },
+    statCards: {
+      thisWeekPremium: premiumTotal,
+      priorWeekPremium: priorPremiumTotal,
+      commissionOwedFriday,
+      chargebackCount: cbThisWeekAgg._count ?? 0,
+      chargebackDollars: Number(cbThisWeekAgg._sum?.totalAmount ?? 0),
+      priorChargebackCount: cbLastWeekAgg._count ?? 0,
+      avgCostPerSale,
+      priorAvgCostPerSale,
+      convosoConfigured,
+    },
+    leaderboard,
+  });
+}));
+
 router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const viewQuery = z.object({ view: z.enum(["weekly", "monthly"]).optional() }).safeParse(req.query);
   const view = viewQuery.success && viewQuery.data.view === "monthly" ? "monthly" : "weekly";
