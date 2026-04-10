@@ -131,6 +131,14 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   } catch (tagErr) {
     console.error("CallAudit auto-tag failed for sale", sale.id, tagErr);
   }
+  logAudit(req.user!.id, "CREATE", "Sale", sale.id, {
+    agentId: parsed.agentId,
+    memberName: parsed.memberName,
+    premium: parsed.premium,
+    productId: parsed.productId,
+    status: parsed.status,
+  });
+
   res.status(201).json(sale);
 }));
 
@@ -258,10 +266,10 @@ router.post("/sales/aca", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), as
 
   logAudit(
     req.user!.id,
-    "aca_sale_created",
-    "sale",
+    "CREATE",
+    "Sale",
     sale.id,
-    { agentId: parsed.agentId, memberCount: parsed.memberCount, carrier: parsed.carrier },
+    { agentId: parsed.agentId, memberCount: parsed.memberCount, carrier: parsed.carrier, type: "ACA_PL" },
   );
 
   res.status(201).json(sale);

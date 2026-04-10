@@ -398,6 +398,11 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     );
   }
 
+  logAudit(req.user!.id, "CREATE", "ChargebackSubmission", batchId, {
+    count: result.count,
+    source,
+  });
+
   return res.status(201).json({
     count: result.count,
     batchId,
@@ -439,6 +444,7 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
       resolutionType: parsed.data.resolutionType,
     },
   });
+  logAudit(req.user!.id, "UPDATE", "ChargebackSubmission", pp.data.id, { resolutionType: parsed.data.resolutionType });
   emitCSChanged({ type: "chargeback", batchId: "resolution", count: 1 });
   return res.json(record);
 }));

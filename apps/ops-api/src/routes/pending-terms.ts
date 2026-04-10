@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
+import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { batchRoundRobinAssign } from "../services/repSync";
 
@@ -80,6 +81,8 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
   // Emit CS changed event for real-time updates (post-commit, non-atomic)
   emitCSChanged({ type: "pending_term", batchId, count: result.count });
 
+  logAudit(req.user!.id, "CREATE", "PendingTerm", batchId, { count: result.count });
+
   return res.status(201).json({ count: result.count, batchId });
 }));
 
@@ -142,6 +145,7 @@ router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SE
       resolutionType: parsed.data.resolutionType,
     },
   });
+  logAudit(req.user!.id, "UPDATE", "PendingTerm", pp.data.id, { resolutionType: parsed.data.resolutionType });
   emitCSChanged({ type: "pending_term", batchId: "resolution", count: 1 });
   return res.json(record);
 }));

@@ -139,6 +139,13 @@ function formatFeedEvent(event: FeedEvent): { icon: React.ReactNode; color: stri
   if (event.entityType === "Sale" && event.action === "UPDATE") {
     return { icon: <Edit3 size={14} />, color: semanticColors.accentBlue, description: `updated sale — ${d.memberName ?? ""}` };
   }
+  if (event.entityType === "Sale" && event.action === "UPDATE_STATUS") {
+    const status = (d.newStatus as string) ?? "";
+    return { icon: <Edit3 size={14} />, color: status === "DEAD" || status === "DECLINED" ? semanticColors.dangerLight : semanticColors.accentBlue, description: `changed sale status to ${status} — ${d.memberName ?? ""}` };
+  }
+  if (event.entityType === "Sale" && event.action === "REQUEST_STATUS_CHANGE") {
+    return { icon: <Clock size={14} />, color: semanticColors.warningAmber, description: `requested status change — ${d.memberName ?? ""}` };
+  }
   if (event.entityType === "Sale" && event.action === "DELETE") {
     return { icon: <AlertTriangle size={14} />, color: semanticColors.dangerLight, description: `deleted sale — ${d.memberName ?? ""}` };
   }
