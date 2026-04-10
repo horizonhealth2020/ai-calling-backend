@@ -26,7 +26,7 @@ const CARD_WRAP: React.CSSProperties = {
   padding: spacing[6],
 };
 const TITLE_LBL: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: typography.sizes.xs.fontSize,
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: typography.tracking.caps,

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { PageShell, ToastProvider, useToast, Button, colors, radius } from "@ops/ui";
+import { PageShell, ToastProvider, useToast, Button, colors, radius, semanticColors, typography } from "@ops/ui";
 import { useSocketContext } from "@/lib/SocketProvider";
 import { decodeRolesFromToken } from "@/lib/auth";
 import { getToken, authFetch } from "@ops/auth/client";
@@ -26,7 +26,7 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 const STORAGE_ALERT: React.CSSProperties = {
   background: "rgba(234, 179, 8, 0.08)",
-  borderLeft: `4px solid ${colors.warning ?? "#eab308"}`,
+  borderLeft: `4px solid ${colors.warning ?? semanticColors.warningGold}`,
   borderRadius: radius.lg,
   padding: "12px 16px",
   display: "flex",
@@ -91,8 +91,8 @@ function OwnerPageInner() {
       {storageStats?.alertActive && !storageAlertDismissed && (
         <div style={STORAGE_ALERT}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
-            <Database size={18} color={colors.warning ?? "#eab308"} />
-            <span style={{ fontSize: 13, color: colors.textPrimary }}>
+            <Database size={18} color={colors.warning ?? semanticColors.warningGold} />
+            <span style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
               Database storage at {storageStats.usagePct}% capacity ({storageStats.dbSizeMB} MB / {storageStats.planLimitMB} MB)
             </span>
           </div>

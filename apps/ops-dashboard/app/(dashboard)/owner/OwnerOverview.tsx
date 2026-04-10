@@ -16,6 +16,7 @@ import {
   baseCardStyle,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -54,7 +55,7 @@ function buildDateParams(dr: DateRangeFilterValue): string {
   return "";
 }
 
-const RANK_COLORS = ["#fbbf24", "#94a3b8", "#d97706"] as const;
+const RANK_COLORS = [semanticColors.statusPending, semanticColors.neutralLightGray, semanticColors.warningBrown] as const;
 const RANK_LABELS = ["Gold", "Silver", "Bronze"] as const;
 
 /* -- Inline style constants -- */
@@ -228,7 +229,7 @@ function DashboardSection({
                           #{i + 1} {RANK_LABELS[i]}
                         </Badge>
                       ) : (
-                        <span style={{ color: colors.textMuted, fontSize: 13, fontWeight: typography.weights.medium }}>
+                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.medium }}>
                           #{i + 1}
                         </span>
                       )}
@@ -243,7 +244,7 @@ function DashboardSection({
                       {i === 0 ? (
                         <span
                           style={{
-                            backgroundImage: "linear-gradient(135deg, #34d399, #10b981, #059669)",
+                            backgroundImage: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid}, ${semanticColors.accentGreenDark})`,
                             WebkitBackgroundClip: "text",
                             WebkitTextFillColor: "transparent",
                             backgroundClip: "text",
@@ -304,7 +305,7 @@ function DashboardSection({
                   padding: "6px 14px", borderRadius: radius.md, border: "none", cursor: "pointer",
                   fontSize: 12, fontWeight: 600, textTransform: "capitalize",
                   background: periodView === v ? colors.primary500 : colors.bgSurfaceInset,
-                  color: periodView === v ? "#fff" : colors.textSecondary,
+                  color: periodView === v ? semanticColors.white : colors.textSecondary,
                 }}
               >
                 {v}

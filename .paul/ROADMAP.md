@@ -11,13 +11,13 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.2 | Chargeback Batch Review & Payroll Agent Tabs | 44-47 | Shipped | 2026-04-09 |
 | v2.3 | Parser & Payroll Fixes | 48 | Shipped | 2026-04-09 |
 | v2.4 | Payroll & Chargeback Fixes | 49 | Shipped | 2026-04-09 |
-| v2.5 | Professional Polish | 50-52 | In Progress | - |
+| v2.5 | Professional Polish | 50-52 | Shipped | 2026-04-10 |
 
 ## Active Milestone: v2.5 Professional Polish
 
 **Goal:** Elevate the platform from functional to professional-grade — proper interaction states, consistent design tokens, and accessibility foundations.
 **Status:** In Progress
-**Progress:** [██████░░░░] 66%
+**Progress:** [██████████] 100%
 
 ## Phases
 
@@ -25,7 +25,7 @@ A sales operations platform evolving from initial setup through full role-based 
 |-------|------|-------|--------|-----------|
 | 50 | Shared UI Hardening | 1 | Complete | 2026-04-09 |
 | 51 | Dashboard Interaction Fixes | 2 | Complete | 2026-04-10 |
-| 52 | Visual Consistency Pass | 2 | Planning | - |
+| 52 | Visual Consistency Pass | 2 | Complete | 2026-04-10 |
 
 ## Phase Details
 
@@ -83,7 +83,8 @@ A sales operations platform evolving from initial setup through full role-based 
 **Skills:** redesign-existing-projects, frontend-design
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 52-01: Semantic color tokens, responsive grids, touch nav
+- [x] 52-02: Bulk migration — hex, rgba, fontSize to design tokens
 
 ---
 
@@ -103,4 +104,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-10 — Phase 51 complete*
+*Last updated: 2026-04-10 — v2.5 shipped*

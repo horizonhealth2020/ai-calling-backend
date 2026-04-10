@@ -16,6 +16,8 @@ import {
   baseButtonStyle,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
+  colorAlpha,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDateTime } from "@ops/utils";
@@ -81,17 +83,17 @@ function formatPhone(raw: string | null | undefined): string {
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 const OUTCOME_COLORS: Record<string, { bg: string; color: string }> = {
-  sold: { bg: "rgba(74,222,128,0.12)", color: "#4ade80" },
-  lost: { bg: "rgba(248,113,113,0.12)", color: "#f87171" },
-  callback_scheduled: { bg: "rgba(251,191,36,0.12)", color: "#fbbf24" },
-  not_qualified: { bg: "rgba(148,163,184,0.12)", color: "#94a3b8" },
-  incomplete: { bg: "rgba(251,146,60,0.12)", color: "#fb923c" },
+  sold: { bg: "rgba(74,222,128,0.12)", color: semanticColors.accentGreen },
+  lost: { bg: colorAlpha(semanticColors.dangerLight, 0.12), color: semanticColors.dangerLight },
+  callback_scheduled: { bg: colorAlpha(semanticColors.statusPending, 0.12), color: semanticColors.statusPending },
+  not_qualified: { bg: "rgba(148,163,184,0.12)", color: semanticColors.neutralLightGray },
+  incomplete: { bg: "rgba(251,146,60,0.12)", color: semanticColors.warningOrange },
 };
 
 const PRIORITY_COLORS: Record<number, { bg: string; color: string }> = {
-  1: { bg: "rgba(248,113,113,0.15)", color: "#f87171" },
-  2: { bg: "rgba(251,191,36,0.15)", color: "#fbbf24" },
-  3: { bg: "rgba(45,212,191,0.15)", color: "#2dd4bf" },
+  1: { bg: colorAlpha(semanticColors.dangerLight, 0.15), color: semanticColors.dangerLight },
+  2: { bg: colorAlpha(semanticColors.statusPending, 0.15), color: semanticColors.statusPending },
+  3: { bg: colorAlpha(semanticColors.accentTealLight, 0.15), color: semanticColors.accentTealLight },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -110,12 +112,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const QUOTE_BLOCK: React.CSSProperties = {
-  borderLeft: "3px solid rgba(45,212,191,0.4)",
+  borderLeft: `3px solid ${colorAlpha(semanticColors.accentTealLight, 0.4)}`,
   paddingLeft: 12,
   fontStyle: "italic",
   color: colors.textSecondary,
   margin: "8px 0",
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   lineHeight: 1.6,
 };
 
@@ -270,17 +272,17 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                 alignItems: "center",
                 gap: 12,
                 padding: "10px 16px",
-                background: "rgba(20,184,166,0.08)",
-                border: `1px solid rgba(20,184,166,0.2)`,
+                background: colorAlpha(semanticColors.accentTealMid, 0.08),
+                border: `1px solid ${colorAlpha(semanticColors.accentTealMid, 0.2)}`,
                 borderRadius: radius.lg,
-                fontSize: 13,
+                fontSize: typography.sizes.sm.fontSize,
                 color: colors.textSecondary,
               }}
             >
               <div style={{
                 width: 16,
                 height: 16,
-                border: "2px solid rgba(20,184,166,0.3)",
+                border: `2px solid ${colorAlpha(semanticColors.accentTealMid, 0.3)}`,
                 borderTopColor: colors.primary400,
                 borderRadius: "50%",
                 animation: "spin 0.8s linear infinite",
@@ -320,7 +322,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                 const scoreColor = a.score >= 80 ? colors.success : a.score >= 60 ? colors.warning : colors.danger;
                 const isExpanded = expandedAudit === a.id;
                 const isEditing = editingAudit === a.id;
-                const outcomeStyle = a.callOutcome ? (OUTCOME_COLORS[a.callOutcome] ?? { bg: "rgba(148,163,184,0.12)", color: "#94a3b8" }) : null;
+                const outcomeStyle = a.callOutcome ? (OUTCOME_COLORS[a.callOutcome] ?? { bg: "rgba(148,163,184,0.12)", color: semanticColors.neutralLightGray }) : null;
                 const summaryText = a.managerSummary ?? a.aiSummary;
                 return (
                   <React.Fragment key={a.id}>
@@ -342,7 +344,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                             display: "inline-block",
                             padding: "2px 10px",
                             borderRadius: radius.full,
-                            fontSize: 11,
+                            fontSize: typography.sizes.xs.fontSize,
                             fontWeight: 700,
                             letterSpacing: "0.04em",
                             textTransform: "capitalize",
@@ -358,7 +360,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                       <td style={{ ...baseTdStyle, textAlign: "center" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                           <ProgressRing progress={a.score} size={32} strokeWidth={3} color={scoreColor} />
-                          <span style={{ fontSize: 13, fontWeight: 700, color: scoreColor }}>{a.score}</span>
+                          <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: 700, color: scoreColor }}>{a.score}</span>
                         </div>
                       </td>
                       <td style={{ ...baseTdStyle, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -405,10 +407,10 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                 background: colors.bgSurface,
                                 marginBottom: 20,
                               }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                                <div style={{ fontSize: typography.sizes.xs.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
                                   {a.managerSummary ? "Manager Summary" : "AI Summary"}
                                 </div>
-                                <p style={{ margin: 0, fontSize: 13, color: colors.textSecondary, lineHeight: 1.7 }}>
+                                <p style={{ margin: 0, fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, lineHeight: 1.7 }}>
                                   {a.managerSummary ?? a.aiSummary}
                                 </p>
                               </div>
@@ -442,7 +444,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                           borderRadius: "50%",
                                           background: pColor.bg,
                                           color: pColor.color,
-                                          fontSize: 11,
+                                          fontSize: typography.sizes.xs.fontSize,
                                           fontWeight: 800,
                                           display: "flex",
                                           alignItems: "center",
@@ -451,8 +453,8 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                           P{cp.priority}
                                         </span>
                                         <div>
-                                          <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, marginBottom: 4 }}>{cp.focus_area}</div>
-                                          <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>{cp.talking_point}</div>
+                                          <div style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: 700, color: colors.textPrimary, marginBottom: 4 }}>{cp.focus_area}</div>
+                                          <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, lineHeight: 1.6 }}>{cp.talking_point}</div>
                                         </div>
                                       </div>
                                     );
@@ -476,32 +478,32 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                       padding: "14px 16px",
                                       borderRadius: radius.lg,
                                       background: colors.bgSurface,
-                                      border: `1px solid rgba(248,113,113,0.15)`,
+                                      border: `1px solid ${colorAlpha(semanticColors.dangerLight, 0.15)}`,
                                     }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                         <span style={{
                                           display: "inline-block",
                                           padding: "2px 10px",
                                           borderRadius: radius.full,
-                                          fontSize: 11,
+                                          fontSize: typography.sizes.xs.fontSize,
                                           fontWeight: 700,
-                                          background: "rgba(248,113,113,0.12)",
-                                          color: "#f87171",
+                                          background: colorAlpha(semanticColors.dangerLight, 0.12),
+                                          color: semanticColors.dangerLight,
                                         }}>
                                           {CATEGORY_LABELS[issue.category] ?? issue.category}
                                         </span>
                                         {issue.timestamp_hint && (
-                                          <span style={{ fontSize: 11, color: colors.textMuted }}>{issue.timestamp_hint}</span>
+                                          <span style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted }}>{issue.timestamp_hint}</span>
                                         )}
                                       </div>
-                                      <p style={{ margin: "0 0 8px", fontSize: 13, color: colors.textPrimary, fontWeight: 500 }}>{issue.what_happened}</p>
-                                      <div style={{ marginBottom: 4, fontSize: 11, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Agent said:</div>
+                                      <p style={{ margin: "0 0 8px", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary, fontWeight: 500 }}>{issue.what_happened}</p>
+                                      <div style={{ marginBottom: 4, fontSize: typography.sizes.xs.fontSize, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Agent said:</div>
                                       <div style={QUOTE_BLOCK}>{issue.agent_quote}</div>
-                                      <div style={{ marginBottom: 4, fontSize: 11, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer said:</div>
+                                      <div style={{ marginBottom: 4, fontSize: typography.sizes.xs.fontSize, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer said:</div>
                                       <div style={QUOTE_BLOCK}>{issue.customer_quote}</div>
-                                      <div style={{ marginTop: 10, marginBottom: 4, fontSize: 11, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Why it's a problem:</div>
-                                      <p style={{ margin: "0 0 8px", fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>{issue.why_its_a_problem}</p>
-                                      <div style={{ marginBottom: 4, fontSize: 11, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Recommended response:</div>
+                                      <div style={{ marginTop: 10, marginBottom: 4, fontSize: typography.sizes.xs.fontSize, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Why it's a problem:</div>
+                                      <p style={{ margin: "0 0 8px", fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, lineHeight: 1.6 }}>{issue.why_its_a_problem}</p>
+                                      <div style={{ marginBottom: 4, fontSize: typography.sizes.xs.fontSize, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Recommended response:</div>
                                       <div style={{
                                         ...QUOTE_BLOCK,
                                         borderLeftColor: "rgba(52,211,153,0.4)",
@@ -519,7 +521,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                             {a.wins && a.wins.length > 0 && (
                               <div style={{ marginBottom: 20 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                                  <Star size={15} style={{ color: "#fbbf24" }} />
+                                  <Star size={15} style={{ color: semanticColors.statusPending }} />
                                   <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                     Wins ({a.wins.length})
                                   </div>
@@ -532,10 +534,10 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                       background: colors.bgSurface,
                                       border: `1px solid rgba(74,222,128,0.15)`,
                                     }}>
-                                      <p style={{ margin: "0 0 8px", fontSize: 13, color: colors.textPrimary, fontWeight: 500 }}>{win.what_happened}</p>
+                                      <p style={{ margin: "0 0 8px", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary, fontWeight: 500 }}>{win.what_happened}</p>
                                       <div style={QUOTE_BLOCK}>{win.agent_quote}</div>
-                                      <div style={{ marginTop: 8, fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>
-                                        <span style={{ fontWeight: 600, color: "#4ade80" }}>Why it worked: </span>
+                                      <div style={{ marginTop: 8, fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, lineHeight: 1.6 }}>
+                                        <span style={{ fontWeight: 600, color: semanticColors.accentGreen }}>Why it worked: </span>
                                         {win.why_it_worked}
                                       </div>
                                     </div>
@@ -548,7 +550,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                             {a.missedOpportunities && a.missedOpportunities.length > 0 && (
                               <div style={{ marginBottom: 20 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                                  <Lightbulb size={15} style={{ color: "#fbbf24" }} />
+                                  <Lightbulb size={15} style={{ color: semanticColors.statusPending }} />
                                   <div style={{ fontSize: 12, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                     Missed Opportunities ({a.missedOpportunities.length})
                                   </div>
@@ -559,17 +561,17 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                                       padding: "14px 16px",
                                       borderRadius: radius.lg,
                                       background: colors.bgSurface,
-                                      border: `1px solid rgba(251,191,36,0.15)`,
+                                      border: `1px solid ${colorAlpha(semanticColors.statusPending, 0.15)}`,
                                     }}>
-                                      <div style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24", marginBottom: 6 }}>{mo.moment}</div>
-                                      <p style={{ margin: "0 0 8px", fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>
+                                      <div style={{ fontSize: 12, fontWeight: 700, color: semanticColors.statusPending, marginBottom: 6 }}>{mo.moment}</div>
+                                      <p style={{ margin: "0 0 8px", fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, lineHeight: 1.6 }}>
                                         <span style={{ fontWeight: 600, color: colors.textPrimary }}>What should have happened: </span>
                                         {mo.what_should_have_happened}
                                       </p>
-                                      <div style={{ marginBottom: 4, fontSize: 11, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Suggested script:</div>
+                                      <div style={{ marginBottom: 4, fontSize: typography.sizes.xs.fontSize, fontWeight: 600, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.05em" }}>Suggested script:</div>
                                       <div style={{
                                         ...QUOTE_BLOCK,
-                                        borderLeftColor: "rgba(251,191,36,0.4)",
+                                        borderLeftColor: colorAlpha(semanticColors.statusPending, 0.4),
                                       }}>{mo.suggested_script}</div>
                                     </div>
                                   ))}
@@ -615,7 +617,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                             {/* Recording */}
                             {a.recordingUrl && (
                               <div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Recording</div>
+                                <div style={{ fontSize: typography.sizes.xs.fontSize, fontWeight: 700, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Recording</div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                   <a
                                     href={a.recordingUrl}
@@ -640,7 +642,7 @@ export default function ManagerAudits({ socket, API }: ManagerAuditsProps) {
                     {isEditing && (
                       <tr>
                         <td colSpan={7} style={{ padding: 0 }}>
-                          <div className="animate-fade-in" style={{ padding: 20, background: "rgba(20,184,166,0.04)", borderTop: `1px solid ${colors.borderSubtle}` }}>
+                          <div className="animate-fade-in" style={{ padding: 20, background: colorAlpha(semanticColors.accentTealMid, 0.04), borderTop: `1px solid ${colors.borderSubtle}` }}>
                             <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
                               <div>
                                 <label style={LBL}>Score</label>

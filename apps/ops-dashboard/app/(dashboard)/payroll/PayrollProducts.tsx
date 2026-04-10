@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { Badge, Button, Card, EmptyState } from "@ops/ui";
-import { colors, spacing, radius, motion, baseInputStyle, baseLabelStyle } from "@ops/ui";
+import { colors, spacing, radius, motion, baseInputStyle, baseLabelStyle, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { US_STATES } from "@ops/types";
 import { Package, Plus, Edit3, Trash2, Save, ChevronDown, ChevronUp, MapPin, Link2 } from "lucide-react";
@@ -155,7 +155,7 @@ function ProductCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
-                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: C.danger }}
+                  style={{ background: colorAlpha(semanticColors.statusDead, 0.08), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.2)}`, color: C.danger }}
                 >
                   <Trash2 size={12} />
                 </Button>
@@ -209,12 +209,12 @@ function ProductCard({
                     {fallbackAddons.length > 0 ? ` / fallbacks: ${fallbackAddons.map(f => f.name).join(", ")}` : ""}
                   </span>
                   {uncoveredCount > 0 && (
-                    <span style={{ background: C.warning, color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 11, marginLeft: 8 }}>
+                    <span style={{ background: C.warning, color: semanticColors.white, borderRadius: 4, padding: "2px 6px", fontSize: typography.sizes.xs.fontSize, marginLeft: 8 }}>
                       {uncoveredCount} state{uncoveredCount !== 1 ? "s" : ""} uncovered
                     </span>
                   )}
                   {uncoveredCount === 0 && (
-                    <span style={{ background: C.success, color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 11, marginLeft: 8 }}>
+                    <span style={{ background: C.success, color: semanticColors.white, borderRadius: 4, padding: "2px 6px", fontSize: typography.sizes.xs.fontSize, marginLeft: 8 }}>
                       All states covered
                     </span>
                   )}
@@ -234,12 +234,12 @@ function ProductCard({
                 className="animate-slide-down"
                 style={{
                   marginTop: S[3], padding: "10px 14px",
-                  background: "rgba(239,68,68,0.08)",
-                  border: "1px solid rgba(239,68,68,0.2)",
+                  background: colorAlpha(semanticColors.statusDead, 0.08),
+                  border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.2)}`,
                   borderRadius: R.lg,
                 }}
               >
-                <span style={{ fontSize: 13, color: C.danger, display: "block", marginBottom: S[2] }}>
+                <span style={{ fontSize: typography.sizes.sm.fontSize, color: C.danger, display: "block", marginBottom: S[2] }}>
                   Remove &ldquo;{product.name}&rdquo;?
                 </span>
                 <div style={{ display: "flex", gap: S[2], flexWrap: "wrap" }}>
@@ -247,7 +247,7 @@ function ProductCard({
                     variant="ghost"
                     size="sm"
                     onClick={() => { onDelete(product.id, false); setShowDeleteConfirm(false); }}
-                    style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24" }}
+                    style={{ borderColor: colorAlpha(semanticColors.statusPending, 0.4), color: semanticColors.statusPending }}
                   >
                     Deactivate
                   </Button>
@@ -269,14 +269,14 @@ function ProductCard({
               <div
                 style={{
                   marginTop: S[3], padding: "8px 14px",
-                  background: "rgba(251,191,36,0.08)",
-                  border: "1px solid rgba(251,191,36,0.2)",
+                  background: colorAlpha(semanticColors.statusPending, 0.08),
+                  border: `1px solid ${colorAlpha(semanticColors.statusPending, 0.2)}`,
                   borderRadius: R.lg,
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                 }}
               >
-                <span style={{ fontSize: 13, color: "#fbbf24" }}>Deactivated</span>
-                <Button variant="ghost" size="sm" onClick={() => onReactivate(product.id)} style={{ color: "#34d399" }}>
+                <span style={{ fontSize: typography.sizes.sm.fontSize, color: semanticColors.statusPending }}>Deactivated</span>
+                <Button variant="ghost" size="sm" onClick={() => onReactivate(product.id)} style={{ color: semanticColors.accentGreenBright }}>
                   Reactivate
                 </Button>
               </div>
@@ -348,7 +348,7 @@ function ProductCard({
                   onClick={() => setBundleOpen(!bundleOpen)}
                 >
                   <Link2 size={14} style={{ color: C.primary400 }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textSecondary }}>Bundle Requirements</span>
+                  <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: 600, color: C.textSecondary }}>Bundle Requirements</span>
                   {bundleOpen ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
                 </div>
                 {bundleOpen && (
@@ -395,7 +395,7 @@ function ProductCard({
                   onClick={() => setStatesOpen(!statesOpen)}
                 >
                   <MapPin size={14} style={{ color: C.accentTeal }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textSecondary }}>
+                  <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: 600, color: C.textSecondary }}>
                     State Availability ({selectedStates.length}/51)
                   </span>
                   {statesOpen ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
@@ -437,7 +437,7 @@ function ProductCard({
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: S[2], alignItems: "end" }}>
               <div><label style={LBL}>Notes</label><input className="input-focus" style={inputStyle} value={d.notes} placeholder="Notes" onChange={e => setD(x => ({ ...x, notes: e.target.value }))} /></div>
-              <label style={{ display: "flex", alignItems: "center", gap: S[2], fontSize: 13, paddingBottom: 6, color: C.textSecondary, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: S[2], fontSize: typography.sizes.sm.fontSize, paddingBottom: 6, color: C.textSecondary, cursor: "pointer" }}>
                 <input type="checkbox" checked={d.active} onChange={e => setD(x => ({ ...x, active: e.target.checked }))} /> Active
               </label>
             </div>
@@ -589,7 +589,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S[5] }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.textPrimary }}>Products & Commission</h2>
-          <p style={{ color: C.textMuted, fontSize: 13, margin: "4px 0 0" }}>Configure product types and commission rates</p>
+          <p style={{ color: C.textMuted, fontSize: typography.sizes.sm.fontSize, margin: "4px 0 0" }}>Configure product types and commission rates</p>
         </div>
         <Button variant="primary" onClick={() => setShowAddProduct(v => !v)}>
           <Plus size={14} /> Add Product
@@ -646,7 +646,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
               </Button>
               <Button variant="ghost" type="button" onClick={() => setShowAddProduct(false)}>Cancel</Button>
               {cfgMsg && (
-                <span style={{ color: cfgMsg.startsWith("Error") ? C.danger : C.success, fontWeight: 600, fontSize: 13 }}>
+                <span style={{ color: cfgMsg.startsWith("Error") ? C.danger : C.success, fontWeight: 600, fontSize: typography.sizes.sm.fontSize }}>
                   {cfgMsg}
                 </span>
               )}
@@ -694,7 +694,7 @@ export default function PayrollProducts({ API, products, setProducts }: PayrollP
       )}
 
       {!showAddProduct && cfgMsg && (
-        <div style={{ marginTop: S[4], color: cfgMsg.startsWith("Error") ? C.danger : C.success, fontWeight: 600, fontSize: 13 }}>
+        <div style={{ marginTop: S[4], color: cfgMsg.startsWith("Error") ? C.danger : C.success, fontWeight: 600, fontSize: typography.sizes.sm.fontSize }}>
           {cfgMsg}
         </div>
       )}

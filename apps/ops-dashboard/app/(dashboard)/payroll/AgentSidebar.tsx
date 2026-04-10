@@ -11,7 +11,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 import { Badge } from "@ops/ui";
-import { colors, spacing, radius, motion, baseInputStyle } from "@ops/ui";
+import { colors, spacing, radius, motion, baseInputStyle, typography } from "@ops/ui";
 import { formatDollar } from "@ops/utils";
 import { Search } from "lucide-react";
 import type { SidebarAgent } from "./payroll-types";
@@ -50,7 +50,7 @@ const SEARCH_INPUT: React.CSSProperties = {
   ...baseInputStyle,
   width: "100%",
   boxSizing: "border-box",
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   padding: "8px 12px 8px 32px",
 };
 
@@ -64,7 +64,7 @@ const SEARCH_ICON: React.CSSProperties = {
 };
 
 const SECTION_HEADER: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: typography.sizes.xs.fontSize,
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
@@ -99,7 +99,7 @@ const TOP3_DOT: React.CSSProperties = {
 };
 
 const NAME_STYLE: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   fontWeight: 600,
   color: C.textSecondary,
   flex: 1,
@@ -114,7 +114,7 @@ const NAME_MUTED: React.CSSProperties = {
 };
 
 const EARNINGS_STYLE: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   fontWeight: 400,
   color: C.textTertiary,
   flexShrink: 0,
@@ -128,7 +128,7 @@ const DIVIDER: React.CSSProperties = {
 
 const NO_RESULTS: React.CSSProperties = {
   padding: S[4],
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   color: C.textMuted,
   textAlign: "center",
 };

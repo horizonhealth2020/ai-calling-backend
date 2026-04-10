@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useCallback, useMemo } from "react";
-import { colors, spacing, radius, typography, shadows, baseInputStyle } from "@ops/ui";
+import { colors, spacing, radius, typography, shadows, baseInputStyle, semanticColors, colorAlpha } from "@ops/ui";
 
 /* -- Types -- */
 
@@ -30,12 +30,12 @@ interface LeadTimingHeatmapProps {
 function heatmapColor(closeRate: number, calls: number): React.CSSProperties {
   if (calls === 0) return { backgroundColor: "rgba(255,255,255,0.03)" };
   const base = closeRate >= 0.15
-    ? "rgba(34,197,94,0.50)"
+    ? colorAlpha(semanticColors.statusRan, 0.50)
     : closeRate >= 0.10
-    ? "rgba(34,197,94,0.30)"
+    ? colorAlpha(semanticColors.statusRan, 0.30)
     : closeRate >= 0.05
     ? "rgba(234,179,8,0.30)"
-    : "rgba(239,68,68,0.25)";
+    : colorAlpha(semanticColors.statusDead, 0.25);
   return { backgroundColor: base, opacity: calls < 10 ? 0.3 : 1.0 };
 }
 
@@ -67,12 +67,12 @@ function getGroupLabels(groupBy: "dow" | "wom" | "moy"): { val: number; label: s
 /* -- Style constants -- */
 
 const COLS = VISIBLE_HOURS.length; // 12
-const SUBSECTION_LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
+const SUBSECTION_LBL: React.CSSProperties = { fontSize: typography.sizes.xs.fontSize, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
 const CONTROLS_ROW: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing[4] };
 const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: `100px repeat(${COLS}, 1fr)`, gap: 2 };
 const GROUP_HEADER: React.CSSProperties = {
   gridColumn: `1 / -1`,
-  fontSize: 11,
+  fontSize: typography.sizes.xs.fontSize,
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: typography.tracking.caps,
@@ -80,12 +80,12 @@ const GROUP_HEADER: React.CSSProperties = {
   padding: `${spacing[2]} 0 ${spacing[1]} 0`,
   borderBottom: `1px solid rgba(255,255,255,0.06)`,
 };
-const SOURCE_ROW_LABEL: React.CSSProperties = { fontSize: 11, color: colors.textSecondary, display: "flex", alignItems: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: spacing[2] };
-const HOUR_LABEL_STYLE: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: colors.textTertiary, textAlign: "center" };
+const SOURCE_ROW_LABEL: React.CSSProperties = { fontSize: typography.sizes.xs.fontSize, color: colors.textSecondary, display: "flex", alignItems: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: spacing[2] };
+const HOUR_LABEL_STYLE: React.CSSProperties = { fontSize: typography.sizes.xs.fontSize, fontWeight: 600, color: colors.textTertiary, textAlign: "center" };
 const CELL: React.CSSProperties = { minHeight: 26, borderRadius: 3, cursor: "pointer", transition: "outline 150ms" };
-const NO_DATA_MSG: React.CSSProperties = { textAlign: "center", color: colors.textMuted, fontSize: 13, padding: spacing[6] };
+const NO_DATA_MSG: React.CSSProperties = { textAlign: "center", color: colors.textMuted, fontSize: typography.sizes.sm.fontSize, padding: spacing[6] };
 const GRID_WRAP: React.CSSProperties = { position: "relative", overflowX: "auto", overflowY: "visible" };
-const SELECT_STYLE: React.CSSProperties = { ...baseInputStyle, padding: "4px 8px", fontSize: 13, width: "auto" };
+const SELECT_STYLE: React.CSSProperties = { ...baseInputStyle, padding: "4px 8px", fontSize: typography.sizes.sm.fontSize, width: "auto" };
 
 /* -- Component -- */
 
@@ -135,7 +135,7 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
     <div style={CONTROLS_ROW}>
       <div style={SUBSECTION_LBL}>CLOSE RATE HEATMAP</div>
       <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
-        <span style={{ fontSize: 11, color: colors.textTertiary }}>Group by</span>
+        <span style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary }}>Group by</span>
         <select
           value={groupBy}
           onChange={e => onGroupByChange(e.target.value as "dow" | "wom" | "moy")}
@@ -215,13 +215,13 @@ export default function LeadTimingHeatmap({ data, groupBy, onGroupByChange }: Le
             transform: "translateX(-50%)",
             minWidth: 150,
           }}>
-            <div style={{ fontSize: 11, color: colors.textTertiary, marginBottom: 2 }}>{tooltip.sourceName}</div>
+            <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, marginBottom: 2 }}>{tooltip.sourceName}</div>
             <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>{tooltip.groupLabel} &middot; {hourLabel(tooltip.cell.hour)}</div>
-            <div style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>Close rate: {(tooltip.cell.closeRate * 100).toFixed(1)}%</div>
-            <div style={{ fontSize: 13, color: colors.textSecondary }}>Calls: {tooltip.cell.calls}</div>
-            <div style={{ fontSize: 13, color: colors.textSecondary }}>Sales: {tooltip.cell.sales}</div>
+            <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary, fontWeight: 600 }}>Close rate: {(tooltip.cell.closeRate * 100).toFixed(1)}%</div>
+            <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary }}>Calls: {tooltip.cell.calls}</div>
+            <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary }}>Sales: {tooltip.cell.sales}</div>
             {tooltip.cell.calls < 10 && tooltip.cell.calls > 0 && (
-              <div style={{ fontSize: 11, color: colors.textMuted, fontStyle: "italic" }}>(low sample size)</div>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted, fontStyle: "italic" }}>(low sample size)</div>
             )}
           </div>
         )}

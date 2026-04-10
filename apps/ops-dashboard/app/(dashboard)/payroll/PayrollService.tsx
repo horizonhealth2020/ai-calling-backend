@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { Badge, AnimatedNumber, Button, Card, EmptyState } from "@ops/ui";
-import { colors, spacing, radius, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle } from "@ops/ui";
+import { colors, spacing, radius, baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
 import {
@@ -20,7 +20,7 @@ const inputStyle: React.CSSProperties = {
 const SMALL_INP: React.CSSProperties = {
   ...baseInputStyle,
   padding: "6px 10px",
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   width: 90,
   textAlign: "right",
   boxSizing: "border-box",
@@ -82,7 +82,7 @@ function ServiceAgentCard({
       {!edit ? (
         <>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary }}>{agent.name}</div>
+            <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: C.textPrimary }}>{agent.name}</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
               Base Pay: <span style={{ color: C.textSecondary, fontWeight: 600 }}>{formatDollar(Number(agent.basePay))}</span>
               {!agent.active && <span style={{ marginLeft: 6, color: C.textMuted }}> {"\u00B7"} Inactive</span>}
@@ -245,8 +245,8 @@ export default function PayrollService({
         <Card style={{ borderRadius: R["2xl"] }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S[4] }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>Service Agents</h3>
-              <p style={{ color: C.textMuted, fontSize: 13, margin: "4px 0 0" }}>Manage agents with base pay</p>
+              <h3 style={{ margin: 0, fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: C.textPrimary }}>Service Agents</h3>
+              <p style={{ color: C.textMuted, fontSize: typography.sizes.sm.fontSize, margin: "4px 0 0" }}>Manage agents with base pay</p>
             </div>
           </div>
 
@@ -279,13 +279,13 @@ export default function PayrollService({
         {/* Bonus Categories */}
         <Card style={{ borderRadius: R["2xl"] }}>
           <div style={{ marginBottom: S[4] }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>Bonus Categories</h3>
-            <p style={{ color: C.textMuted, fontSize: 13, margin: "4px 0 0" }}>Configure bonus/deduction columns</p>
+            <h3 style={{ margin: 0, fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: C.textPrimary }}>Bonus Categories</h3>
+            <p style={{ color: C.textMuted, fontSize: typography.sizes.sm.fontSize, margin: "4px 0 0" }}>Configure bonus/deduction columns</p>
           </div>
 
           <div style={{ display: "grid", gap: S[2], marginBottom: S[4] }}>
             {bonusCategories.length === 0 && (
-              <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>No categories configured.</p>
+              <p style={{ color: C.textMuted, fontSize: typography.sizes.sm.fontSize, margin: 0 }}>No categories configured.</p>
             )}
             {bonusCategories.map((cat, i) => (
               <div
@@ -298,7 +298,7 @@ export default function PayrollService({
                   border: `1px solid ${C.borderSubtle}`,
                 }}
               >
-                <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: cat.isDeduction ? C.danger : C.textPrimary }}>
+                <span style={{ flex: 1, fontWeight: 600, fontSize: typography.sizes.sm.fontSize, color: cat.isDeduction ? C.danger : C.textPrimary }}>
                   {cat.name}
                 </span>
                 <Badge color={cat.isDeduction ? C.danger : C.success} dot>
@@ -308,7 +308,7 @@ export default function PayrollService({
                   variant="ghost"
                   size="sm"
                   onClick={() => saveBonusCategories(bonusCategories.filter((_, j) => j !== i))}
-                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)", color: C.danger, padding: "4px 8px" }}
+                  style={{ background: colorAlpha(semanticColors.statusDead, 0.08), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.15)}`, color: C.danger, padding: "4px 8px" }}
                 >
                   <Trash2 size={11} />
                 </Button>
@@ -356,8 +356,8 @@ export default function PayrollService({
       <Card style={{ borderRadius: R["2xl"] }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S[5] }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>Weekly Payroll Entry</h3>
-            <p style={{ color: C.textMuted, fontSize: 13, margin: "4px 0 0" }}>Enter bonus amounts per category for each service agent</p>
+            <h3 style={{ margin: 0, fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: C.textPrimary }}>Weekly Payroll Entry</h3>
+            <p style={{ color: C.textMuted, fontSize: typography.sizes.sm.fontSize, margin: "4px 0 0" }}>Enter bonus amounts per category for each service agent</p>
           </div>
           <div style={{ minWidth: 220 }}>
             <label style={LBL}>Payroll Period</label>
@@ -375,10 +375,10 @@ export default function PayrollService({
         </div>
 
         {bonusCategories.length === 0 ? (
-          <p style={{ color: C.textMuted, fontSize: 13 }}>Add bonus categories above to start entering payroll.</p>
+          <p style={{ color: C.textMuted, fontSize: typography.sizes.sm.fontSize }}>Add bonus categories above to start entering payroll.</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize, minWidth: 600 }}>
               <thead>
                 <tr>
                   <th style={thStyle}>Agent</th>
@@ -432,7 +432,7 @@ export default function PayrollService({
                           className="input-focus"
                           style={{
                             ...SMALL_INP, width: 72, textAlign: "center",
-                            background: frontedNum > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
+                            background: frontedNum > 0 ? colorAlpha(semanticColors.dangerLight, 0.10) : SMALL_INP.background,
                             color: frontedNum > 0 ? C.danger : C.textPrimary,
                           }}
                           type="number" step="0.01" placeholder="0"
@@ -446,7 +446,7 @@ export default function PayrollService({
                             className="input-focus"
                             style={{
                               ...SMALL_INP, width: 68, textAlign: "center",
-                              background: cat.isDeduction && Number(vals[cat.name] || 0) > 0 ? "rgba(248,113,113,0.10)" : SMALL_INP.background,
+                              background: cat.isDeduction && Number(vals[cat.name] || 0) > 0 ? colorAlpha(semanticColors.dangerLight, 0.10) : SMALL_INP.background,
                               color: cat.isDeduction ? C.danger : C.textPrimary,
                             }}
                             type="number" step="0.01" placeholder="0"
@@ -482,11 +482,11 @@ export default function PayrollService({
         <div style={{
           display: "flex", alignItems: "center", gap: S[2],
           padding: "12px 16px",
-          background: svcMsg.startsWith("Error") ? "rgba(248,113,113,0.08)" : "rgba(52,211,153,0.08)",
-          border: `1px solid ${svcMsg.startsWith("Error") ? "rgba(248,113,113,0.2)" : "rgba(52,211,153,0.2)"}`,
+          background: svcMsg.startsWith("Error") ? colorAlpha(semanticColors.dangerLight, 0.08) : "rgba(52,211,153,0.08)",
+          border: `1px solid ${svcMsg.startsWith("Error") ? colorAlpha(semanticColors.dangerLight, 0.2) : "rgba(52,211,153,0.2)"}`,
           borderRadius: R.lg,
           color: svcMsg.startsWith("Error") ? C.danger : C.success,
-          fontWeight: 600, fontSize: 13,
+          fontWeight: 600, fontSize: typography.sizes.sm.fontSize,
         }}>
           {svcMsg.startsWith("Error") ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
           {svcMsg}

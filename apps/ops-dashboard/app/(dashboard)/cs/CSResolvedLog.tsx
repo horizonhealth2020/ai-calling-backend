@@ -11,6 +11,9 @@ import {
   baseTdStyle,
   baseInputStyle,
   baseCardStyle,
+  semanticColors,
+  colorAlpha,
+  typography,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -61,8 +64,8 @@ function TruncatedNote({ text, maxLength = 80 }: { text: string | null; maxLengt
 /* -- Badge colors -- */
 
 const TYPE_BADGE_COLORS: Record<ResolvedItem["type"], { color: string; background: string }> = {
-  chargeback: { color: "#f87171", background: "rgba(248,113,113,0.08)" },
-  pending_term: { color: "#fbbf24", background: "rgba(251,191,36,0.08)" },
+  chargeback: { color: semanticColors.dangerLight, background: colorAlpha(semanticColors.dangerLight, 0.08) },
+  pending_term: { color: semanticColors.statusPending, background: colorAlpha(semanticColors.statusPending, 0.08) },
 };
 
 /* -- Component -- */
@@ -153,17 +156,17 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
 
       {/* Loading state */}
       {loading && (
-        <p style={{ textAlign: "center", fontSize: 13, color: colors.textMuted }}>Loading...</p>
+        <p style={{ textAlign: "center", fontSize: typography.sizes.sm.fontSize, color: colors.textMuted }}>Loading...</p>
       )}
 
       {/* Error state */}
       {!loading && error && (
-        <p style={{ fontSize: 13, color: "#f87171" }}>{error}</p>
+        <p style={{ fontSize: typography.sizes.sm.fontSize, color: semanticColors.dangerLight }}>{error}</p>
       )}
 
       {/* Empty state */}
       {!loading && !error && items.length === 0 && (
-        <p style={{ textAlign: "center", fontSize: 13, color: colors.textMuted }}>
+        <p style={{ textAlign: "center", fontSize: typography.sizes.sm.fontSize, color: colors.textMuted }}>
           {hasFilters ? "No results match your filters." : "No resolved items found."}
         </p>
       )}

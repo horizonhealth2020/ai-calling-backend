@@ -16,6 +16,7 @@ import {
   baseLabelStyle,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import {
@@ -38,13 +39,13 @@ type PermData = { users: PermUser[]; configurablePermissions: string[] };
 const ROLES = ["SUPER_ADMIN", "OWNER_VIEW", "MANAGER", "PAYROLL", "SERVICE", "ADMIN", "CUSTOMER_SERVICE"] as const;
 
 const ROLE_COLORS: Record<string, string> = {
-  SUPER_ADMIN: "#14b8a6",
-  OWNER_VIEW: "#059669",
-  MANAGER: "#0d9488",
-  PAYROLL: "#d97706",
-  SERVICE: "#64748b",
-  ADMIN: "#0f766e",
-  CUSTOMER_SERVICE: "#f59e0b",
+  SUPER_ADMIN: semanticColors.accentTealMid,
+  OWNER_VIEW: semanticColors.accentGreenDark,
+  MANAGER: semanticColors.accentTealDark,
+  PAYROLL: semanticColors.warningBrown,
+  SERVICE: semanticColors.neutralSlate,
+  ADMIN: semanticColors.accentTealDeep,
+  CUSTOMER_SERVICE: semanticColors.warningAmber,
 };
 
 const PERM_LABELS: Record<string, string> = {
@@ -145,7 +146,7 @@ function DeleteConfirm({ name, onConfirm, onCancel }: { name: string; onConfirm:
       }}
     >
       <AlertTriangle size={15} color={colors.danger} />
-      <span style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>
+      <span style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, flex: 1 }}>
         Permanently delete <strong style={{ color: colors.textPrimary }}>{name}</strong>? This cannot be undone.
       </span>
       <Button variant="danger" size="sm" icon={<Trash2 size={13} />} onClick={onConfirm}>
@@ -200,7 +201,7 @@ function UserRow({
     return (
       <tr className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
         <td style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{user.name}</td>
-        <td style={{ ...baseTdStyle, color: colors.textSecondary, fontSize: 13 }}>{user.email}</td>
+        <td style={{ ...baseTdStyle, color: colors.textSecondary, fontSize: typography.sizes.sm.fontSize }}>{user.email}</td>
         <td style={baseTdStyle}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {user.roles.map((r) => (
@@ -316,7 +317,7 @@ function UserRow({
             className="animate-fade-in"
             style={{
               color: colors.danger,
-              fontSize: 13,
+              fontSize: typography.sizes.sm.fontSize,
               marginBottom: 12,
               padding: "10px 14px",
               background: colors.dangerBg,
@@ -504,7 +505,7 @@ function UsersSection({
       <div className="animate-fade-in-up stagger-2" style={{ ...CARD, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", gap: 10 }}>
           <Users size={16} color={colors.textTertiary} />
-          <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+          <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
             {usersLoaded ? `${users.length} user${users.length !== 1 ? "s" : ""}` : "Loading..."}
           </span>
         </div>
@@ -617,7 +618,7 @@ function PermissionTable({
       <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Shield size={16} color={colors.textTertiary} />
-          <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+          <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
             Permission Management
           </span>
         </div>
@@ -640,7 +641,7 @@ function PermissionTable({
             <tr style={{ background: colors.bgSurfaceInset }}>
               <th style={baseThStyle}>User</th>
               {permData.configurablePermissions.map((p) => (
-                <th key={p} style={{ ...baseThStyle, textAlign: "center", fontSize: 11, padding: "10px 6px" }}>
+                <th key={p} style={{ ...baseThStyle, textAlign: "center", fontSize: typography.sizes.xs.fontSize, padding: "10px 6px" }}>
                   {PERM_LABELS[p] ?? p}
                 </th>
               ))}
@@ -651,7 +652,7 @@ function PermissionTable({
             <tr style={{ background: `${colors.bgSurfaceInset}60` }}>
               <td style={{ ...baseTdStyle, display: "flex", alignItems: "center", gap: 6 }}>
                 <Lock size={12} color={colors.textMuted} />
-                <span style={{ color: colors.textMuted, fontSize: 13 }}>Payroll Access</span>
+                <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize }}>Payroll Access</span>
               </td>
               {permData.configurablePermissions.map((p) => (
                 <td key={p} style={{ ...baseTdStyle, textAlign: "center" }}>
@@ -662,7 +663,7 @@ function PermissionTable({
             <tr style={{ background: `${colors.bgSurfaceInset}60` }}>
               <td style={{ ...baseTdStyle, display: "flex", alignItems: "center", gap: 6 }}>
                 <Lock size={12} color={colors.textMuted} />
-                <span style={{ color: colors.textMuted, fontSize: 13 }}>User Creation</span>
+                <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize }}>User Creation</span>
               </td>
               {permData.configurablePermissions.map((p) => (
                 <td key={p} style={{ ...baseTdStyle, textAlign: "center" }}>
@@ -676,7 +677,7 @@ function PermissionTable({
               <tr key={user.id} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
                 <td style={baseTdStyle}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: 13 }}>{user.name}</span>
+                    <span style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.sm.fontSize }}>{user.name}</span>
                     <div style={{ display: "flex", gap: 3 }}>
                       {user.roles.map((r) => (
                         <Badge key={r} color={ROLE_COLORS[r] ?? colors.textTertiary} size="sm">

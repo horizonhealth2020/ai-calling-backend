@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button, Card, DateRangeFilter, KPI_PRESETS } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
-import { colors, spacing, radius, baseLabelStyle } from "@ops/ui";
+import { colors, spacing, radius, baseLabelStyle, typography } from "@ops/ui";
 import { Download } from "lucide-react";
 
 const C = colors;
@@ -324,7 +324,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: 560 }}>
-      <p style={{ color: C.textMuted, marginTop: 0, fontSize: 14, marginBottom: S[5], lineHeight: 1.7 }}>
+      <p style={{ color: C.textMuted, marginTop: 0, fontSize: typography.sizes.base.fontSize, marginBottom: S[5], lineHeight: 1.7 }}>
         Download payroll period data as a CSV file. Choose a time range and export format.
       </p>
 
@@ -340,7 +340,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
           {/* Summary CSV */}
           <Card padding="sm" style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary, marginBottom: 4 }}>Summary CSV</div>
+              <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: C.textPrimary, marginBottom: 4 }}>Summary CSV</div>
               <div style={{ fontSize: 12, color: C.textMuted }}>Week range, status, entries count, gross and net per period</div>
             </div>
             <Button
@@ -355,7 +355,7 @@ export default function PayrollExports({ API, periods }: PayrollExportsProps) {
           {/* Detailed CSV */}
           <Card padding="sm" style={{ padding: S[5], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary, marginBottom: 4 }}>Detailed CSV</div>
+              <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: C.textPrimary, marginBottom: 4 }}>Detailed CSV</div>
               <div style={{ fontSize: 12, color: C.textMuted }}>Per-entry rows -- agent, member, products, fees, commission, bonus, fronted, net</div>
             </div>
             <Button

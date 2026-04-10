@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { Badge, AnimatedNumber, Button, ConfirmModal } from "@ops/ui";
-import { colors, spacing, radius, motion } from "@ops/ui";
+import { colors, spacing, radius, motion, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
 import {
@@ -57,7 +57,7 @@ function EditableLabel({ value, onChange, defaultLabel, carryoverColor }: {
   return (
     <input
       autoFocus
-      style={{ ...SMALL_INP, width: 100, fontSize: 11, padding: "4px 8px" }}
+      style={{ ...SMALL_INP, width: 100, fontSize: typography.sizes.xs.fontSize, padding: "4px 8px" }}
       value={draft}
       onChange={e => setDraft(e.target.value)}
       onBlur={() => { onChange(draft); setEditing(false); }}
@@ -74,7 +74,7 @@ function EditableLabel({ value, onChange, defaultLabel, carryoverColor }: {
 function CarryoverHint({ show }: { show: boolean }) {
   if (!show) return null;
   return (
-    <div style={{ fontSize: 11, fontWeight: 400, color: C.textMuted, fontStyle: "italic", marginTop: 4, lineHeight: "1.45" }}>
+    <div style={{ fontSize: typography.sizes.xs.fontSize, fontWeight: 400, color: C.textMuted, fontStyle: "italic", marginTop: 4, lineHeight: "1.45" }}>
       Carried from prev week
     </div>
   );
@@ -95,7 +95,7 @@ function EditableSaleRow({
   isPaid?: boolean;
   isLate?: boolean;
 }) {
-  const HIGHLIGHT_GLOW = { boxShadow: "0 0 20px rgba(20,184,166,0.4), inset 0 0 20px rgba(20,184,166,0.05)" };
+  const HIGHLIGHT_GLOW = { boxShadow: `0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.4)}, inset 0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.05)}` };
   const [editSale, setEditSale] = useState(false);
   const [saleData, setSaleData] = useState({
     memberName: entry.sale?.memberName ?? "",
@@ -137,11 +137,11 @@ function EditableSaleRow({
     : entry.status === "ZEROED_OUT_IN_PERIOD"
     ? { backgroundColor: "rgba(234,179,8,0.10)", borderLeft: "3px solid rgba(234,179,8,0.6)" }
     : entry.status === "CLAWBACK_APPLIED"
-    ? { backgroundColor: "rgba(239,68,68,0.08)", borderLeft: "3px solid rgba(239,68,68,0.4)" }
+    ? { backgroundColor: colorAlpha(semanticColors.statusDead, 0.08), borderLeft: `3px solid ${colorAlpha(semanticColors.statusDead, 0.4)}` }
     : (saleStatus === "DECLINED" || saleStatus === "DEAD")
-    ? { backgroundColor: "rgba(251,191,36,0.08)", borderLeft: "3px solid rgba(251,191,36,0.4)" }
+    ? { backgroundColor: colorAlpha(semanticColors.statusPending, 0.08), borderLeft: `3px solid ${colorAlpha(semanticColors.statusPending, 0.4)}` }
     : needsApproval
-    ? { borderLeft: "3px solid rgba(248,113,113,0.5)" }
+    ? { borderLeft: `3px solid ${colorAlpha(semanticColors.dangerLight, 0.5)}` }
     : entry.sale?.paymentType === "ACH"
     ? { backgroundColor: "rgba(52,211,153,0.08)", borderLeft: "3px solid rgba(52,211,153,0.5)" }
     : { borderLeft: "3px solid transparent" };
@@ -155,7 +155,7 @@ function EditableSaleRow({
         ...rowBg,
         transition: "box-shadow 1.5s ease-out",
         ...(highlighted ? HIGHLIGHT_GLOW : {}),
-        ...(isLate ? { borderLeft: "3px solid #fbbf24", background: "rgba(251,191,36,0.04)" } : {}),
+        ...(isLate ? { borderLeft: `3px solid ${semanticColors.statusPending}`, background: colorAlpha(semanticColors.statusPending, 0.04) } : {}),
       }}
     >
       <td style={tdStyle}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "\u2014"}</span></td>
@@ -172,7 +172,7 @@ function EditableSaleRow({
         </span>
         {isLate && (
           <span style={{
-            display: "block", fontSize: 11, color: "#fbbf24",
+            display: "block", fontSize: typography.sizes.xs.fontSize, color: semanticColors.statusPending,
             fontWeight: 700, marginTop: 2,
           }}>
             Arrived after paid
@@ -263,7 +263,7 @@ function EditableSaleRow({
                 <button
                   type="button"
                   onClick={() => setAddonItems(prev => prev.filter((_, i) => i !== idx))}
-                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", borderRadius: 4, padding: "3px 6px", cursor: "pointer", fontSize: 11, lineHeight: 1 }}
+                  style={{ background: colorAlpha(semanticColors.statusDead, 0.12), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.25)}`, color: semanticColors.statusDead, borderRadius: 4, padding: "3px 6px", cursor: "pointer", fontSize: typography.sizes.xs.fontSize, lineHeight: 1 }}
                   title="Remove add-on"
                 >
                   <X size={10} />
@@ -306,7 +306,7 @@ function EditableSaleRow({
                   onClick={() => setAcaChild(null)}
                   aria-label="Remove ACA child"
                   title="Remove ACA covering sale"
-                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", borderRadius: 4, padding: "3px 6px", cursor: "pointer", fontSize: 11, lineHeight: 1, marginLeft: "auto" }}
+                  style={{ background: colorAlpha(semanticColors.statusDead, 0.12), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.25)}`, color: semanticColors.statusDead, borderRadius: 4, padding: "3px 6px", cursor: "pointer", fontSize: typography.sizes.xs.fontSize, lineHeight: 1, marginLeft: "auto" }}
                 >
                   <X size={10} />
                 </button>
@@ -316,7 +316,7 @@ function EditableSaleRow({
             <button
               type="button"
               onClick={() => setAddonItems(prev => [...prev, { productId: "", premium: "" }])}
-              style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14b8a6", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 11, width: "fit-content" }}
+              style={{ display: "flex", alignItems: "center", gap: 4, background: colorAlpha(semanticColors.accentTealMid, 0.08), border: `1px solid ${colorAlpha(semanticColors.accentTealMid, 0.2)}`, color: semanticColors.accentTealMid, borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: typography.sizes.xs.fontSize, width: "fit-content" }}
             >
               <Plus size={10} /> Add Product
             </button>
@@ -388,7 +388,7 @@ function EditableSaleRow({
             : formatDollar(Number(entry.payoutAmount))}
         </span>
         {entry.halvingReason && (
-          <div style={{ fontSize: 11, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
+          <div style={{ fontSize: typography.sizes.xs.fontSize, color: C.warning, marginTop: 2, fontStyle: "italic" }}>
             {entry.halvingReason}
           </div>
         )}
@@ -519,7 +519,7 @@ function EditableSaleRow({
                 variant="secondary"
                 size="sm"
                 onClick={() => onUnapprove(entry.sale!.id)}
-                style={{ background: "rgba(251,191,36,0.12)", color: C.warning, border: "1px solid rgba(251,191,36,0.25)" }}
+                style={{ background: colorAlpha(semanticColors.statusPending, 0.12), color: C.warning, border: `1px solid ${colorAlpha(semanticColors.statusPending, 0.25)}` }}
               >
                 <XCircle size={12} /> Unapprove
               </Button>
@@ -529,7 +529,7 @@ function EditableSaleRow({
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete(entry.sale!.id)}
-                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                style={{ background: colorAlpha(semanticColors.statusDead, 0.1), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.2)}`, color: semanticColors.statusDead }}
               >
                 <Trash2 size={12} />
               </Button>
@@ -543,7 +543,7 @@ function EditableSaleRow({
         <td colSpan={7} style={{ padding: 0 }}>
           <div style={{
             padding: "10px 20px",
-            background: "rgba(45,212,191,0.04)",
+            background: colorAlpha(semanticColors.accentTealLight, 0.04),
             borderTop: `1px solid ${C.borderSubtle}`,
             borderBottom: `1px solid ${C.borderSubtle}`,
             display: "flex",
@@ -551,7 +551,7 @@ function EditableSaleRow({
             gap: 8,
           }}>
             <FileText size={13} style={{ color: C.textMuted, flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 13, color: C.textSecondary, whiteSpace: "pre-wrap" }}>{entry.sale?.notes}</span>
+            <span style={{ fontSize: typography.sizes.sm.fontSize, color: C.textSecondary, whiteSpace: "pre-wrap" }}>{entry.sale?.notes}</span>
           </div>
         </td>
       </tr>
@@ -706,7 +706,7 @@ export function WeekSection({
   return (
     <div style={{
       borderLeft: isSelected ? `3px solid ${C.accentTeal}` : "3px solid transparent",
-      background: isSelected ? "rgba(20,184,166,0.03)" : "transparent",
+      background: isSelected ? colorAlpha(semanticColors.accentTealMid, 0.03) : "transparent",
       transition: "all 150ms ease-out",
     }}>
       {/* Week header */}
@@ -721,7 +721,7 @@ export function WeekSection({
         onClick={() => { onToggleExpand(); onSelect(); }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
-          <span style={{ fontWeight: 700, fontSize: 16, color: C.textPrimary }}>
+          <span style={{ fontWeight: 700, fontSize: typography.sizes.md.fontSize, color: C.textPrimary }}>
             {fmtDate(period.weekStart)} {"\u2013"} {fmtDate(period.weekEnd)}
           </span>
           {period.status !== "FINALIZED" ? (
@@ -764,7 +764,7 @@ export function WeekSection({
             variant="ghost"
             size="sm"
             onClick={(ev) => { ev.stopPropagation(); onPrint(); }}
-            style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+            style={{ background: C.infoBg, border: `1px solid ${colorAlpha(semanticColors.accentTealLight, 0.2)}`, color: C.info }}
           >
             <Printer size={12} /> Print Week
           </Button>
@@ -783,7 +783,7 @@ export function WeekSection({
             )
           ) : (
             <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); onMarkPaid(); }}
-              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+              style={{ background: colorAlpha(semanticColors.statusDead, 0.1), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.2)}`, color: semanticColors.statusDead }}>
               <XCircle size={11} /> Unpaid
             </Button>
           ))}
@@ -812,7 +812,7 @@ export function WeekSection({
           }}>
             <div>
               <div style={HEADER_LBL}>Commission</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</div>
+              <div style={{ fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</div>
             </div>
             <div>
               <EditableLabel
@@ -854,7 +854,7 @@ export function WeekSection({
                 disabled={allPaid}
                 style={{
                   ...SMALL_INP, width: 90,
-                  background: Number(headerFronted) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
+                  background: Number(headerFronted) > 0 ? colorAlpha(semanticColors.statusPending, 0.10) : SMALL_INP.background,
                   color: Number(headerFronted) > 0 ? C.warning : C.textPrimary,
                   fontWeight: 700,
                   ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
@@ -886,7 +886,7 @@ export function WeekSection({
                 disabled={allPaid}
                 style={{
                   ...SMALL_INP, width: 90,
-                  background: Number(headerHold) > 0 ? "rgba(251,191,36,0.10)" : SMALL_INP.background,
+                  background: Number(headerHold) > 0 ? colorAlpha(semanticColors.statusPending, 0.10) : SMALL_INP.background,
                   color: Number(headerHold) > 0 ? C.warning : C.textPrimary,
                   fontWeight: 700,
                   ...(allPaid ? { pointerEvents: "none" as const, background: "transparent", border: "1px solid transparent", cursor: "default" } : {}),
@@ -903,7 +903,7 @@ export function WeekSection({
               {(() => {
                 const liveNet = agentGross + (Number(headerBonus) || 0) + (Number(headerFronted) || 0) - (Number(headerHold) || 0);
                 return (
-                  <div style={{ fontSize: 16, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
+                  <div style={{ fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
                     <AnimatedNumber value={liveNet} prefix="$" decimals={2} />
                   </div>
                 );
@@ -914,7 +914,7 @@ export function WeekSection({
           {/* Commission table */}
           {entries.length > 0 && (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize, minWidth: 860 }}>
               <thead>
                 <tr>
                   <th style={thStyle}>Agent</th>
@@ -943,7 +943,7 @@ export function WeekSection({
                 ))}
                 {/* Subtotal */}
                 <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
-                  <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
+                  <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: typography.sizes.xs.fontSize, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
                   <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
                   <td />
                 </tr>
@@ -955,15 +955,15 @@ export function WeekSection({
           {/* Pending Approval Requests */}
           {totalPending > 0 && (
             <div style={{
-              borderLeft: "3px solid #f59e0b",
+              borderLeft: `3px solid ${semanticColors.warningAmber}`,
               backgroundColor: "rgba(245, 158, 11, 0.08)",
               padding: "12px",
               borderRadius: "8px",
               margin: `${S[3]}px ${S[5]}px ${S[4]}px`,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <Clock size={14} style={{ color: "#f59e0b" }} />
-                <span style={{ fontWeight: 700, fontSize: 13, color: "#f59e0b" }}>
+                <Clock size={14} style={{ color: semanticColors.warningAmber }} />
+                <span style={{ fontWeight: 700, fontSize: typography.sizes.sm.fontSize, color: semanticColors.warningAmber }}>
                   Pending Approvals ({totalPending} pending)
                 </span>
               </div>
@@ -977,10 +977,10 @@ export function WeekSection({
                     borderRadius: 6, flexWrap: "wrap", gap: 8,
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
+                      <div style={{ fontSize: typography.sizes.sm.fontSize, color: C.textPrimary, fontWeight: 600 }}>
                         <span style={{
-                          background: "rgba(96,165,250,0.1)", color: "#60a5fa",
-                          fontSize: 11, fontWeight: 700, padding: "2px 6px",
+                          background: "rgba(96,165,250,0.1)", color: semanticColors.accentBlueBright,
+                          fontSize: typography.sizes.xs.fontSize, fontWeight: 700, padding: "2px 6px",
                           borderRadius: R.sm, marginRight: S[2],
                         }}>Status Change</span>
                         {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} {"\u2014"} {req.sale.product.name}
@@ -1027,10 +1027,10 @@ export function WeekSection({
                     borderRadius: 6, flexWrap: "wrap", gap: 8,
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 600 }}>
+                      <div style={{ fontSize: typography.sizes.sm.fontSize, color: C.textPrimary, fontWeight: 600 }}>
                         <span style={{
-                          background: "rgba(168,85,247,0.1)", color: "#a855f7",
-                          fontSize: 11, fontWeight: 700, padding: "2px 6px",
+                          background: colorAlpha(semanticColors.accentPurple, 0.1), color: semanticColors.accentPurple,
+                          fontSize: typography.sizes.xs.fontSize, fontWeight: 700, padding: "2px 6px",
                           borderRadius: R.sm, marginRight: S[2],
                         }}>Edit Request</span>
                         {req.sale.memberName}{req.sale.memberId && ` (${req.sale.memberId})`} {"\u2014"} {req.sale.product.name}

@@ -12,6 +12,8 @@ import {
   baseCardStyle,
   baseInputStyle,
   baseLabelStyle,
+  semanticColors,
+  colorAlpha,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import {
@@ -295,7 +297,7 @@ function ConfigSection({
         </div>
         {!aiPromptLoaded ? (
           <div style={{ height: 200, background: colors.bgSurfaceInset, borderRadius: radius.lg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: colors.textMuted, fontSize: 13 }}>Loading prompt...</span>
+            <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize }}>Loading prompt...</span>
           </div>
         ) : (
           <textarea
@@ -304,7 +306,7 @@ function ConfigSection({
               ...INP,
               minHeight: 480,
               fontFamily: typography.fontMono,
-              fontSize: 13,
+              fontSize: typography.sizes.sm.fontSize,
               lineHeight: 1.7,
               resize: "vertical",
               boxSizing: "border-box",
@@ -366,7 +368,7 @@ function ConfigSection({
                 }}
                 style={{ width: 15, height: 15, accentColor: colors.success, cursor: "pointer" }}
               />
-              <span style={{ fontSize: 14, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+              <span style={{ fontSize: typography.sizes.base.fontSize, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                 {a.name}
               </span>
               {a.email && (
@@ -382,7 +384,7 @@ function ConfigSection({
             </label>
           ))}
           {agents.filter((a) => a.active !== false).length === 0 && (
-            <p style={{ color: colors.textMuted, fontSize: 13, padding: "12px 0" }}>No active agents found.</p>
+            <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize, padding: "12px 0" }}>No active agents found.</p>
           )}
         </div>
       </div>
@@ -441,8 +443,8 @@ function ConfigSection({
             style={{
               padding: "6px 16px", borderRadius: radius.lg, border: "none", cursor: "pointer",
               fontSize: 12, fontWeight: 700,
-              background: aiScoringEnabled ? colors.success : "rgba(239,68,68,0.15)",
-              color: aiScoringEnabled ? "#fff" : colors.danger,
+              background: aiScoringEnabled ? colors.success : colorAlpha(semanticColors.statusDead, 0.15),
+              color: aiScoringEnabled ? semanticColors.white : colors.danger,
               opacity: togglingAiScoring ? 0.6 : 1,
               transition: "all 150ms ease-out", flexShrink: 0,
             }}
@@ -455,7 +457,7 @@ function ConfigSection({
         {aiStats && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
             <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
-              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Today's Spend</div>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Today's Spend</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                 {formatDollar(aiStats.todaySpent)}
               </div>
@@ -464,19 +466,19 @@ function ConfigSection({
               </div>
             </div>
             <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
-              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Calls Scored Today</div>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Calls Scored Today</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                 {aiStats.todayCount}
               </div>
             </div>
             <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
-              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Queued</div>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Queued</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: aiStats.queuedCount > 0 ? colors.warning : colors.textPrimary }}>
                 {aiStats.queuedCount}
               </div>
             </div>
             <div style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "14px 16px", border: `1px solid ${colors.borderSubtle}` }}>
-              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Est. Monthly</div>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>Est. Monthly</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                 {formatDollar(aiStats.estimatedMonthly)}
               </div>
@@ -530,8 +532,8 @@ function ConfigSection({
             style={{
               padding: "6px 16px", borderRadius: radius.lg, border: "none", cursor: "pointer",
               fontSize: 12, fontWeight: 700,
-              background: convosoEnabled ? colors.success : "rgba(239,68,68,0.15)",
-              color: convosoEnabled ? "#fff" : colors.danger,
+              background: convosoEnabled ? colors.success : colorAlpha(semanticColors.statusDead, 0.15),
+              color: convosoEnabled ? semanticColors.white : colors.danger,
               opacity: togglingConvoso ? 0.6 : 1,
               transition: "all 150ms ease-out", flexShrink: 0,
             }}
@@ -665,10 +667,10 @@ function DataArchiveSection({ API }: { API: string }) {
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
           {archiveStats.tables.map((t) => (
             <div key={t.name} style={{ background: colors.bgSurfaceInset, borderRadius: radius.lg, padding: "12px 16px", flex: "1 1 200px", minWidth: 180, border: `1px solid ${colors.borderSubtle}` }}>
-              <div style={{ fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>{t.name.replace(/_/g, " ")}</div>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4 }}>{t.name.replace(/_/g, " ")}</div>
               <div style={{ fontSize: 20, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{(t.rowCount ?? 0).toLocaleString()}</div>
               {(t.oldestRecord || t.newestRecord) && (
-                <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+                <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted, marginTop: 4 }}>
                   {t.oldestRecord ? new Date(t.oldestRecord).toLocaleDateString() : "?"} &ndash; {t.newestRecord ? new Date(t.newestRecord).toLocaleDateString() : "?"}
                 </div>
               )}
@@ -698,10 +700,10 @@ function DataArchiveSection({ API }: { API: string }) {
           ) : (
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {archivePreviewLoading ? (
-                <span style={{ fontSize: 13, color: colors.textMuted }}>Loading preview...</span>
+                <span style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textMuted }}>Loading preview...</span>
               ) : archivePreviewCounts ? (
                 <>
-                  <span style={{ fontSize: 13, color: colors.warning }}>
+                  <span style={{ fontSize: typography.sizes.sm.fontSize, color: colors.warning }}>
                     This will archive {archivePreviewCounts.total.toLocaleString()} records older than {archiveDays} days.
                   </span>
                   <Button variant="danger" loading={archiveLoading} onClick={handleArchive}>
@@ -712,7 +714,7 @@ function DataArchiveSection({ API }: { API: string }) {
                   </Button>
                 </>
               ) : (
-                <span style={{ fontSize: 13, color: colors.textMuted }}>No preview available</span>
+                <span style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textMuted }}>No preview available</span>
               )}
             </div>
           )}
@@ -727,20 +729,20 @@ function DataArchiveSection({ API }: { API: string }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", padding: "8px 12px", fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Batch ID</th>
-                  <th style={{ textAlign: "left", padding: "8px 12px", fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Table</th>
-                  <th style={{ textAlign: "left", padding: "8px 12px", fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Date</th>
-                  <th style={{ textAlign: "right", padding: "8px 12px", fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Records</th>
-                  <th style={{ textAlign: "right", padding: "8px 12px", fontSize: 11, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Action</th>
+                  <th style={{ textAlign: "left", padding: "8px 12px", fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Batch ID</th>
+                  <th style={{ textAlign: "left", padding: "8px 12px", fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Table</th>
+                  <th style={{ textAlign: "left", padding: "8px 12px", fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Date</th>
+                  <th style={{ textAlign: "right", padding: "8px 12px", fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Records</th>
+                  <th style={{ textAlign: "right", padding: "8px 12px", fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, textTransform: "uppercase" as const, letterSpacing: "0.05em", borderBottom: `1px solid ${colors.borderSubtle}` }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {archiveStats.batches.map((b) => (
                   <tr key={b.batchId + b.table}>
-                    <td style={{ padding: "8px 12px", fontSize: 13, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}`, fontFamily: typography.fontMono }}>{b.batchId.slice(0, 8)}</td>
-                    <td style={{ padding: "8px 12px", fontSize: 13, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}` }}>{b.table.replace(/_/g, " ")}</td>
-                    <td style={{ padding: "8px 12px", fontSize: 13, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}` }}>{new Date(b.archivedAt).toLocaleDateString()}</td>
-                    <td style={{ padding: "8px 12px", fontSize: 13, color: colors.textPrimary, borderBottom: `1px solid ${colors.borderSubtle}`, textAlign: "right", fontWeight: typography.weights.semibold }}>{b.count.toLocaleString()}</td>
+                    <td style={{ padding: "8px 12px", fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}`, fontFamily: typography.fontMono }}>{b.batchId.slice(0, 8)}</td>
+                    <td style={{ padding: "8px 12px", fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}` }}>{b.table.replace(/_/g, " ")}</td>
+                    <td style={{ padding: "8px 12px", fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, borderBottom: `1px solid ${colors.borderSubtle}` }}>{new Date(b.archivedAt).toLocaleDateString()}</td>
+                    <td style={{ padding: "8px 12px", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary, borderBottom: `1px solid ${colors.borderSubtle}`, textAlign: "right", fontWeight: typography.weights.semibold }}>{b.count.toLocaleString()}</td>
                     <td style={{ padding: "8px 12px", borderBottom: `1px solid ${colors.borderSubtle}`, textAlign: "right" }}>
                       <button
                         onClick={() => handleRestore(b.batchId)}

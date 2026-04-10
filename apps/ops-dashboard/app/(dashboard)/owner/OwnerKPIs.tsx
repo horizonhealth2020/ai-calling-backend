@@ -15,6 +15,7 @@ import {
   baseCardStyle,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -110,8 +111,8 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
           label="Chargeback Total"
           value={formatDollar(kpiData.totals.totalChargebackDollars)}
           icon={<DollarSign size={18} />}
-          accent={colors.warning ?? "#eab308"}
-          style={{ borderTop: `3px solid ${colors.warning ?? "#eab308"}` }}
+          accent={colors.warning ?? semanticColors.warningGold}
+          style={{ borderTop: `3px solid ${colors.warning ?? semanticColors.warningGold}` }}
         />
         <StatCard
           label="Pending Terms"
@@ -126,7 +127,7 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
       <div className="animate-fade-in-up stagger-2" style={{ ...CARD, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", gap: 10 }}>
           <Activity size={16} color={colors.textTertiary} />
-          <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+          <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
             Agent Retention KPIs (30-day window)
           </span>
         </div>
@@ -178,7 +179,7 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
                     <td style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackTotal > 0 ? colors.danger : colors.textSecondary }}>
                       {formatDollar(agent.chargebackTotal)}
                     </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.pendingTermCount > 0 ? (colors.warning ?? "#eab308") : colors.textSecondary }}>
+                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.pendingTermCount > 0 ? (colors.warning ?? semanticColors.warningGold) : colors.textSecondary }}>
                       {agent.pendingTermCount}
                     </td>
                   </tr>

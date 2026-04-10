@@ -390,7 +390,7 @@ function assignPtRoundRobinLocal(
 
 const SECTION_HEADING: React.CSSProperties = {
   margin: `0 0 ${spacing[4]}px`,
-  fontSize: 16,
+  fontSize: typography.sizes.md.fontSize,
   fontWeight: 600,
   color: colors.textPrimary,
 };
@@ -400,7 +400,7 @@ const TEXTAREA: React.CSSProperties = {
   minHeight: 120,
   resize: "vertical" as const,
   fontFamily: typography.fontMono,
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   width: "100%",
   boxSizing: "border-box" as const,
 };
@@ -413,7 +413,7 @@ const TABLE_WRAP: React.CSSProperties = {
 const COMPACT_INPUT: React.CSSProperties = {
   ...baseInputStyle,
   padding: "6px 8px",
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   boxSizing: "border-box" as const,
 };
 

@@ -14,6 +14,8 @@ import {
   baseLabelStyle,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
+  colorAlpha,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import {
@@ -108,8 +110,8 @@ function AgentRow({ agent, onSave, onDelete }: {
     return (
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, opacity: 0.5 }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 14, color: colors.textMuted, textDecoration: "line-through" }}>{agent.name}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Inactive</div>
+          <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: colors.textMuted, textDecoration: "line-through" }}>{agent.name}</div>
+          <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted }}>Inactive</div>
         </div>
         <Button variant="success" size="sm" onClick={() => onSave(agent.id, { active: true })} title="Reactivate agent">
           Reactivate
@@ -121,7 +123,7 @@ function AgentRow({ agent, onSave, onDelete }: {
   return (
     <div className="row-hover" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, transition: `background ${motion.duration.fast}` }}>
       <div>
-        <div style={{ fontWeight: 600, fontSize: 14, color: colors.textPrimary }}>{agent.name}</div>
+        <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: colors.textPrimary }}>{agent.name}</div>
         <div style={{ fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
           {agent.email ? `CRM: ${agent.email}` : ""}
           {agent.email && agent.extension ? " \u00b7 " : ""}
@@ -130,9 +132,9 @@ function AgentRow({ agent, onSave, onDelete }: {
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {confirmDelete ? (
-          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
+          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: colors.dangerBg, border: `1px solid ${colorAlpha(semanticColors.dangerLight, 0.25)}`, borderRadius: radius.md, padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove agent?</span>
-            <Button variant="secondary" size="sm" style={{ padding: "4px 10px", borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24" }} onClick={() => { onDelete(agent.id, false); setConfirmDelete(false); }}>Deactivate</Button>
+            <Button variant="secondary" size="sm" style={{ padding: "4px 10px", borderColor: colorAlpha(semanticColors.statusPending, 0.4), color: semanticColors.statusPending }} onClick={() => { onDelete(agent.id, false); setConfirmDelete(false); }}>Deactivate</Button>
             <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(agent.id, true); setConfirmDelete(false); }}>Delete Permanently</Button>
             <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>Cancel</Button>
           </div>
@@ -191,14 +193,14 @@ function LeadSourceRow({ ls, onSave, onDelete }: {
   return (
     <div className="row-hover" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 8px", borderBottom: `1px solid ${colors.borderSubtle}`, borderRadius: radius.md, transition: `background ${motion.duration.fast}` }}>
       <div>
-        <div style={{ fontWeight: 600, fontSize: 14, color: colors.textPrimary }}>{ls.name}</div>
+        <div style={{ fontWeight: 600, fontSize: typography.sizes.base.fontSize, color: colors.textPrimary }}>{ls.name}</div>
         <div style={{ fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
           ${ls.costPerLead}/lead{ls.listId ? ` \u00b7 List: ${ls.listId}` : ""}{(ls.callBufferSeconds ?? 0) > 0 ? ` \u00b7 Buffer: ${ls.callBufferSeconds}s` : ""}
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {confirmDelete ? (
-          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: radius.md, padding: "6px 10px" }}>
+          <div className="animate-fade-in" style={{ display: "flex", gap: 6, alignItems: "center", background: colors.dangerBg, border: `1px solid ${colorAlpha(semanticColors.dangerLight, 0.25)}`, borderRadius: radius.md, padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: colors.danger, fontWeight: 600 }}>Remove source?</span>
             <Button variant="danger" size="sm" style={{ padding: "4px 10px" }} onClick={() => { onDelete(ls.id); setConfirmDelete(false); }}>Yes</Button>
             <Button variant="secondary" size="sm" style={{ padding: "4px 10px" }} onClick={() => setConfirmDelete(false)}>No</Button>
@@ -353,7 +355,7 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
       <Card style={{ marginTop: 20 }}>
         <SectionHeader icon={<Settings size={18} />} title="Products" count={products.length} />
         {products.length === 0 ? (
-          <div style={{ fontSize: 13, color: colors.textMuted }}>No products configured.</div>
+          <div style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textMuted }}>No products configured.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -400,10 +402,10 @@ export default function ManagerConfig({ API, agents, products, leadSources, refr
           display: "flex",
           alignItems: "center",
           gap: 8,
-          fontSize: 14,
+          fontSize: typography.sizes.base.fontSize,
           fontWeight: 600,
           background: cfgMsg.startsWith("Error") ? colors.dangerBg : colors.successBg,
-          border: `1px solid ${cfgMsg.startsWith("Error") ? "rgba(248,113,113,0.2)" : "rgba(52,211,153,0.2)"}`,
+          border: `1px solid ${cfgMsg.startsWith("Error") ? colorAlpha(semanticColors.dangerLight, 0.2) : "rgba(52,211,153,0.2)"}`,
           color: cfgMsg.startsWith("Error") ? colors.danger : colors.success,
         }}>
           {cfgMsg.startsWith("Error") ? <AlertCircle size={16} /> : <CheckCircle size={16} />}

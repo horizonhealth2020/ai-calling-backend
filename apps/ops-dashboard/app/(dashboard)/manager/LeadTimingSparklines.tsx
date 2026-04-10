@@ -40,9 +40,9 @@ function Sparkline({ data, width = 80, height = 24 }: { data: number[]; width?: 
 
 /* -- Style constants -- */
 
-const SUBSECTION_LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
+const SUBSECTION_LBL: React.CSSProperties = { fontSize: typography.sizes.xs.fontSize, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
 const TABLE_WRAP: React.CSSProperties = { overflowX: "auto" };
-const NO_DATA_MSG: React.CSSProperties = { textAlign: "center", color: colors.textMuted, fontSize: 13, padding: spacing[6] };
+const NO_DATA_MSG: React.CSSProperties = { textAlign: "center", color: colors.textMuted, fontSize: typography.sizes.sm.fontSize, padding: spacing[6] };
 const SOURCE_NAME_TD: React.CSSProperties = { ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 
 /* -- Component -- */

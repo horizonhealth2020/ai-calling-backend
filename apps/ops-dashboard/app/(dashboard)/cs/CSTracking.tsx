@@ -41,13 +41,13 @@ type SocketClient = import("socket.io-client").Socket;
 
 const SECTION_HEADING: React.CSSProperties = {
   margin: `0 0 ${spacing[4]}px`,
-  fontSize: 16,
+  fontSize: typography.sizes.md.fontSize,
   fontWeight: 600,
   color: colors.textPrimary,
 };
 
 const TICKER_VALUE: React.CSSProperties = {
-  fontSize: 28,
+  fontSize: typography.sizes["2xl"].fontSize,
   fontWeight: 700,
   color: colors.danger,
   lineHeight: "1.2",
@@ -680,7 +680,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
         {/* Filter toggle */}
         <button
           onClick={() => { setCbFiltersOpen(!cbFiltersOpen); setPtFiltersOpen(!ptFiltersOpen); }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13 }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: typography.sizes.sm.fontSize }}
         >
           <Filter size={14} />
           Filters
@@ -693,7 +693,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
             <DateRangeFilter value={exportDateFilter} onChange={setExportDateFilter} presets={KPI_PRESETS} />
             <button
               onClick={exportCSV}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: 13, flexShrink: 0 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${colors.borderDefault}`, borderRadius: radius.md, padding: "8px 12px", color: colors.textSecondary, cursor: "pointer", fontSize: typography.sizes.sm.fontSize, flexShrink: 0 }}
             >
               <Download size={14} /> Export CSV
             </button>
@@ -1008,7 +1008,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
           {/* Total */}
           <div>
             <span style={TICKER_LABEL}>TOTAL PENDING</span>
-            <div style={{ fontSize: 22, fontWeight: 700, color: colors.textPrimary }}>{ptSummary.total}</div>
+            <div style={{ fontSize: typography.sizes.xl.fontSize, fontWeight: 700, color: colors.textPrimary }}>{ptSummary.total}</div>
           </div>
 
           {/* Divider */}

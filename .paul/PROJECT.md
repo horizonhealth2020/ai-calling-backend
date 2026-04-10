@@ -16,8 +16,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Version | 2.5.0 |
 | Status | Production |
 | Last Updated | 2026-04-09 |
-| Milestones shipped | 14 (v1.0 through v2.4) |
-| Total phases | 49 |
+| Milestones shipped | 15 (v1.0 through v2.5) |
+| Total phases | 52 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -122,8 +122,20 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Print view status colors: ACH green, CLAWBACK_APPLIED red (matching on-screen)
 - [x] Simple chargeback batch parser (policy ID + member name tab-separated format)
 
+**v2.5 — Professional Polish (2026-04-10)**
+- [x] Distinct disabled states on Button/Input/Select (flat inset bg, ARIA attrs)
+- [x] ConfirmModal component (dark glassmorphism, WCAG focus trap, unique ARIA IDs)
+- [x] All window.confirm() replaced with themed ConfirmModal (14 confirmation points)
+- [x] Toast error feedback on all API failures (zero silent catches)
+- [x] Debounced search inputs (CS tracking, payroll agent sidebar)
+- [x] Form error clearing on all ManagerEntry fields
+- [x] Semantic color token system (30 aliases + colorAlpha helper)
+- [x] Responsive KPI grids (auto-fit minmax across all dashboards)
+- [x] Touch-friendly sidebar navigation
+- [x] 324 hardcoded visual values migrated to design tokens
+
 ### Active (In Progress)
-- v2.5 Professional Polish — focus rings, disabled states, confirm modals, loading feedback, design tokens, ARIA labels, debounce, error surfacing, responsive grids, typography tokens
+None.
 
 ### Planned (Next)
 - Bulk sale import from CSV

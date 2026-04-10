@@ -14,6 +14,9 @@ import {
   baseLabelStyle,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
+  colorAlpha,
+  typography,
 } from "@ops/ui";
 import { authFetch, getToken } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
@@ -69,7 +72,7 @@ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 const PREVIEW_LABEL: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: typography.sizes.xs.fontSize,
   fontWeight: 700,
   color: colors.textTertiary,
   textTransform: "uppercase" as const,
@@ -84,21 +87,21 @@ const EDIT_ROW_EXPANSION: React.CSSProperties = {
 };
 
 const DIFF_OLD: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: typography.sizes.base.fontSize,
   color: colors.textMuted,
   textDecoration: "line-through",
 };
 
 const DIFF_NEW: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: typography.sizes.base.fontSize,
   color: colors.success,
   fontWeight: 700,
 };
 
 const PENDING_EDIT_BADGE: React.CSSProperties = {
   background: "rgba(245,158,11,0.12)",
-  color: "#f59e0b",
-  fontSize: 11,
+  color: semanticColors.warningAmber,
+  fontSize: typography.sizes.xs.fontSize,
   fontWeight: 700,
   padding: "4px 8px",
   borderRadius: radius.sm,
@@ -114,10 +117,10 @@ const STATUS_DISPLAY: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    RAN: "#22c55e",
-    DECLINED: "#ef4444",
-    DEAD: "#6b7280",
-    PENDING_RAN: "#f59e0b",
+    RAN: semanticColors.statusRan,
+    DECLINED: semanticColors.statusDead,
+    DEAD: semanticColors.neutralGray,
+    PENDING_RAN: semanticColors.warningAmber,
   };
   const c = map[status] ?? colors.warning;
   const label = STATUS_DISPLAY[status] ?? status;
@@ -421,10 +424,10 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
           display: "flex",
           alignItems: "center",
           gap: 8,
-          fontSize: 14,
+          fontSize: typography.sizes.base.fontSize,
           fontWeight: 600,
           background: msg.type === "success" ? colors.successBg : colors.dangerBg,
-          border: `1px solid ${msg.type === "success" ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
+          border: `1px solid ${msg.type === "success" ? "rgba(52,211,153,0.2)" : colorAlpha(semanticColors.dangerLight, 0.2)}`,
           color: msg.type === "success" ? colors.success : colors.danger,
         }}>
           {msg.text}
@@ -442,10 +445,10 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
               borderRadius: radius.full,
               border: "none",
               cursor: "pointer",
-              fontSize: 13,
+              fontSize: typography.sizes.sm.fontSize,
               fontWeight: salesDay === day ? 700 : 500,
               background: salesDay === day ? colors.primary500 : "rgba(30,41,59,0.5)",
-              color: salesDay === day ? "#fff" : colors.textTertiary,
+              color: salesDay === day ? semanticColors.white : colors.textTertiary,
               transition: `all ${motion.duration.fast} ${motion.easing.out}`,
             }}
             onClick={() => setSalesDay(day)}
@@ -471,15 +474,15 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
           <Card key={agentName} className={`animate-fade-in-up stagger-${Math.min(agentIdx + 1, 10)}`} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${colors.borderSubtle}`, flexWrap: "wrap", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: colors.textPrimary }}>{agentName}</h3>
+                <h3 style={{ margin: 0, fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: colors.textPrimary }}>{agentName}</h3>
                 <Badge color={colors.primary400} variant="subtle" size="sm">{sales.length} sale{sales.length !== 1 ? "s" : ""}</Badge>
               </div>
-              <div style={{ fontWeight: 800, fontSize: 18, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
+              <div style={{ fontWeight: 800, fontSize: typography.sizes.lg.fontSize, background: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
                 <AnimatedNumber value={premiumTotal} prefix="$" decimals={2} />
               </div>
             </div>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize }}>
                 <thead>
                   <tr>
                     {["Date", "Member", "Carrier", "Product", "Lead Source", "Phone", "Premium", "Status", "", "", ""].map((h, i) => (
@@ -522,8 +525,8 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                               borderRadius: radius.full,
                               border: "none",
                               cursor: "pointer",
-                              color: "#fff",
-                              background: s.status === "RAN" ? "#22c55e" : s.status === "DECLINED" ? "#ef4444" : s.status === "DEAD" ? "#6b7280" : colors.warning,
+                              color: semanticColors.white,
+                              background: s.status === "RAN" ? semanticColors.statusRan : s.status === "DECLINED" ? semanticColors.statusDead : s.status === "DEAD" ? semanticColors.neutralGray : colors.warning,
                               appearance: "auto" as React.CSSProperties["appearance"],
                             }}
                           >
@@ -585,7 +588,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                         <td colSpan={11} style={{ padding: 0 }}>
                           <div className="animate-slide-down" style={{
                             padding: "10px 20px",
-                            background: "rgba(45,212,191,0.04)",
+                            background: colorAlpha(semanticColors.accentTealLight, 0.04),
                             borderTop: `1px solid ${colors.borderSubtle}`,
                             borderBottom: `1px solid ${colors.borderSubtle}`,
                             display: "flex",
@@ -593,7 +596,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                             gap: 8,
                           }}>
                             <FileText size={13} style={{ color: colors.textMuted, flexShrink: 0, marginTop: 1 }} />
-                            <span style={{ fontSize: 13, color: colors.textSecondary, whiteSpace: "pre-wrap" }}>{s.notes}</span>
+                            <span style={{ fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary, whiteSpace: "pre-wrap" }}>{s.notes}</span>
                           </div>
                         </td>
                       </tr>
@@ -603,7 +606,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                         <td colSpan={11} style={{ padding: 0 }}>
                           <div style={EDIT_ROW_EXPANSION} className="animate-slide-down">
                             {editOriginal._blocked ? (
-                              <div style={{ fontSize: 14, color: "#f59e0b", padding: spacing[4] }}>
+                              <div style={{ fontSize: typography.sizes.base.fontSize, color: semanticColors.warningAmber, padding: spacing[4] }}>
                                 A change is already pending. Wait for payroll to review before editing.
                               </div>
                             ) : (
@@ -748,13 +751,13 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                       JSON.stringify(editForm[k]) !== JSON.stringify(editOriginal[k])
                                     );
                                     if (changedKeys.length === 0) return (
-                                      <div style={{ fontSize: 14, color: colors.textMuted }}>No fields changed yet.</div>
+                                      <div style={{ fontSize: typography.sizes.base.fontSize, color: colors.textMuted }}>No fields changed yet.</div>
                                     );
                                     return (
                                       <div style={{ display: "flex", flexDirection: "column", gap: spacing[1] }} className="animate-fade-in-up">
                                         {changedKeys.map(k => (
                                           <div key={k} style={{ display: "flex", gap: spacing[2], alignItems: "center" }}>
-                                            <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 120 }}>{k}:</span>
+                                            <span style={{ fontSize: typography.sizes.base.fontSize, color: colors.textSecondary, minWidth: 120 }}>{k}:</span>
                                             <span style={DIFF_OLD}>{String(editOriginal[k])}</span>
                                             <span style={{ color: colors.textMuted }}>&rarr;</span>
                                             <span style={DIFF_NEW}>{String(editForm[k])}</span>
@@ -762,7 +765,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                         ))}
                                         {editPreview && (
                                           <div style={{ display: "flex", gap: spacing[2], alignItems: "center" }}>
-                                            <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 120 }}>Commission:</span>
+                                            <span style={{ fontSize: typography.sizes.base.fontSize, color: colors.textSecondary, minWidth: 120 }}>Commission:</span>
                                             <span style={DIFF_NEW}>{formatDollar(editPreview.commission)}</span>
                                           </div>
                                         )}

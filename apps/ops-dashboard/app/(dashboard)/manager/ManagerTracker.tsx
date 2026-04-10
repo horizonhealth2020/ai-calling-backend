@@ -13,6 +13,8 @@ import {
   radius,
   baseThStyle,
   baseTdStyle,
+  semanticColors,
+  typography,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -195,7 +197,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                     <AnimatedNumber value={row.salesCount} />
                   </td>
                   <td style={{ ...baseTdStyle, textAlign: "right" }}>
-                    <span style={{ fontWeight: 800, fontSize: isTop ? 16 : 14, background: "linear-gradient(135deg, #34d399, #10b981)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
+                    <span style={{ fontWeight: 800, fontSize: isTop ? 16 : 14, background: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
                       <AnimatedNumber value={Number(row.premiumTotal)} prefix="$" decimals={2} />
                     </span>
                   </td>
@@ -240,7 +242,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         <div style={{ marginTop: spacing[4] }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: spacing[3] }}>
             <Phone size={15} color={colors.primary400} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary }}>Calls by Lead Source</span>
+            <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: 700, color: colors.textSecondary }}>Calls by Lead Source</span>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: spacing[2] }}>
             {entries.map(([name, count]) => (

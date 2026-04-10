@@ -117,7 +117,7 @@ function AgentScoreTable({ agents }: { agents: AgentScore[] }) {
     <div className="animate-fade-in-up stagger-2" style={{ ...CARD, padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", gap: 10 }}>
         <Users size={16} color={colors.textTertiary} />
-        <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+        <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
           Per-Agent Score Breakdown
         </span>
       </div>
@@ -182,7 +182,7 @@ function WeeklyTrendsTable({ trends }: { trends: WeeklyTrend[] }) {
     <div className="animate-fade-in-up stagger-3" style={{ ...CARD, padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "16px 24px", borderBottom: `1px solid ${colors.borderSubtle}`, display: "flex", alignItems: "center", gap: 10 }}>
         <TrendingUp size={16} color={colors.textTertiary} />
-        <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+        <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
           Weekly Score Trends
         </span>
       </div>
@@ -246,7 +246,7 @@ function ScoreDistribution({ distribution, total }: { distribution: ScoringData[
     <div className="animate-fade-in-up stagger-1" style={{ ...CARD, padding: 24 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
         <Award size={16} color={colors.textTertiary} />
-        <span style={{ fontSize: 13, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+        <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
           Score Distribution
         </span>
       </div>
@@ -256,9 +256,9 @@ function ScoreDistribution({ distribution, total }: { distribution: ScoringData[
           const pct = total > 0 ? Math.round((count / total) * 100) : 0;
           return (
             <div key={bucket.key}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: typography.sizes.sm.fontSize }}>
                 <span style={{ color: colors.textSecondary }}>
-                  {bucket.label} <span style={{ color: colors.textTertiary, fontSize: 11 }}>({bucket.range})</span>
+                  {bucket.label} <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize }}>({bucket.range})</span>
                 </span>
                 <span style={{ fontWeight: 600, color: bucket.color }}>{count} <span style={{ color: colors.textTertiary, fontWeight: 400 }}>({pct}%)</span></span>
               </div>

@@ -13,6 +13,8 @@ import {
   motion,
   baseInputStyle,
   baseLabelStyle,
+  semanticColors,
+  colorAlpha,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
@@ -59,21 +61,21 @@ const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 const PREVIEW_PANEL: React.CSSProperties = {
   background: colors.bgSurface,
-  border: "1px solid rgba(20,184,166,0.15)",
+  border: `1px solid ${colorAlpha(semanticColors.accentTealMid, 0.15)}`,
   borderRadius: radius.xl,
   padding: spacing[6],
   marginBottom: spacing[4],
 };
 
 const PREVIEW_TOTAL: React.CSSProperties = {
-  fontSize: 18,
+  fontSize: typography.sizes.lg.fontSize,
   fontWeight: 700,
   color: colors.primary400,
   lineHeight: 1.4,
 };
 
 const PREVIEW_LINE: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: typography.sizes.base.fontSize,
   color: colors.textSecondary,
   display: "flex",
   justifyContent: "space-between",
@@ -81,7 +83,7 @@ const PREVIEW_LINE: React.CSSProperties = {
 };
 
 const PREVIEW_LABEL: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: typography.sizes.xs.fontSize,
   fontWeight: 700,
   color: colors.textTertiary,
   textTransform: "uppercase" as const,
@@ -526,10 +528,10 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           display: "flex",
           alignItems: "center",
           gap: 8,
-          fontSize: 14,
+          fontSize: typography.sizes.base.fontSize,
           fontWeight: 600,
           background: msg.type === "success" ? colors.successBg : colors.dangerBg,
-          border: `1px solid ${msg.type === "success" ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
+          border: `1px solid ${msg.type === "success" ? "rgba(52,211,153,0.2)" : colorAlpha(semanticColors.dangerLight, 0.2)}`,
           color: msg.type === "success" ? colors.success : colors.danger,
         }}>
           {msg.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
@@ -634,13 +636,13 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                       ? `2px solid ${colors.primary500}`
                       : `2px solid ${colors.borderDefault}`,
                     background: form.paymentType === pt
-                      ? `rgba(20,184,166,0.1)`
+                      ? colorAlpha(semanticColors.accentTealMid, 0.1)
                       : "transparent",
                     cursor: "pointer",
                     transition: `all ${motion.duration.fast} ${motion.easing.out}`,
                     color: form.paymentType === pt ? colors.primary300 : colors.textSecondary,
                     fontWeight: form.paymentType === pt ? 700 : 500,
-                    fontSize: 14,
+                    fontSize: typography.sizes.base.fontSize,
                     userSelect: "none",
                   }}
                 >
@@ -675,7 +677,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                 fontWeight: 700,
                 fontSize: 15,
                 minHeight: 48,
-                boxShadow: `${shadows.glowPrimary}, 0 4px 20px rgba(20,184,166,0.3)`,
+                boxShadow: `${shadows.glowPrimary}, 0 4px 20px ${colorAlpha(semanticColors.accentTealMid, 0.3)}`,
                 letterSpacing: "0.02em",
               }}
             >
@@ -694,11 +696,11 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             </div>
 
             {!form.productId ? (
-              <div style={{ fontSize: 14, color: colors.textMuted }}>
+              <div style={{ fontSize: typography.sizes.base.fontSize, color: colors.textMuted }}>
                 Select a product to see commission preview.
               </div>
             ) : previewError ? (
-              <div style={{ fontSize: 11, color: colors.danger }}>
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.danger }}>
                 Preview unavailable — commission will be calculated on submission.
               </div>
             ) : (
@@ -743,7 +745,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           </div>
 
           {/* ACA Plan */}
-          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${includeAca ? "rgba(20,184,166,0.3)" : colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
+          <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${includeAca ? colorAlpha(semanticColors.accentTealMid, 0.3) : colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input
                 type="checkbox"
@@ -751,7 +753,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                 onChange={(e) => setIncludeAca(e.target.checked)}
                 style={{ accentColor: colors.primary400 }}
               />
-              <label style={{ ...LBL, fontSize: 13, margin: 0, cursor: "pointer" }} onClick={() => setIncludeAca(!includeAca)}>
+              <label style={{ ...LBL, fontSize: typography.sizes.sm.fontSize, margin: 0, cursor: "pointer" }} onClick={() => setIncludeAca(!includeAca)}>
                 Include ACA Plan
               </label>
             </div>
@@ -774,7 +776,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                         border: acaMode === mode
                           ? `2px solid ${colors.primary500}`
                           : `2px solid ${colors.borderDefault}`,
-                        background: acaMode === mode ? "rgba(20,184,166,0.1)" : "transparent",
+                        background: acaMode === mode ? colorAlpha(semanticColors.accentTealMid, 0.1) : "transparent",
                         cursor: "pointer",
                         fontSize: 12,
                         fontWeight: acaMode === mode ? 700 : 500,
@@ -825,7 +827,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                         />
                       </div>
                     </div>
-                    <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.textTertiary }}>
+                    <p style={{ margin: "8px 0 0", fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary }}>
                       ACA will be submitted with the sale above — meets bundle requirement
                     </p>
                   </>
@@ -946,7 +948,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
 
           {/* Receipt paste area */}
           <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5], marginBottom: 16 }}>
-            <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+            <label style={{ ...LBL, fontSize: typography.sizes.sm.fontSize, display: "flex", alignItems: "center", gap: 6 }}>
               <ClipboardList size={14} />Paste Sale Receipt
             </label>
             <div style={{ position: "relative" }}>
@@ -957,7 +959,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                   height: 120,
                   resize: "vertical",
                   fontFamily: typography.fontMono,
-                  fontSize: 11,
+                  fontSize: typography.sizes.xs.fontSize,
                   borderStyle: "dashed",
                   borderWidth: 2,
                   borderColor: parsed ? colors.success : colors.borderStrong,
@@ -986,7 +988,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             </div>
 
             {parsed && (
-              <p style={{ margin: "8px 0 0", fontSize: 11, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+              <p style={{ margin: "8px 0 0", fontSize: typography.sizes.xs.fontSize, color: colors.success, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                 <Check size={12} />Parsed — fields filled in form
               </p>
             )}
@@ -1015,15 +1017,15 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                 )}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {parsedInfo.totalPremium && (
-                    <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(52,211,153,0.15)`, flex: 1, minWidth: 100 }}>
+                    <div style={{ background: colorAlpha(semanticColors.accentGreenMid, 0.12), borderRadius: radius.lg, padding: "6px 12px", border: "1px solid rgba(52,211,153,0.15)", flex: 1, minWidth: 100 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>TOTAL PREMIUM</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: colors.success }}>${parsedInfo.totalPremium}</div>
+                      <div style={{ fontWeight: 800, fontSize: typography.sizes.md.fontSize, color: colors.success }}>${parsedInfo.totalPremium}</div>
                     </div>
                   )}
                   {parsedInfo.enrollmentFee && (
-                    <div style={{ background: colors.warningBg, borderRadius: radius.lg, padding: "6px 12px", border: `1px solid rgba(251,191,36,0.15)`, flex: 1, minWidth: 100 }}>
+                    <div style={{ background: colors.warningBg, borderRadius: radius.lg, padding: "6px 12px", border: `1px solid ${colorAlpha(semanticColors.statusPending, 0.15)}`, flex: 1, minWidth: 100 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, color: colors.textTertiary, letterSpacing: typography.tracking.caps, textTransform: "uppercase" }}>ENROLL FEE</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: colors.warning }}>${parsedInfo.enrollmentFee}</div>
+                      <div style={{ fontWeight: 800, fontSize: typography.sizes.md.fontSize, color: colors.warning }}>${parsedInfo.enrollmentFee}</div>
                     </div>
                   )}
                 </div>
@@ -1041,7 +1043,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               });
             return (
               <div style={{ background: colors.bgSurface, borderRadius: radius.xl, border: `1px solid ${colors.borderDefault}`, padding: spacing[5] }}>
-                <label style={{ ...LBL, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                <label style={{ ...LBL, fontSize: typography.sizes.sm.fontSize, display: "flex", alignItems: "center", gap: 6 }}>
                   <Plus size={14} />Add-on Products
                 </label>
                 <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: radius.lg, padding: spacing[2] }}>
@@ -1074,7 +1076,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                           </div>
                           {isChecked && (
                             <div style={{ paddingLeft: 26, paddingBottom: 10 }}>
-                              <label style={{ ...LBL, fontSize: 11, marginBottom: 4 }}>Premium ($)</label>
+                              <label style={{ ...LBL, fontSize: typography.sizes.xs.fontSize, marginBottom: 4 }}>Premium ($)</label>
                               <input
                                 className="input-focus"
                                 type="number"
@@ -1083,7 +1085,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                                 placeholder="0.00"
                                 value={addonPremiums[ap.id] ?? ""}
                                 onChange={e => setAddonPremiums(prev => ({ ...prev, [ap.id]: e.target.value }))}
-                                style={{ ...baseInputStyle, width: "100%", fontSize: 13 }}
+                                style={{ ...baseInputStyle, width: "100%", fontSize: typography.sizes.sm.fontSize }}
                               />
                             </div>
                           )}

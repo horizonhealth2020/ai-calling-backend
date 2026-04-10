@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState, ConfirmModal } from "@ops/ui";
-import { colors, spacing, radius } from "@ops/ui";
+import { colors, spacing, radius, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
 import {
@@ -58,7 +58,7 @@ function StatMini({
       gap: 2,
     }}>
       <div style={{ fontSize: 9, color: C.textTertiary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
-      <div style={{ fontWeight: 700, fontSize: 18, color: color ?? C.textPrimary }}>
+      <div style={{ fontWeight: 700, fontSize: typography.sizes.lg.fontSize, color: color ?? C.textPrimary }}>
         <AnimatedNumber value={value} prefix={prefix} decimals={2} />
       </div>
     </div>
@@ -934,7 +934,7 @@ export default function PayrollPeriods({
             display: "flex",
             alignItems: "center",
             gap: 8,
-            fontSize: 13,
+            fontSize: typography.sizes.sm.fontSize,
             fontWeight: 600,
             color: C.textMuted,
           }}>
@@ -955,14 +955,14 @@ export default function PayrollPeriods({
             alignItems: "center",
             gap: 8,
             marginBottom: showChargebacks ? S[3] : 0,
-            fontSize: 13,
+            fontSize: typography.sizes.sm.fontSize,
             fontWeight: 700,
             color: C.textPrimary,
           }}
         >
           <AlertTriangle size={14} color={C.danger} />
           <span>Chargebacks ({alerts.length})</span>
-          <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 500 }}>
+          <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted, fontWeight: 500 }}>
             {showChargebacks ? "(click to collapse)" : "(click to expand)"}
           </span>
         </button>
@@ -981,7 +981,7 @@ export default function PayrollPeriods({
               <tbody>
                 {alerts.map(alert => {
                   const highlighted = highlightedAlertIds.has(alert.id);
-                  const HIGHLIGHT_GLOW = { boxShadow: "0 0 20px rgba(20,184,166,0.4), inset 0 0 20px rgba(20,184,166,0.05)" };
+                  const HIGHLIGHT_GLOW = { boxShadow: `0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.4)}, inset 0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.05)}` };
                   // GAP-46-UAT-05 (46-10): UNMATCHED/MULTIPLE detection + raw member identity for the picker.
                   const isUnmatched = !alert.chargeback?.matchedSaleId;
                   const memberLabel = alert.chargeback?.memberId ?? alert.chargeback?.memberCompany ?? "—";
@@ -1010,7 +1010,7 @@ export default function PayrollPeriods({
                           </span>
                         )}
                         {isUnmatched && (
-                          <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                          <div style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted, marginTop: 2 }}>
                             Member: {memberLabel}
                           </div>
                         )}
@@ -1023,7 +1023,7 @@ export default function PayrollPeriods({
                             {isUnmatched && !pickedSaleId[alert.id] ? (
                               /* GAP-46-UAT-05 (46-10) Step 1: manual sale picker */
                               <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 280 }}>
-                                <span style={{ fontSize: 11, color: C.textMuted, fontStyle: "italic" }}>
+                                <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted, fontStyle: "italic" }}>
                                   Pick the sale this chargeback belongs to:
                                 </span>
                                 <input
@@ -1073,7 +1073,7 @@ export default function PayrollPeriods({
                                   }}
                                 />
                                 {salePickerLoading[alert.id] && (
-                                  <span style={{ fontSize: 11, color: C.textMuted }}>Searching…</span>
+                                  <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted }}>Searching…</span>
                                 )}
                                 {(salePickerResults[alert.id] ?? []).length > 0 && (
                                   <div style={{
@@ -1118,7 +1118,7 @@ export default function PayrollPeriods({
                                           {s.memberName || "—"}{" "}
                                           <span style={{ color: C.textMuted, fontWeight: 400 }}>· {s.memberId || "—"}</span>
                                         </div>
-                                        <div style={{ fontSize: 11, color: C.textMuted }}>
+                                        <div style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted }}>
                                           {s.agent?.name} · {s.product?.name || "—"} · {formatDate(s.saleDate)}
                                         </div>
                                       </button>
@@ -1136,12 +1136,12 @@ export default function PayrollPeriods({
                               /* Step 2 (post-pick) OR Step 1 (matched alerts): period dropdown + Approve */
                               <>
                                 {isUnmatched && pickedSaleId[alert.id] && (
-                                  <span style={{ fontSize: 11, color: C.success, fontStyle: "italic" }}>
+                                  <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.success, fontStyle: "italic" }}>
                                     Sale picked ✓
                                   </span>
                                 )}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                  <span style={{ fontSize: 11, color: C.textMuted, fontStyle: "italic" }}>Oldest open period pre-selected</span>
+                                  <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted, fontStyle: "italic" }}>Oldest open period pre-selected</span>
                                   <select
                                     style={{ ...inputStyle, width: "auto", minWidth: 160, fontSize: 12, padding: "4px 8px" }}
                                     value={selectedAlertPeriod[alert.id] || ""}
@@ -1349,7 +1349,7 @@ export default function PayrollPeriods({
                       onKeyDown={(e) => { if (e.key === "Enter") setVisibleCount(selectedAgentSorted.length); }}
                       style={{
                         color: C.accentTeal,
-                        fontSize: 13,
+                        fontSize: typography.sizes.sm.fontSize,
                         fontWeight: 600,
                         cursor: "pointer",
                       }}
@@ -1371,14 +1371,14 @@ export default function PayrollPeriods({
                         display: "flex", justifyContent: "space-between", alignItems: "center",
                         padding: `${S[3]}px ${S[4]}px`,
                         background: C.infoBg,
-                        border: `1px solid rgba(45,212,191,0.15)`,
+                        border: `1px solid ${colorAlpha(semanticColors.accentTealLight, 0.15)}`,
                         borderRadius: R.lg,
                         marginBottom: S[3],
                       }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: C.info }}>
+                        <span style={{ fontWeight: 700, fontSize: typography.sizes.base.fontSize, color: C.info }}>
                           {selectedAgent} - {fmtDate(p.weekStart)} to {fmtDate(p.weekEnd)}
                         </span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.info }}>
+                        <span style={{ fontSize: typography.sizes.sm.fontSize, fontWeight: 700, color: C.info }}>
                           Total: <AnimatedNumber value={svcTotal} prefix="$" decimals={2} />
                         </span>
                       </div>
@@ -1391,7 +1391,7 @@ export default function PayrollPeriods({
                             className={`animate-fade-in-up stagger-${Math.min(seIdx + 1, 10)}`}
                             style={{
                               background: C.bgSurfaceRaised,
-                              border: `1px solid rgba(45,212,191,0.15)`,
+                              border: `1px solid ${colorAlpha(semanticColors.accentTealLight, 0.15)}`,
                               borderRadius: R.xl,
                               marginBottom: S[3],
                             }}
@@ -1399,21 +1399,21 @@ export default function PayrollPeriods({
                             <div style={{
                               display: "flex", justifyContent: "space-between", alignItems: "center",
                               padding: `${S[4]}px ${S[5]}px`,
-                              borderBottom: `1px solid rgba(45,212,191,0.1)`,
+                              borderBottom: `1px solid ${colorAlpha(semanticColors.accentTealLight, 0.1)}`,
                               background: C.infoBg,
                             }}>
                               <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
                                 <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>{se.serviceAgent.name}</span>
                                 <Badge color={C.info} size="sm">CS</Badge>
                               </div>
-                              <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
+                              <div style={{ display: "flex", gap: S[3], fontSize: typography.sizes.sm.fontSize, alignItems: "center" }}>
                                 <span style={{ color: C.textMuted }}>Base: <strong style={{ color: C.textPrimary }}>{formatDollar(Number(se.basePay))}</strong></span>
                                 <span style={{ color: C.textMuted }}>Total: <strong style={{ color: C.info }}>{formatDollar(Number(se.totalPay))}</strong></span>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => printServiceCards([se], p, bonusCategories)}
-                                  style={{ background: C.infoBg, border: `1px solid rgba(45,212,191,0.2)`, color: C.info }}
+                                  style={{ background: C.infoBg, border: `1px solid ${colorAlpha(semanticColors.accentTealLight, 0.2)}`, color: C.info }}
                                 >
                                   <Printer size={11} /> Print
                                 </Button>
@@ -1431,7 +1431,7 @@ export default function PayrollPeriods({
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => markEntriesPaid([], [se.id], se.serviceAgent.name)}
-                                    style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                                    style={{ background: colorAlpha(semanticColors.statusDead, 0.1), border: `1px solid ${colorAlpha(semanticColors.statusDead, 0.2)}`, color: semanticColors.statusDead }}
                                   >
                                     <XCircle size={11} /> Unpaid
                                   </Button>

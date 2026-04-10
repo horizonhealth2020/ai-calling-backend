@@ -5,6 +5,8 @@ import {
   colors, spacing, typography, motion, radius,
   baseInputStyle, baseLabelStyle, baseThStyle, baseTdStyle,
   Badge,
+  semanticColors,
+  colorAlpha,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
@@ -108,7 +110,7 @@ const MINI_LABEL: React.CSSProperties = {
   marginBottom: 2,
 };
 const MINI_VALUE: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: typography.sizes.base.fontSize,
   fontWeight: 600,
   color: C.textPrimary,
 };
@@ -234,7 +236,7 @@ const LBL: React.CSSProperties = { ...baseLabelStyle };
 
 const SECTION_HEADING: React.CSSProperties = {
   margin: `0 0 ${S[4]}px`,
-  fontSize: 16,
+  fontSize: typography.sizes.md.fontSize,
   fontWeight: 600,
   color: C.textPrimary,
 };
@@ -244,7 +246,7 @@ const TEXTAREA: React.CSSProperties = {
   minHeight: 120,
   resize: "vertical" as const,
   fontFamily: typography.fontMono,
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   width: "100%",
   boxSizing: "border-box" as const,
 };
@@ -257,7 +259,7 @@ const TABLE_WRAP: React.CSSProperties = {
 const COMPACT_INPUT: React.CSSProperties = {
   ...baseInputStyle,
   padding: "6px 8px",
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   boxSizing: "border-box" as const,
 };
 
@@ -274,7 +276,7 @@ const PRODUCT_CHECKBOX_WRAP: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 4,
-  fontSize: 13,
+  fontSize: typography.sizes.sm.fontSize,
   color: C.textSecondary,
   cursor: "pointer",
   marginRight: S[2],
@@ -292,10 +294,10 @@ const REMOVE_BTN: React.CSSProperties = {
 };
 
 const PRODUCT_TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
-  CORE: { bg: "rgba(20,184,166,0.15)", fg: "#14b8a6" },
-  ADDON: { bg: "rgba(13,148,136,0.15)", fg: "#0d9488" },
-  AD_D: { bg: "rgba(217,119,6,0.15)", fg: "#d97706" },
-  ACA_PL: { bg: "rgba(59,130,246,0.15)", fg: "#3b82f6" },
+  CORE: { bg: colorAlpha(semanticColors.accentTealMid, 0.15), fg: semanticColors.accentTealMid },
+  ADDON: { bg: "rgba(13,148,136,0.15)", fg: semanticColors.accentTealDark },
+  AD_D: { bg: "rgba(217,119,6,0.15)", fg: semanticColors.warningBrown },
+  ACA_PL: { bg: colorAlpha(semanticColors.accentBlue, 0.15), fg: semanticColors.accentBlue },
 };
 
 /* ── Props ──────────────────────────────────────────────────── */
@@ -740,7 +742,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                   {unmatchedCount} Unmatched
                 </Badge>
               </button>
-              <span style={{ marginLeft: "auto", color: C.danger, fontWeight: typography.weights.bold, fontSize: 16 }}>
+              <span style={{ marginLeft: "auto", color: C.danger, fontWeight: typography.weights.bold, fontSize: typography.sizes.md.fontSize }}>
                 Total: {formatDollar(totalAmount)}
               </span>
             </div>
@@ -792,7 +794,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                         <td style={baseTdStyle}>
                           <div>{rec.memberCompany || "--"}</div>
                           {rec.memberId && (
-                            <div style={{ fontSize: 11, color: C.textTertiary }}>{rec.memberId}</div>
+                            <div style={{ fontSize: typography.sizes.xs.fontSize, color: C.textTertiary }}>{rec.memberId}</div>
                           )}
                         </td>
 
@@ -928,7 +930,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
 
       <div style={{ maxWidth: 540 }}>
         <h3 style={SECTION_HEADING}>Single Chargeback Lookup</h3>
-        <p style={{ color: C.textMuted, marginTop: 0, marginBottom: S[5], fontSize: 14, lineHeight: 1.7 }}>
+        <p style={{ color: C.textMuted, marginTop: 0, marginBottom: S[5], fontSize: typography.sizes.base.fontSize, lineHeight: 1.7 }}>
           Look up a sale by Member ID (preferred) or Member Name, select products to chargeback, then process. Chargebacks target the oldest open payroll period.
         </p>
 
@@ -936,7 +938,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
           <form onSubmit={submitChargeback} style={{ display: "grid", gap: S[5] }}>
             {/* Step 1: Member lookup */}
             <div>
-              <label style={LBL}>Member ID <span style={{ color: C.textMuted, fontWeight: 400, textTransform: "none", fontSize: 11 }}>(preferred)</span></label>
+              <label style={LBL}>Member ID <span style={{ color: C.textMuted, fontWeight: 400, textTransform: "none", fontSize: typography.sizes.xs.fontSize }}>(preferred)</span></label>
               <input
                 className="input-focus"
                 style={inputStyle}
@@ -947,7 +949,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
               />
             </div>
             <div>
-              <label style={LBL}>Member Name <span style={{ color: C.textMuted, fontWeight: 400, textTransform: "none", fontSize: 11 }}>(if no ID)</span></label>
+              <label style={LBL}>Member Name <span style={{ color: C.textMuted, fontWeight: 400, textTransform: "none", fontSize: typography.sizes.xs.fontSize }}>(if no ID)</span></label>
               <input
                 className="input-focus"
                 style={inputStyle}
@@ -1019,7 +1021,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                 border: `1px solid ${C.borderSubtle}`,
               }}>
                 <div style={{
-                  fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const,
+                  fontSize: typography.sizes.xs.fontSize, fontWeight: 700, textTransform: "uppercase" as const,
                   letterSpacing: "0.06em", color: C.textTertiary, marginBottom: S[3],
                 }}>
                   Products on sale ({lookupResult.products.length})
@@ -1037,12 +1039,12 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                     onChange={toggleAll}
                     style={{ accentColor: C.primary500, width: 16, height: 16 }}
                   />
-                  <span style={{ fontWeight: 700, fontSize: 13, color: C.textPrimary }}>All Products</span>
+                  <span style={{ fontWeight: 700, fontSize: typography.sizes.sm.fontSize, color: C.textPrimary }}>All Products</span>
                 </label>
 
                 {/* Individual products */}
                 {lookupResult.products.map(p => {
-                  const typeColor = PRODUCT_TYPE_COLORS[p.type] ?? { bg: "rgba(148,163,184,0.15)", fg: "#94a3b8" };
+                  const typeColor = PRODUCT_TYPE_COLORS[p.type] ?? { bg: "rgba(148,163,184,0.15)", fg: semanticColors.neutralLightGray };
                   return (
                     <label key={p.id} style={{
                       display: "flex", alignItems: "center", gap: S[2],
@@ -1054,7 +1056,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                         onChange={() => toggleLookupProduct(p.id)}
                         style={{ accentColor: C.primary500, width: 16, height: 16 }}
                       />
-                      <span style={{ fontSize: 13, color: C.textPrimary }}>{p.name}</span>
+                      <span style={{ fontSize: typography.sizes.sm.fontSize, color: C.textPrimary }}>{p.name}</span>
                       <span style={{
                         fontSize: 10, fontWeight: 700, padding: "2px 6px",
                         borderRadius: 4, background: typeColor.bg, color: typeColor.fg,
@@ -1092,7 +1094,7 @@ export default function PayrollChargebacks({ API }: PayrollChargebacksProps) {
                 <div style={{
                   display: "flex", alignItems: "center", gap: S[2],
                   color: chargebackMsg.startsWith("Chargeback") ? C.success : C.danger,
-                  fontWeight: 600, fontSize: 13,
+                  fontWeight: 600, fontSize: typography.sizes.sm.fontSize,
                 }}>
                   {chargebackMsg.startsWith("Chargeback")
                     ? <CheckCircle size={14} />

@@ -1,6 +1,6 @@
 "use client";
 import { Badge, AnimatedNumber } from "@ops/ui";
-import { colors, spacing, radius, motion } from "@ops/ui";
+import { colors, spacing, radius, motion, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { formatDollar } from "@ops/utils";
 import { ChevronDown } from "lucide-react";
 import {
@@ -107,22 +107,22 @@ export function AgentCard({
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: `${S[4]}px ${S[5]}px`,
           borderBottom: `1px solid ${C.borderSubtle}`,
-          background: isTopEarner ? "rgba(20,184,166,0.04)" : "transparent",
+          background: isTopEarner ? colorAlpha(semanticColors.accentTealMid, 0.04) : "transparent",
           cursor: "pointer",
         }}
         onClick={onToggleExpand}
       >
         <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
-          <span style={{ fontWeight: 700, fontSize: 16, color: C.textPrimary }}>{agentName}</span>
+          <span style={{ fontWeight: 700, fontSize: typography.sizes.md.fontSize, color: C.textPrimary }}>{agentName}</span>
           {isTopEarner && <Badge color={C.primary400}>Top Earner</Badge>}
           <span style={{ fontSize: 12, fontWeight: 400, color: C.textMuted }}>
             {saleCount} sale{saleCount !== 1 ? "s" : ""}
           </span>
         </div>
-        <div style={{ display: "flex", gap: S[3], fontSize: 13, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: S[3], fontSize: typography.sizes.sm.fontSize, alignItems: "center" }}>
           {/* Read-only financial summary of selected week */}
-          <span style={{ color: C.textMuted }}>Commission: <strong style={{ color: C.textPrimary, fontWeight: 700, fontSize: 16 }}>{formatDollar(headerGross)}</strong></span>
-          <span style={{ color: C.textMuted }}>Net: <strong style={{ color: headerNet >= 0 ? C.success : C.danger, fontWeight: 700, fontSize: 16 }}>{formatDollar(headerNet)}</strong></span>
+          <span style={{ color: C.textMuted }}>Commission: <strong style={{ color: C.textPrimary, fontWeight: 700, fontSize: typography.sizes.md.fontSize }}>{formatDollar(headerGross)}</strong></span>
+          <span style={{ color: C.textMuted }}>Net: <strong style={{ color: headerNet >= 0 ? C.success : C.danger, fontWeight: 700, fontSize: typography.sizes.md.fontSize }}>{formatDollar(headerNet)}</strong></span>
           <div
             style={{
               color: C.textMuted,
