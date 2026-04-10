@@ -4,6 +4,7 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { getAgentRetentionKpis } from "../services/agentKpiAggregator";
+import { getOwnerTrends } from "../services/trendAggregator";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema } from "./helpers";
 
 const router = Router();
@@ -16,6 +17,17 @@ router.get("/agent-kpis", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"),
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const kpis = await getAgentRetentionKpis(dr);
   res.json(kpis);
+}));
+
+// ─── Owner Trends (time-series aggregations) ───────────────────
+
+router.get("/owner/trends", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+  const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
+  if (!dr) return res.status(400).json({ error: "A valid date range is required (range, or from+to)" });
+  const trends = await getOwnerTrends(dr);
+  res.json(trends);
 }));
 
 // ─── Permission Management ──────────────────────────────────────

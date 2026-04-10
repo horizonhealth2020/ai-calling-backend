@@ -6,7 +6,7 @@ import { decodeRolesFromToken } from "@/lib/auth";
 import { getToken, authFetch } from "@ops/auth/client";
 import {
   BarChart3,
-  Activity,
+  TrendingUp,
   Settings,
   Users,
   Database,
@@ -14,12 +14,12 @@ import {
   Target,
 } from "lucide-react";
 import OwnerOverview from "./OwnerOverview";
-import OwnerKPIs from "./OwnerKPIs";
+import OwnerTrends from "./OwnerTrends";
 import OwnerConfig from "./OwnerConfig";
 import OwnerUsers from "./OwnerUsers";
 import OwnerScoring from "./OwnerScoring";
 
-type ActiveSection = "overview" | "kpis" | "config" | "users" | "scoring";
+type ActiveSection = "overview" | "trends" | "config" | "users" | "scoring";
 type StorageStats = { dbSizeMB: number; planLimitMB: number; usagePct: number; thresholdPct: number; alertActive: boolean };
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
@@ -42,7 +42,7 @@ function OwnerPageInner() {
   const [activeTab, setActiveTab] = useState<ActiveSection>(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.replace("#", "");
-      if (["overview", "kpis", "config", "users", "scoring"].includes(hash)) return hash as ActiveSection;
+      if (["overview", "trends", "config", "users", "scoring"].includes(hash)) return hash as ActiveSection;
     }
     return "overview";
   });
@@ -64,7 +64,7 @@ function OwnerPageInner() {
 
   const navItems = [
     { icon: <BarChart3 size={18} />, label: "Dashboard", key: "overview" },
-    { icon: <Activity size={18} />, label: "KPIs", key: "kpis" },
+    { icon: <TrendingUp size={18} />, label: "Trends", key: "trends" },
     { icon: <Target size={18} />, label: "Scoring", key: "scoring" },
     { icon: <Settings size={18} />, label: "AI Config", key: "config" },
     ...(isSuperAdmin ? [{ icon: <Users size={18} />, label: "Users", key: "users" }] : []),
@@ -72,7 +72,7 @@ function OwnerPageInner() {
 
   const subtitleMap: Record<ActiveSection, string> = {
     overview: "Performance overview and agent leaderboard",
-    kpis: "Agent retention metrics and chargeback tracking",
+    trends: "Historical trends and analytics",
     scoring: "AI audit scores and agent quality trends",
     config: "AI audit settings and scoring controls",
     users: "Platform users and role management",
@@ -120,7 +120,7 @@ function OwnerPageInner() {
       )}
 
       {activeTab === "overview" && <OwnerOverview socket={socket} API={API} />}
-      {activeTab === "kpis" && <OwnerKPIs API={API} />}
+      {activeTab === "trends" && <OwnerTrends API={API} />}
       {activeTab === "scoring" && <OwnerScoring API={API} />}
       {activeTab === "config" && <OwnerConfig API={API} />}
       {activeTab === "users" && isSuperAdmin && <OwnerUsers API={API} />}

@@ -138,7 +138,7 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Transform the owner dashboard into a real-time command center, upgrade manager tracker with unsurfaced call data, add CS analytics for owner visibility, and standardize remaining fontSize values.
 **Status:** In Progress
-**Progress:** [██████░░░░] 60%
+**Progress:** [████████░░] 80%
 
 ## Phases
 
@@ -147,7 +147,7 @@ A sales operations platform evolving from initial setup through full role-based 
 | 55 | fontSize Standardization | 1 | Complete | 2026-04-10 |
 | 56 | Manager Tracker Upgrade | 1 | Complete | 2026-04-10 |
 | 57 | Owner Command Center | 3 | Complete | 2026-04-10 |
-| 58 | Owner Trends Tab | TBD | Not started | - |
+| 58 | Owner Trends Tab | 1 | Complete | 2026-04-10 |
 | 59 | CS Analytics Tab | TBD | Not started | - |
 
 ## Phase Details
@@ -215,7 +215,7 @@ A sales operations platform evolving from initial setup through full role-based 
 **Skills:** business-analyst, analytics-tracking, revops
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 58-01: Recharts Trends tab — revenue, agent KPI, lead source, call quality charts
 
 ### Phase 59: CS Analytics Tab
 

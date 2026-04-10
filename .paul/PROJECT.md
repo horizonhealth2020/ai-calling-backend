@@ -204,7 +204,8 @@ None.
 | Fronted additive in net formula | Fronted is cash advance (positive), not deduction | Active |
 | halvingReason-driven approval | Approval based on halvingReason presence, not enrollment threshold | Active |
 | Convoso polling over webhooks | More reliable than webhooks for call log integration | Active |
-| Inline SVG sparklines | No charting library, consistent with codebase patterns | Active |
+| Inline SVG sparklines for compact metrics | Sparklines for manager tracker trends, no heavy library needed | Active |
+| Recharts for analytical charts | Owner Trends tab needs real axes, tooltips, legends — sparklines insufficient | Active |
 | ACA flat commission early return | Avoids bundle/enrollment fee interference in calc path | Active |
 | Cross-period chargeback helper | Shared applyChargebackToEntry for single, batch, and alert paths | Active |
 | Store exact carryoverAmount | Eliminates drift when fronts edited between lock and unlock | Active |
