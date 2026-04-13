@@ -10,31 +10,31 @@ See: .paul/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Milestone: v2.9 CS Accountability & Outreach Tracking
-Phase: 66 of 4 (Outreach Logging UI) — Planning
-Plan: 66-01 executing — Tasks 1-2 complete, checkpoint pending
-Status: APPLY in progress — awaiting human verification
-Last activity: 2026-04-13 — Tasks 1-2 executed (API + UI), checkpoint next
+Phase: 67 of 4 (48-Hour Stale Alerts) — Not started
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-04-13 — Phase 66 complete, transitioned to Phase 67
 
 Progress:
-- Milestone: [███░░░░░░░] 25%
+- Milestone: [█████░░░░░] 50%
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ○        ○     [Plan created, awaiting approval]
+  ○        ○        ○     [Ready for Phase 67 planning]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+- 2026-04-13: Gate override always visible when < 3 calls (removed totalAttempts > 0 UI condition)
+- 2026-04-13: bypassReason persisted on record for CS analytics drill-down
+- 2026-04-13: Lazy attempt fetch on expand (not N+1 on page load)
+- 2026-04-13: Conditional optimistic update on gated resolve paths
 - 2026-04-13: Polymorphic FK for ContactAttempt (one table, two nullable FKs)
 - 2026-04-13: Resolution gate: 3 CALL attempts required; EMAIL/TEXT supplementary
-- 2026-04-13: Pre-v2.9 bypass: 0 total attempts = skip gate
-- 2026-04-13: Gate rejection audit-logged as RESOLUTION_GATE_BLOCKED
-- 2026-04-13: invalidateAll() as default cache invalidation — over-invalidation cheap at 30s TTL
-- 2026-04-13: Batch mark-paid removed — mark-paid is per-week, not per-entry
 
 ### Deferred Issues
 - auditQueue.test.ts: 3 pre-existing test failures (incomplete mock)
@@ -56,14 +56,13 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Plan 66-01 audited and approved, ready for APPLY
-Next action: /paul:apply .paul/phases/66-outreach-logging-ui/66-01-PLAN.md
-Resume file: .paul/phases/66-outreach-logging-ui/66-01-PLAN.md
+Stopped at: Phase 66 complete, transitioned to Phase 67
+Next action: /paul:plan for Phase 67 (48-Hour Stale Alerts)
+Resume file: .paul/ROADMAP.md
 Resume context:
-- Plan 66-01: CS card rework — badges, log buttons, timeline, resolve with gate override
-- 2 auto tasks + 1 checkpoint (human-verify)
-- API: bypassReason on resolve, notes required on contact-attempts
-- UI: CSTracking.tsx — expand rework, call count badge, log + timeline + resolve sections
+- Phase 66 shipped: outreach logging UI with gate override
+- Phase 67 ready: 48-Hour Stale Alerts (depends on Phase 66 logging UI)
+- v2.9 at 50% (phases 65-66 complete, 67-68 remaining)
 
 ---
 *STATE.md — Updated after every significant action*
