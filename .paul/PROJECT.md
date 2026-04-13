@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.8.0 |
+| Version | 2.9.0-alpha |
 | Status | Production |
 | Last Updated | 2026-04-10 |
 | Milestones shipped | 18 (v1.0 through v2.8) |
-| Total phases | 64 |
+| Total phases | 65 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -149,8 +149,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 ### Active (In Progress)
 
 **v2.9 — CS Accountability & Outreach Tracking (2026-04-13)**
-- [ ] ContactAttempt data model (CALL/EMAIL/TEXT logging per chargeback/pending term)
-- [ ] Resolution outcome enrichment (SAVED/CANCELLED/NO_CONTACT)
+- [x] ContactAttempt data model (CALL/EMAIL/TEXT logging per chargeback/pending term) — Phase 65
+- [x] Resolution outcome enrichment (SAVED/CANCELLED/NO_CONTACT) — Phase 65
 - [ ] Outreach logging UI (attempt timeline, Log Call/Email/Text buttons)
 - [ ] 48-hour stale alerts on CS agent dashboard
 - [ ] CS analytics upgrade (avg attempts, time-to-resolution, per-agent comparison)
@@ -235,6 +235,8 @@ None.
 | ConfirmModal: inline z-index, no portal | Internal ops tool — z-index 10000 sufficient | Active |
 | ARIA error linking via {id}-error pattern | aria-invalid + aria-describedby on Input/Select | Active |
 | Button forwardRef | Enables ref-based focus management (ConfirmModal) | Active |
+| Polymorphic FK for ContactAttempt | One table, two nullable FKs — simpler than two tables or polymorphic pattern | Active |
+| Resolution gate: 3 CALL attempts | Only CALL type counts; EMAIL/TEXT supplementary; pre-v2.9 bypass | Active |
 
 ## Success Metrics
 
@@ -274,4 +276,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Migrated from .planning/PROJECT.md (GSD framework) on 2026-04-09*
+*Last updated: 2026-04-13 after Phase 65*

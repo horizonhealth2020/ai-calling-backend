@@ -82,6 +82,7 @@ model User {
   resolvedPendingTerms         PendingTerm[]          @relation("PendingTermResolvedBy")
   permissionOverrides          PermissionOverride[]
   grantedPermissions           PermissionOverride[]   @relation("PermissionGrantedBy")
+  contactAttempts              ContactAttempt[]       @relation("ContactAttemptAgent")
 
   @@map("users")
 }
@@ -618,6 +619,7 @@ model ChargebackSubmission {
   submitter   User   @relation("ChargebackSubmittedBy", fields: [submittedBy], references: [id])
   resolver    User?  @relation("ChargebackResolvedBy", fields: [resolvedBy], references: [id])
   alerts      PayrollAlert[]
+  contactAttempts ContactAttempt[]
 
   @@map("chargeback_submissions")
 }
@@ -694,6 +696,7 @@ model PendingTerm {
 
   submitter User  @relation("PendingTermSubmittedBy", fields: [submittedBy], references: [id])
   resolver  User? @relation("PendingTermResolvedBy", fields: [resolvedBy], references: [id])
+  contactAttempts ContactAttempt[]
 
   @@map("pending_terms")
 }
@@ -719,4 +722,21 @@ model AgentPeriodAdjustment {
 
   @@unique([agentId, payrollPeriodId])
   @@map("agent_period_adjustments")
+}
+
+model ContactAttempt {
+  id                     String   @id @default(cuid())
+  type                   String   // CALL, EMAIL, TEXT
+  notes                  String?
+  attemptNumber          Int      @map("attempt_number")
+  chargebackSubmissionId String?  @map("chargeback_submission_id")
+  pendingTermId          String?  @map("pending_term_id")
+  agentId                String   @map("agent_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  chargebackSubmission ChargebackSubmission? @relation(fields: [chargebackSubmissionId], references: [id])
+  pendingTerm          PendingTerm?          @relation(fields: [pendingTermId], references: [id])
+  agent                User                  @relation("ContactAttemptAgent", fields: [agentId], references: [id])
+
+  @@map("contact_attempts")
 }

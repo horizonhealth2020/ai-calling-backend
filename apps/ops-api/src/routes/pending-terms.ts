@@ -128,7 +128,7 @@ router.delete("/pending-terms/:id", requireAuth, requireRole("SUPER_ADMIN", "OWN
 // ─── Pending Term Resolution ────────────────────────────────────
 
 const resolvePendingTermSchema = z.object({
-  resolutionType: z.enum(["saved", "cancelled"]),
+  resolutionType: z.enum(["saved", "cancelled", "no_contact"]),
   resolutionNote: z.string().min(1).max(2000),
 });
 
@@ -137,6 +137,28 @@ router.patch("/pending-terms/:id/resolve", requireAuth, requireRole("CUSTOMER_SE
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const parsed = resolvePendingTermSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  // Resolution gate: "cancelled" and "no_contact" require 3 CALL attempts
+  if (parsed.data.resolutionType === "cancelled" || parsed.data.resolutionType === "no_contact") {
+    const totalAttempts = await prisma.contactAttempt.count({
+      where: { pendingTermId: pp.data.id },
+    });
+    // Pre-v2.9 records (0 total attempts) skip gate — never entered outreach workflow
+    if (totalAttempts > 0) {
+      const callAttempts = await prisma.contactAttempt.count({
+        where: { pendingTermId: pp.data.id, type: "CALL" },
+      });
+      if (callAttempts < 3) {
+        logAudit(req.user!.id, "BLOCKED", "PendingTerm", pp.data.id, {
+          action: "RESOLUTION_GATE_BLOCKED",
+          resolutionType: parsed.data.resolutionType,
+          callAttempts,
+        });
+        return res.status(400).json({ error: `3 call attempts required before cancelling. Current: ${callAttempts}/3` });
+      }
+    }
+  }
+
   const record = await prisma.pendingTerm.update({
     where: { id: pp.data.id },
     data: {

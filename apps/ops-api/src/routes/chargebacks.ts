@@ -475,7 +475,7 @@ router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER
 // ─── Chargeback Resolution ──────────────────────────────────────
 
 const resolveChargebackSchema = z.object({
-  resolutionType: z.enum(["recovered", "closed"]),
+  resolutionType: z.enum(["recovered", "closed", "no_contact"]),
   resolutionNote: z.string().min(1).max(2000),
 });
 
@@ -484,6 +484,28 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const parsed = resolveChargebackSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+
+  // Resolution gate: "closed" and "no_contact" require 3 CALL attempts
+  if (parsed.data.resolutionType === "closed" || parsed.data.resolutionType === "no_contact") {
+    const totalAttempts = await prisma.contactAttempt.count({
+      where: { chargebackSubmissionId: pp.data.id },
+    });
+    // Pre-v2.9 records (0 total attempts) skip gate — never entered outreach workflow
+    if (totalAttempts > 0) {
+      const callAttempts = await prisma.contactAttempt.count({
+        where: { chargebackSubmissionId: pp.data.id, type: "CALL" },
+      });
+      if (callAttempts < 3) {
+        logAudit(req.user!.id, "BLOCKED", "ChargebackSubmission", pp.data.id, {
+          action: "RESOLUTION_GATE_BLOCKED",
+          resolutionType: parsed.data.resolutionType,
+          callAttempts,
+        });
+        return res.status(400).json({ error: `3 call attempts required before closing. Current: ${callAttempts}/3` });
+      }
+    }
+  }
+
   const record = await prisma.chargebackSubmission.update({
     where: { id: pp.data.id },
     data: {

@@ -21,13 +21,13 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Move CS from "did they resolve it?" to "how effectively did they work it?" — giving managers measurable insight into each CS agent's outreach effort and performance.
 **Status:** In Progress
-**Progress:** [░░░░░░░░░░] 0%
+**Progress:** [███░░░░░░░] 25%
 
 ## Phases
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
-| 65 | Outreach Data Model | 1 | Planning | - |
+| 65 | Outreach Data Model | 1 | Complete | 2026-04-13 |
 | 66 | Outreach Logging UI | TBD | Not started | - |
 | 67 | 48-Hour Stale Alerts | TBD | Not started | - |
 | 68 | CS Analytics Upgrade | TBD | Not started | - |
@@ -47,7 +47,7 @@ A sales operations platform evolving from initial setup through full role-based 
 - API endpoints for CRUD on contact attempts
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 65-01: ContactAttempt model + API + 3-call resolution gate
 
 ### Phase 66: Outreach Logging UI
 
@@ -469,4 +469,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-13 — v2.8 milestone created*
+*Last updated: 2026-04-13 — Phase 65 complete*
