@@ -139,7 +139,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Product type color coding — ACA=purple, Core=blue, Add-ons=green, AD&D=amber
 
 ### Active (In Progress)
-None.
+
+**v2.8 — Hardening & Bulk Operations (2026-04-13)**
+- [ ] Orphaned Clawback/PayrollEntry data cleanup (one-time migration)
+- [ ] Activity feed backfill for historical sales
+- [ ] Jest integration tests for commission, chargebacks, payroll, cross-period
+- [ ] Caching layer for aggregation endpoints with Socket.IO invalidation
+- [ ] Bulk sales status changes and batch commission approvals
+- [ ] CSV export expansion (command center, trends, CS analytics, payroll periods)
+- [ ] TypeScript implicit `any` elimination in ops-api routes
 
 ### Planned (Next)
 None.

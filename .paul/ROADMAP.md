@@ -14,6 +14,108 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.5 | Professional Polish | 50-52 | Shipped | 2026-04-10 |
 | v2.6 | Payroll Accuracy & Product Colors | 53-54 | Shipped | 2026-04-10 |
 | v2.7 | Analytics & Command Center | 55-59 | Shipped | 2026-04-10 |
+| v2.8 | Hardening & Bulk Operations | 60-64 | In Progress | - |
+
+## Active Milestone: v2.8 Hardening & Bulk Operations
+
+**Goal:** Make the platform reliable, testable, and efficient at scale — fix data integrity gaps, add test safety nets, improve performance, and enable bulk workflows.
+**Status:** In Progress
+**Progress:** [██░░░░░░░░] 20%
+
+## Phases
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 60 | Data Integrity | 1 | Complete | 2026-04-13 |
+| 61 | API Test Coverage | TBD | Not started | - |
+| 62 | Caching Layer | TBD | Not started | - |
+| 63 | Bulk Operations | TBD | Not started | - |
+| 64 | Polish & Exports | TBD | Not started | - |
+
+## Phase Details
+
+### Phase 60: Data Integrity
+
+**Goal:** Scan and fix orphaned Clawback/PayrollEntry records from the broken chargeback delete flow, plus backfill audit log entries for historical sales so the activity feed has pre-deploy data.
+**Depends on:** v2.7 complete
+**Research:** Unlikely (known data patterns, one-time scripts)
+
+**Scope:**
+- One-time migration script to find and clean orphaned Clawback + zeroed PayrollEntry records
+- Recalculate commission for affected sales via upsertPayrollEntryForSale
+- Activity feed backfill script: generate audit log entries from existing Sale/Clawback records
+
+**Skills:** database-architect
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 61: API Test Coverage
+
+**Goal:** Add Jest integration tests for the highest-risk API paths — commission calculation, chargeback flow (create/apply/delete), payroll calculations, cross-period logic, and sale status changes.
+**Depends on:** Phase 60 (clean data state)
+**Research:** Likely — verify Jest + Prisma test database setup pattern
+
+**Scope:**
+- Jest test infrastructure for ops-api (test database, setup/teardown)
+- Commission engine tests (bundle rules, fee thresholds, ACA flat, AD&D)
+- Chargeback flow tests (create, match, apply in-period, apply cross-period, delete + cleanup)
+- Payroll calculation tests (upsert, carryover, cross-period negative entries)
+- Sale status change tests (RAN→DEAD commission zeroing, approval workflow)
+
+**Skills:** jest, backend-dev-guidelines, e2e-testing-patterns
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 62: Caching Layer
+
+**Goal:** Add in-memory caching for heavy aggregation endpoints (command center, trends, tracker) with automatic invalidation when data changes via Socket.IO events.
+**Depends on:** Phase 61 (tests validate correctness before adding cache)
+**Research:** Likely — evaluate caching strategy (node-cache vs Map vs Redis)
+
+**Scope:**
+- Cache wrapper for aggregation endpoints (command center, trends, tracker summary, owner summary)
+- Socket.IO event-driven invalidation (sale created/updated/deleted, chargeback, payroll mutation)
+- Cache TTL configuration
+- Cache bypass for development
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 63: Bulk Operations
+
+**Goal:** Enable multi-select sales for batch status changes and batch commission approvals — reducing repetitive clicks for managers processing multiple sales.
+**Depends on:** Phase 62 (cache handles burst invalidation from bulk mutations)
+**Research:** Unlikely (existing UI patterns, ConfirmModal available)
+
+**Scope:**
+- Multi-select checkbox UI on manager sales list
+- Batch status change API endpoint (RAN→DEAD/DECLINED for multiple sales)
+- Batch commission approval API endpoint
+- ConfirmModal with summary of affected sales before execution
+- Socket.IO broadcast for bulk updates
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 64: Polish & Exports
+
+**Goal:** Expand CSV export to views missing it and eliminate implicit `any` types in ops-api route files.
+**Depends on:** Phase 63 (bulk ops complete)
+**Research:** Unlikely (mechanical work)
+
+**Scope:**
+- CSV export: owner command center leaderboard, owner trends charts, CS analytics drill-down, payroll periods view
+- TypeScript `any` cleanup: eliminate implicit `any` in all ops-api route files
+- Type-check pass to verify no regressions
+
+**Skills:** typescript-expert
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+---
 
 ## Active Milestone: v2.5 Professional Polish
 
@@ -281,4 +383,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-10 — v2.7 milestone created*
+*Last updated: 2026-04-13 — v2.8 milestone created*
