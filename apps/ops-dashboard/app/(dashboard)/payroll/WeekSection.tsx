@@ -677,8 +677,8 @@ export function WeekSection({
     });
   }, [entries]);
 
-  const NON_SELECTABLE = new Set(["PAID", "ZEROED_OUT", "CLAWBACK_APPLIED", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"]);
-  const selectableEntries = entries.filter(e => !NON_SELECTABLE.has(e.status));
+  // Only entries needing commission approval are selectable (batch approve is the only batch action)
+  const selectableEntries = entries.filter(e => !!e.halvingReason && !e.sale?.commissionApproved);
   const selectableIds = selectableEntries.map(e => e.id);
   const allSelectableSelected = selectableEntries.length > 0 && selectableEntries.every(e => selectedEntries.has(e.id));
   const someSelectableSelected = selectableEntries.some(e => selectedEntries.has(e.id));
@@ -998,7 +998,7 @@ export function WeekSection({
                     highlighted={highlightedEntryIds.has(e.id)}
                     isPaid={allPaid}
                     isLate={isLateEntry(e)}
-                    isSelectable={!NON_SELECTABLE.has(e.status)}
+                    isSelectable={!!e.halvingReason && !e.sale?.commissionApproved}
                     isSelected={selectedEntries.has(e.id)}
                     onToggleSelect={() => onToggleEntry(e.id, e.sale?.id ?? "", !!e.halvingReason && !e.sale?.commissionApproved)}
                   />

@@ -190,37 +190,6 @@ export default function PayrollPeriods({
     );
   }
 
-  function batchMarkPaid() {
-    const entryIds = [...selectedEntries.keys()];
-    if (entryIds.length === 0) return;
-    requestConfirm(
-      "Batch Mark Paid",
-      `Mark ${entryIds.length} entr${entryIds.length > 1 ? "ies" : "y"} as paid?`,
-      "primary",
-      "Mark Paid",
-      async () => {
-        try {
-          const res = await authFetch(`${API}/api/payroll/mark-paid`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ entryIds, serviceEntryIds: [] }),
-          });
-          if (res.ok) {
-            toast("success", `${entryIds.length} entr${entryIds.length > 1 ? "ies" : "y"} marked paid`);
-            clearSelection();
-            await refreshPeriods();
-          } else {
-            const err = await res.json().catch(() => ({}));
-            toast("error", err.error ?? `Request failed (${res.status})`);
-          }
-        } catch (e: unknown) {
-          const message = e instanceof Error ? e.message : "network error";
-          toast("error", `Unable to reach API \u2014 ${message}`);
-        }
-      }
-    );
-  }
-
   const selectedNeedsApprovalCount = [...selectedEntries.values()].filter(e => e.needsApproval).length;
 
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
@@ -1608,8 +1577,8 @@ export default function PayrollPeriods({
           </div>
         </div>
       )}
-      {/* ── Floating batch action bar ──────────────────────────── */}
-      {selectedEntries.size > 0 && (
+      {/* ── Floating batch action bar (commission approval only) ── */}
+      {selectedNeedsApprovalCount > 0 && (
         <div style={{
           position: "fixed",
           bottom: 24,
@@ -1627,16 +1596,11 @@ export default function PayrollPeriods({
           zIndex: 1000,
         }}>
           <span style={{ fontSize: typography.sizes.sm.fontSize, color: C.textSecondary, fontWeight: 600 }}>
-            {selectedEntries.size} selected
+            {selectedNeedsApprovalCount} selected
           </span>
           <div style={{ width: 1, height: 20, background: C.borderSubtle }} />
-          {selectedNeedsApprovalCount > 0 && (
-            <Button variant="primary" size="sm" onClick={batchApproveCommission}>
-              <Check size={14} /> Approve Commission ({selectedNeedsApprovalCount})
-            </Button>
-          )}
-          <Button variant="primary" size="sm" onClick={batchMarkPaid}>
-            <CheckCircle size={14} /> Mark Paid ({selectedEntries.size})
+          <Button variant="primary" size="sm" onClick={batchApproveCommission}>
+            <Check size={14} /> Approve Commission ({selectedNeedsApprovalCount})
           </Button>
           <Button variant="ghost" size="sm" onClick={clearSelection}>
             <X size={14} />
