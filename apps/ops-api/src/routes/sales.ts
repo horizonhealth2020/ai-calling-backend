@@ -1092,7 +1092,7 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
 
   const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;
 
-  res.json({
+  return {
     hero: { salesCount, premiumTotal, priorSalesCount, priorPremiumTotal },
     statCards: {
       thisWeekPremium: premiumTotal,
