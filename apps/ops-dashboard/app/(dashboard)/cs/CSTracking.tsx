@@ -32,7 +32,7 @@ import {
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { formatDollar, formatDate } from "@ops/utils";
+import { formatDollar, formatDate, formatDateTime } from "@ops/utils";
 import { ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
 
 type SocketClient = import("socket.io-client").Socket;
@@ -457,7 +457,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     if (!resolveType || !resolveNote.trim()) return;
     const counts = attemptCounts[id];
     const callCount = counts?.calls ?? 0;
-    const gateApplies = (resolveType === "closed" || resolveType === "no_contact") && callCount < 3 && (counts?.total ?? 0) > 0;
+    const gateApplies = (resolveType === "closed" || resolveType === "no_contact") && callCount < 3;
     const canOptimistic = !gateApplies || (gateOverride && gateBypassReason.length >= 10);
 
     const prev = chargebacks.find((cb) => cb.id === id);
@@ -518,7 +518,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
     if (!resolveType || !resolveNote.trim()) return;
     const counts = attemptCounts[id];
     const callCount = counts?.calls ?? 0;
-    const gateApplies = (resolveType === "cancelled" || resolveType === "no_contact") && callCount < 3 && (counts?.total ?? 0) > 0;
+    const gateApplies = (resolveType === "cancelled" || resolveType === "no_contact") && callCount < 3;
     const canOptimistic = !gateApplies || (gateOverride && gateBypassReason.length >= 10);
 
     const prev = pendingTerms.find((pt) => pt.id === id);
@@ -1025,7 +1025,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         const cbCounts = attemptCounts[cb.id];
                         const cbCallCount = cbCounts?.calls ?? 0;
                         const cbTotalAttempts = cbCounts?.total ?? 0;
-                        const cbGateNeeded = (resolveType === "closed" || resolveType === "no_contact") && cbCallCount < 3 && cbTotalAttempts > 0;
+                        const cbGateNeeded = (resolveType === "closed" || resolveType === "no_contact") && cbCallCount < 3;
                         const cbResolveDisabled = !resolveType || !resolveNote.trim() || (cbGateNeeded && (!gateOverride || gateBypassReason.length < 10));
                         const cbAttemptList = attempts[cb.id] || [];
                         return (
@@ -1076,7 +1076,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                         }}>{a.type} #{a.attemptNumber}</span>
                                         <span style={{ color: colors.textSecondary }}>{a.agent?.name || "Unknown"}</span>
                                         <span style={{ color: colors.textSecondary, fontStyle: "italic", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{a.notes}</span>
-                                        <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize, whiteSpace: "nowrap" as const }}>{formatDate(a.createdAt)}</span>
+                                        <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize, whiteSpace: "nowrap" as const }}>{formatDateTime(a.createdAt)}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -1317,7 +1317,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         const ptCounts = attemptCounts[pt.id];
                         const ptCallCount = ptCounts?.calls ?? 0;
                         const ptTotalAttempts = ptCounts?.total ?? 0;
-                        const ptGateNeeded = (resolveType === "cancelled" || resolveType === "no_contact") && ptCallCount < 3 && ptTotalAttempts > 0;
+                        const ptGateNeeded = (resolveType === "cancelled" || resolveType === "no_contact") && ptCallCount < 3;
                         const ptResolveDisabled = !resolveType || !resolveNote.trim() || (ptGateNeeded && (!gateOverride || gateBypassReason.length < 10));
                         const ptAttemptList = attempts[pt.id] || [];
                         return (
@@ -1368,7 +1368,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                         }}>{a.type} #{a.attemptNumber}</span>
                                         <span style={{ color: colors.textSecondary }}>{a.agent?.name || "Unknown"}</span>
                                         <span style={{ color: colors.textSecondary, fontStyle: "italic", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{a.notes}</span>
-                                        <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize, whiteSpace: "nowrap" as const }}>{formatDate(a.createdAt)}</span>
+                                        <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize, whiteSpace: "nowrap" as const }}>{formatDateTime(a.createdAt)}</span>
                                       </div>
                                     ))}
                                   </div>
