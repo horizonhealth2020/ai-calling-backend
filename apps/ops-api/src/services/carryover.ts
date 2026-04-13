@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@ops/db";
 import { getSundayWeekRange } from "./payroll";
 
@@ -116,7 +117,7 @@ export async function executeCarryover(periodId: string): Promise<{ carried: num
  * Transactional so partial failures cannot leave the next period in a stale state.
  */
 export async function reverseCarryover(sourcePeriodId: string): Promise<{ reversed: number; rowsTouched: number }> {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const source = await tx.payrollPeriod.findUnique({ where: { id: sourcePeriodId } });
     if (!source || !source.carryoverExecuted) {
       return { reversed: 0, rowsTouched: 0 };

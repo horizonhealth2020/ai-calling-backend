@@ -360,7 +360,7 @@ export const upsertPayrollEntryForSale = async (saleId: string, tx?: PrismaTx) =
   });
   if (!sale) throw new Error("Sale not found");
 
-  const addonProductIds = (sale.addons ?? []).map(a => a.productId);
+  const addonProductIds = (sale.addons ?? []).map((a: { productId: string }) => a.productId);
   const bundleCtx = sale.memberState
     ? await resolveBundleRequirement(sale.product, sale.memberState, addonProductIds, saleId, tx)
     : null;
@@ -669,7 +669,7 @@ export const handleSaleEditApproval = async (saleId: string, changes: Record<str
     include: { payrollPeriod: true },
   });
 
-  const finalizedEntry = existingEntries.find(e =>
+  const finalizedEntry = existingEntries.find((e: { payrollPeriod: { status: string }; id: string }) =>
     e.payrollPeriod.status === 'FINALIZED' || e.payrollPeriod.status === 'LOCKED'
   );
 
@@ -682,7 +682,7 @@ export const handleSaleEditApproval = async (saleId: string, changes: Record<str
 
     // The upsert may have created a new entry in a different period (if date/payment changed)
     const newEntries = await prisma.payrollEntry.findMany({ where: { saleId } });
-    const newEntry = newEntries.find(e => e.id !== finalizedEntry.id) || newEntries[0];
+    const newEntry = newEntries.find((e: { id: string }) => e.id !== finalizedEntry.id) || newEntries[0];
 
     if (newEntry && newEntry.id !== finalizedEntry.id) {
       // Different period -- new entry already correct, mark old as CLAWBACK_APPLIED

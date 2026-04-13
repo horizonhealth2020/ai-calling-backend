@@ -7,6 +7,7 @@ const config: Config = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: path.resolve(__dirname, '../../tsconfig.base.json'),
+      diagnostics: false,
     }],
   },
   testMatch: ['**/__tests__/**/*.test.ts'],

@@ -7,7 +7,7 @@ import { logAudit } from "./audit";
  * Uses a transaction to ensure both records are created atomically.
  */
 export async function createSyncedRep(name: string, basePay: number = 0, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const serviceAgent = await tx.serviceAgent.create({
       data: { name, basePay },
     });
@@ -36,7 +36,7 @@ export async function syncServiceAgentsToCsRoster(): Promise<{ created: number }
   const allServiceAgents = await prisma.serviceAgent.findMany({
     include: { csRepRoster: true },
   });
-  const unlinked = allServiceAgents.filter((sa) => !sa.csRepRoster);
+  const unlinked = allServiceAgents.filter((sa: { csRepRoster: unknown }) => !sa.csRepRoster);
 
   let created = 0;
   for (const sa of unlinked) {
@@ -59,12 +59,12 @@ export async function syncExistingReps() {
   const allServiceAgents = await prisma.serviceAgent.findMany({
     include: { csRepRoster: true },
   });
-  const unlinkedServiceAgents = allServiceAgents.filter((sa) => !sa.csRepRoster);
+  const unlinkedServiceAgents = allServiceAgents.filter((sa: { csRepRoster: unknown }) => !sa.csRepRoster);
 
   let linked = 0;
   for (const csRep of unlinkedCsReps) {
     const match = unlinkedServiceAgents.find(
-      (sa) => sa.name.toLowerCase().trim() === csRep.name.toLowerCase().trim()
+      (sa: { name: string; id: string }) => sa.name.toLowerCase().trim() === csRep.name.toLowerCase().trim()
     );
     if (match) {
       await prisma.csRepRoster.update({
@@ -93,7 +93,7 @@ export async function getNextRoundRobinRep(type: "chargeback" | "pending_term" =
     ? "cs_round_robin_chargeback_index"
     : "cs_round_robin_pending_term_index";
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const setting = await tx.salesBoardSetting.findUnique({
       where: { key: settingKey },
     });
@@ -166,7 +166,7 @@ export async function batchRoundRobinAssign(
   if (opts.tx) {
     return run(opts.tx);
   }
-  return prisma.$transaction((tx) => run(tx));
+  return prisma.$transaction((tx: Prisma.TransactionClient) => run(tx));
 }
 
 /**
@@ -179,7 +179,7 @@ export async function getRepChecklist() {
   });
 
   const results = await Promise.all(
-    reps.map(async (rep) => {
+    reps.map(async (rep: { id: string; name: string }) => {
       const chargebacks = await prisma.chargebackSubmission.findMany({
         where: { assignedTo: rep.name },
         select: {
@@ -205,12 +205,12 @@ export async function getRepChecklist() {
 
       const totalAssigned = chargebacks.length + pendingTerms.length;
       const totalCompleted =
-        chargebacks.filter((c) => c.resolvedAt).length +
-        pendingTerms.filter((p) => p.resolvedAt).length;
+        chargebacks.filter((c: { resolvedAt: Date | null }) => c.resolvedAt).length +
+        pendingTerms.filter((p: { resolvedAt: Date | null }) => p.resolvedAt).length;
 
       return {
         rep: { id: rep.id, name: rep.name },
-        chargebacks: chargebacks.map((c) => ({
+        chargebacks: chargebacks.map((c: { id: string; memberCompany: string | null; chargebackAmount: unknown; resolvedAt: Date | null; createdAt: Date }) => ({
           id: c.id,
           type: "chargeback" as const,
           label: c.memberCompany || "Unknown",
@@ -218,7 +218,7 @@ export async function getRepChecklist() {
           completed: !!c.resolvedAt,
           createdAt: c.createdAt,
         })),
-        pendingTerms: pendingTerms.map((p) => ({
+        pendingTerms: pendingTerms.map((p: { id: string; memberName: string | null; enrollAmount: unknown; resolvedAt: Date | null; createdAt: Date }) => ({
           id: p.id,
           type: "pending_term" as const,
           label: p.memberName || "Unknown",
