@@ -620,4 +620,95 @@ router.get("/chargebacks/totals", requireAuth, asyncHandler(async (req, res) => 
   });
 }));
 
+// ─── Stale Summary (spans chargebacks + pending terms) ─────────
+
+router.get("/stale-summary", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
+  const assignedToFilter = typeof req.query.assignedTo === "string" ? req.query.assignedTo.toLowerCase().trim() : null;
+  const now = new Date();
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+
+  // Helper: midnight UTC of a date
+  const midnightUTC = (d: Date) => {
+    const m = new Date(d);
+    m.setUTCHours(0, 0, 0, 0);
+    return m;
+  };
+
+  // ── Chargebacks: batch fetch with latest attempt ──
+  const allCbs = await prisma.chargebackSubmission.findMany({
+    where: { resolvedAt: null },
+    select: {
+      id: true, memberCompany: true, memberId: true, assignedTo: true, createdAt: true,
+      contactAttempts: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+    },
+  });
+
+  // ── Pending terms: unresolved ──
+  const allPts = await prisma.pendingTerm.findMany({
+    where: { resolvedAt: null },
+    select: {
+      id: true, memberName: true, memberId: true, assignedTo: true, createdAt: true, holdDate: true, product: true,
+    },
+  });
+
+  // Apply assignedTo filter
+  const matchesAgent = (val: string | null) => !assignedToFilter || (val || "").toLowerCase().trim() === assignedToFilter;
+  const filteredCbs = allCbs.filter((cb: typeof allCbs[number]) => matchesAgent(cb.assignedTo));
+  const filteredPts = allPts.filter((pt: typeof allPts[number]) => matchesAgent(pt.assignedTo));
+
+  // Classify chargebacks
+  const staleCbs: Array<typeof filteredCbs[number] & { staleSince: string; lastAttemptAt: string | null }> = [];
+  const freshCbs: typeof filteredCbs = [];
+  for (const cb of filteredCbs) {
+    const lastAttempt = cb.contactAttempts[0]?.createdAt ?? null;
+    const referenceTime = lastAttempt ? new Date(lastAttempt) : midnightUTC(new Date(cb.createdAt));
+    const deadline = new Date(referenceTime.getTime() + FORTY_EIGHT_HOURS);
+    if (now > deadline) {
+      staleCbs.push({ ...cb, staleSince: deadline.toISOString(), lastAttemptAt: lastAttempt?.toISOString() ?? null });
+    } else {
+      freshCbs.push(cb);
+    }
+  }
+
+  // Classify pending terms
+  const stalePts: Array<typeof filteredPts[number] & { staleSince: string }> = [];
+  const freshPts: typeof filteredPts = [];
+  for (const pt of filteredPts) {
+    const deadline = new Date(midnightUTC(new Date(pt.createdAt)).getTime() + FORTY_EIGHT_HOURS);
+    if (now > deadline) {
+      stalePts.push({ ...pt, staleSince: deadline.toISOString() });
+    } else {
+      freshPts.push(pt);
+    }
+  }
+
+  // Build per-agent summary
+  const agentMap = new Map<string, { staleChargebacks: number; stalePendingTerms: number }>();
+  for (const cb of staleCbs) {
+    const name = cb.assignedTo || "Unassigned";
+    const entry = agentMap.get(name) || { staleChargebacks: 0, stalePendingTerms: 0 };
+    entry.staleChargebacks++;
+    agentMap.set(name, entry);
+  }
+  for (const pt of stalePts) {
+    const name = pt.assignedTo || "Unassigned";
+    const entry = agentMap.get(name) || { staleChargebacks: 0, stalePendingTerms: 0 };
+    entry.stalePendingTerms++;
+    agentMap.set(name, entry);
+  }
+
+  const agents = Array.from(agentMap.entries()).map(([name, counts]) => ({
+    name,
+    staleChargebacks: counts.staleChargebacks,
+    stalePendingTerms: counts.stalePendingTerms,
+    totalStale: counts.staleChargebacks + counts.stalePendingTerms,
+  })).sort((a, b) => b.totalStale - a.totalStale);
+
+  return res.json({
+    agents,
+    records: { chargebacks: staleCbs, pendingTerms: stalePts },
+    allRecords: { chargebacks: [...staleCbs, ...freshCbs], pendingTerms: [...stalePts, ...freshPts] },
+  });
+}));
+
 export default router;

@@ -34,6 +34,7 @@ import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate, formatDateTime } from "@ops/utils";
 import { ChevronUp, ChevronDown, X, Search, Filter, Download } from "lucide-react";
+import { StaleOverviewCard } from "./CSMyQueue";
 
 type SocketClient = import("socket.io-client").Socket;
 
@@ -688,6 +689,9 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: `${spacing[6]}px` }}>
+      {/* Stale Overview — owner/admin only */}
+      {canManageCS && <StaleOverviewCard API={API} />}
+
       {/* Date Range Filter */}
       <DateRangeFilter value={dateRange} onChange={setDateRange} presets={KPI_PRESETS} />
 

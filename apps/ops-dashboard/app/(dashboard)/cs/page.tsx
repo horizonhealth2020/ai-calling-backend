@@ -7,17 +7,19 @@ import { authFetch } from "@ops/auth/client";
 import CSSubmissions from "./CSSubmissions";
 import CSTracking from "./CSTracking";
 import CSAnalytics from "./CSAnalytics";
-import { ClipboardList, BarChart3, PieChart } from "lucide-react";
+import CSMyQueue from "./CSMyQueue";
+import { ClipboardList, BarChart3, PieChart, Inbox } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 function CSPageInner() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("tracking");
+  const [activeTab, setActiveTab] = useState("myqueue");
   const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [userName, setUserName] = useState("");
   const { socket } = useSocketContext();
 
-  // Fetch user roles at parent level (same as original cs-dashboard)
+  // Fetch user roles + name at parent level
   useEffect(() => {
     (async () => {
       try {
@@ -25,6 +27,7 @@ function CSPageInner() {
         if (res.ok) {
           const data = await res.json();
           setUserRoles(data.roles || []);
+          setUserName(data.name || "");
         }
       } catch { toast("error", "Failed to load CS role data"); }
     })();
@@ -34,13 +37,17 @@ function CSPageInner() {
 
   const navItems: NavItem[] = canManageCS
     ? [
+        { icon: <Inbox size={18} />, label: "My Queue", key: "myqueue" },
         { icon: <ClipboardList size={18} />, label: "Submissions", key: "submissions" },
         { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
         { icon: <PieChart size={18} />, label: "Analytics", key: "analytics" },
       ]
-    : [{ icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" }];
+    : [
+        { icon: <Inbox size={18} />, label: "My Queue", key: "myqueue" },
+        { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
+      ];
 
-  const effectiveTab = canManageCS ? activeTab : "tracking";
+  const effectiveTab = activeTab;
 
   return (
     <PageShell
@@ -51,6 +58,7 @@ function CSPageInner() {
       activeNav={effectiveTab}
       onNavChange={(k) => setActiveTab(k)}
     >
+      {effectiveTab === "myqueue" && userName && <CSMyQueue API={API} userName={userName} />}
       {effectiveTab === "submissions" && <CSSubmissions socket={socket} API={API} />}
       {effectiveTab === "tracking" && <CSTracking socket={socket} API={API} userRoles={userRoles} canManageCS={canManageCS} />}
       {effectiveTab === "analytics" && <CSAnalytics API={API} />}

@@ -10,10 +10,10 @@ See: .paul/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Milestone: v2.9 CS Accountability & Outreach Tracking
-Phase: 67 of 4 (48-Hour Stale Alerts) — Not started
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-13 — Phase 66 complete, transitioned to Phase 67
+Phase: 67 of 4 (48-Hour Stale Alerts) — Planning
+Plan: 67-01 executing — Tasks 1-2 complete, checkpoint pending
+Status: APPLY in progress — awaiting human verification
+Last activity: 2026-04-13 — Tasks 1-2 executed (API + UI), checkpoint next
 
 Progress:
 - Milestone: [█████░░░░░] 50%
@@ -23,7 +23,7 @@ Progress:
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ○        ○        ○     [Ready for Phase 67 planning]
+  ✓        ○        ○     [Plan created, awaiting approval]
 ```
 
 ## Accumulated Context
@@ -49,6 +49,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-13: Enterprise audit on 64-02-PLAN.md. Applied 0+1. Verdict: enterprise-ready.
 - 2026-04-13: Enterprise audit on 65-01-PLAN.md. Applied 1+2. Verdict: enterprise-ready.
 - 2026-04-13: Enterprise audit on 66-01-PLAN.md. Applied 1+3. Verdict: enterprise-ready.
+- 2026-04-13: Enterprise audit on 67-01-PLAN.md. Applied 1+3. Verdict: enterprise-ready.
 
 ### Blockers/Concerns
 None.
@@ -56,13 +57,13 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Phase 66 complete, transitioned to Phase 67
-Next action: /paul:plan for Phase 67 (48-Hour Stale Alerts)
-Resume file: .paul/ROADMAP.md
+Stopped at: Plan 67-01 audited and approved, ready for APPLY
+Next action: /paul:apply .paul/phases/67-stale-alerts/67-01-PLAN.md
+Resume file: .paul/phases/67-stale-alerts/67-01-PLAN.md
 Resume context:
-- Phase 66 shipped: outreach logging UI with gate override
-- Phase 67 ready: 48-Hour Stale Alerts (depends on Phase 66 logging UI)
-- v2.9 at 50% (phases 65-66 complete, 67-68 remaining)
+- Plan 67-01: stale summary API + My Queue tab + owner stale overview
+- 2 auto tasks + 1 checkpoint (human-verify)
+- Different staleness rules: PT = resolution only, CB = resets on attempt
 
 ---
 *STATE.md — Updated after every significant action*
