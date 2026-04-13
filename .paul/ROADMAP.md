@@ -15,11 +15,97 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.6 | Payroll Accuracy & Product Colors | 53-54 | Shipped | 2026-04-10 |
 | v2.7 | Analytics & Command Center | 55-59 | Shipped | 2026-04-10 |
 | v2.8 | Hardening & Bulk Operations | 60-64 | Shipped | 2026-04-13 |
+| v2.9 | CS Accountability & Outreach Tracking | 65-68 | In Progress | - |
 
-## Active Milestone: v2.8 Hardening & Bulk Operations
+## Active Milestone: v2.9 CS Accountability & Outreach Tracking
+
+**Goal:** Move CS from "did they resolve it?" to "how effectively did they work it?" — giving managers measurable insight into each CS agent's outreach effort and performance.
+**Status:** In Progress
+**Progress:** [░░░░░░░░░░] 0%
+
+## Phases
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 65 | Outreach Data Model | TBD | Not started | - |
+| 66 | Outreach Logging UI | TBD | Not started | - |
+| 67 | 48-Hour Stale Alerts | TBD | Not started | - |
+| 68 | CS Analytics Upgrade | TBD | Not started | - |
+
+## Phase Details
+
+### Phase 65: Outreach Data Model
+
+**Goal:** Create ContactAttempt table to track call/email/text outreach per chargeback and pending term, plus expand resolution outcomes from binary resolved to SAVED/CANCELLED/NO_CONTACT.
+**Depends on:** v2.8 complete
+**Research:** Likely — verify current Chargeback/PendingTerm schema for additive migration
+
+**Scope:**
+- ContactAttempt model: type (CALL/EMAIL/TEXT), notes, timestamp, linked to Chargeback or PendingTerm, linked to ServiceAgent
+- Resolution outcome expansion: SAVED, CANCELLED, NO_CONTACT on both Chargeback and PendingTerm
+- Prisma migration (additive only — no breaking changes)
+- API endpoints for CRUD on contact attempts
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 66: Outreach Logging UI
+
+**Goal:** Add contact attempt logging UI to CS chargeback and pending term cards — Log Call/Email/Text buttons with notes, attempt timeline showing progress (1/3, 2/3, 3/3), and enriched resolution outcomes.
+**Depends on:** Phase 65 (data model available)
+**Research:** Unlikely (consuming Phase 65 API)
+
+**Scope:**
+- "Log Call" / "Log Email" / "Log Text" buttons on CS tracking cards
+- Notes field per attempt
+- Attempt timeline visualization (1/3, 2/3, 3/3 with timestamps)
+- Enriched resolution selector (SAVED/CANCELLED/NO_CONTACT replaces binary resolve)
+- Backward-compatible: existing resolved records still display correctly
+
+**Skills:** frontend-design
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 67: 48-Hour Stale Alerts
+
+**Goal:** Alert CS agents when chargebacks or pending terms have been sitting unworked for 48+ hours. Per-agent visibility on their own dashboard, auto-clears on attempt or resolution.
+**Depends on:** Phase 66 (logging UI in place so agents can act on alerts)
+**Research:** Unlikely (timestamp comparison, existing alert patterns from Phase 62)
+
+**Scope:**
+- Stale detection: chargebacks/pending terms with no contact attempts and unresolved >48h
+- Alert badge/section on CS agent's personal dashboard
+- Auto-clear when agent logs an attempt or resolves the item
+- Count of stale items as KPI
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+### Phase 68: CS Analytics Upgrade
+
+**Goal:** Replace shallow resolution metrics with actionable outreach analytics — average attempts before resolution, time-to-resolution, outreach response rate, per-agent comparison, and save rate correlation.
+**Depends on:** Phase 67 (all outreach data flowing)
+**Research:** Likely — design metric aggregation queries
+
+**Scope:**
+- New metrics: avg contact attempts before resolution, time-to-resolution, outreach response rate
+- Per-agent breakdown: attempts-per-agent, who's making calls vs just closing
+- Agent comparison leaderboard for outreach effort
+- Nice-to-have: save rate correlation (3 attempts vs 1)
+- Fold into existing CS analytics tab (CSAnalytics.tsx)
+
+**Skills:** analytics-tracking, support-analytics-reporter
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+---
+
+## Completed Milestone: v2.8 Hardening & Bulk Operations
 
 **Goal:** Make the platform reliable, testable, and efficient at scale — fix data integrity gaps, add test safety nets, improve performance, and enable bulk workflows.
-**Status:** In Progress
+**Status:** Shipped
 **Progress:** [██████████] 100%
 
 ## Phases

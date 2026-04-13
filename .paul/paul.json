@@ -1,15 +1,15 @@
 {
   "name": "ai-calling-backend",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "milestone": {
-    "name": "Hardening & Bulk Operations",
-    "version": "2.8.0",
-    "status": "shipped"
+    "name": "CS Accountability & Outreach Tracking",
+    "version": "2.9.0",
+    "status": "in_progress"
   },
   "phase": {
-    "number": 64,
-    "name": "Polish & Exports",
-    "status": "complete"
+    "number": 65,
+    "name": "Outreach Data Model",
+    "status": "not_started"
   },
   "loop": {
     "plan": null,

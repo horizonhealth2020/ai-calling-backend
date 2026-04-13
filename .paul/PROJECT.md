@@ -148,7 +148,13 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active (In Progress)
 
-None.
+**v2.9 — CS Accountability & Outreach Tracking (2026-04-13)**
+- [ ] ContactAttempt data model (CALL/EMAIL/TEXT logging per chargeback/pending term)
+- [ ] Resolution outcome enrichment (SAVED/CANCELLED/NO_CONTACT)
+- [ ] Outreach logging UI (attempt timeline, Log Call/Email/Text buttons)
+- [ ] 48-hour stale alerts on CS agent dashboard
+- [ ] CS analytics upgrade (avg attempts, time-to-resolution, per-agent comparison)
+- [ ] Save rate correlation by attempt count (nice-to-have)
 
 ### Planned (Next)
 None.
