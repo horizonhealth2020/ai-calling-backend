@@ -6,6 +6,7 @@ import { logAudit } from "../services/audit";
 import { executeCarryover, reverseCarryover } from "../services/carryover";
 import { findOldestOpenPeriodForAgent, calculatePerProductCommission, applyChargebackToEntry } from "../services/payroll";
 import { zodErr, asyncHandler, idParamSchema } from "./helpers";
+import { invalidateAll } from "../services/cache";
 
 const router = Router();
 
@@ -73,6 +74,7 @@ router.patch("/payroll/periods/:id/status", requireAuth, requireRole("PAYROLL", 
     }
   }
 
+  invalidateAll();
   res.json(updated);
 }));
 
@@ -93,6 +95,7 @@ router.delete("/payroll/periods/:id", requireAuth, requireRole("PAYROLL", "SUPER
     weekStart: period.weekStart, weekEnd: period.weekEnd,
     entriesDeleted: period._count.entries, serviceEntriesDeleted: period._count.serviceEntries,
   });
+  invalidateAll();
   return res.status(204).end();
 }));
 
@@ -130,6 +133,7 @@ router.post("/payroll/mark-paid", requireAuth, requireRole("PAYROLL", "SUPER_ADM
 
   await logAudit(req.user!.id, "MARK_PAID", "PayrollEntry", entryIds.concat(serviceEntryIds).join(","));
 
+  invalidateAll();
   res.json({ ok: true });
 }));
 
@@ -187,6 +191,7 @@ router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_A
 
   await logAudit(req.user!.id, "MARK_UNPAID", "PayrollEntry", entryIds.concat(serviceEntryIds).join(","));
 
+  invalidateAll();
   res.json({ ok: true });
 }));
 

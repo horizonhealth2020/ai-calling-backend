@@ -10,14 +10,14 @@ See: .paul/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Milestone: v2.8 Hardening & Bulk Operations
-Phase: 62 of 5 (Caching Layer) — Not started
+Phase: 63 of 5 (Bulk Operations) — Not started
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-04-13 — Phase 61 complete, transitioned to Phase 62
+Last activity: 2026-04-13 — Phase 62 complete, transitioned to Phase 63
 
 Progress:
-- Milestone: [████░░░░░░] 40%
-- Phase 61: [██████████] 100%
+- Milestone: [██████░░░░] 60%
+- Phase 62: [██████████] 100%
 
 ## Loop Position
 
@@ -30,18 +30,20 @@ PLAN ──▶ APPLY ──▶ UNIFY
 ## Accumulated Context
 
 ### Decisions
-- 2026-04-13: v2.8 scope — data integrity, API tests, caching, bulk ops, exports, TS cleanup
-- 2026-04-13: Standalone PrismaClient for scripts (no @ops/db workspace import)
-- 2026-04-13: diagnostics: false in ts-jest for monorepo workspace import resolution
-- 2026-04-13: TransactionClient mock pattern for testing Prisma tx functions
+- 2026-04-13: invalidateAll() as default cache invalidation — over-invalidation cheap at 30s TTL
+- 2026-04-13: In-flight Promise dedup for cache stampede protection
+- 2026-04-13: Direct invalidation in mutation handlers without Socket.IO events
+- 2026-04-13: diagnostics: false in ts-jest for monorepo workspace imports
 - 2026-04-13: Sunday–Saturday week boundaries standardized (commit 27c5335)
 
 ### Deferred Issues
-- auditQueue.test.ts: 3 pre-existing test failures (incomplete mock for convosoCallLog.updateMany)
+- auditQueue.test.ts: 3 pre-existing test failures (incomplete mock)
+- Data cleanup + backfill scripts created but not yet run against production
 
 ### Audit Log
-- 2026-04-13: Enterprise audit on 60-01-PLAN.md. Applied 3 must-have + 3 strongly-recommended. Deferred 3. Verdict: enterprise-ready post-remediation.
-- 2026-04-13: Enterprise audit on 61-01-PLAN.md. Applied 1 must-have + 3 strongly-recommended. Deferred 2. Verdict: enterprise-ready post-remediation.
+- 2026-04-13: Enterprise audit on 60-01-PLAN.md. Applied 3+3. Verdict: enterprise-ready.
+- 2026-04-13: Enterprise audit on 61-01-PLAN.md. Applied 1+3. Verdict: enterprise-ready.
+- 2026-04-13: Enterprise audit on 62-01-PLAN.md. Applied 2+2. Verdict: enterprise-ready.
 
 ### Blockers/Concerns
 None.
@@ -49,14 +51,15 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Phase 61 complete, ready to plan Phase 62
-Next action: /paul:plan for Phase 62
+Stopped at: Phase 62 complete, ready to plan Phase 63
+Next action: /paul:plan for Phase 63
 Resume file: .paul/ROADMAP.md
 Resume context:
-- v2.8 milestone: 2/5 phases complete (40%)
-- Phase 60 shipped: orphan cleanup + audit backfill scripts
-- Phase 61 shipped: 15 type fixes, 144/147 tests passing, 14-test chargeback flow suite
-- Phase 62 next: caching layer for aggregation endpoints + Socket.IO invalidation
+- v2.8 milestone: 3/5 phases complete (60%)
+- Phase 60: orphan cleanup + audit backfill scripts
+- Phase 61: 15 type fixes, 144 passing tests, chargeback flow suite
+- Phase 62: in-memory cache with stampede protection, 5 endpoints, 12 invalidation points
+- Phase 63 next: bulk operations (multi-select sales status changes, batch commission approvals)
 
 ---
 *STATE.md — Updated after every significant action*

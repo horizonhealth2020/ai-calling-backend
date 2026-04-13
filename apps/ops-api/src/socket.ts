@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import { invalidateAll, invalidate } from "./services/cache";
 
 let io: Server | null = null;
 
@@ -76,6 +77,7 @@ export function emitSaleChanged(payload: SaleChangedPayload) {
   } catch (err) {
     console.error("Socket.IO emit error (sale:changed):", err);
   }
+  invalidateAll();
 }
 
 export interface CSChangedPayload {
@@ -90,6 +92,7 @@ export function emitCSChanged(payload: CSChangedPayload) {
   } catch (err) {
     console.error("Socket.IO emit error (cs:changed):", err);
   }
+  invalidateAll();
 }
 
 export interface AlertCreatedPayload {
@@ -112,6 +115,7 @@ export function emitAlertResolved(data: { alertId: string; status: "APPROVED" | 
   } catch (err) {
     console.error("Socket.IO emit error (alert:resolved):", err);
   }
+  invalidateAll();
 }
 
 export interface ServicePayrollChangedPayload {
@@ -127,6 +131,7 @@ export function emitServicePayrollChanged(payload: ServicePayrollChangedPayload)
   } catch (err) {
     console.error("Socket.IO emit error (service-payroll:changed):", err);
   }
+  invalidate("sales:/reporting");
 }
 
 export interface ClawbackCreatedPayload {

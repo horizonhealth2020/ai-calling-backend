@@ -8,6 +8,7 @@ import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
 import { shiftRange } from "../services/reporting";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
+import { cacheWrap, invalidateAll } from "../services/cache";
 
 const router = Router();
 
@@ -698,6 +699,7 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
     premium: Number(sale.premium),
     cascadedChildSaleIds: childIds,
   });
+  invalidateAll();
   return res.status(204).end();
 }));
 
@@ -767,6 +769,7 @@ router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADM
       return u;
     });
     await logAudit(req.user!.id, "UPDATE_STATUS", "Sale", sale.id, { oldStatus, newStatus });
+    invalidateAll();
     return res.json(updated);
   }
 
@@ -777,6 +780,7 @@ router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADM
     include: { agent: true, product: true, leadSource: true },
   });
   await logAudit(req.user!.id, "UPDATE_STATUS", "Sale", sale.id, { oldStatus, newStatus });
+  invalidateAll();
   return res.json(updated);
 }));
 
@@ -792,6 +796,7 @@ router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL"
   });
   await upsertPayrollEntryForSale(sale.id);
   await logAudit(req.user!.id, approved ? "APPROVE_COMMISSION" : "REVOKE_COMMISSION", "Sale", sale.id);
+  invalidateAll();
   res.json(sale);
 }));
 
@@ -804,12 +809,16 @@ router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROL
   });
   await upsertPayrollEntryForSale(sale.id);
   await logAudit(req.user!.id, "UNAPPROVE_COMMISSION", "Sale", sale.id);
+  invalidateAll();
   res.json(sale);
 }));
 
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const qp = dateRangeQuerySchema.safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
+
+  const cacheKey = `sales:/tracker/summary?${req.url.split('?')[1] || ''}`;
+  const result = await cacheWrap(cacheKey, async () => {
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const salesWhere = dr ? { status: 'RAN' as const, saleDate: { gte: dr.gte, lt: dr.lt }, product: { type: { not: 'ACA_PL' as const } } } : { status: 'RAN' as const, product: { type: { not: 'ACA_PL' as const } } };
   const callWhere: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
@@ -891,12 +900,17 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
     };
   });
   const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;
-  res.json({ agents: summary, convosoConfigured });
+  return { agents: summary, convosoConfigured };
+  }); // end cacheWrap
+  res.json(result);
 }));
 
 router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const qp = dateRangeQuerySchema.safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
+
+  const cacheKey = `sales:/owner/summary?${req.url.split('?')[1] || ''}`;
+  const result = await cacheWrap(cacheKey, async () => {
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
 
   async function fetchSummaryData(range: { gte: Date; lt: Date } | undefined) {
@@ -928,13 +942,18 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
   } : null;
 
   const convosoConfigured = !!process.env.CONVOSO_AUTH_TOKEN;
-  res.json({ ...current, trends, convosoConfigured });
+  return { ...current, trends, convosoConfigured };
+  }); // end cacheWrap
+  res.json(result);
 }));
 
 // ── Command Center (aggregated owner endpoint) ────────────────────
 router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const qp = dateRangeQuerySchema.safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
+
+  const cacheKey = `sales:/command-center?${req.url.split('?')[1] || ''}`;
+  const result = await cacheWrap(cacheKey, async () => {
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   const priorDr = dr ? shiftRange(dr, Math.round((dr.lt.getTime() - dr.gte.getTime()) / 86400000)) : undefined;
 
@@ -1087,10 +1106,14 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
       convosoConfigured,
     },
     leaderboard,
-  });
+  };
+  }); // end cacheWrap
+  res.json(result);
 }));
 
 router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const cacheKey = `sales:/reporting/periods?${req.url.split('?')[1] || ''}`;
+  const cached = await cacheWrap(cacheKey, async () => {
   const viewQuery = z.object({ view: z.enum(["weekly", "monthly"]).optional() }).safeParse(req.query);
   const view = viewQuery.success && viewQuery.data.view === "monthly" ? "monthly" : "weekly";
 
@@ -1121,7 +1144,7 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
         periodStatus: p.status,
       };
     });
-    return res.json({ view, periods: result });
+    return { view, periods: result };
   }
 
   // Monthly: raw SQL for calendar month grouping
@@ -1152,7 +1175,9 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
     ...r,
     csPayrollTotal: csMap.get(r.period) ?? 0,
   }));
-  return res.json({ view, periods: merged });
+  return { view, periods: merged };
+  }); // end cacheWrap
+  res.json(cached);
 }));
 
 router.get("/sales-board/summary", asyncHandler(async (_req, res) => {

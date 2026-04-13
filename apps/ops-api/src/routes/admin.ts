@@ -6,6 +6,7 @@ import { logAudit } from "../services/audit";
 import { getAgentRetentionKpis } from "../services/agentKpiAggregator";
 import { getOwnerTrends } from "../services/trendAggregator";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema } from "./helpers";
+import { cacheWrap } from "../services/cache";
 
 const router = Router();
 
@@ -26,8 +27,12 @@ router.get("/owner/trends", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
   if (!dr) return res.status(400).json({ error: "A valid date range is required (range, or from+to)" });
-  const trends = await getOwnerTrends(dr);
-  res.json(trends);
+
+  const cacheKey = `admin:/owner/trends?${req.url.split('?')[1] || ''}`;
+  const result = await cacheWrap(cacheKey, async () => {
+    return getOwnerTrends(dr);
+  });
+  res.json(result);
 }));
 
 // ─── Permission Management ──────────────────────────────────────
