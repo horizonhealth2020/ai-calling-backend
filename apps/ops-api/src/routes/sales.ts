@@ -811,7 +811,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const qp = dateRangeQuerySchema.safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));
   const dr = dateRange(qp.data.range, qp.data.from, qp.data.to);
-  const salesWhere = dr ? { saleDate: { gte: dr.gte, lt: dr.lt }, product: { type: { not: 'ACA_PL' as const } } } : { product: { type: { not: 'ACA_PL' as const } } };
+  const salesWhere = dr ? { status: 'RAN' as const, saleDate: { gte: dr.gte, lt: dr.lt }, product: { type: { not: 'ACA_PL' as const } } } : { status: 'RAN' as const, product: { type: { not: 'ACA_PL' as const } } };
   const callWhere: { agentId: { not: null }; leadSourceId: { not: null }; callTimestamp?: { gte: Date; lt: Date } } = { agentId: { not: null }, leadSourceId: { not: null } };
   if (dr) callWhere.callTimestamp = { gte: dr.gte, lt: dr.lt };
 
@@ -819,7 +819,7 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
-  const todaySalesWhere = { saleDate: { gte: todayStart, lt: todayEnd }, product: { type: { not: 'ACA_PL' as const } } };
+  const todaySalesWhere = { status: 'RAN' as const, saleDate: { gte: todayStart, lt: todayEnd }, product: { type: { not: 'ACA_PL' as const } } };
 
   // Fetch agents with sales, call logs, and commission totals in parallel
   const [data, allLeadSources, callLogs, commissionByAgent, todayData] = await Promise.all([
@@ -1189,30 +1189,29 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
   const agentNames = agents.map((a) => a.name);
   const agentMap = new Map(agents.map((a) => [a.id, a.name]));
 
-  // Get Monday of the current week (ISO: Mon=1)
+  // Get Sunday of the current week (Sun=0)
   const now = new Date();
   const day = now.getDay(); // 0=Sun,1=Mon...6=Sat
-  const diffToMon = day === 0 ? 6 : day - 1;
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMon);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 7);
+  const weekSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+  const nextSunday = new Date(weekSunday);
+  nextSunday.setDate(weekSunday.getDate() + 7);
 
   // Today boundaries
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart);
   todayEnd.setDate(todayStart.getDate() + 1);
 
-  // Fetch all RAN sales for the current week
+  // Fetch all RAN sales for the current week (Sunday–Saturday)
   const sales = await prisma.sale.findMany({
-    where: { status: 'RAN', saleDate: { gte: monday, lt: sunday }, product: { type: { not: 'ACA_PL' } } },
+    where: { status: 'RAN', saleDate: { gte: weekSunday, lt: nextSunday }, product: { type: { not: 'ACA_PL' } } },
     select: { agentId: true, saleDate: true, premium: true, addons: { select: { premium: true } } },
   });
 
   // Build per-day, per-agent breakdown for weekly view
-  const dayLabels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const weeklyDays = dayLabels.map((label, idx) => {
-    const dayStart = new Date(monday);
-    dayStart.setDate(monday.getDate() + idx);
+    const dayStart = new Date(weekSunday);
+    dayStart.setDate(weekSunday.getDate() + idx);
     const dayEnd = new Date(dayStart);
     dayEnd.setDate(dayStart.getDate() + 1);
 

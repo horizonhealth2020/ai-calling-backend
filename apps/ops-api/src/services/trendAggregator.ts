@@ -8,11 +8,10 @@ import { prisma } from "@ops/db";
 type DateWindow = { gte: Date; lt: Date };
 type CallTiers = { short: number; contacted: number; engaged: number; deep: number };
 
-function toMonday(d: Date): string {
+function toSunday(d: Date): string {
   const dt = new Date(d);
   const day = dt.getUTCDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day;
-  dt.setUTCDate(dt.getUTCDate() + diff);
+  dt.setUTCDate(dt.getUTCDate() - day);
   return dt.toISOString().slice(0, 10);
 }
 
@@ -65,7 +64,7 @@ async function getRevenueTrend(dw: DateWindow) {
   const weekMap = new Map<string, { premiumTotal: number; commissionTotal: number; chargebackTotal: number }>();
 
   for (const sale of sales) {
-    const week = toMonday(sale.saleDate);
+    const week = toSunday(sale.saleDate);
     const entry = weekMap.get(week) ?? { premiumTotal: 0, commissionTotal: 0, chargebackTotal: 0 };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma addon select
     const addonPremium = sale.addons?.reduce((s: number, a: any) => s + Number(a.premium), 0) ?? 0;
@@ -75,7 +74,7 @@ async function getRevenueTrend(dw: DateWindow) {
   }
 
   for (const cb of chargebacks) {
-    const week = toMonday(cb.submittedAt);
+    const week = toSunday(cb.submittedAt);
     const entry = weekMap.get(week) ?? { premiumTotal: 0, commissionTotal: 0, chargebackTotal: 0 };
     entry.chargebackTotal += Number(cb.chargebackAmount ?? 0);
     weekMap.set(week, entry);

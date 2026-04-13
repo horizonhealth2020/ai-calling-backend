@@ -67,7 +67,7 @@ function formatPhone(raw: string | null | undefined): string {
 
 /* -- Constants -- */
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
 const LBL: React.CSSProperties = { ...baseLabelStyle };
 
@@ -362,8 +362,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
 
   const getDayOfWeek = (dateStr: string) => {
     const d = new Date(dateStr + "T12:00:00");
-    const jsDay = d.getDay();
-    return jsDay === 0 ? 6 : jsDay - 1;
+    return d.getDay(); // 0=Sun matches DAYS array index
   };
   const filtered = salesDay === "all"
     ? salesList

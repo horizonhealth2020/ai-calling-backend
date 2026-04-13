@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
-import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry, calculatePerProductCommission } from "../services/payroll";
+import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry, calculatePerProductCommission, upsertPayrollEntryForSale } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
@@ -417,9 +417,58 @@ router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER
   const pp = idParamSchema.safeParse(req.params);
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
   const id = pp.data.id;
-  // Delete related alerts first (FK constraint)
+
+  const submission = await prisma.chargebackSubmission.findUnique({ where: { id } });
+  if (!submission) return res.status(404).json({ error: "Chargeback not found" });
+
+  // Collect saleIds that need payroll recalculation after cleanup
+  const salesToRecalc: string[] = [];
+
+  if (submission.matchedSaleId) {
+    // Find clawbacks created by this chargeback (batch path or alert path)
+    const clawbacks = await prisma.clawback.findMany({
+      where: {
+        saleId: submission.matchedSaleId,
+        OR: [
+          { matchedBy: "chargeback_alert", matchedValue: id },
+          ...(submission.batchId ? [{ notes: { contains: submission.batchId } }] : []),
+        ],
+      },
+    });
+
+    if (clawbacks.length > 0) {
+      const clawbackIds = clawbacks.map(c => c.id);
+
+      // Delete clawback products, then clawbacks
+      await prisma.clawbackProduct.deleteMany({ where: { clawbackId: { in: clawbackIds } } });
+      await prisma.clawback.deleteMany({ where: { id: { in: clawbackIds } } });
+    }
+
+    // Remove cross-period negative entries and zeroed-out entries for this sale
+    await prisma.payrollEntry.deleteMany({
+      where: {
+        saleId: submission.matchedSaleId,
+        status: { in: ["CLAWBACK_CROSS_PERIOD", "ZEROED_OUT_IN_PERIOD"] },
+      },
+    });
+
+    salesToRecalc.push(submission.matchedSaleId);
+  }
+
+  // Delete related alerts and the submission
   await prisma.payrollAlert.deleteMany({ where: { chargebackSubmissionId: id } });
   await prisma.chargebackSubmission.delete({ where: { id } });
+
+  // Recalculate payroll entries for affected sales (restores commission)
+  for (const saleId of salesToRecalc) {
+    await upsertPayrollEntryForSale(saleId);
+  }
+
+  await logAudit(req.user!.id, "DELETE", "ChargebackSubmission", id, {
+    matchedSaleId: submission.matchedSaleId,
+    salesToRecalc,
+  });
+
   return res.status(204).end();
 }));
 

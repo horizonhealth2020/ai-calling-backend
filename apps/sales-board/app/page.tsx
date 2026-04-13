@@ -45,7 +45,7 @@ const fmt$ = (n: number) =>
 const fmt$whole = (n: number) =>
   "$" + Math.round(n).toLocaleString("en-US");
 
-const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
 /* ── Podium rank configuration ────────────────────────────────── */
 
