@@ -30,7 +30,7 @@ A sales operations platform evolving from initial setup through full role-based 
 | 61 | API Test Coverage | 1 | Complete | 2026-04-13 |
 | 62 | Caching Layer | 1 | Complete | 2026-04-13 |
 | 63 | Bulk Operations | 1 | Complete | 2026-04-13 |
-| 64 | Polish & Exports | TBD | Not started | - |
+| 64 | Polish & Exports | 2 | Planning | - |
 
 ## Phase Details
 

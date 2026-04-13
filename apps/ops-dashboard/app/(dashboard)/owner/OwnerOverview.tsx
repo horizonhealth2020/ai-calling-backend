@@ -37,6 +37,7 @@ import {
   CheckCircle,
   Clock,
   Activity,
+  Download,
 } from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────────── */
@@ -546,6 +547,23 @@ function StatCardsRow({ stats, hero }: { stats: CommandCenterData["statCards"]; 
   );
 }
 
+/* ── CSV Helpers ──────────────────────────────────────────────── */
+
+function csvField(val: string | number): string {
+  const s = String(val);
+  return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ── Leaderboard Section ─────────────────────────────────────── */
 
 function LeaderboardSection({
@@ -559,14 +577,43 @@ function LeaderboardSection({
     (a, b) => b.premiumTotal - a.premiumTotal
   );
 
+  function exportLeaderboardCsv() {
+    const headers = "Agent,Calls,Avg Call Length (s),Sales,Premium,Cost/Sale,Commission";
+    const rows = sorted.map(r =>
+      [csvField(r.agent), r.calls, r.avgCallLength.toFixed(0), r.salesCount, r.premiumTotal.toFixed(2), r.costPerSale.toFixed(2), r.commissionTotal.toFixed(2)].join(",")
+    );
+    downloadCsv([headers, ...rows].join("\n"), `leaderboard-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
   return (
     <div style={LEADERBOARD_CARD} className="animate-fade-in-up stagger-5">
-      <div style={LEADERBOARD_HEADER}>
-        <BarChart3 size={18} color={colors.accentTeal} />
-        <div>
-          <h3 style={SECTION_TITLE}>Agent Leaderboard</h3>
-          <p style={SECTION_SUBTITLE}>Ranked by premium total</p>
+      <div style={{ ...LEADERBOARD_HEADER, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
+          <BarChart3 size={18} color={colors.accentTeal} />
+          <div>
+            <h3 style={SECTION_TITLE}>Agent Leaderboard</h3>
+            <p style={SECTION_SUBTITLE}>Ranked by premium total</p>
+          </div>
         </div>
+        {sorted.length > 0 && (
+          <button
+            onClick={exportLeaderboardCsv}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(255,255,255,0.06)",
+              border: `1px solid ${colorAlpha(colors.textMuted, 0.25)}`,
+              borderRadius: radius.md,
+              color: colors.textSecondary,
+              padding: "6px 14px",
+              fontSize: typography.sizes.sm.fontSize,
+              cursor: "pointer",
+            }}
+          >
+            <Download size={14} /> Export CSV
+          </button>
+        )}
       </div>
 
       <div style={{ overflowX: compact ? "auto" : undefined }}>

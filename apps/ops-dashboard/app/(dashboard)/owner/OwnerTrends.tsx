@@ -33,7 +33,7 @@ import {
   BarChart,
   AreaChart,
 } from "recharts";
-import { TrendingUp, BarChart3, Users, Layers } from "lucide-react";
+import { TrendingUp, BarChart3, Users, Layers, Download } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -163,6 +163,23 @@ const COLORS = {
 const GRID_STROKE = "rgba(255,255,255,0.06)";
 const AXIS_TICK = { fill: colors.textMuted, fontSize: 11 };
 
+/* ── CSV Helpers ──────────────────────────────────────────────── */
+
+function csvField(val: string | number): string {
+  const s = String(val);
+  return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ── Helpers ───────────────────────────────────────────────────── */
 
 function buildDateParams(dr: DateRangeFilterValue): string {
@@ -228,10 +245,68 @@ export default function OwnerTrends({ API }: { API: string }) {
       : data.agentKpiTrend.filter(d => d.agentId === selectedAgent)
     : [];
 
+  const hasExportData = !loading && data && (
+    (data.revenueTrend?.length ?? 0) > 0 ||
+    (data.leadSourceEffectiveness?.length ?? 0) > 0 ||
+    (data.callQualityTrend?.length ?? 0) > 0
+  );
+
+  function exportTrendsCsv() {
+    if (!data) return;
+    const sections: string[] = [];
+
+    if (data.revenueTrend?.length) {
+      sections.push("Revenue Trend");
+      sections.push("Date,Premium,Commission,Chargebacks");
+      for (const r of data.revenueTrend) {
+        sections.push([r.date, r.premiumTotal.toFixed(2), r.commissionTotal.toFixed(2), r.chargebackTotal.toFixed(2)].join(","));
+      }
+      sections.push("");
+    }
+
+    if (data.leadSourceEffectiveness?.length) {
+      sections.push("Lead Source Effectiveness");
+      sections.push("Source,Sales,Premium,Calls,Cost/Sale,Conversion Rate");
+      for (const r of data.leadSourceEffectiveness) {
+        sections.push([csvField(r.sourceName), r.salesCount, r.premiumTotal.toFixed(2), r.callCount, r.costPerSale.toFixed(2), (r.conversionRate * 100).toFixed(1) + "%"].join(","));
+      }
+      sections.push("");
+    }
+
+    if (data.callQualityTrend?.length) {
+      sections.push("Call Quality Trend");
+      sections.push("Date,Short,Contacted,Engaged,Deep");
+      for (const r of data.callQualityTrend) {
+        sections.push([r.date, r.short, r.contacted, r.engaged, r.deep].join(","));
+      }
+    }
+
+    downloadCsv(sections.join("\n"), `trends-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
   return (
     <div>
-      {/* Date Range Filter */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: spacing.md }}>
+      {/* Date Range Filter + Export */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[3], marginBottom: spacing.md }}>
+        {hasExportData && (
+          <button
+            onClick={exportTrendsCsv}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(255,255,255,0.06)",
+              border: `1px solid ${colorAlpha(colors.textMuted, 0.25)}`,
+              borderRadius: radius.md,
+              color: colors.textSecondary,
+              padding: "6px 14px",
+              fontSize: typography.sizes.sm.fontSize,
+              cursor: "pointer",
+            }}
+          >
+            <Download size={14} /> Export CSV
+          </button>
+        )}
         <DateRangeFilter value={dateRange} onChange={setDateRange} presets={KPI_PRESETS} />
       </div>
 
