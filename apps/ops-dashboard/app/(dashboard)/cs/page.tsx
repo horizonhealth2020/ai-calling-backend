@@ -14,7 +14,7 @@ const API = process.env.NEXT_PUBLIC_OPS_API_URL ?? "";
 
 function CSPageInner() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("myqueue");
+  const [activeTab, setActiveTab] = useState("tracking");
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [userName, setUserName] = useState("");
   const { socket } = useSocketContext();
@@ -35,9 +35,9 @@ function CSPageInner() {
 
   const canManageCS = userRoles.includes("SUPER_ADMIN") || userRoles.includes("OWNER_VIEW");
 
+  const isCSRep = userRoles.includes("CUSTOMER_SERVICE") && !canManageCS;
   const navItems: NavItem[] = canManageCS
     ? [
-        { icon: <Inbox size={18} />, label: "My Queue", key: "myqueue" },
         { icon: <ClipboardList size={18} />, label: "Submissions", key: "submissions" },
         { icon: <BarChart3 size={18} />, label: "Tracking", key: "tracking" },
         { icon: <PieChart size={18} />, label: "Analytics", key: "analytics" },

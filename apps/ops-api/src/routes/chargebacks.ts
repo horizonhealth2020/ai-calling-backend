@@ -635,17 +635,19 @@ router.get("/stale-summary", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER
   };
 
   // ── Chargebacks: batch fetch with latest attempt ──
+  // Only include records that entered the outreach workflow (have at least 1 contact attempt)
+  // Pre-v2.9 records with 0 attempts are excluded from stale tracking
   const allCbs = await prisma.chargebackSubmission.findMany({
-    where: { resolvedAt: null },
+    where: { resolvedAt: null, contactAttempts: { some: {} } },
     select: {
       id: true, memberCompany: true, memberId: true, assignedTo: true, createdAt: true,
       contactAttempts: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
     },
   });
 
-  // ── Pending terms: unresolved ──
+  // ── Pending terms: only those with at least 1 contact attempt (entered outreach workflow) ──
   const allPts = await prisma.pendingTerm.findMany({
-    where: { resolvedAt: null },
+    where: { resolvedAt: null, contactAttempts: { some: {} } },
     select: {
       id: true, memberName: true, memberId: true, assignedTo: true, createdAt: true, holdDate: true, product: true,
     },
