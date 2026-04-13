@@ -10,21 +10,21 @@ See: .paul/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Milestone: v2.8 Hardening & Bulk Operations
-Phase: 63 of 5 (Bulk Operations) — Planning
-Plan: 63-01 created + audited, awaiting approval
-Status: PLAN created + audited, ready for APPLY
-Last activity: 2026-04-13 — Enterprise audit on 63-01-PLAN.md, applied 2+2 upgrades
+Phase: 63 of 5 (Bulk Operations) — Complete
+Plan: 63-01 complete
+Status: Phase 63 complete, ready for Phase 64
+Last activity: 2026-04-13 — Phase 63 complete (batch commission approval)
 
 Progress:
-- Milestone: [██████░░░░] 60%
-- Phase 63: [░░░░░░░░░░] 0%
+- Milestone: [████████░░] 80%
+- Phase 63: [██████████] 100%
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ○        ○     [Plan created, awaiting approval]
+  ✓        ✓        ✓     [Loop complete — ready for next PLAN]
 ```
 
 ## Accumulated Context
@@ -35,6 +35,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-13: Direct invalidation in mutation handlers without Socket.IO events
 - 2026-04-13: diagnostics: false in ts-jest for monorepo workspace imports
 - 2026-04-13: Sunday–Saturday week boundaries standardized (commit 27c5335)
+- 2026-04-13: Batch mark-paid removed — mark-paid is per-week, not per-entry
+- 2026-04-13: Checkboxes only on entries needing commission approval
 
 ### Deferred Issues
 - auditQueue.test.ts: 3 pre-existing test failures (incomplete mock)
@@ -52,12 +54,13 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Plan 63-01 created
-Next action: Review and approve plan, then run /paul:apply .paul/phases/63-bulk-operations/63-01-PLAN.md
-Resume file: .paul/phases/63-bulk-operations/63-01-PLAN.md
+Stopped at: Phase 63 complete
+Next action: /paul:plan for Phase 64 (Polish & Exports)
+Resume file: .paul/phases/63-bulk-operations/63-01-SUMMARY.md
 Resume context:
-- Plan 63-01: batch commission approval API + multi-select UI on payroll tab
-- Enterprise audit enabled — recommend running before APPLY
+- v2.8 milestone: 4/5 phases complete (80%)
+- Phase 63 shipped: batch commission approval API + multi-select UI
+- Phase 64 scope: CSV export expansion + TypeScript any cleanup
 
 ---
 *STATE.md — Updated after every significant action*

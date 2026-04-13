@@ -145,7 +145,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [ ] Activity feed backfill for historical sales
 - [ ] Jest integration tests for commission, chargebacks, payroll, cross-period
 - [ ] Caching layer for aggregation endpoints with Socket.IO invalidation
-- [ ] Bulk sales status changes and batch commission approvals
+- [x] Batch commission approval with multi-select UI on payroll tab
 - [ ] CSV export expansion (command center, trends, CS analytics, payroll periods)
 - [ ] TypeScript implicit `any` elimination in ops-api routes
 
