@@ -10,31 +10,31 @@ See: .paul/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Milestone: v2.9 CS Accountability & Outreach Tracking
-Phase: 67 of 4 (48-Hour Stale Alerts) — Planning
-Plan: 67-01 executing — Tasks 1-2 complete, checkpoint pending
-Status: APPLY in progress — awaiting human verification
-Last activity: 2026-04-13 — Tasks 1-2 executed (API + UI), checkpoint next
+Phase: 68 of 4 (CS Analytics Upgrade) — Not started
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-04-13 — Phase 67 complete, transitioned to Phase 68
 
 Progress:
-- Milestone: [█████░░░░░] 50%
+- Milestone: [████████░░] 75%
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ○        ○     [Plan created, awaiting approval]
+  ○        ○        ○     [Ready for Phase 68 planning]
 ```
 
 ## Accumulated Context
 
 ### Decisions
-- 2026-04-13: Gate override always visible when < 3 calls (removed totalAttempts > 0 UI condition)
+- 2026-04-13: Pre-v2.9 records excluded from stale (requires ≥1 contact attempt)
+- 2026-04-13: My Queue for CUSTOMER_SERVICE only (not owner/admin)
+- 2026-04-13: CB staleness resets on attempt; PT staleness only clears on resolution
+- 2026-04-13: UTC midnight baseline for 48-hour stale deadline
+- 2026-04-13: Gate override always visible when < 3 calls
 - 2026-04-13: bypassReason persisted on record for CS analytics drill-down
-- 2026-04-13: Lazy attempt fetch on expand (not N+1 on page load)
-- 2026-04-13: Conditional optimistic update on gated resolve paths
-- 2026-04-13: Polymorphic FK for ContactAttempt (one table, two nullable FKs)
-- 2026-04-13: Resolution gate: 3 CALL attempts required; EMAIL/TEXT supplementary
 
 ### Deferred Issues
 - auditQueue.test.ts: 3 pre-existing test failures (incomplete mock)
@@ -57,13 +57,13 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Plan 67-01 audited and approved, ready for APPLY
-Next action: /paul:apply .paul/phases/67-stale-alerts/67-01-PLAN.md
-Resume file: .paul/phases/67-stale-alerts/67-01-PLAN.md
+Stopped at: Phase 67 complete, transitioned to Phase 68
+Next action: /paul:plan for Phase 68 (CS Analytics Upgrade)
+Resume file: .paul/ROADMAP.md
 Resume context:
-- Plan 67-01: stale summary API + My Queue tab + owner stale overview
-- 2 auto tasks + 1 checkpoint (human-verify)
-- Different staleness rules: PT = resolution only, CB = resets on attempt
+- Phase 67 shipped: stale alerts + My Queue + owner overview
+- Phase 68 ready: CS Analytics Upgrade (last phase in v2.9)
+- v2.9 at 75% (phases 65-67 complete, 68 remaining)
 
 ---
 *STATE.md — Updated after every significant action*

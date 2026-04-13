@@ -21,7 +21,7 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Move CS from "did they resolve it?" to "how effectively did they work it?" — giving managers measurable insight into each CS agent's outreach effort and performance.
 **Status:** In Progress
-**Progress:** [█████░░░░░] 50%
+**Progress:** [████████░░] 75%
 
 ## Phases
 
@@ -29,7 +29,7 @@ A sales operations platform evolving from initial setup through full role-based 
 |-------|------|-------|--------|-----------|
 | 65 | Outreach Data Model | 1 | Complete | 2026-04-13 |
 | 66 | Outreach Logging UI | 1 | Complete | 2026-04-13 |
-| 67 | 48-Hour Stale Alerts | 1 | Planning | - |
+| 67 | 48-Hour Stale Alerts | 1 | Complete | 2026-04-13 |
 | 68 | CS Analytics Upgrade | TBD | Not started | - |
 
 ## Phase Details
@@ -80,7 +80,7 @@ A sales operations platform evolving from initial setup through full role-based 
 - Count of stale items as KPI
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 67-01: Stale summary API + My Queue + owner stale overview
 
 ### Phase 68: CS Analytics Upgrade
 
@@ -469,4 +469,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-13 — Phase 66 complete*
+*Last updated: 2026-04-13 — Phase 67 complete*
