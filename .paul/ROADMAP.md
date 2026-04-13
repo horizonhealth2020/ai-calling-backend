@@ -27,7 +27,7 @@ A sales operations platform evolving from initial setup through full role-based 
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
-| 65 | Outreach Data Model | TBD | Not started | - |
+| 65 | Outreach Data Model | 1 | Planning | - |
 | 66 | Outreach Logging UI | TBD | Not started | - |
 | 67 | 48-Hour Stale Alerts | TBD | Not started | - |
 | 68 | CS Analytics Upgrade | TBD | Not started | - |
