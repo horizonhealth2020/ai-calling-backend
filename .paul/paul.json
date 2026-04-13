@@ -4,12 +4,12 @@
   "milestone": {
     "name": "Hardening & Bulk Operations",
     "version": "2.8.0",
-    "status": "in_progress"
+    "status": "shipped"
   },
   "phase": {
     "number": 64,
     "name": "Polish & Exports",
-    "status": "in_progress"
+    "status": "complete"
   },
   "loop": {
     "plan": null,

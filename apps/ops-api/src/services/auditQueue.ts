@@ -46,8 +46,8 @@ export async function enqueueAutoScore(): Promise<number> {
   if (auditAgents.length === 0) return 0;
 
   // Build per-agent eligibility: call must be after BOTH global and agent enabledAt
-  const agentIds = auditAgents.map((a) => a.id);
-  const agentCutoffs = new Map(auditAgents.map((a) => [a.id, a.auditEnabledAt]));
+  const agentIds = auditAgents.map((a: { id: string; auditEnabledAt: Date | null }) => a.id);
+  const agentCutoffs = new Map<string, Date | null>(auditAgents.map((a: { id: string; auditEnabledAt: Date | null }) => [a.id, a.auditEnabledAt]));
 
   // Use the LATER of global and per-agent timestamps for each call
   // Query candidates: agent is audit-enabled, meets duration, has recording
@@ -66,7 +66,7 @@ export async function enqueueAutoScore(): Promise<number> {
   });
 
   // Filter by the LATER of global enabledAt and per-agent auditEnabledAt
-  const eligible = candidates.filter((c) => {
+  const eligible = candidates.filter((c: { id: string; agentId: string | null; callTimestamp: Date | null }) => {
     if (!c.agentId || !c.callTimestamp) return false;
     const agentCutoff = agentCutoffs.get(c.agentId);
     // Use the later of global and agent timestamps as the cutoff
@@ -94,7 +94,7 @@ export async function enqueueAutoScore(): Promise<number> {
   if (eligible.length === 0) return 0;
 
   await prisma.convosoCallLog.updateMany({
-    where: { id: { in: eligible.map((e) => e.id) } },
+    where: { id: { in: eligible.map((e: { id: string }) => e.id) } },
     data: { auditStatus: "queued" },
   });
 
@@ -339,7 +339,7 @@ export async function retryFailedAudits(): Promise<number> {
     take: 5,
   });
 
-  const eligible = candidates.filter(c => {
+  const eligible = candidates.filter((c: { id: string; retryCount: number; lastFailedAt: Date | null }) => {
     if (!c.lastFailedAt) return true;
     // Exponential backoff: 1min, 5min, 15min
     const delays = [60_000, 300_000, 900_000];
@@ -350,14 +350,14 @@ export async function retryFailedAudits(): Promise<number> {
   if (eligible.length === 0) return 0;
 
   await prisma.convosoCallLog.updateMany({
-    where: { id: { in: eligible.map(e => e.id) } },
+    where: { id: { in: eligible.map((e: { id: string }) => e.id) } },
     data: { auditStatus: "queued" },
   });
 
   console.log(JSON.stringify({
     event: "audit_retry_requeued",
     count: eligible.length,
-    ids: eligible.map(e => e.id),
+    ids: eligible.map((e: { id: string }) => e.id),
     timestamp: new Date().toISOString(),
   }));
 

@@ -75,7 +75,7 @@ router.get("/call-logs/kpi", requireAuth, asyncHandler(async (req, res) => {
 
     // Fetch agents and lead source for agent-aware KPI aggregation
     const agents = await prisma.agent.findMany({ where: { active: true }, select: { id: true, name: true, email: true } });
-    const agentMap = new Map(agents.filter(a => a.email).map(a => [a.email!, { id: a.id, name: a.name }]));
+    const agentMap = new Map<string, { id: string; name: string }>(agents.filter((a: (typeof agents)[number]) => a.email).map((a: (typeof agents)[number]) => [a.email!, { id: a.id, name: a.name }]));
     let costPerLead = 0;
     if (list_id) {
       const leadSource = await prisma.leadSource.findFirst({ where: { listId: list_id } });

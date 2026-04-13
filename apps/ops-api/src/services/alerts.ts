@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@ops/db";
 import { emitAlertCreated, emitAlertResolved, emitClawbackCreated } from "../socket";
 import { logAudit } from "./audit";
@@ -89,7 +90,7 @@ export async function approveAlert(
   // roll back together. Without this, the chargebackSubmission could be
   // permanently mis-marked as MATCHED while the clawback creation fails,
   // leaving the alert in a state where a retry would silently dedupe.
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // GAP-46-UAT-05 (46-10): Allow manual sale-pick for UNMATCHED/MULTIPLE alerts.
     // When the chargeback has no matchedSaleId, the caller MUST supply manualSaleId
     // (the picked target sale). We then write it onto the chargeback row (also

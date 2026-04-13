@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
-import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry, calculatePerProductCommission, upsertPayrollEntryForSale } from "../services/payroll";
+import { getSundayWeekRange, findOldestOpenPeriodForAgent, applyChargebackToEntry, calculatePerProductCommission, upsertPayrollEntryForSale, type PrismaTx } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
@@ -134,7 +134,7 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   // Wrap createMany + matching + clawback creation + cursor advance in a single
   // transaction so a failed insert rolls back the round-robin cursor (Bug 3 fix).
   // Socket emits / audit logs that don't need atomicity stay outside the tx below.
-  const { result, clawbackAuditPayloads, alertPayloads } = await prisma.$transaction(async (tx) => {
+  const { result, clawbackAuditPayloads, alertPayloads } = await prisma.$transaction(async (tx: PrismaTx) => {
     const created = await tx.chargebackSubmission.createMany({
       data: records.map((r) => ({
         postedDate: r.postedDate ? new Date(r.postedDate) : null,
@@ -437,7 +437,7 @@ router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER
     });
 
     if (clawbacks.length > 0) {
-      const clawbackIds = clawbacks.map(c => c.id);
+      const clawbackIds = clawbacks.map((c: { id: string }) => c.id);
 
       // Delete clawback products, then clawbacks
       await prisma.clawbackProduct.deleteMany({ where: { clawbackId: { in: clawbackIds } } });

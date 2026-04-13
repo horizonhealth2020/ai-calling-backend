@@ -65,12 +65,12 @@ router.get("/ai/scoring-stats", requireAuth, requireRole("OWNER_VIEW", "SUPER_AD
     _avg: { aiScore: true },
     _count: { id: true },
   });
-  const agentIds = agentGroups.map((g) => g.agentId);
+  const agentIds = agentGroups.map((g: (typeof agentGroups)[number]) => g.agentId);
   const agents = agentIds.length > 0
     ? await prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } })
     : [];
-  const agentMap = new Map(agents.map((a) => [a.id, a.name]));
-  const agentBreakdown = agentGroups.map((g) => ({
+  const agentMap = new Map(agents.map((a: (typeof agents)[number]) => [a.id, a.name]));
+  const agentBreakdown = agentGroups.map((g: (typeof agentGroups)[number]) => ({
     agentId: g.agentId,
     agentName: agentMap.get(g.agentId) ?? "Unknown",
     avgScore: Math.round(g._avg.aiScore ?? 0),

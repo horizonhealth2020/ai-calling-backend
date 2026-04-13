@@ -72,7 +72,7 @@ router.get("/reps/resolved-log", requireAuth, requireRole("OWNER_VIEW", "SUPER_A
       include: { resolver: { select: { name: true } } },
       orderBy: { resolvedAt: "desc" },
     });
-    results.push(...chargebacks.map((c) => ({
+    results.push(...chargebacks.map((c: (typeof chargebacks)[number]) => ({
       type: "chargeback" as const,
       agentName: c.payeeName ?? "Unknown",
       memberName: c.memberCompany ?? c.memberId ?? "Unknown",
@@ -93,7 +93,7 @@ router.get("/reps/resolved-log", requireAuth, requireRole("OWNER_VIEW", "SUPER_A
       include: { resolver: { select: { name: true } } },
       orderBy: { resolvedAt: "desc" },
     });
-    results.push(...terms.map((t) => ({
+    results.push(...terms.map((t: (typeof terms)[number]) => ({
       type: "pending_term" as const,
       agentName: t.agentName ?? "Unknown",
       memberName: t.memberName ?? t.memberId ?? "Unknown",

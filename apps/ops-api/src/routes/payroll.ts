@@ -4,7 +4,7 @@ import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { executeCarryover, reverseCarryover } from "../services/carryover";
-import { findOldestOpenPeriodForAgent, calculatePerProductCommission, applyChargebackToEntry } from "../services/payroll";
+import { findOldestOpenPeriodForAgent, calculatePerProductCommission, applyChargebackToEntry, type PrismaTx } from "../services/payroll";
 import { zodErr, asyncHandler, idParamSchema } from "./helpers";
 import { invalidateAll } from "../services/cache";
 
@@ -155,7 +155,7 @@ router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_A
       where: { id: { in: entryIds } },
       include: { payrollPeriod: { select: { status: true, id: true } } },
     });
-    const nonOpen = entries.filter(e => e.payrollPeriod.status !== "OPEN");
+    const nonOpen = entries.filter((e: { payrollPeriod: { status: string; id: string } }) => e.payrollPeriod.status !== "OPEN");
     if (nonOpen.length > 0) {
       return res.status(400).json({
         error: "Cannot un-pay entries in LOCKED or FINALIZED periods. Only entries in OPEN periods can be marked unpaid."
@@ -167,7 +167,7 @@ router.post("/payroll/mark-unpaid", requireAuth, requireRole("PAYROLL", "SUPER_A
       where: { id: { in: serviceEntryIds } },
       include: { payrollPeriod: { select: { status: true, id: true } } },
     });
-    const nonOpen = serviceEntries.filter(e => e.payrollPeriod.status !== "OPEN");
+    const nonOpen = serviceEntries.filter((e: { payrollPeriod: { status: string; id: string } }) => e.payrollPeriod.status !== "OPEN");
     if (nonOpen.length > 0) {
       return res.status(400).json({
         error: "Cannot un-pay service entries in LOCKED or FINALIZED periods. Only entries in OPEN periods can be marked unpaid."
@@ -229,14 +229,14 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   // fall back to the oldest non-clawback entry (could be in LOCKED/FINALIZED).
   // Phase 47 CR-01: exclude clawback rows so we anchor to the live original entry.
   const openPeriodId = await findOldestOpenPeriodForAgent(sale.agentId);
-  const liveEntries = sale.payrollEntries.filter(e =>
+  const liveEntries = sale.payrollEntries.filter((e: { status: string; payrollPeriodId: string; payoutAmount: unknown }) =>
     e.status !== "CLAWBACK_APPLIED" &&
     e.status !== "ZEROED_OUT_IN_PERIOD" &&
     e.status !== "CLAWBACK_CROSS_PERIOD"
   );
   const referenceEntry =
     (openPeriodId
-      ? liveEntries.find(e => e.payrollPeriodId === openPeriodId)
+      ? liveEntries.find((e: { payrollPeriodId: string }) => e.payrollPeriodId === openPeriodId)
       : undefined) ?? liveEntries[0];
 
   // Calculate chargeback amount
@@ -254,7 +254,7 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
   // Build notes with product names for partial chargebacks
   let notes = payload.notes || "";
   if (productIds && productIds.length > 0) {
-    const allProducts = [sale.product, ...sale.addons.map(a => a.product)];
+    const allProducts = [sale.product, ...sale.addons.map((a: { product: { id: string; name: string; type: string } }) => a.product)];
     const selectedNames = allProducts.filter(p => productIds.includes(p.id)).map(p => p.name);
     if (selectedNames.length < allProducts.length) {
       notes = `Partial chargeback: ${selectedNames.join(", ")}${notes ? ` | ${notes}` : ""}`;
@@ -263,7 +263,7 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
 
   // Wrap clawback insert + entry mutation in a single transaction so partial
   // failure cannot leave a clawback row without its corresponding payroll entry.
-  const { clawback, outcome } = await prisma.$transaction(async (tx) => {
+  const { clawback, outcome } = await prisma.$transaction(async (tx: PrismaTx) => {
     const created = await tx.clawback.create({
       data: {
         saleId: sale.id,
@@ -279,7 +279,7 @@ router.post("/clawbacks", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), as
 
     // Create ClawbackProduct records for per-product tracking
     if (productIds && productIds.length > 0) {
-      const allProducts = [sale.product, ...sale.addons.map(a => a.product)];
+      const allProducts = [sale.product, ...sale.addons.map((a: { product: { id: string; name: string; type: string } }) => a.product)];
       const fullPayout = referenceEntry ? Number(referenceEntry.payoutAmount) : 0;
       const productRecords = productIds
         .filter(pid => allProducts.some(p => p.id === pid))
@@ -345,7 +345,7 @@ router.get("/clawbacks/lookup", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN
 
   const allProducts = [
     { id: sale.product.id, name: sale.product.name, type: sale.product.type, premium: Number(sale.premium) },
-    ...sale.addons.map(a => ({
+    ...sale.addons.map((a: { product: { id: string; name: string; type: string }; premium: unknown }) => ({
       id: a.product.id,
       name: a.product.name,
       type: a.product.type,

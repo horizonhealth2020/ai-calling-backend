@@ -34,14 +34,16 @@ export async function getAgentRetentionKpis(dateWindow?: { gte: Date; lt: Date }
   });
 
   // Match chargebacks and pending terms to agents by name (case-insensitive)
-  const kpis = agents.map((agent) => {
+  const kpis = agents.map((agent: { id: string; name: string }) => {
     const agentNameLower = agent.name.toLowerCase().trim();
 
     const cbMatch = chargebacks.find(
-      (cb) => cb.memberAgentId?.toLowerCase().trim() === agentNameLower,
+      (cb: { memberAgentId: string | null; _count: number; _sum: { chargebackAmount: unknown } }) =>
+        cb.memberAgentId?.toLowerCase().trim() === agentNameLower,
     );
     const ptMatch = pendingTerms.find(
-      (pt) => pt.agentName?.toLowerCase().trim() === agentNameLower,
+      (pt: { agentName: string | null; _count: number }) =>
+        pt.agentName?.toLowerCase().trim() === agentNameLower,
     );
 
     return {
@@ -53,15 +55,17 @@ export async function getAgentRetentionKpis(dateWindow?: { gte: Date; lt: Date }
     };
   });
 
+  type KpiRow = { agentId: string; agentName: string; chargebackCount: number; chargebackTotal: number; pendingTermCount: number };
+
   // Totals for StatCard summary row
   const totals = {
-    totalChargebackCount: kpis.reduce((sum, k) => sum + k.chargebackCount, 0),
+    totalChargebackCount: kpis.reduce((sum: number, k: KpiRow) => sum + k.chargebackCount, 0),
     totalChargebackDollars: kpis.reduce(
-      (sum, k) => sum + k.chargebackTotal,
+      (sum: number, k: KpiRow) => sum + k.chargebackTotal,
       0,
     ),
     totalPendingTermCount: kpis.reduce(
-      (sum, k) => sum + k.pendingTermCount,
+      (sum: number, k: KpiRow) => sum + k.pendingTermCount,
       0,
     ),
   };

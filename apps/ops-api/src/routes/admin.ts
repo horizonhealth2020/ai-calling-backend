@@ -67,8 +67,8 @@ router.get("/permissions", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN")
     permMap[ov.userId][ov.permission] = ov.granted;
   }
 
-  const result = users.map((user) => {
-    const roleDefaults = user.roles.flatMap((r) => ROLE_DEFAULTS[r] || []);
+  const result = users.map((user: (typeof users)[number]) => {
+    const roleDefaults = user.roles.flatMap((r: string) => ROLE_DEFAULTS[r] || []);
     const uniqueDefaults = [...new Set(roleDefaults)];
     const userOverrides = permMap[user.id] || {};
 
@@ -193,10 +193,9 @@ router.get("/activity-feed", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
     ptIds.length ? prisma.pendingTerm.findMany({ where: { id: { in: ptIds } }, select: { id: true, memberName: true, holdReason: true } }) : [],
   ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- entity maps
-  const saleMap = new Map(sales.map((s: any) => [s.id, { agentName: s.agent?.name, memberName: s.memberName, premium: Number(s.premium), productName: s.product?.name }]));
-  const cbMap = new Map(chargebacks.map((c: any) => [c.id, { payeeName: c.payeeName, totalAmount: Number(c.totalAmount) }]));
-  const ptMap = new Map(pendingTerms.map((p: any) => [p.id, { memberName: p.memberName, holdReason: p.holdReason }]));
+  const saleMap = new Map<string, Record<string, unknown>>(sales.map((s: (typeof sales)[number]) => [s.id, { agentName: s.agent?.name, memberName: s.memberName, premium: Number(s.premium), productName: s.product?.name }]));
+  const cbMap = new Map<string, Record<string, unknown>>(chargebacks.map((c: (typeof chargebacks)[number]) => [c.id, { payeeName: c.payeeName, totalAmount: Number(c.totalAmount) }]));
+  const ptMap = new Map<string, Record<string, unknown>>(pendingTerms.map((p: (typeof pendingTerms)[number]) => [p.id, { memberName: p.memberName, holdReason: p.holdReason }]));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- event enrichment
   const enriched = events.map((e: any) => {

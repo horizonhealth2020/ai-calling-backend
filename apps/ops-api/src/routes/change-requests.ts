@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upsertPayrollEntryForSale, handleSaleEditApproval } from "../services/payroll";
+import { upsertPayrollEntryForSale, handleSaleEditApproval, type PrismaTx } from "../services/payroll";
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
 import { asyncHandler, zodErr, idParamSchema } from "./helpers";
@@ -34,7 +34,7 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
   if (!changeRequest) return res.status(404).json({ error: "Change request not found" });
   if (changeRequest.status !== "PENDING") return res.status(400).json({ error: "Change request is not pending" });
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx: PrismaTx) => {
     const cr = await tx.statusChangeRequest.update({
       where: { id: changeRequest.id },
       data: { status: "APPROVED", reviewedBy: req.user!.id, reviewedAt: new Date() },
@@ -80,9 +80,9 @@ router.post("/status-change-requests/:id/approve", requireAuth, requireRole("PAY
             status: fullSale.status,
             agent: { id: fullSale.agent.id, name: fullSale.agent.name },
             product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
-            addons: fullSale.addons?.map((a) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
+            addons: fullSale.addons?.map((a: { product: { id: string; name: string; type: string } }) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
           },
-          payrollEntries: payrollEntries.map((e) => ({
+          payrollEntries: payrollEntries.map((e: { id: string; payoutAmount: unknown; adjustmentAmount: unknown; bonusAmount: unknown; frontedAmount: unknown; holdAmount: unknown; netAmount: unknown; status: string; payrollPeriod: { id: string; weekStart: Date; weekEnd: Date } }) => ({
             id: e.id,
             payoutAmount: Number(e.payoutAmount),
             adjustmentAmount: Number(e.adjustmentAmount),
@@ -169,7 +169,7 @@ router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL
     }
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: PrismaTx) => {
     // Update the edit request status
     await tx.saleEditRequest.update({
       where: { id: editRequest.id },
@@ -202,7 +202,7 @@ router.post("/sale-edit-requests/:id/approve", requireAuth, requireRole("PAYROLL
     where: { saleId },
     include: { payrollPeriod: true },
   });
-  const hasFinalizedEntry = existingEntries.some(e =>
+  const hasFinalizedEntry = existingEntries.some((e: { payrollPeriod: { status: string } }) =>
     e.payrollPeriod.status === 'FINALIZED' || e.payrollPeriod.status === 'LOCKED'
   );
 

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { emitCSChanged } from "../socket";
@@ -43,7 +44,7 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
 
   // Wrap createMany + cursor advance in a single transaction so a failed insert
   // rolls back the round-robin cursor (Bug 3 fix). Socket emits stay outside.
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const created = await tx.pendingTerm.createMany({
       data: records.map((r) => ({
         agentName: r.agentName,

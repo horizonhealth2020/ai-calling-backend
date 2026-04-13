@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, resolveBundleRequirement } from "../services/payroll";
+import { upsertPayrollEntryForSale, handleCommissionZeroing, calculateCommission, getSundayWeekRange, resolveBundleRequirement, type PrismaTx } from "../services/payroll";
 import { createAcaChildSale, removeAcaChildSale } from "../services/sales";
 import { logAudit } from "../services/audit";
 import { emitSaleChanged } from "../socket";
@@ -40,7 +40,7 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
   // Phase 47 WR-02: wrap sale.create + upsertPayrollEntryForSale in a single
   // transaction so a payroll upsert failure rolls back the sale insert. Previously
   // the client could get 201 with no payroll entry for the new sale.
-  const sale = await prisma.$transaction(async (tx) => {
+  const sale = await prisma.$transaction(async (tx: PrismaTx) => {
     const created = await tx.sale.create({
       data: {
         ...saleData,
@@ -83,9 +83,9 @@ router.post("/sales", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncH
           status: fullSale.status,
           agent: { id: fullSale.agent.id, name: fullSale.agent.name },
           product: { id: fullSale.product.id, name: fullSale.product.name, type: fullSale.product.type },
-          addons: fullSale.addons?.map((a) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
+          addons: fullSale.addons?.map((a: { product: { id: string; name: string; type: string } }) => ({ product: { id: a.product.id, name: a.product.name, type: a.product.type } })),
         },
-        payrollEntries: payrollEntries.map((e) => ({
+        payrollEntries: payrollEntries.map((e: { id: string; payoutAmount: unknown; adjustmentAmount: unknown; bonusAmount: unknown; frontedAmount: unknown; holdAmount: unknown; netAmount: unknown; status: string; payrollPeriod: { id: string; weekStart: Date; weekEnd: Date } }) => ({
           id: e.id,
           payoutAmount: Number(e.payoutAmount),
           adjustmentAmount: Number(e.adjustmentAmount),
@@ -316,14 +316,14 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
     status: parsed.data.status,
     memberState,
     product,
-    addons: addonProducts.map(p => ({
+    addons: addonProducts.map((p: { id: string; type: string }) => ({
       product: p,
       premium: parsed.data.addonPremiums[p.id] ?? 0,
     })),
   };
 
   // Resolve bundle context if core product has a bundle requirement configured
-  const addonProductIds = addonProducts.map(p => p.id);
+  const addonProductIds = addonProducts.map((p: { id: string }) => p.id);
   const bundleCtx = memberState && product.requiredBundleAddonId
     ? await resolveBundleRequirement(product, memberState, addonProductIds)
     : undefined;
@@ -334,7 +334,7 @@ router.post("/sales/preview", requireAuth, requireRole("MANAGER", "SUPER_ADMIN")
   const shiftWeeks = parsed.data.paymentType === "ACH" ? 1 : 0;
   const { weekStart, weekEnd } = getSundayWeekRange(saleDate, shiftWeeks);
 
-  const hasCore = product.type === "CORE" || addonProducts.some(p => p.type === "CORE");
+  const hasCore = product.type === "CORE" || addonProducts.some((p: { type: string }) => p.type === "CORE");
   const hasBundleRequirement = !!product.requiredBundleAddonId;
 
   res.json({
@@ -371,7 +371,7 @@ router.get("/sales", requireAuth, asyncHandler(async (req, res) => {
     },
     orderBy: { saleDate: "desc" },
   });
-  const result = sales.map(({ _count, ...sale }) => ({
+  const result = sales.map(({ _count, ...sale }: (typeof sales)[number]) => ({
     ...sale,
     hasPendingStatusChange: _count.statusChangeRequests > 0,
     hasPendingEditRequest: _count.saleEditRequests > 0,
@@ -467,7 +467,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     // Phase 47 Sub-feature 4: ACA attach/detach/update + parent recalc MUST run inside
     // the transaction so D-16 audit atomicity holds (a crashed recalc cannot leave the
     // child-create committed but the parent payout stale).
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaTx) => {
       await tx.sale.update({ where: { id: saleId }, data: updateData });
 
       if (addonProductIds !== undefined) {
@@ -627,7 +627,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
 
     // Handle addon changes
     if (data.addonProductIds !== undefined) {
-      const oldAddonIds = currentSale.addons.map(a => a.productId).sort();
+      const oldAddonIds = currentSale.addons.map((a: { productId: string }) => a.productId).sort();
       const newAddonIds = [...new Set(data.addonProductIds)].sort();
       if (JSON.stringify(oldAddonIds) !== JSON.stringify(newAddonIds)) {
         changes.addonProductIds = { old: oldAddonIds, new: newAddonIds };
@@ -635,7 +635,7 @@ router.patch("/sales/:id", requireAuth, requireRole("MANAGER", "PAYROLL", "SUPER
     }
     if (data.addonPremiums !== undefined) {
       const oldPremiums: Record<string, number> = {};
-      currentSale.addons.forEach(a => { oldPremiums[a.productId] = Number(a.premium ?? 0); });
+      currentSale.addons.forEach((a: { productId: string; premium: unknown }) => { oldPremiums[a.productId] = Number(a.premium ?? 0); });
       changes.addonPremiums = { old: oldPremiums, new: data.addonPremiums };
     }
 
@@ -668,7 +668,7 @@ router.delete("/sales/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), 
     where: { acaCoveringSaleId: saleId },
     select: { id: true },
   });
-  const childIds = childSales.map((c) => c.id);
+  const childIds = childSales.map((c: { id: string }) => c.id);
 
   // D-17, D-18: atomic cascade — delete child dependents + child sales BEFORE parent cleanup
   // so FK references from child rows are gone before the parent sale is removed.
@@ -722,7 +722,7 @@ router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADM
 
   // Dead/Declined -> Ran: requires approval workflow
   if ((oldStatus === "DEAD" || oldStatus === "DECLINED") && newStatus === "RAN") {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTx) => {
       // Check for existing PENDING change request
       const existing = await tx.statusChangeRequest.findFirst({
         where: { saleId: sale.id, status: "PENDING" },
@@ -754,7 +754,7 @@ router.patch("/sales/:id/status", requireAuth, requireRole("MANAGER", "SUPER_ADM
     // commission zeroing in a single transaction. Previously the sale.update
     // could commit but handleCommissionZeroing could fail, leaving sale=DEAD
     // with live payroll entries and no reconciliation path.
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: PrismaTx) => {
       await tx.statusChangeRequest.updateMany({
         where: { saleId: sale.id, status: "PENDING" },
         data: { status: "REJECTED", reviewedBy: req.user!.id, reviewedAt: new Date() },
@@ -821,7 +821,7 @@ router.post("/payroll/batch-approve-commission", requireAuth, requireRole("PAYRO
 
   // Validate all saleIds exist before processing
   const existing = await prisma.sale.findMany({ where: { id: { in: saleIds } }, select: { id: true } });
-  const existingIds = new Set(existing.map(s => s.id));
+  const existingIds = new Set(existing.map((s: { id: string }) => s.id));
   const missingIds = saleIds.filter(id => !existingIds.has(id));
   if (missingIds.length > 0) {
     return res.status(400).json({ error: "Some sales not found", missingIds });
@@ -897,18 +897,18 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
       },
     }),
   ]);
-  const commMap = new Map(commissionByAgent.map(c => [c.agentId, Number(c._sum.payoutAmount ?? 0)]));
+  const commMap = new Map(commissionByAgent.map((c: { agentId: string; _sum: { payoutAmount: unknown } }) => [c.agentId, Number(c._sum.payoutAmount ?? 0)]));
 
   // Build today map
   const todayMap = new Map<string, { salesCount: number; premiumTotal: number }>();
   for (const agent of todayData) {
     const salesCount = agent.sales.length;
-    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    const premiumTotal = agent.sales.reduce((sum: number, s: { premium: unknown; addons?: { premium: unknown }[] }) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a: { premium: unknown }) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     todayMap.set(agent.name, { salesCount, premiumTotal });
   }
 
   // Build lead source lookup
-  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+  const lsMap = new Map<string, { costPerLead: number; callBufferSeconds: number }>(allLeadSources.map((ls: { id: string; costPerLead: unknown; callBufferSeconds: number }) => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
 
   // Aggregate lead cost per agent from Convoso call logs (applying buffer filter)
   const agentLeadCost = new Map<string, number>();
@@ -920,9 +920,9 @@ router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
     agentLeadCost.set(log.agentId, (agentLeadCost.get(log.agentId) ?? 0) + ls.costPerLead);
   }
 
-  const summary = data.map((agent) => {
+  const summary = data.map((agent: { id: string; name: string; sales: { premium: unknown; addons?: { premium: unknown }[] }[] }) => {
     const salesCount = agent.sales.length;
-    const premiumTotal = agent.sales.reduce((sum, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    const premiumTotal = agent.sales.reduce((sum: number, s: { premium: unknown; addons?: { premium: unknown }[] }) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a: { premium: unknown }) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     const totalLeadCost = agentLeadCost.get(agent.id) ?? 0;
     const today = todayMap.get(agent.name) ?? { salesCount: 0, premiumTotal: 0 };
     return {
@@ -959,7 +959,7 @@ router.get("/owner/summary", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN
       prisma.clawback.count({ where: clawbackWhere }),
       prisma.payrollPeriod.count({ where: { status: "OPEN" } }),
     ]);
-    const premiumTotal = salesForPremium.reduce((sum: number, s) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
+    const premiumTotal = salesForPremium.reduce((sum: number, s: { premium: unknown; addons?: { premium: unknown }[] }) => sum + Number(s.premium ?? 0) + (s.addons?.reduce((aSum: number, a: { premium: unknown }) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0);
     return { salesCount, premiumTotal, clawbacks, openPayrollPeriods };
   }
 
@@ -1052,17 +1052,17 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
 
   for (const agent of agents) {
     const sc = agent.sales.length;
-    const pt = agent.sales.reduce((s, sale) => s + Number(sale.premium ?? 0) + (sale.addons?.reduce((a: number, ad) => a + Number(ad.premium ?? 0), 0) ?? 0), 0);
+    const pt = agent.sales.reduce((s: number, sale: { premium: unknown; addons?: { premium: unknown }[] }) => s + Number(sale.premium ?? 0) + (sale.addons?.reduce((a: number, ad: { premium: unknown }) => a + Number(ad.premium ?? 0), 0) ?? 0), 0);
     salesCount += sc;
     premiumTotal += pt;
     agentSalesMap.set(agent.name, { salesCount: sc, premiumTotal: pt, totalLeadCost: 0 });
   }
 
   const priorSalesCount = priorSales.length;
-  const priorPremiumTotal = priorSales.reduce((s, sale) => s + Number(sale.premium ?? 0) + (sale.addons?.reduce((a: number, ad) => a + Number(ad.premium ?? 0), 0) ?? 0), 0);
+  const priorPremiumTotal = priorSales.reduce((s: number, sale: { premium: unknown; addons?: { premium: unknown }[] }) => s + Number(sale.premium ?? 0) + (sale.addons?.reduce((a: number, ad: { premium: unknown }) => a + Number(ad.premium ?? 0), 0) ?? 0), 0);
 
   // ── Lead cost per agent ──
-  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+  const lsMap = new Map<string, { costPerLead: number; callBufferSeconds: number }>(allLeadSources.map((ls: { id: string; costPerLead: unknown; callBufferSeconds: number }) => [ls.id, { costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
   const agentCallMetrics = new Map<string, { calls: number; tiers: { short: number; contacted: number; engaged: number; deep: number }; totalDuration: number; callCount: number }>();
 
   for (const log of callLogs) {
@@ -1097,15 +1097,15 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
   // ── Commission owed Friday (arrears period net) ──
   let commissionOwedFriday = 0;
   if (arrearsPeriod) {
-    commissionOwedFriday = arrearsPeriod.entries.reduce((s, e) =>
+    commissionOwedFriday = arrearsPeriod.entries.reduce((s: number, e: { payoutAmount: unknown; adjustmentAmount: unknown; bonusAmount: unknown; frontedAmount: unknown; holdAmount: unknown }) =>
       s + Number(e.payoutAmount) + Number(e.adjustmentAmount) + Number(e.bonusAmount) + Number(e.frontedAmount) - Number(e.holdAmount), 0);
-    commissionOwedFriday += arrearsPeriod.serviceEntries.reduce((s, e) => s + Number(e.totalPay), 0);
+    commissionOwedFriday += arrearsPeriod.serviceEntries.reduce((s: number, e: { totalPay: unknown }) => s + Number(e.totalPay), 0);
   }
 
   // ── Leaderboard ──
-  const agentIdToName = new Map(agents.map(a => [a.id, a.name]));
+  const agentIdToName = new Map(agents.map((a: { id: string; name: string }) => [a.id, a.name]));
   const leaderboard = agents
-    .map(agent => {
+    .map((agent: { id: string; name: string }) => {
       const sales = agentSalesMap.get(agent.name) ?? { salesCount: 0, premiumTotal: 0, totalLeadCost: 0 };
       const callMetrics = agentCallMetrics.get(agent.id);
       return {
@@ -1119,7 +1119,7 @@ router.get("/command-center", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMI
         callsByTier: callMetrics?.tiers ?? { short: 0, contacted: 0, engaged: 0, deep: 0 },
       };
     })
-    .sort((a, b) => b.premiumTotal - a.premiumTotal || b.salesCount - a.salesCount);
+    .sort((a: { premiumTotal: number; salesCount: number }, b: { premiumTotal: number; salesCount: number }) => b.premiumTotal - a.premiumTotal || b.salesCount - a.salesCount);
 
   // ── Total lead cost for ROI ──
   let totalLeadCost = 0;
@@ -1167,16 +1167,16 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
       orderBy: { weekStart: "desc" },
       take: 12,
     });
-    const result = periods.map(p => {
-      const ranEntries = p.entries.filter(e => e.sale?.status === 'RAN');
+    const result = periods.map((p: { weekStart: Date; weekEnd: Date; status: string; entries: { netAmount: unknown; sale?: { status: string; premium: unknown; addons?: { premium: unknown }[] } | null }[]; serviceEntries: { totalPay: unknown }[] }) => {
+      const ranEntries = p.entries.filter((e: { sale?: { status: string } | null }) => e.sale?.status === 'RAN');
       const csPayrollTotal = p.serviceEntries.reduce(
-        (sum: number, se) => sum + Number(se.totalPay), 0
+        (sum: number, se: { totalPay: unknown }) => sum + Number(se.totalPay), 0
       );
       return {
         period: `${p.weekStart.toISOString().slice(0, 10)} - ${p.weekEnd.toISOString().slice(0, 10)}`,
         salesCount: ranEntries.length,
-        premiumTotal: ranEntries.reduce((s, e) => s + Number(e.sale?.premium ?? 0) + (e.sale?.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0),
-        commissionPaid: ranEntries.reduce((s, e) => s + Number(e.netAmount), 0),
+        premiumTotal: ranEntries.reduce((s: number, e: { sale?: { premium: unknown; addons?: { premium: unknown }[] } | null }) => s + Number(e.sale?.premium ?? 0) + (e.sale?.addons?.reduce((aSum: number, a: { premium: unknown }) => aSum + Number(a.premium ?? 0), 0) ?? 0), 0),
+        commissionPaid: ranEntries.reduce((s: number, e: { netAmount: unknown }) => s + Number(e.netAmount), 0),
         csPayrollTotal,
         periodStatus: p.status,
       };
@@ -1219,7 +1219,7 @@ router.get("/reporting/periods", requireAuth, requireRole("MANAGER", "OWNER_VIEW
 
 router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
-  const agentMap = new Map(agents.map((a) => [a.id, a.name]));
+  const agentMap = new Map(agents.map((a: { id: string; name: string }) => [a.id, a.name]));
   const cutoff24h = new Date(Date.now() - 86400000);
   const cutoff7d = new Date(Date.now() - 7 * 86400000);
   const allSales = await prisma.sale.findMany({
@@ -1230,7 +1230,7 @@ router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
   const weekly: Record<string, { count: number; premium: number }> = {};
   for (const s of allSales) {
     const name = agentMap.get(s.agentId) ?? s.agentId;
-    const totalPrem = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    const totalPrem = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: { premium: unknown }) => sum + Number(a.premium ?? 0), 0) ?? 0);
     if (!weekly[name]) weekly[name] = { count: 0, premium: 0 };
     weekly[name].count++;
     weekly[name].premium += totalPrem;
@@ -1248,8 +1248,8 @@ router.get("/sales-board/summary", asyncHandler(async (_req, res) => {
 
 router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
   const agents = await prisma.agent.findMany({ where: { active: true }, orderBy: { displayOrder: "asc" } });
-  const agentNames = agents.map((a) => a.name);
-  const agentMap = new Map(agents.map((a) => [a.id, a.name]));
+  const agentNames = agents.map((a: { name: string }) => a.name);
+  const agentMap = new Map(agents.map((a: { id: string; name: string }) => [a.id, a.name]));
 
   // Get Sunday of the current week (Sun=0)
   const now = new Date();
@@ -1287,7 +1287,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
         const name = agentMap.get(s.agentId) ?? s.agentId;
         if (!daySales[name]) daySales[name] = { count: 0, premium: 0 };
         daySales[name].count++;
-        const saleTotalPremium = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
+        const saleTotalPremium = Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: { premium: unknown }) => sum + Number(a.premium ?? 0), 0) ?? 0);
         daySales[name].premium += saleTotalPremium;
         totalSales++;
         totalPremium += saleTotalPremium;
@@ -1305,9 +1305,9 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
     const name = agentMap.get(s.agentId) ?? s.agentId;
     if (!weeklyTotals[name]) weeklyTotals[name] = { count: 0, premium: 0 };
     weeklyTotals[name].count++;
-    weeklyTotals[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    weeklyTotals[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: { premium: unknown }) => sum + Number(a.premium ?? 0), 0) ?? 0);
     grandTotalSales++;
-    grandTotalPremium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
+    grandTotalPremium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: { premium: unknown }) => sum + Number(a.premium ?? 0), 0) ?? 0);
   }
 
   // Daily view: today stats per agent
@@ -1318,7 +1318,7 @@ router.get("/sales-board/detailed", asyncHandler(async (_req, res) => {
       const name = agentMap.get(s.agentId) ?? s.agentId;
       if (!todayStats[name]) todayStats[name] = { count: 0, premium: 0 };
       todayStats[name].count++;
-      todayStats[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a) => sum + Number(a.premium ?? 0), 0) ?? 0);
+      todayStats[name].premium += Number(s.premium ?? 0) + (s.addons?.reduce((sum: number, a: { premium: unknown }) => sum + Number(a.premium ?? 0), 0) ?? 0);
     }
   }
 

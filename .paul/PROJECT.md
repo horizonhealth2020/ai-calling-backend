@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.7.0 |
+| Version | 2.8.0 |
 | Status | Production |
 | Last Updated | 2026-04-10 |
-| Milestones shipped | 17 (v1.0 through v2.7) |
-| Total phases | 59 |
+| Milestones shipped | 18 (v1.0 through v2.8) |
+| Total phases | 64 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -138,16 +138,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Payroll sidebar commission fix — date-based period selection instead of most-recent
 - [x] Product type color coding — ACA=purple, Core=blue, Add-ons=green, AD&D=amber
 
+**v2.8 — Hardening & Bulk Operations (2026-04-13)**
+- [x] Data integrity scripts — orphan cleanup + audit backfill
+- [x] Jest integration tests — 15 type fixes, chargeback flow tests, 144 passing tests
+- [x] In-memory cache layer — 5 endpoints cached, 12 invalidation points
+- [x] Batch commission approval with multi-select UI on payroll tab
+- [x] CSV export on owner command center + owner trends tab
+- [x] TypeScript implicit any elimination — 127 type errors fixed across 16 files
+
 ### Active (In Progress)
 
-**v2.8 — Hardening & Bulk Operations (2026-04-13)**
-- [ ] Orphaned Clawback/PayrollEntry data cleanup (one-time migration)
-- [ ] Activity feed backfill for historical sales
-- [ ] Jest integration tests for commission, chargebacks, payroll, cross-period
-- [ ] Caching layer for aggregation endpoints with Socket.IO invalidation
-- [x] Batch commission approval with multi-select UI on payroll tab
-- [ ] CSV export expansion (command center, trends, CS analytics, payroll periods)
-- [ ] TypeScript implicit `any` elimination in ops-api routes
+None.
 
 ### Planned (Next)
 None.

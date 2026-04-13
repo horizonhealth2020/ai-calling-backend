@@ -112,7 +112,7 @@ router.get("/lead-timing/heatmap", requireAuth, requireRole("MANAGER", "OWNER_VI
   }
 
   // Build response: array of { leadSourceId, leadSourceName, cells: [...] }
-  const lsNameMap = new Map(leadSources.map(ls => [ls.id, ls.name]));
+  const lsNameMap = new Map(leadSources.map((ls: (typeof leadSources)[number]) => [ls.id, ls.name]));
   const allKeys = new Set([...callMap.keys(), ...saleMap.keys()]);
   const bySource = new Map<string, { hour: number; groupVal: number; calls: number; sales: number; closeRate: number }[]>();
 
@@ -126,7 +126,7 @@ router.get("/lead-timing/heatmap", requireAuth, requireRole("MANAGER", "OWNER_VI
     bySource.get(lsId)!.push({ hour, groupVal, calls: c, sales: s, closeRate: c > 0 ? s / c : 0 });
   }
 
-  const result = leadSources.map(ls => ({
+  const result = leadSources.map((ls: (typeof leadSources)[number]) => ({
     leadSourceId: ls.id,
     leadSourceName: ls.name,
     cells: bySource.get(ls.id) ?? [],
@@ -220,7 +220,7 @@ router.get("/lead-timing/sparklines", requireAuth, requireRole("MANAGER", "OWNER
     days.push(d.toISOString().slice(0, 10));
   }
 
-  const result = leadSources.map(ls => {
+  const result = leadSources.map((ls: (typeof leadSources)[number]) => {
     const dayparts: Record<string, number[]> = { morning: [], afternoon: [], evening: [] };
     for (const day of days) {
       for (const dp of ["morning", "afternoon", "evening"]) {

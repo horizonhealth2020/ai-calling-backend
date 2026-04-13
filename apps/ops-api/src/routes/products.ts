@@ -152,7 +152,7 @@ router.get("/products/:id/state-availability", requireAuth, asyncHandler(async (
     select: { stateCode: true },
     orderBy: { stateCode: "asc" },
   });
-  res.json(entries.map(e => e.stateCode));
+  res.json(entries.map((e: (typeof entries)[number]) => e.stateCode));
 }));
 
 router.put("/products/:id/state-availability", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -180,7 +180,7 @@ router.put("/products/:id/state-availability", requireAuth, requireRole("PAYROLL
     select: { stateCode: true },
     orderBy: { stateCode: "asc" },
   });
-  res.json(result.map(e => e.stateCode));
+  res.json(result.map((e: (typeof result)[number]) => e.stateCode));
 }));
 
 export default router;

@@ -87,7 +87,7 @@ router.get("/call-audits/agents", requireAuth, requireRole("MANAGER", "SUPER_ADM
     distinct: ["agentId"],
     orderBy: { agentId: "asc" },
   });
-  res.json(agents.map(a => a.agent));
+  res.json(agents.map((a: { agent: { id: string; name: string } | null }) => a.agent));
 }));
 
 router.get("/call-audits/:id", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
@@ -150,7 +150,9 @@ router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
   const allLeadSources = await prisma.leadSource.findMany({
     select: { id: true, name: true, costPerLead: true, callBufferSeconds: true },
   });
-  const lsMap = new Map(allLeadSources.map(ls => [ls.id, { name: ls.name, costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]));
+  const lsMap = new Map<string, { name: string; costPerLead: number; callBufferSeconds: number }>(
+    allLeadSources.map((ls: { id: string; name: string; costPerLead: unknown; callBufferSeconds: number }) => [ls.id, { name: ls.name, costPerLead: Number(ls.costPerLead), callBufferSeconds: ls.callBufferSeconds }]),
+  );
 
   // Fetch raw call logs (not groupBy) so we can filter by per-source buffer
   const logs = await prisma.convosoCallLog.findMany({
@@ -168,9 +170,9 @@ router.get("/call-counts", requireAuth, requireRole("MANAGER", "SUPER_ADMIN"), a
     countMap.set(key, (countMap.get(key) ?? 0) + 1);
   }
 
-  const agentIds = [...new Set(logs.map(l => l.agentId!))];
+  const agentIds = [...new Set(logs.map((l: { agentId: string | null; leadSourceId: string | null; callDurationSeconds: number | null }) => l.agentId!))];
   const agents = await prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } });
-  const agentMap = new Map(agents.map(a => [a.id, a.name]));
+  const agentMap = new Map<string, string>(agents.map((a: { id: string; name: string }) => [a.id, a.name]));
 
   const result = [...countMap.entries()].map(([key, count]) => {
     const [agentId, leadSourceId] = key.split("|");

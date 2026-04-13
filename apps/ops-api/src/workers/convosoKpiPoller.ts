@@ -76,7 +76,7 @@ async function pollLeadSource(
       where: { convosoCallId: { in: callIds } },
       select: { convosoCallId: true },
     });
-    const existingSet = new Set(existing.map((e) => e.convosoCallId));
+    const existingSet = new Set(existing.map((e: (typeof existing)[number]) => e.convosoCallId));
 
     const newRaw = raw.filter((r) => !existingSet.has(String(r.id)));
 
@@ -330,10 +330,10 @@ async function runPollCycle(): Promise<void> {
   });
 
   // Agent map keyed by CRM user ID (stored in email field) → agent info
-  const agentMap = new Map(
+  const agentMap = new Map<string, { id: string; name: string }>(
     agents
-      .filter((a) => a.email)
-      .map((a) => [a.email!, { id: a.id, name: a.name }]),
+      .filter((a: (typeof agents)[number]) => a.email)
+      .map((a: (typeof agents)[number]) => [a.email!, { id: a.id, name: a.name }]),
   );
 
   let totalCount = 0;
