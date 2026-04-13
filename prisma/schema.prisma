@@ -609,6 +609,7 @@ model ChargebackSubmission {
   resolvedBy             String?   @map("resolved_by")
   resolutionNote         String?   @map("resolution_note")
   resolutionType         String?   @map("resolution_type")
+  bypassReason           String?   @map("bypass_reason")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -691,6 +692,7 @@ model PendingTerm {
   resolvedBy          String?   @map("resolved_by")
   resolutionNote      String?   @map("resolution_note")
   resolutionType      String?   @map("resolution_type")
+  bypassReason        String?   @map("bypass_reason")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 

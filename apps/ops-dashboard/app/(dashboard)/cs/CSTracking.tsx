@@ -231,7 +231,58 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
   const [resolveNote, setResolveNote] = useState("");
   const [resolveType, setResolveType] = useState<string>("");
 
+  // Contact attempt state
+  const [attemptCounts, setAttemptCounts] = useState<Record<string, { calls: number; total: number }>>({});
+  const [attempts, setAttempts] = useState<Record<string, Array<{ id: string; type: string; attemptNumber: number; notes: string | null; createdAt: string; agent: { name: string } }>>>({});
+  const [attemptNote, setAttemptNote] = useState("");
+  const [attemptType, setAttemptType] = useState<string>("");
+  const [loadingAttempts, setLoadingAttempts] = useState(false);
+  const [gateOverride, setGateOverride] = useState(false);
+  const [gateBypassReason, setGateBypassReason] = useState("");
+
   const { toast } = useToast();
+
+  // Fetch contact attempts for a record (lazy — on expand)
+  const fetchAttempts = useCallback(async (recordId: string, type: "chargeback" | "pending_term") => {
+    setLoadingAttempts(true);
+    try {
+      const param = type === "chargeback" ? `chargebackSubmissionId=${recordId}` : `pendingTermId=${recordId}`;
+      const res = await authFetch(`${API}/api/contact-attempts?${param}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAttempts(prev => ({ ...prev, [recordId]: data }));
+        const calls = data.filter((a: { type: string }) => a.type === "CALL").length;
+        setAttemptCounts(prev => ({ ...prev, [recordId]: { calls, total: data.length } }));
+      }
+    } catch { /* silent */ }
+    setLoadingAttempts(false);
+  }, [API]);
+
+  // Log a contact attempt
+  const handleLogAttempt = async (recordId: string, recordType: "chargeback" | "pending_term") => {
+    if (!attemptType || !attemptNote.trim()) return;
+    try {
+      const body: Record<string, string> = { type: attemptType, notes: attemptNote.trim() };
+      if (recordType === "chargeback") body.chargebackSubmissionId = recordId;
+      else body.pendingTermId = recordId;
+      const res = await authFetch(`${API}/api/contact-attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to log attempt" }));
+        toast("error", err.error || `Request failed (${res.status})`);
+        return;
+      }
+      toast("success", `${attemptType} attempt logged`);
+      setAttemptNote("");
+      setAttemptType("");
+      await fetchAttempts(recordId, recordType);
+    } catch {
+      toast("error", "Failed to log attempt");
+    }
+  };
 
   // Data fetching
   const fetchData = useCallback(async () => {
@@ -404,32 +455,44 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
   // Resolve/Unresolve handlers
   const handleResolveCb = async (id: string) => {
     if (!resolveType || !resolveNote.trim()) return;
+    const counts = attemptCounts[id];
+    const callCount = counts?.calls ?? 0;
+    const gateApplies = (resolveType === "closed" || resolveType === "no_contact") && callCount < 3 && (counts?.total ?? 0) > 0;
+    const canOptimistic = !gateApplies || (gateOverride && gateBypassReason.length >= 10);
+
     const prev = chargebacks.find((cb) => cb.id === id);
-    setChargebacks(cs => cs.map((cb) => cb.id === id ? {
-      ...cb,
-      resolvedAt: new Date().toISOString(),
-      resolvedBy: "you",
-      resolutionType: resolveType,
-      resolutionNote: resolveNote.trim(),
-      resolver: { name: "You" },
-    } : cb));
-    setExpandedRowId(null);
-    setResolveNote("");
-    setResolveType("");
+    const body: Record<string, string> = { resolutionType: resolveType, resolutionNote: resolveNote.trim() };
+    if (gateOverride && gateBypassReason.trim()) body.bypassReason = gateBypassReason.trim();
+
+    if (canOptimistic) {
+      setChargebacks(cs => cs.map((cb) => cb.id === id ? {
+        ...cb, resolvedAt: new Date().toISOString(), resolvedBy: "you",
+        resolutionType: resolveType, resolutionNote: resolveNote.trim(), resolver: { name: "You" },
+      } : cb));
+      setExpandedRowId(null);
+    }
+    setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason("");
+
     try {
       const res = await authFetch(`${API}/api/chargebacks/${id}/resolve`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolutionType: resolveType, resolutionNote: resolveNote.trim() }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+        if (prev && canOptimistic) setChargebacks(cs => cs.map((cb) => cb.id === id ? prev : cb));
+        toast("error", err.error || `Request failed (${res.status})`);
+        return;
+      }
       const updated = await res.json();
       setChargebacks(cs => cs.map((cb) => cb.id === id ? { ...cb, ...updated } : cb));
+      if (!canOptimistic) setExpandedRowId(null);
       const totalsRes = await authFetch(`${API}/api/chargebacks/totals`);
       if (totalsRes.ok) setTotals(await totalsRes.json());
       toast("success", `Chargeback marked as ${resolveType}`);
     } catch {
-      if (prev) setChargebacks(cs => cs.map((cb) => cb.id === id ? prev : cb));
+      if (prev && canOptimistic) setChargebacks(cs => cs.map((cb) => cb.id === id ? prev : cb));
       toast("error", "Failed to resolve -- try again");
     }
   };
@@ -453,30 +516,42 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
 
   const handleResolvePt = async (id: string) => {
     if (!resolveType || !resolveNote.trim()) return;
+    const counts = attemptCounts[id];
+    const callCount = counts?.calls ?? 0;
+    const gateApplies = (resolveType === "cancelled" || resolveType === "no_contact") && callCount < 3 && (counts?.total ?? 0) > 0;
+    const canOptimistic = !gateApplies || (gateOverride && gateBypassReason.length >= 10);
+
     const prev = pendingTerms.find((pt) => pt.id === id);
-    setPendingTerms(pts => pts.map((pt) => pt.id === id ? {
-      ...pt,
-      resolvedAt: new Date().toISOString(),
-      resolvedBy: "you",
-      resolutionType: resolveType,
-      resolutionNote: resolveNote.trim(),
-      resolver: { name: "You" },
-    } : pt));
-    setExpandedRowId(null);
-    setResolveNote("");
-    setResolveType("");
+    const body: Record<string, string> = { resolutionType: resolveType, resolutionNote: resolveNote.trim() };
+    if (gateOverride && gateBypassReason.trim()) body.bypassReason = gateBypassReason.trim();
+
+    if (canOptimistic) {
+      setPendingTerms(pts => pts.map((pt) => pt.id === id ? {
+        ...pt, resolvedAt: new Date().toISOString(), resolvedBy: "you",
+        resolutionType: resolveType, resolutionNote: resolveNote.trim(), resolver: { name: "You" },
+      } : pt));
+      setExpandedRowId(null);
+    }
+    setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason("");
+
     try {
       const res = await authFetch(`${API}/api/pending-terms/${id}/resolve`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolutionType: resolveType, resolutionNote: resolveNote.trim() }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+        if (prev && canOptimistic) setPendingTerms(pts => pts.map((pt) => pt.id === id ? prev : pt));
+        toast("error", err.error || `Request failed (${res.status})`);
+        return;
+      }
       const updated = await res.json();
       setPendingTerms(pts => pts.map((pt) => pt.id === id ? { ...pt, ...updated } : pt));
+      if (!canOptimistic) setExpandedRowId(null);
       toast("success", `Pending term marked as ${resolveType}`);
     } catch {
-      if (prev) setPendingTerms(pts => pts.map((pt) => pt.id === id ? prev : pt));
+      if (prev && canOptimistic) setPendingTerms(pts => pts.map((pt) => pt.id === id ? prev : pt));
       toast("error", "Failed to resolve -- try again");
     }
   };
@@ -881,10 +956,27 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
                         <td style={baseTdStyle}>
                           {!cb.resolvedAt ? (
-                            <button
-                              onClick={() => { setExpandedRowId(expandedRowId === cb.id ? null : cb.id); setResolveNote(""); setResolveType(""); }}
-                              style={{ color: colors.primary500, background: "transparent", border: "none", cursor: "pointer", fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, padding: 0 }}
-                            >Resolve</button>
+                            <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
+                              <span style={{
+                                fontSize: typography.sizes.xs.fontSize,
+                                fontWeight: typography.weights.bold,
+                                borderRadius: radius.full,
+                                padding: "2px 8px",
+                                color: (attemptCounts[cb.id]?.calls ?? 0) >= 3 ? colors.success : colors.textTertiary,
+                                background: (attemptCounts[cb.id]?.calls ?? 0) >= 3 ? colors.successBg : colors.bgSurfaceInset,
+                              }}>
+                                {attemptCounts[cb.id] ? `${attemptCounts[cb.id].calls}/3 Calls` : "—"}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const isExpanding = expandedRowId !== cb.id;
+                                  setExpandedRowId(isExpanding ? cb.id : null);
+                                  setResolveNote(""); setResolveType(""); setAttemptNote(""); setAttemptType(""); setGateOverride(false); setGateBypassReason("");
+                                  if (isExpanding) fetchAttempts(cb.id, "chargeback");
+                                }}
+                                style={{ color: colors.primary500, background: "transparent", border: "none", cursor: "pointer", fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, padding: 0 }}
+                              >Work</button>
+                            </div>
                           ) : (
                             <div>
                               <span style={{
@@ -894,8 +986,8 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 letterSpacing: "0.06em",
                                 borderRadius: radius.full,
                                 padding: "4px 8px",
-                                color: cb.resolutionType === "recovered" ? colors.success : colors.danger,
-                                background: cb.resolutionType === "recovered" ? colors.successBg : colors.dangerBg,
+                                color: cb.resolutionType === "recovered" ? colors.success : cb.resolutionType === "no_contact" ? colors.warning : colors.danger,
+                                background: cb.resolutionType === "recovered" ? colors.successBg : cb.resolutionType === "no_contact" ? colors.warningBg : colors.dangerBg,
                               }}>
                                 {cb.resolutionType}
                               </span>
@@ -929,70 +1021,127 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                           )}
                         </td>
                       </tr>
-                      {expandedRowId === cb.id && (
+                      {expandedRowId === cb.id && (() => {
+                        const cbCounts = attemptCounts[cb.id];
+                        const cbCallCount = cbCounts?.calls ?? 0;
+                        const cbTotalAttempts = cbCounts?.total ?? 0;
+                        const cbGateNeeded = (resolveType === "closed" || resolveType === "no_contact") && cbCallCount < 3 && cbTotalAttempts > 0;
+                        const cbResolveDisabled = !resolveType || !resolveNote.trim() || (cbGateNeeded && (!gateOverride || gateBypassReason.length < 10));
+                        const cbAttemptList = attempts[cb.id] || [];
+                        return (
                         <tr>
                           <td colSpan={cbColCount} style={{ padding: 0, border: "none" }}>
-                            <div style={{
-                              padding: spacing[5],
-                              background: colors.bgSurfaceInset,
-                              borderTop: `1px solid ${colors.borderSubtle}`,
-                              display: "flex",
-                              flexDirection: "column" as const,
-                              gap: spacing[4],
-                            }}>
-                              <label style={baseLabelStyle}>Resolution Type</label>
-                              <div style={{ display: "flex", gap: spacing[2] }}>
-                                {["recovered", "closed"].map(t => (
-                                  <button key={t} onClick={() => setResolveType(t)} style={{
-                                    background: resolveType === t
-                                      ? (t === "recovered" ? colors.successBg : colors.dangerBg)
-                                      : "transparent",
-                                    color: resolveType === t
-                                      ? (t === "recovered" ? colors.success : colors.danger)
-                                      : colors.textSecondary,
-                                    border: resolveType === t
-                                      ? `1px solid ${t === "recovered" ? colors.success : colors.danger}`
-                                      : `1px solid ${colors.borderDefault}`,
-                                    borderRadius: radius.full,
-                                    padding: "8px 16px",
-                                    fontSize: typography.sizes.sm.fontSize,
-                                    fontWeight: typography.weights.bold,
-                                    cursor: "pointer",
-                                    transition: `all ${motion.duration.fast} ${motion.easing.out}`,
-                                  }}>
-                                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                            <div style={{ padding: spacing[5], background: colors.bgSurfaceInset, borderTop: `1px solid ${colors.borderSubtle}`, display: "flex", flexDirection: "column" as const, gap: spacing[5] }}>
+
+                              {/* Section 1: Log Attempt */}
+                              <div>
+                                <label style={baseLabelStyle}>Log Attempt</label>
+                                <div style={{ display: "flex", gap: spacing[2], marginBottom: spacing[3] }}>
+                                  {["CALL", "EMAIL", "TEXT"].map(t => (
+                                    <button key={t} onClick={() => setAttemptType(t)} style={{
+                                      background: attemptType === t ? colors.primary500 : "transparent",
+                                      color: attemptType === t ? colors.textInverse : colors.textSecondary,
+                                      border: attemptType === t ? `1px solid ${colors.primary500}` : `1px solid ${colors.borderDefault}`,
+                                      borderRadius: radius.full, padding: "6px 14px", fontSize: typography.sizes.sm.fontSize,
+                                      fontWeight: typography.weights.bold, cursor: "pointer", transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                                    }}>Log {t.charAt(0) + t.slice(1).toLowerCase()}</button>
+                                  ))}
+                                </div>
+                                <textarea value={attemptNote} onChange={e => setAttemptNote(e.target.value)}
+                                  placeholder="Describe the outreach attempt..." style={{ ...baseInputStyle, minHeight: 60, resize: "vertical" as const, marginBottom: spacing[2] }} />
+                                <button onClick={() => handleLogAttempt(cb.id, "chargeback")} disabled={!attemptType || !attemptNote.trim()}
+                                  style={{ ...baseButtonStyle, background: (!attemptType || !attemptNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
+                                    color: (!attemptType || !attemptNote.trim()) ? colors.textMuted : colors.textInverse,
+                                    cursor: (!attemptType || !attemptNote.trim()) ? "not-allowed" : "pointer", opacity: (!attemptType || !attemptNote.trim()) ? 0.5 : 1 }}>
+                                  Save Attempt
+                                </button>
+                              </div>
+
+                              {/* Section 2: Attempt Timeline */}
+                              <div>
+                                <label style={baseLabelStyle}>Attempt Timeline</label>
+                                {loadingAttempts ? (
+                                  <div style={{ color: colors.textTertiary, fontSize: typography.sizes.sm.fontSize }}>Loading...</div>
+                                ) : cbAttemptList.length === 0 ? (
+                                  <div style={{ color: colors.textTertiary, fontSize: typography.sizes.sm.fontSize }}>No attempts logged yet</div>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column" as const, gap: spacing[2] }}>
+                                    {cbAttemptList.map(a => (
+                                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: spacing[2], fontSize: typography.sizes.sm.fontSize }}>
+                                        <span style={{
+                                          borderRadius: radius.full, padding: "2px 8px", fontWeight: typography.weights.bold,
+                                          fontSize: typography.sizes.xs.fontSize,
+                                          color: a.type === "CALL" ? colors.info : a.type === "EMAIL" ? colors.success : colors.warning,
+                                          background: a.type === "CALL" ? colors.infoBg : a.type === "EMAIL" ? colors.successBg : colors.warningBg,
+                                        }}>{a.type} #{a.attemptNumber}</span>
+                                        <span style={{ color: colors.textSecondary }}>{a.agent?.name || "Unknown"}</span>
+                                        <span style={{ color: colors.textSecondary, fontStyle: "italic", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{a.notes}</span>
+                                        <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize, whiteSpace: "nowrap" as const }}>{formatDate(a.createdAt)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Section 3: Resolve */}
+                              <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: spacing[4] }}>
+                                <label style={baseLabelStyle}>Resolution Type</label>
+                                <div style={{ display: "flex", gap: spacing[2] }}>
+                                  {["recovered", "closed", "no_contact"].map(t => {
+                                    const tColor = t === "recovered" ? colors.success : t === "no_contact" ? colors.warning : colors.danger;
+                                    const tBg = t === "recovered" ? colors.successBg : t === "no_contact" ? colors.warningBg : colors.dangerBg;
+                                    return (
+                                      <button key={t} onClick={() => { setResolveType(t); setGateOverride(false); setGateBypassReason(""); }} style={{
+                                        background: resolveType === t ? tBg : "transparent",
+                                        color: resolveType === t ? tColor : colors.textSecondary,
+                                        border: resolveType === t ? `1px solid ${tColor}` : `1px solid ${colors.borderDefault}`,
+                                        borderRadius: radius.full, padding: "8px 16px", fontSize: typography.sizes.sm.fontSize,
+                                        fontWeight: typography.weights.bold, cursor: "pointer", transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                                      }}>{t === "no_contact" ? "No Contact" : t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                                    );
+                                  })}
+                                </div>
+
+                                {cbGateNeeded && (
+                                  <div style={{ marginTop: spacing[3], padding: spacing[3], background: colors.warningBg, borderRadius: radius.md, border: `1px solid ${colors.warning}` }}>
+                                    <div style={{ color: colors.warning, fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, marginBottom: spacing[2] }}>
+                                      3 call attempts required. Current: {cbCallCount}/3
+                                    </div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: spacing[2], cursor: "pointer", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
+                                      <input type="checkbox" checked={gateOverride} onChange={e => setGateOverride(e.target.checked)} />
+                                      Override 3-call gate
+                                    </label>
+                                    {gateOverride && (
+                                      <textarea value={gateBypassReason} onChange={e => setGateBypassReason(e.target.value)}
+                                        placeholder="Justification (min 10 characters)..."
+                                        style={{ ...baseInputStyle, minHeight: 60, resize: "vertical" as const, marginTop: spacing[2] }} />
+                                    )}
+                                  </div>
+                                )}
+
+                                <label style={{ ...baseLabelStyle, marginTop: spacing[3] }}>Resolution Note</label>
+                                <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
+                                  placeholder="Describe the resolution outcome..."
+                                  style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }} />
+                                <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2], marginTop: spacing[3] }}>
+                                  <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason(""); }}
+                                    style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
+                                    Discard
                                   </button>
-                                ))}
+                                  <button onClick={() => handleResolveCb(cb.id)} disabled={cbResolveDisabled}
+                                    style={{ ...baseButtonStyle, background: cbResolveDisabled ? colors.bgSurfaceInset : colors.primary500,
+                                      color: cbResolveDisabled ? colors.textMuted : colors.textInverse,
+                                      cursor: cbResolveDisabled ? "not-allowed" : "pointer", opacity: cbResolveDisabled ? 0.5 : 1 }}>
+                                    Save Resolution
+                                  </button>
+                                </div>
                               </div>
-                              <label style={baseLabelStyle}>Resolution Note</label>
-                              <textarea
-                                value={resolveNote}
-                                onChange={e => setResolveNote(e.target.value)}
-                                placeholder="Describe the resolution outcome..."
-                                style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }}
-                              />
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2] }}>
-                                <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); }}
-                                  style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
-                                  Discard
-                                </button>
-                                <button
-                                  onClick={() => handleResolveCb(cb.id)}
-                                  disabled={!resolveType || !resolveNote.trim()}
-                                  style={{
-                                    ...baseButtonStyle,
-                                    background: (!resolveType || !resolveNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
-                                    color: (!resolveType || !resolveNote.trim()) ? colors.textMuted : colors.textInverse,
-                                    cursor: (!resolveType || !resolveNote.trim()) ? "not-allowed" : "pointer",
-                                    opacity: (!resolveType || !resolveNote.trim()) ? 0.5 : 1,
-                                  }}>
-                                  Save Resolution
-                                </button>
-                              </div>
+
                             </div>
                           </td>
                         </tr>
-                      )}
+                        );
+                      })()}
                     </React.Fragment>
                   );
                 })}
@@ -1099,10 +1248,27 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
                         <td style={baseTdStyle}>
                           {!pt.resolvedAt ? (
-                            <button
-                              onClick={() => { setExpandedRowId(expandedRowId === pt.id ? null : pt.id); setResolveNote(""); setResolveType(""); }}
-                              style={{ color: colors.primary500, background: "transparent", border: "none", cursor: "pointer", fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, padding: 0 }}
-                            >Resolve</button>
+                            <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
+                              <span style={{
+                                fontSize: typography.sizes.xs.fontSize,
+                                fontWeight: typography.weights.bold,
+                                borderRadius: radius.full,
+                                padding: "2px 8px",
+                                color: (attemptCounts[pt.id]?.calls ?? 0) >= 3 ? colors.success : colors.textTertiary,
+                                background: (attemptCounts[pt.id]?.calls ?? 0) >= 3 ? colors.successBg : colors.bgSurfaceInset,
+                              }}>
+                                {attemptCounts[pt.id] ? `${attemptCounts[pt.id].calls}/3 Calls` : "—"}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const isExpanding = expandedRowId !== pt.id;
+                                  setExpandedRowId(isExpanding ? pt.id : null);
+                                  setResolveNote(""); setResolveType(""); setAttemptNote(""); setAttemptType(""); setGateOverride(false); setGateBypassReason("");
+                                  if (isExpanding) fetchAttempts(pt.id, "pending_term");
+                                }}
+                                style={{ color: colors.primary500, background: "transparent", border: "none", cursor: "pointer", fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, padding: 0 }}
+                              >Work</button>
+                            </div>
                           ) : (
                             <div>
                               <span style={{
@@ -1112,8 +1278,8 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 letterSpacing: "0.06em",
                                 borderRadius: radius.full,
                                 padding: "4px 8px",
-                                color: pt.resolutionType === "saved" ? colors.success : colors.danger,
-                                background: pt.resolutionType === "saved" ? colors.successBg : colors.dangerBg,
+                                color: pt.resolutionType === "saved" ? colors.success : pt.resolutionType === "no_contact" ? colors.warning : colors.danger,
+                                background: pt.resolutionType === "saved" ? colors.successBg : pt.resolutionType === "no_contact" ? colors.warningBg : colors.dangerBg,
                               }}>
                                 {pt.resolutionType}
                               </span>
@@ -1147,70 +1313,127 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                           )}
                         </td>
                       </tr>
-                      {expandedRowId === pt.id && (
+                      {expandedRowId === pt.id && (() => {
+                        const ptCounts = attemptCounts[pt.id];
+                        const ptCallCount = ptCounts?.calls ?? 0;
+                        const ptTotalAttempts = ptCounts?.total ?? 0;
+                        const ptGateNeeded = (resolveType === "cancelled" || resolveType === "no_contact") && ptCallCount < 3 && ptTotalAttempts > 0;
+                        const ptResolveDisabled = !resolveType || !resolveNote.trim() || (ptGateNeeded && (!gateOverride || gateBypassReason.length < 10));
+                        const ptAttemptList = attempts[pt.id] || [];
+                        return (
                         <tr>
                           <td colSpan={ptColCount} style={{ padding: 0, border: "none" }}>
-                            <div style={{
-                              padding: spacing[5],
-                              background: colors.bgSurfaceInset,
-                              borderTop: `1px solid ${colors.borderSubtle}`,
-                              display: "flex",
-                              flexDirection: "column" as const,
-                              gap: spacing[4],
-                            }}>
-                              <label style={baseLabelStyle}>Resolution Type</label>
-                              <div style={{ display: "flex", gap: spacing[2] }}>
-                                {["saved", "cancelled"].map(t => (
-                                  <button key={t} onClick={() => setResolveType(t)} style={{
-                                    background: resolveType === t
-                                      ? (t === "saved" ? colors.successBg : colors.dangerBg)
-                                      : "transparent",
-                                    color: resolveType === t
-                                      ? (t === "saved" ? colors.success : colors.danger)
-                                      : colors.textSecondary,
-                                    border: resolveType === t
-                                      ? `1px solid ${t === "saved" ? colors.success : colors.danger}`
-                                      : `1px solid ${colors.borderDefault}`,
-                                    borderRadius: radius.full,
-                                    padding: "8px 16px",
-                                    fontSize: typography.sizes.sm.fontSize,
-                                    fontWeight: typography.weights.bold,
-                                    cursor: "pointer",
-                                    transition: `all ${motion.duration.fast} ${motion.easing.out}`,
-                                  }}>
-                                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                            <div style={{ padding: spacing[5], background: colors.bgSurfaceInset, borderTop: `1px solid ${colors.borderSubtle}`, display: "flex", flexDirection: "column" as const, gap: spacing[5] }}>
+
+                              {/* Section 1: Log Attempt */}
+                              <div>
+                                <label style={baseLabelStyle}>Log Attempt</label>
+                                <div style={{ display: "flex", gap: spacing[2], marginBottom: spacing[3] }}>
+                                  {["CALL", "EMAIL", "TEXT"].map(t => (
+                                    <button key={t} onClick={() => setAttemptType(t)} style={{
+                                      background: attemptType === t ? colors.primary500 : "transparent",
+                                      color: attemptType === t ? colors.textInverse : colors.textSecondary,
+                                      border: attemptType === t ? `1px solid ${colors.primary500}` : `1px solid ${colors.borderDefault}`,
+                                      borderRadius: radius.full, padding: "6px 14px", fontSize: typography.sizes.sm.fontSize,
+                                      fontWeight: typography.weights.bold, cursor: "pointer", transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                                    }}>Log {t.charAt(0) + t.slice(1).toLowerCase()}</button>
+                                  ))}
+                                </div>
+                                <textarea value={attemptNote} onChange={e => setAttemptNote(e.target.value)}
+                                  placeholder="Describe the outreach attempt..." style={{ ...baseInputStyle, minHeight: 60, resize: "vertical" as const, marginBottom: spacing[2] }} />
+                                <button onClick={() => handleLogAttempt(pt.id, "pending_term")} disabled={!attemptType || !attemptNote.trim()}
+                                  style={{ ...baseButtonStyle, background: (!attemptType || !attemptNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
+                                    color: (!attemptType || !attemptNote.trim()) ? colors.textMuted : colors.textInverse,
+                                    cursor: (!attemptType || !attemptNote.trim()) ? "not-allowed" : "pointer", opacity: (!attemptType || !attemptNote.trim()) ? 0.5 : 1 }}>
+                                  Save Attempt
+                                </button>
+                              </div>
+
+                              {/* Section 2: Attempt Timeline */}
+                              <div>
+                                <label style={baseLabelStyle}>Attempt Timeline</label>
+                                {loadingAttempts ? (
+                                  <div style={{ color: colors.textTertiary, fontSize: typography.sizes.sm.fontSize }}>Loading...</div>
+                                ) : ptAttemptList.length === 0 ? (
+                                  <div style={{ color: colors.textTertiary, fontSize: typography.sizes.sm.fontSize }}>No attempts logged yet</div>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column" as const, gap: spacing[2] }}>
+                                    {ptAttemptList.map(a => (
+                                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: spacing[2], fontSize: typography.sizes.sm.fontSize }}>
+                                        <span style={{
+                                          borderRadius: radius.full, padding: "2px 8px", fontWeight: typography.weights.bold,
+                                          fontSize: typography.sizes.xs.fontSize,
+                                          color: a.type === "CALL" ? colors.info : a.type === "EMAIL" ? colors.success : colors.warning,
+                                          background: a.type === "CALL" ? colors.infoBg : a.type === "EMAIL" ? colors.successBg : colors.warningBg,
+                                        }}>{a.type} #{a.attemptNumber}</span>
+                                        <span style={{ color: colors.textSecondary }}>{a.agent?.name || "Unknown"}</span>
+                                        <span style={{ color: colors.textSecondary, fontStyle: "italic", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{a.notes}</span>
+                                        <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize, whiteSpace: "nowrap" as const }}>{formatDate(a.createdAt)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Section 3: Resolve */}
+                              <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: spacing[4] }}>
+                                <label style={baseLabelStyle}>Resolution Type</label>
+                                <div style={{ display: "flex", gap: spacing[2] }}>
+                                  {["saved", "cancelled", "no_contact"].map(t => {
+                                    const tColor = t === "saved" ? colors.success : t === "no_contact" ? colors.warning : colors.danger;
+                                    const tBg = t === "saved" ? colors.successBg : t === "no_contact" ? colors.warningBg : colors.dangerBg;
+                                    return (
+                                      <button key={t} onClick={() => { setResolveType(t); setGateOverride(false); setGateBypassReason(""); }} style={{
+                                        background: resolveType === t ? tBg : "transparent",
+                                        color: resolveType === t ? tColor : colors.textSecondary,
+                                        border: resolveType === t ? `1px solid ${tColor}` : `1px solid ${colors.borderDefault}`,
+                                        borderRadius: radius.full, padding: "8px 16px", fontSize: typography.sizes.sm.fontSize,
+                                        fontWeight: typography.weights.bold, cursor: "pointer", transition: `all ${motion.duration.fast} ${motion.easing.out}`,
+                                      }}>{t === "no_contact" ? "No Contact" : t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                                    );
+                                  })}
+                                </div>
+
+                                {ptGateNeeded && (
+                                  <div style={{ marginTop: spacing[3], padding: spacing[3], background: colors.warningBg, borderRadius: radius.md, border: `1px solid ${colors.warning}` }}>
+                                    <div style={{ color: colors.warning, fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, marginBottom: spacing[2] }}>
+                                      3 call attempts required. Current: {ptCallCount}/3
+                                    </div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: spacing[2], cursor: "pointer", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
+                                      <input type="checkbox" checked={gateOverride} onChange={e => setGateOverride(e.target.checked)} />
+                                      Override 3-call gate
+                                    </label>
+                                    {gateOverride && (
+                                      <textarea value={gateBypassReason} onChange={e => setGateBypassReason(e.target.value)}
+                                        placeholder="Justification (min 10 characters)..."
+                                        style={{ ...baseInputStyle, minHeight: 60, resize: "vertical" as const, marginTop: spacing[2] }} />
+                                    )}
+                                  </div>
+                                )}
+
+                                <label style={{ ...baseLabelStyle, marginTop: spacing[3] }}>Resolution Note</label>
+                                <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
+                                  placeholder="Describe the resolution outcome..."
+                                  style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }} />
+                                <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2], marginTop: spacing[3] }}>
+                                  <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason(""); }}
+                                    style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
+                                    Discard
                                   </button>
-                                ))}
+                                  <button onClick={() => handleResolvePt(pt.id)} disabled={ptResolveDisabled}
+                                    style={{ ...baseButtonStyle, background: ptResolveDisabled ? colors.bgSurfaceInset : colors.primary500,
+                                      color: ptResolveDisabled ? colors.textMuted : colors.textInverse,
+                                      cursor: ptResolveDisabled ? "not-allowed" : "pointer", opacity: ptResolveDisabled ? 0.5 : 1 }}>
+                                    Save Resolution
+                                  </button>
+                                </div>
                               </div>
-                              <label style={baseLabelStyle}>Resolution Note</label>
-                              <textarea
-                                value={resolveNote}
-                                onChange={e => setResolveNote(e.target.value)}
-                                placeholder="Describe the resolution outcome..."
-                                style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }}
-                              />
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2] }}>
-                                <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); }}
-                                  style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
-                                  Discard
-                                </button>
-                                <button
-                                  onClick={() => handleResolvePt(pt.id)}
-                                  disabled={!resolveType || !resolveNote.trim()}
-                                  style={{
-                                    ...baseButtonStyle,
-                                    background: (!resolveType || !resolveNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
-                                    color: (!resolveType || !resolveNote.trim()) ? colors.textMuted : colors.textInverse,
-                                    cursor: (!resolveType || !resolveNote.trim()) ? "not-allowed" : "pointer",
-                                    opacity: (!resolveType || !resolveNote.trim()) ? 0.5 : 1,
-                                  }}>
-                                  Save Resolution
-                                </button>
-                              </div>
+
                             </div>
                           </td>
                         </tr>
-                      )}
+                        );
+                      })()}
                     </React.Fragment>
                   );
                 })}

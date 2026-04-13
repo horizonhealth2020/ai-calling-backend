@@ -477,6 +477,7 @@ router.delete("/chargebacks/:id", requireAuth, requireRole("SUPER_ADMIN", "OWNER
 const resolveChargebackSchema = z.object({
   resolutionType: z.enum(["recovered", "closed", "no_contact"]),
   resolutionNote: z.string().min(1).max(2000),
+  bypassReason: z.string().min(10).max(1000).optional(),
 });
 
 router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
@@ -496,12 +497,21 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
         where: { chargebackSubmissionId: pp.data.id, type: "CALL" },
       });
       if (callAttempts < 3) {
-        logAudit(req.user!.id, "BLOCKED", "ChargebackSubmission", pp.data.id, {
-          action: "RESOLUTION_GATE_BLOCKED",
-          resolutionType: parsed.data.resolutionType,
-          callAttempts,
-        });
-        return res.status(400).json({ error: `3 call attempts required before closing. Current: ${callAttempts}/3` });
+        if (parsed.data.bypassReason) {
+          logAudit(req.user!.id, "BYPASSED", "ChargebackSubmission", pp.data.id, {
+            action: "RESOLUTION_GATE_BYPASSED",
+            resolutionType: parsed.data.resolutionType,
+            callAttempts,
+            bypassReason: parsed.data.bypassReason,
+          });
+        } else {
+          logAudit(req.user!.id, "BLOCKED", "ChargebackSubmission", pp.data.id, {
+            action: "RESOLUTION_GATE_BLOCKED",
+            resolutionType: parsed.data.resolutionType,
+            callAttempts,
+          });
+          return res.status(400).json({ error: `3 call attempts required before closing. Current: ${callAttempts}/3` });
+        }
       }
     }
   }
@@ -513,6 +523,7 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
       resolvedBy: req.user!.id,
       resolutionNote: parsed.data.resolutionNote,
       resolutionType: parsed.data.resolutionType,
+      bypassReason: parsed.data.bypassReason || null,
     },
   });
   logAudit(req.user!.id, "UPDATE", "ChargebackSubmission", pp.data.id, { resolutionType: parsed.data.resolutionType });

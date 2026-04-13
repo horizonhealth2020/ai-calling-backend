@@ -9,7 +9,7 @@ const router = Router();
 
 const createContactAttemptSchema = z.object({
   type: z.enum(["CALL", "EMAIL", "TEXT"]),
-  notes: z.string().max(500).optional(),
+  notes: z.string().min(1).max(500),
   chargebackSubmissionId: z.string().optional(),
   pendingTermId: z.string().optional(),
 });
