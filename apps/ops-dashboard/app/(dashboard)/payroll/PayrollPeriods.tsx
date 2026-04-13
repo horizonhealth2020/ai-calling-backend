@@ -114,6 +114,115 @@ export default function PayrollPeriods({
     try { await confirmState.onConfirm(); } finally { setConfirmState(s => ({ ...s, open: false, loading: false })); }
   }
   const [highlightedEntryIds] = useState<Set<string>>(new Set());
+
+  /* ── Batch selection state ──────────────────────────────────── */
+  const [selectedEntries, setSelectedEntries] = useState<Map<string, { saleId: string; entryId: string; needsApproval: boolean }>>(new Map());
+
+  function toggleEntry(entryId: string, saleId: string, needsApproval: boolean) {
+    setSelectedEntries(prev => {
+      const next = new Map(prev);
+      if (next.has(entryId)) next.delete(entryId);
+      else next.set(entryId, { saleId, entryId, needsApproval });
+      return next;
+    });
+  }
+
+  function selectAllForWeek(entries: { entryId: string; saleId: string; needsApproval: boolean }[]) {
+    setSelectedEntries(prev => {
+      const next = new Map(prev);
+      for (const e of entries) next.set(e.entryId, e);
+      return next;
+    });
+  }
+
+  function deselectAllForWeek(entryIds: string[]) {
+    setSelectedEntries(prev => {
+      const next = new Map(prev);
+      for (const id of entryIds) next.delete(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedEntries(new Map());
+  }
+
+  // Clear selection on any data refresh to prevent stale state
+  const wrappedRefreshPeriods = async () => {
+    clearSelection();
+    await refreshPeriods();
+  };
+
+  function batchApproveCommission() {
+    const toApprove = [...selectedEntries.values()].filter(e => e.needsApproval);
+    if (toApprove.length === 0) return;
+    const saleIds = [...new Set(toApprove.map(e => e.saleId))];
+    requestConfirm(
+      "Batch Approve Commission",
+      `Approve commission for ${saleIds.length} sale${saleIds.length > 1 ? "s" : ""}?`,
+      "primary",
+      "Approve All",
+      async () => {
+        try {
+          const res = await authFetch(`${API}/api/payroll/batch-approve-commission`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ saleIds }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.failed > 0) {
+              toast("warning", `${data.approved} approved, ${data.failed} failed`);
+            } else {
+              toast("success", `${data.approved} commission${data.approved > 1 ? "s" : ""} approved`);
+            }
+            clearSelection();
+            await refreshPeriods();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            toast("error", err.error ?? `Request failed (${res.status})`);
+          }
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : "network error";
+          toast("error", `Unable to reach API \u2014 ${message}`);
+        }
+      }
+    );
+  }
+
+  function batchMarkPaid() {
+    const entryIds = [...selectedEntries.keys()];
+    if (entryIds.length === 0) return;
+    requestConfirm(
+      "Batch Mark Paid",
+      `Mark ${entryIds.length} entr${entryIds.length > 1 ? "ies" : "y"} as paid?`,
+      "primary",
+      "Mark Paid",
+      async () => {
+        try {
+          const res = await authFetch(`${API}/api/payroll/mark-paid`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ entryIds, serviceEntryIds: [] }),
+          });
+          if (res.ok) {
+            toast("success", `${entryIds.length} entr${entryIds.length > 1 ? "ies" : "y"} marked paid`);
+            clearSelection();
+            await refreshPeriods();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            toast("error", err.error ?? `Request failed (${res.status})`);
+          }
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : "network error";
+          toast("error", `Unable to reach API \u2014 ${message}`);
+        }
+      }
+    );
+  }
+
+  const selectedNeedsApprovalCount = [...selectedEntries.values()].filter(e => e.needsApproval).length;
+
   const [approvingAlertId, setApprovingAlertId] = useState<string | null>(null);
   const [alertPeriods, setAlertPeriods] = useState<Record<string, { id: string; weekStart: string; weekEnd: string }[]>>({});
   const [selectedAlertPeriod, setSelectedAlertPeriod] = useState<Record<string, string>>({});
@@ -1351,7 +1460,11 @@ export default function PayrollPeriods({
                   onRejectEditRequest={rejectEditRequest}
                   highlightedEntryIds={highlightedEntryIds}
                   API={API}
-                  refreshPeriods={refreshPeriods}
+                  refreshPeriods={wrappedRefreshPeriods}
+                  selectedEntries={selectedEntries}
+                  onToggleEntry={toggleEntry}
+                  onSelectAllForWeek={selectAllForWeek}
+                  onDeselectAllForWeek={deselectAllForWeek}
                 />
                 {hasMorePeriods && (
                   <div style={{ textAlign: "center" as const, padding: S[4] }}>
@@ -1493,6 +1606,41 @@ export default function PayrollPeriods({
               </div>
             )}
           </div>
+        </div>
+      )}
+      {/* ── Floating batch action bar ──────────────────────────── */}
+      {selectedEntries.size > 0 && (
+        <div style={{
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          display: "flex",
+          alignItems: "center",
+          gap: S[4],
+          padding: `${S[3]} ${S[6]}`,
+          background: colorAlpha(C.bgSurfaceRaised, 0.95),
+          backdropFilter: "blur(12px)",
+          border: `1px solid ${C.borderSubtle}`,
+          borderRadius: R.xl,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          zIndex: 1000,
+        }}>
+          <span style={{ fontSize: typography.sizes.sm.fontSize, color: C.textSecondary, fontWeight: 600 }}>
+            {selectedEntries.size} selected
+          </span>
+          <div style={{ width: 1, height: 20, background: C.borderSubtle }} />
+          {selectedNeedsApprovalCount > 0 && (
+            <Button variant="primary" size="sm" onClick={batchApproveCommission}>
+              <Check size={14} /> Approve Commission ({selectedNeedsApprovalCount})
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={batchMarkPaid}>
+            <CheckCircle size={14} /> Mark Paid ({selectedEntries.size})
+          </Button>
+          <Button variant="ghost" size="sm" onClick={clearSelection}>
+            <X size={14} />
+          </Button>
         </div>
       )}
       <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} variant={confirmState.variant} confirmLabel={confirmState.confirmLabel} loading={confirmState.loading} onConfirm={handleConfirm} onCancel={() => setConfirmState(s => ({ ...s, open: false }))} />

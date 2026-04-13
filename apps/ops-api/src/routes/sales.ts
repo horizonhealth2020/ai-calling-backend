@@ -813,6 +813,43 @@ router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROL
   res.json(sale);
 }));
 
+// ── Batch commission approval ─────────────────────────────────
+router.post("/payroll/batch-approve-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const parsed = z.object({ saleIds: z.array(z.string()).min(1).max(100) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const { saleIds } = parsed.data;
+
+  // Validate all saleIds exist before processing
+  const existing = await prisma.sale.findMany({ where: { id: { in: saleIds } }, select: { id: true } });
+  const existingIds = new Set(existing.map(s => s.id));
+  const missingIds = saleIds.filter(id => !existingIds.has(id));
+  if (missingIds.length > 0) {
+    return res.status(400).json({ error: "Some sales not found", missingIds });
+  }
+
+  // Process each sale with partial failure tracking
+  const approved: string[] = [];
+  const failedIds: string[] = [];
+  for (const saleId of saleIds) {
+    try {
+      await prisma.sale.update({ where: { id: saleId }, data: { commissionApproved: true } });
+      await upsertPayrollEntryForSale(saleId);
+      approved.push(saleId);
+    } catch (err) {
+      console.error(`[batch-approve] Failed for sale ${saleId}:`, err);
+      failedIds.push(saleId);
+    }
+  }
+
+  await logAudit(req.user!.id, "BATCH_APPROVE_COMMISSION", "Sale", saleIds.join(","), {
+    count: approved.length,
+    failed: failedIds.length,
+    failedIds: failedIds.length > 0 ? failedIds : undefined,
+  });
+  invalidateAll();
+  res.json({ ok: true, approved: approved.length, failed: failedIds.length, failedIds });
+}));
+
 router.get("/tracker/summary", requireAuth, asyncHandler(async (req, res) => {
   const qp = dateRangeQuerySchema.safeParse(req.query);
   if (!qp.success) return res.status(400).json(zodErr(qp.error));

@@ -47,6 +47,10 @@ interface AgentCardProps {
   highlightedEntryIds: Set<string>;
   API: string;
   refreshPeriods: () => Promise<void>;
+  selectedEntries: Map<string, { saleId: string; entryId: string; needsApproval: boolean }>;
+  onToggleEntry: (entryId: string, saleId: string, needsApproval: boolean) => void;
+  onSelectAllForWeek: (entries: { entryId: string; saleId: string; needsApproval: boolean }[]) => void;
+  onDeselectAllForWeek: (entryIds: string[]) => void;
 }
 
 /* ── AgentCard Component ────────────────────────────────────── */
@@ -62,6 +66,7 @@ export function AgentCard({
   onApproveChangeRequest, onRejectChangeRequest,
   onApproveEditRequest, onRejectEditRequest,
   highlightedEntryIds, API, refreshPeriods,
+  selectedEntries, onToggleEntry, onSelectAllForWeek, onDeselectAllForWeek,
 }: AgentCardProps) {
   // Sort periods by weekStart descending (most recent first)
   const sortedPeriods = [...agentData].sort((a, b) =>
@@ -174,6 +179,10 @@ export function AgentCard({
               highlightedEntryIds={highlightedEntryIds}
               API={API}
               refreshPeriods={refreshPeriods}
+              selectedEntries={selectedEntries}
+              onToggleEntry={onToggleEntry}
+              onSelectAllForWeek={onSelectAllForWeek}
+              onDeselectAllForWeek={onDeselectAllForWeek}
             />
           ))}
         </div>

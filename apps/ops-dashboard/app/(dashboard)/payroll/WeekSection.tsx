@@ -84,6 +84,7 @@ function CarryoverHint({ show }: { show: boolean }) {
 
 function EditableSaleRow({
   entry, onSaleUpdate, onApprove, onUnapprove, onDelete, products, highlighted, isPaid, isLate,
+  isSelectable, isSelected, onToggleSelect,
 }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => void | Promise<void>;
@@ -94,6 +95,9 @@ function EditableSaleRow({
   highlighted?: boolean;
   isPaid?: boolean;
   isLate?: boolean;
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const HIGHLIGHT_GLOW = { boxShadow: `0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.4)}, inset 0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.05)}` };
   const [editSale, setEditSale] = useState(false);
@@ -158,6 +162,16 @@ function EditableSaleRow({
         ...(isLate ? { borderLeft: `3px solid ${semanticColors.statusPending}`, background: colorAlpha(semanticColors.statusPending, 0.04) } : {}),
       }}
     >
+      <td style={{ ...tdCenter, width: 36, padding: "6px 4px" }}>
+        {isSelectable ? (
+          <input
+            type="checkbox"
+            checked={!!isSelected}
+            onChange={onToggleSelect}
+            style={{ width: 16, height: 16, cursor: "pointer", accentColor: semanticColors.accentTealMid }}
+          />
+        ) : <span />}
+      </td>
       <td style={tdStyle}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "\u2014"}</span></td>
 
       {/* Sale status badge */}
@@ -550,7 +564,7 @@ function EditableSaleRow({
     </tr>
     {showNotes && hasNotes && (
       <tr>
-        <td colSpan={7} style={{ padding: 0 }}>
+        <td colSpan={8} style={{ padding: 0 }}>
           <div style={{
             padding: "10px 20px",
             background: colorAlpha(semanticColors.accentTealLight, 0.04),
@@ -606,6 +620,10 @@ interface WeekSectionProps {
   highlightedEntryIds: Set<string>;
   API: string;
   refreshPeriods: () => Promise<void>;
+  selectedEntries: Map<string, { saleId: string; entryId: string; needsApproval: boolean }>;
+  onToggleEntry: (entryId: string, saleId: string, needsApproval: boolean) => void;
+  onSelectAllForWeek: (entries: { entryId: string; saleId: string; needsApproval: boolean }[]) => void;
+  onDeselectAllForWeek: (entryIds: string[]) => void;
 }
 
 /* ── WeekSection Component ──────────────────────────────────── */
@@ -621,6 +639,7 @@ export function WeekSection({
   onApproveChangeRequest, onRejectChangeRequest,
   onApproveEditRequest, onRejectEditRequest,
   highlightedEntryIds, API, refreshPeriods,
+  selectedEntries, onToggleEntry, onSelectAllForWeek, onDeselectAllForWeek,
 }: WeekSectionProps) {
   /* ── Confirm modal state ─────────────────────────────────── */
   const [confirmState, setConfirmState] = useState<{
@@ -657,6 +676,24 @@ export function WeekSection({
       return aId.localeCompare(bId);
     });
   }, [entries]);
+
+  const NON_SELECTABLE = new Set(["PAID", "ZEROED_OUT", "CLAWBACK_APPLIED", "ZEROED_OUT_IN_PERIOD", "CLAWBACK_CROSS_PERIOD"]);
+  const selectableEntries = entries.filter(e => !NON_SELECTABLE.has(e.status));
+  const selectableIds = selectableEntries.map(e => e.id);
+  const allSelectableSelected = selectableEntries.length > 0 && selectableEntries.every(e => selectedEntries.has(e.id));
+  const someSelectableSelected = selectableEntries.some(e => selectedEntries.has(e.id));
+
+  function handleSelectAll() {
+    if (allSelectableSelected) {
+      onDeselectAllForWeek(selectableIds);
+    } else {
+      onSelectAllForWeek(selectableEntries.map(e => ({
+        entryId: e.id,
+        saleId: e.sale?.id ?? "",
+        needsApproval: !!e.halvingReason && !e.sale?.commissionApproved,
+      })));
+    }
+  }
 
   const allPaid = entries.length > 0 && entries.every(e => e.status === "PAID" || e.status === "ZEROED_OUT" || e.status === "CLAWBACK_APPLIED" || e.status === "ZEROED_OUT_IN_PERIOD" || e.status === "CLAWBACK_CROSS_PERIOD");
   const hasPaidSiblings = entries.some(e => e.status === "PAID");
@@ -927,6 +964,18 @@ export function WeekSection({
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize, minWidth: 860 }}>
               <thead>
                 <tr>
+                  <th style={{ ...thCenter, width: 36, padding: "6px 4px" }}>
+                    {selectableEntries.length > 0 && (
+                      <input
+                        type="checkbox"
+                        checked={allSelectableSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelectableSelected && !allSelectableSelected; }}
+                        onChange={handleSelectAll}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: semanticColors.accentTealMid }}
+                        title="Select all"
+                      />
+                    )}
+                  </th>
                   <th style={thStyle}>Agent</th>
                   <th style={thCenter}>Status</th>
                   <th style={thStyle}>Member</th>
@@ -949,11 +998,14 @@ export function WeekSection({
                     highlighted={highlightedEntryIds.has(e.id)}
                     isPaid={allPaid}
                     isLate={isLateEntry(e)}
+                    isSelectable={!NON_SELECTABLE.has(e.status)}
+                    isSelected={selectedEntries.has(e.id)}
+                    onToggleSelect={() => onToggleEntry(e.id, e.sale?.id ?? "", !!e.halvingReason && !e.sale?.commissionApproved)}
                   />
                 ))}
                 {/* Subtotal */}
                 <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
-                  <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, fontSize: typography.sizes.xs.fontSize, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
+                  <td colSpan={6} style={{ ...tdStyle, fontWeight: 700, fontSize: typography.sizes.xs.fontSize, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
                   <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
                   <td />
                 </tr>
