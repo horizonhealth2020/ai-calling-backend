@@ -496,9 +496,10 @@ function sleep(ms: number): Promise<void> {
 
 /** Classify audit job failures into actionable categories for logging */
 export function categorizeError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes("Recording download failed") || msg.includes("Recording empty") || msg.includes("Invalid audio")) return "recording_unavailable";
-  if (msg.includes("Whisper") || msg.includes("transcription") || msg.includes("AbortError")) return "transcription_timeout";
-  if (msg.includes("anthropic") || msg.includes("Claude") || msg.includes("429") || msg.includes("overloaded") || msg.includes("claude")) return "claude_api_error";
+  const raw = err instanceof Error ? err.message : String(err);
+  const msg = raw.toLowerCase();
+  if (msg.includes("recording download failed") || msg.includes("recording empty") || msg.includes("invalid audio")) return "recording_unavailable";
+  if (msg.includes("whisper") || msg.includes("transcription") || raw.includes("AbortError")) return "transcription_timeout";
+  if (msg.includes("anthropic") || msg.includes("claude") || msg.includes("429") || msg.includes("overloaded")) return "claude_api_error";
   return "unknown";
 }

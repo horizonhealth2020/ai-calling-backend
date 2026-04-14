@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.9.0 |
+| Version | 2.9.1 |
 | Status | Production |
 | Last Updated | 2026-04-14 |
-| Milestones shipped | 19 (v1.0 through v2.9) |
-| Total phases | 68 |
+| Milestones shipped | 20 (v1.0 through v2.9.1) |
+| Total phases | 70 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -154,13 +154,15 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] CS analytics upgrade: per-type leaderboards, attempt-count correlation chart, gate bypass rollup — Phase 68
 - [x] Save rate correlation by attempt count (validates 3-call gate policy) — Phase 68
 
-### Active (In Progress)
-
 **v2.9.1 — CS Analytics Refinement & Hygiene (2026-04-14)**
 - [x] Resolver credit (assistSaves) for cross-rep SAVED outcomes — Phase 69
 - [x] Bypass rollup re-keyed to resolver (override-click accountability) — Phase 69
-- [ ] auditQueue.test.ts mock completion — Phase 70
-- [ ] Phase 60 backfill scripts reconciliation — Phase 70
+- [x] auditQueue.test.ts expectations aligned to shipped service (31/31 passing) — Phase 70
+- [x] Production clawback cleanup dry-run — 0 orphans found, DB already clean — Phase 70
+- [x] Audit-log backfill script archived as not needed — Phase 70
+
+### Active (In Progress)
+None.
 
 ### Planned (Next)
 None.
@@ -291,4 +293,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-14 after Phase 69 (v2.9.1 refinement — resolver credit)*
+*Last updated: 2026-04-14 after Phase 70 (v2.9.1 complete — all v2.8 deferred items closed)*

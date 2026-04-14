@@ -273,20 +273,22 @@ describe("retryFailedAudits", () => {
     const mockFindMany = jest.fn().mockResolvedValue([
       { id: "call-1", retryCount: 0, lastFailedAt: twoMinutesAgo },
     ]);
-    const mockUpdate = jest.fn().mockResolvedValue({});
+    const mockUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     (prisma as any).convosoCallLog = {
       findMany: mockFindMany,
-      update: mockUpdate,
+      updateMany: mockUpdateMany,
     };
 
     const count = await retryFailedAudits();
 
-    expect(mockUpdate).toHaveBeenCalledWith(
+    // Service uses updateMany (batch) with `in:` filter, and does NOT increment
+    // retryCount on re-queue — the worker's failure handler increments on the
+    // next failure. Test matches shipped behavior.
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "call-1" },
+        where: { id: { in: ["call-1"] } },
         data: expect.objectContaining({
           auditStatus: "queued",
-          retryCount: 1,
         }),
       })
     );

@@ -44,3 +44,6 @@ next-env.d.ts
 tmp/
 temp/
 .claude/worktrees/
+
+# One-time script audit logs (contain production data — never commit)
+prisma/scripts/logs/

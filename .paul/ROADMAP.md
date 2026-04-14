@@ -16,20 +16,20 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.7 | Analytics & Command Center | 55-59 | Shipped | 2026-04-10 |
 | v2.8 | Hardening & Bulk Operations | 60-64 | Shipped | 2026-04-13 |
 | v2.9 | CS Accountability & Outreach Tracking | 65-68 | Shipped | 2026-04-14 |
-| v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | In Progress | - |
+| v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | Shipped | 2026-04-14 |
 
-## Active Milestone: v2.9.1 CS Analytics Refinement & Hygiene
+## Completed Milestone: v2.9.1 CS Analytics Refinement & Hygiene
 
 **Goal:** Close gaps identified within hours of v2.9 launch — add resolver-credit ("Assist Saves") to analytics so coverage reps get visible credit, and clean up lingering test + ops debt from v2.8.
-**Status:** In Progress
-**Progress:** [█████░░░░░] 50%
+**Status:** Shipped 2026-04-14
+**Progress:** [██████████] 100%
 
 ## Phases
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 69 | Resolver Credit in Outreach Analytics | 1 | Complete | 2026-04-14 |
-| 70 | Test & Ops Hygiene | TBD | Not started | - |
+| 70 | Test & Ops Hygiene | 1 | Complete | 2026-04-14 |
 
 ## Phase Details
 
@@ -62,7 +62,7 @@ A sales operations platform evolving from initial setup through full role-based 
 - No new features, no schema changes
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 70-01: auditQueue mocks + dry-run clawback cleanup + backfill archive
 
 ---
 
@@ -518,4 +518,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-14 — Phase 68 complete, v2.9 milestone shipped*
+*Last updated: 2026-04-14 — Phase 70 complete, v2.9.1 milestone shipped*
