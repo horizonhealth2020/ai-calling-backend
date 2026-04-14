@@ -3,8 +3,11 @@ import { z } from "zod";
 import { prisma } from "@ops/db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { createSyncedRep, getNextRoundRobinRep, batchRoundRobinAssign, getRepChecklist, syncExistingReps, syncServiceAgentsToCsRoster } from "../services/repSync";
-import { getCsAnalytics, getRepDrillDown } from "../services/csAnalyticsAggregator";
+import { getCsAnalytics, getRepDrillDown, getOutreachAnalytics } from "../services/csAnalyticsAggregator";
+import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, idParamSchema, dateRange, dateRangeQuerySchema } from "./helpers";
+
+const MAX_RANGE_MS = 366 * 24 * 60 * 60 * 1000;
 
 const router = Router();
 
@@ -18,6 +21,40 @@ router.get("/cs/analytics", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"
   const analytics = await getCsAnalytics(dr);
   res.set("Cache-Control", "private, max-age=60");
   res.json(analytics);
+}));
+
+// Phase 68: Outreach accountability analytics (leaderboards + correlation + bypass)
+router.get("/cs/analytics/outreach", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const qp = dateRangeQuerySchema.safeParse(req.query);
+  if (!qp.success) return res.status(400).json(zodErr(qp.error));
+
+  // Default to rolling 30d when no params provided (matches AC-6)
+  const effectiveRange = qp.data.range ?? (qp.data.from && qp.data.to ? undefined : "30d");
+  const dr = dateRange(effectiveRange, qp.data.from, qp.data.to);
+  if (!dr) return res.status(400).json({ error: "A valid date range is required (range, or from+to as YYYY-MM-DD)" });
+
+  // AC-6: reversed range
+  if (dr.gte.getTime() >= dr.lt.getTime()) {
+    return res.status(400).json({ error: "Invalid date range: 'from' must precede 'to'" });
+  }
+  // AC-6: bounded max range (prevent unbounded scans)
+  if (dr.lt.getTime() - dr.gte.getTime() > MAX_RANGE_MS) {
+    return res.status(400).json({ error: "Date range exceeds maximum of 366 days" });
+  }
+
+  const data = await getOutreachAnalytics(dr);
+
+  // AC-7: best-effort audit logging — never block response
+  logAudit(
+    req.user?.id ?? null,
+    "cs_outreach_analytics_viewed",
+    "cs_analytics",
+    undefined,
+    { from: dr.gte.toISOString(), to: dr.lt.toISOString(), roles: req.user?.roles ?? [] },
+  ).catch(() => { /* already swallowed inside logAudit */ });
+
+  res.set("Cache-Control", "private, max-age=60");
+  res.json(data);
 }));
 
 router.get("/cs/analytics/rep/:repName", requireAuth, requireRole("OWNER_VIEW", "SUPER_ADMIN"), asyncHandler(async (req, res) => {

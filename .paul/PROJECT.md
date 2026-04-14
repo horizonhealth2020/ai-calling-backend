@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.9.0-alpha |
+| Version | 2.9.0 |
 | Status | Production |
-| Last Updated | 2026-04-10 |
-| Milestones shipped | 18 (v1.0 through v2.8) |
-| Total phases | 67 |
+| Last Updated | 2026-04-14 |
+| Milestones shipped | 19 (v1.0 through v2.9) |
+| Total phases | 68 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -146,15 +146,16 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] CSV export on owner command center + owner trends tab
 - [x] TypeScript implicit any elimination — 127 type errors fixed across 16 files
 
-### Active (In Progress)
-
-**v2.9 — CS Accountability & Outreach Tracking (2026-04-13)**
+**v2.9 — CS Accountability & Outreach Tracking (2026-04-14)**
 - [x] ContactAttempt data model (CALL/EMAIL/TEXT logging per chargeback/pending term) — Phase 65
 - [x] Resolution outcome enrichment (SAVED/CANCELLED/NO_CONTACT) — Phase 65
 - [x] Outreach logging UI (attempt timeline, Log Call/Email/Text buttons) — Phase 66
 - [x] 48-hour stale alerts on CS agent dashboard — Phase 67
-- [ ] CS analytics upgrade (avg attempts, time-to-resolution, per-agent comparison)
-- [ ] Save rate correlation by attempt count (nice-to-have)
+- [x] CS analytics upgrade: per-type leaderboards, attempt-count correlation chart, gate bypass rollup — Phase 68
+- [x] Save rate correlation by attempt count (validates 3-call gate policy) — Phase 68
+
+### Active (In Progress)
+None.
 
 ### Planned (Next)
 None.
@@ -237,6 +238,11 @@ None.
 | Button forwardRef | Enables ref-based focus management (ConfirmModal) | Active |
 | Polymorphic FK for ContactAttempt | One table, two nullable FKs — simpler than two tables or polymorphic pattern | Active |
 | Resolution gate: 3 CALL attempts | Only CALL type counts; EMAIL/TEXT supplementary; pre-v2.9 bypass | Active |
+| Assignee-credit attribution (not resolver-credit) | Accountability belongs to assigned rep regardless of who resolves | Active |
+| V2.9 cutoff split for outreach metrics | Pre-2026-04-13 records excluded from attempt-based metrics, included in outcome-based | Active |
+| Unknown assignees surface under "(unassigned/unknown)" | Attribution gaps must be visible to owners, never silently dropped | Active |
+| 366d max range cap on analytics endpoints | Prevents unbounded aggregation scans; 400 on over-range | Active |
+| Safe-default analytics error contract | Sub-query failures return empty arrays/zero counts, never null | Active |
 
 ## Success Metrics
 
@@ -276,4 +282,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-13 after Phase 67*
+*Last updated: 2026-04-14 after Phase 68 (v2.9 milestone shipped)*

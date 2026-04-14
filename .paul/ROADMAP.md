@@ -15,13 +15,13 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.6 | Payroll Accuracy & Product Colors | 53-54 | Shipped | 2026-04-10 |
 | v2.7 | Analytics & Command Center | 55-59 | Shipped | 2026-04-10 |
 | v2.8 | Hardening & Bulk Operations | 60-64 | Shipped | 2026-04-13 |
-| v2.9 | CS Accountability & Outreach Tracking | 65-68 | In Progress | - |
+| v2.9 | CS Accountability & Outreach Tracking | 65-68 | Shipped | 2026-04-14 |
 
-## Active Milestone: v2.9 CS Accountability & Outreach Tracking
+## Completed Milestone: v2.9 CS Accountability & Outreach Tracking
 
 **Goal:** Move CS from "did they resolve it?" to "how effectively did they work it?" — giving managers measurable insight into each CS agent's outreach effort and performance.
-**Status:** In Progress
-**Progress:** [████████░░] 75%
+**Status:** Shipped 2026-04-14
+**Progress:** [██████████] 100%
 
 ## Phases
 
@@ -30,7 +30,7 @@ A sales operations platform evolving from initial setup through full role-based 
 | 65 | Outreach Data Model | 1 | Complete | 2026-04-13 |
 | 66 | Outreach Logging UI | 1 | Complete | 2026-04-13 |
 | 67 | 48-Hour Stale Alerts | 1 | Complete | 2026-04-13 |
-| 68 | CS Analytics Upgrade | TBD | Not started | - |
+| 68 | CS Analytics Upgrade | 1 | Complete | 2026-04-14 |
 
 ## Phase Details
 
@@ -98,7 +98,7 @@ A sales operations platform evolving from initial setup through full role-based 
 **Skills:** analytics-tracking, support-analytics-reporter
 
 **Plans:**
-- [ ] TBD (defined during /paul:plan)
+- [x] 68-01: Outreach leaderboards + attempt correlation + bypass callout
 
 ---
 
@@ -469,4 +469,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-13 — Phase 67 complete*
+*Last updated: 2026-04-14 — Phase 68 complete, v2.9 milestone shipped*
