@@ -104,7 +104,7 @@ router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {
     const records = await prisma.pendingTerm.findMany({
       where: { resolvedAt: null, ...dateFilter },
       orderBy: { holdDate: "asc" },
-      include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
+      include: { submitter: { select: { name: true } }, resolver: { select: { name: true } }, contactAttempts: { select: { type: true } } },
     });
     return res.json({ grouped, records });
   }
@@ -113,7 +113,7 @@ router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {
     orderBy: { submittedAt: "desc" },
     take: 200,
     where: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-    include: { submitter: { select: { name: true } }, resolver: { select: { name: true } } },
+    include: { submitter: { select: { name: true } }, resolver: { select: { name: true } }, contactAttempts: { select: { type: true } } },
   });
   return res.json(records);
 }));

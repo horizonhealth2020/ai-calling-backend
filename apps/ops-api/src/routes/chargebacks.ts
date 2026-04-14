@@ -558,6 +558,7 @@ router.get("/chargebacks", requireAuth, asyncHandler(async (req, res) => {
       submitter: { select: { name: true } },
       resolver: { select: { name: true } },
       matchedSale: { select: { id: true, memberName: true, agentId: true } },
+      contactAttempts: { select: { type: true } },
     },
   });
   return res.json(records);

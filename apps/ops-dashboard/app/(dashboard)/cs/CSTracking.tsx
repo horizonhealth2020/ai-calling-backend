@@ -297,8 +297,24 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
         authFetch(`${API}/api/pending-terms?_=1${dp}`),
       ]);
       if (totalsRes.ok) setTotals(await totalsRes.json());
-      if (cbRes.ok) setChargebacks(await cbRes.json());
-      if (ptRes.ok) setPendingTerms(await ptRes.json());
+      const initCounts: Record<string, { calls: number; total: number }> = {};
+      const tally = (rec: { id: string; contactAttempts?: Array<{ type: string }> }) => {
+        const list = rec.contactAttempts || [];
+        const calls = list.filter(a => a.type === "CALL").length;
+        initCounts[rec.id] = { calls, total: list.length };
+      };
+      if (cbRes.ok) {
+        const cbData = await cbRes.json();
+        (cbData as Array<{ id: string; contactAttempts?: Array<{ type: string }> }>).forEach(tally);
+        setChargebacks(cbData);
+      }
+      if (ptRes.ok) {
+        const ptData = await ptRes.json();
+        const ptList = Array.isArray(ptData) ? ptData : (ptData?.records || []);
+        (ptList as Array<{ id: string; contactAttempts?: Array<{ type: string }> }>).forEach(tally);
+        setPendingTerms(ptData);
+      }
+      setAttemptCounts(prev => ({ ...prev, ...initCounts }));
     } catch {
       setError(true);
     } finally {
