@@ -18,6 +18,50 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.9 | CS Accountability & Outreach Tracking | 65-68 | Shipped | 2026-04-14 |
 | v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | Shipped | 2026-04-14 |
 | v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
+| v3.0 | Mobile-Friendly Dashboards | 72-76 | In Progress | — |
+
+## Current Milestone: v3.0 Mobile-Friendly Dashboards
+
+**Goal:** Make every role dashboard (manager, payroll, owner, CS) usable on mobile phones — responsive layouts, touch-friendly targets, mobile navigation, and table-to-card transformations for narrow screens.
+**Status:** 🚧 In Progress
+**Progress:** [██░░░░░░░░] 20% — 1 of 5 phases complete
+
+## Phases
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 72 | Responsive Foundation | 1 | Complete | 2026-04-14 |
+| 73 | Manager Mobile | TBD | Not started | — |
+| 74 | Payroll Mobile | TBD | Not started | — |
+| 75 | Owner Mobile | TBD | Not started | — |
+| 76 | CS Mobile | TBD | Not started | — |
+
+### Phase 72: Responsive Foundation
+
+Focus: Viewport meta tags, mobile-first breakpoint tokens, responsive primitives in @ops/ui, hamburger/drawer navigation, sticky headers. Enables all subsequent phases.
+Plans: TBD (defined during /paul:plan)
+
+### Phase 73: Manager Mobile
+
+Focus: ManagerEntry sales-entry form and manager tracker tables adapted for mobile — stacked form fields, card-per-sale list view below breakpoint, mobile-friendly filter panels.
+Plans: TBD (defined during /paul:plan)
+
+### Phase 74: Payroll Mobile
+
+Focus: AgentCard / WeekSection / period controls responsive; payroll agent sidebar becomes a drawer on mobile; adjustment and clawback entry forms touch-sized.
+Plans: TBD (defined during /paul:plan)
+
+### Phase 75: Owner Mobile
+
+Focus: Command center, Trends, KPIs, Scoring responsive — Recharts widths, KPI grid stacking, leaderboard card layout, activity feed narrow-screen treatment.
+Plans: TBD (defined during /paul:plan)
+
+### Phase 76: CS Mobile
+
+Focus: CSTracking tables → card view on narrow screens, CSMyQueue / CSAnalytics / resolution modals mobile-tuned, debounced search and filter UX preserved.
+Plans: TBD (defined during /paul:plan)
+
+---
 
 ## Completed Milestone: v2.9.2 Parser & Payroll Hotfix
 
@@ -549,4 +593,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-14 — Phase 71 complete, v2.9.2 milestone shipped*
+*Last updated: 2026-04-14 — v3.0 Mobile-Friendly Dashboards milestone created (Phases 72-76)*

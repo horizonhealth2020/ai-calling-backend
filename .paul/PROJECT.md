@@ -16,8 +16,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Version | 2.9.2 |
 | Status | Production |
 | Last Updated | 2026-04-14 |
-| Milestones shipped | 21 (v1.0 through v2.9.2) |
-| Total phases | 71 |
+| Milestones shipped | 21 (v1.0 through v2.9.2); v3.0 in progress (1/5 phases) |
+| Total phases | 72 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -168,7 +168,17 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] 7-case regression test locking the net formula — Phase 71
 
 ### Active (In Progress)
-None.
+
+**v3.0 — Mobile-Friendly Dashboards (in progress — 1/5 phases shipped)**
+- [x] Responsive foundation: breakpoint tokens (mobileMax/tabletMin/tabletMax/desktopMin/wideMin) + mediaQuery exports in @ops/ui — Phase 72
+- [x] SSR/hydration-safe responsive hooks (useBreakpoint, useIsMobile, useHasMounted) — Phase 72
+- [x] Accessible MobileDrawer primitive: focus trap, focus restoration, scroll-lock correctness, prefers-reduced-motion, required ariaLabel — Phase 72
+- [x] Extended responsive.css utilities (.touch-target, .bottom-sheet-base, .mobile-text-base/lg, .stack-mobile-md) — Phase 72
+- [x] Dashboard nav refactored to hamburger+drawer on mobile; desktop hover-collapse preserved — Phase 72
+- [ ] Manager dashboard mobile (ManagerEntry form, tracker tables → card view) — Phase 73
+- [ ] Payroll dashboard mobile (AgentCard/WeekSection responsive, sidebar→drawer) — Phase 74
+- [ ] Owner dashboard mobile (command center, Trends, KPIs responsive) — Phase 75
+- [ ] CS dashboard mobile (tracking tables→cards, Work row→bottom sheet) — Phase 76
 
 ### Planned (Next)
 None.
@@ -263,6 +273,10 @@ None.
 | assistSaves follows OUTCOME cutoff semantics | Pre-v2.9 cross-rep SAVEDs count as assist — matches saved/cancelled rule | Active |
 | Bypass overrides credited to resolver, not assignee | Whoever clicks the override button owns that choice | Active |
 | Data-integrity signals surface, not hidden — "(unresolved)" + "(owner/admin override)" buckets | Edge cases must be visible to owners, never silently formatted | Active |
+| Breakpoint tokens use explicit Max/Min suffixes (mobileMax, tabletMin, desktopMin...) | Ambiguous `mobile`/`desktop` keys mixing max-width and min-width semantics would be misread by downstream mobile phases — audit-driven correction | Active |
+| Responsive hooks expose `mounted` flag; consumers MUST gate viewport-dependent JSX on it | Prevents React hydration mismatch when SSR markup (desktop default) differs from client first render on mobile devices | Active |
+| Dialog components in @ops/ui require `ariaLabel` at the TypeScript type level | Every dialog must be named — optional accessibility props silently regress. Compile-time enforcement is the only guardrail that scales | Active |
+| Mobile responsiveness via @ops/ui primitives + inline CSSProperties + responsive.css utilities | No Tailwind, no per-app CSS files. responsive.css is the one exception (design-system package) — classes are opt-in via className | Active |
 
 ## Success Metrics
 
@@ -302,4 +316,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-14 after Phase 71 (v2.9.2 hotfix — parser ACH detection + fronted net formula reversal)*
+*Last updated: 2026-04-14 after Phase 72 (v3.0 Mobile Responsive Foundation — breakpoint tokens, hooks, MobileDrawer, dashboard mobile nav)*

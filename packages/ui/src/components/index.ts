@@ -14,3 +14,5 @@ export { DateRangeFilter, KPI_PRESETS } from "./DateRangeFilter";
 export type { DateRangeFilterValue, DateRangeFilterProps } from "./DateRangeFilter";
 export { ConfirmModal } from "./ConfirmModal";
 export type { ConfirmModalProps } from "./ConfirmModal";
+export { MobileDrawer } from "./MobileDrawer";
+export type { MobileDrawerProps } from "./MobileDrawer";

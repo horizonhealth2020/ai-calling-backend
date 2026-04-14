@@ -106,6 +106,34 @@ export const typography = {
   },
 } as const;
 
+/* ── Breakpoints ───────────────────────────────────────────────── */
+/**
+ * Breakpoint boundaries in pixels. Keys are deliberately explicit about
+ * whether the number is a max-width (ceiling) or min-width (floor) to
+ * prevent off-by-one bugs in consumer code.
+ *
+ *   mobile  : width <= mobileMax
+ *   tablet  : tabletMin <= width <= tabletMax
+ *   desktop : width >= desktopMin
+ *   wide    : width >= wideMin
+ *
+ * These MUST stay in lock-step with the @media rules in responsive.css.
+ */
+export const breakpoints = {
+  mobileMax: 767,
+  tabletMin: 768,
+  tabletMax: 1023,
+  desktopMin: 1024,
+  wideMin: 1440,
+} as const;
+
+export const mediaQuery = {
+  mobile: `(max-width: ${breakpoints.mobileMax}px)`,
+  tablet: `(min-width: ${breakpoints.tabletMin}px) and (max-width: ${breakpoints.tabletMax}px)`,
+  desktop: `(min-width: ${breakpoints.desktopMin}px)`,
+  wide: `(min-width: ${breakpoints.wideMin}px)`,
+} as const;
+
 export const shadows = {
   sm: "var(--shadow-sm)",
   md: "var(--shadow-md)",

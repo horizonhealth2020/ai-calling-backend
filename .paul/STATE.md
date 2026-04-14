@@ -5,19 +5,19 @@
 See: .paul/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v2.9.2 shipped (Phase 71) — ready for git commit and next milestone scoping
+**Current focus:** v3.0 Mobile-Friendly Dashboards — Phase 72 (Responsive Foundation) ready to plan
 
 ## Current Position
 
-Milestone: v2.9.2 Parser & Payroll Hotfix — Phase 71 complete, awaiting transition
-Phase: 71 of 71 (Parser ACH Detection + Fronted Net Formula Fix) — Complete
-Plan: 71-01 complete (SUMMARY written)
-Status: UNIFY complete — ready for transition (PROJECT.md / ROADMAP.md / git commit)
-Last activity: 2026-04-14 — Created .paul/phases/71-parser-payroll-hotfix/71-01-SUMMARY.md
+Milestone: v3.0 Mobile-Friendly Dashboards
+Phase: 72 of 76 (Responsive Foundation) — Complete (last plan UNIFY'd)
+Plan: 72-01 complete — SUMMARY written
+Status: UNIFY complete — transition pending (PROJECT.md / ROADMAP.md / git commit)
+Last activity: 2026-04-14 — Created .paul/phases/72-responsive-foundation/72-01-SUMMARY.md
 
 Progress:
-- Milestone v2.9.2: [██████████] 100% (pending transition)
-- Phase 71: [██████████] 100%
+- Milestone v3.0: [██░░░░░░░░] 20% (1/5 phases)
+- Phase 72: [██████████] 100%
 
 ## Loop Position
 
@@ -68,6 +68,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-14: Enterprise audit on 68-01-PLAN.md. Applied 3+6. Verdict: enterprise-ready.
 - 2026-04-14: Enterprise audit on 69-01-PLAN.md. Applied 3+2. Verdict: enterprise-ready.
 - 2026-04-14: Enterprise audit on 70-01-PLAN.md. Applied 2+2. Verdict: enterprise-ready.
+- 2026-04-14: Enterprise audit on 72-01-PLAN.md. Applied 5+5. Deferred 5. Verdict: conditionally acceptable → enterprise-ready after upgrades (hydration mismatch fix, focus trap, scroll-lock correctness, breakpoint renaming, hamburger a11y).
 
 ### Git State
 Last commit: d1e4ae4 — feat(70): test & ops hygiene — close all v2.8 deferred items (v2.9.1 shipped)
@@ -82,17 +83,14 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-14
-Stopped at: Plan 71-01 UNIFY complete, transition pending
-Next action: Execute transition — update PROJECT.md (reverse fronted-additive decision), mark ROADMAP v2.9.2 shipped, git commit Phase 71, then scope next milestone
-Resume file: .paul/phases/71-parser-payroll-hotfix/71-01-SUMMARY.md
+Stopped at: Plan 72-01 UNIFY complete — transition pending
+Next action: Execute transition (ROADMAP mark Phase 72 shipped, git commit Phase 72), then /paul:plan Phase 73 (Manager Mobile)
+Resume file: .paul/phases/72-responsive-foundation/72-01-PLAN.md
 Resume context:
-- v2.9.2 Parser & Payroll Hotfix milestone = Phase 71 only; phase now complete
-- Two production bugs fixed: receipt parser ACH detection (blank-Type receipts), payroll net formula (fronted excluded)
-- Scope extension approved and applied: carryover.ts:65 aligned to new formula (prevents $100-class leak in prior-hold + new-front scenarios)
-- computeNetAmount pure helper now single source of truth for net math
-- Regression-locked via new payroll-net-formula.test.ts (7 cases)
-- Pre-existing commission.test.ts failure logged as deferred issue
-- PROJECT.md still shows "Fronted additive" decision as Active — needs transition update
+- v3.0 milestone = 5 phases (72-76): foundation, manager, payroll, owner, CS
+- Phase 72 is the gating dependency — viewport meta, breakpoint tokens, responsive primitives in @ops/ui, mobile nav — everything else consumes it
+- Inline CSSProperties constraint means responsiveness handled via conditional styles / media-query helpers, not CSS files
+- Prior session: v2.9.2 shipped (Phase 71 parser + fronted net formula). Also landed standalone CS tracking call-counter fix (commit 01c2d08) outside the milestone frame
 
 ---
 *STATE.md — Updated after every significant action*

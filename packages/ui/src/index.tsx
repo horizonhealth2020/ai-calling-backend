@@ -643,5 +643,6 @@ export function PageShell({
 
 export * from "./components";
 export * from "./tokens";
+export * from "./hooks";
 export { ThemeProvider, useTheme } from "./ThemeProvider";
 export { ThemeToggle } from "./ThemeToggle";

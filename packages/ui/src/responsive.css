@@ -74,10 +74,13 @@
   .hide-mobile { display: none !important; }
   .show-mobile { display: block !important; }
   .stack-mobile { flex-direction: column !important; }
+  .stack-mobile-md { flex-direction: column !important; gap: 16px !important; }
   .grid-mobile-1 { grid-template-columns: 1fr !important; }
   .full-width-mobile { width: 100% !important; max-width: 100% !important; }
   .page-padding { padding-left: 16px !important; padding-right: 16px !important; }
   .gap-mobile-sm { gap: 8px !important; }
+  .mobile-text-base { font-size: 14px !important; line-height: 1.5 !important; }
+  .mobile-text-lg { font-size: 16px !important; line-height: 1.5 !important; }
 
   .responsive-table thead { display: none; }
   .responsive-table tbody tr {
@@ -132,4 +135,27 @@
 .show-tablet,
 .show-desktop {
   display: none !important;
+}
+
+/* ── Universal utilities (all viewports) ────────────────────── */
+
+/* Touch target sizing — Apple HIG minimum 44×44. Opt-in via className. */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Bottom-sheet base — anchors to viewport bottom with safe-area padding.
+   Usable on any viewport; callers compose with transform for slide-in. */
+.bottom-sheet-base {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-default);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
 }

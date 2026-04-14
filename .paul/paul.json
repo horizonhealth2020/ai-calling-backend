@@ -1,14 +1,14 @@
 {
   "name": "ai-calling-backend",
-  "version": "2.9.1",
+  "version": "3.0",
   "milestone": {
-    "name": "CS Analytics Refinement & Hygiene",
-    "version": "2.9.1",
-    "status": "shipped"
+    "name": "Mobile-Friendly Dashboards",
+    "version": "3.0",
+    "status": "in_progress"
   },
   "phase": {
-    "number": 70,
-    "name": "Test & Ops Hygiene",
+    "number": 72,
+    "name": "Responsive Foundation",
     "status": "complete"
   },
   "loop": {
