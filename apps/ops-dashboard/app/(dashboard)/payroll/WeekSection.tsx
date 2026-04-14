@@ -162,7 +162,7 @@ function EditableSaleRow({
         ...(isLate ? { borderLeft: `3px solid ${semanticColors.statusPending}`, background: colorAlpha(semanticColors.statusPending, 0.04) } : {}),
       }}
     >
-      <td style={{ ...tdCenter, width: 36, padding: "6px 4px" }}>
+      <td className="responsive-table-no-label" style={{ ...tdCenter, width: 36, padding: "6px 4px" }}>
         {isSelectable ? (
           <input
             type="checkbox"
@@ -172,10 +172,10 @@ function EditableSaleRow({
           />
         ) : <span />}
       </td>
-      <td style={tdStyle}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "\u2014"}</span></td>
+      <td data-label="Agent" style={tdStyle}><span style={{ color: C.textPrimary, fontWeight: 500 }}>{entry.agent?.name ?? "\u2014"}</span></td>
 
       {/* Sale status badge */}
-      <td style={tdCenter}>
+      <td data-label="Status" style={tdCenter}>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 4,
           padding: "3px 8px", borderRadius: 6, fontSize: typography.sizes["2xs"].fontSize, fontWeight: 700,
@@ -194,10 +194,10 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={tdStyle}>
+      <td data-label="Member" style={tdStyle}>
         {editSale ? (
           <input
-            className="input-focus"
+            className="input-focus touch-target"
             style={{ ...SMALL_INP, width: 130, textAlign: "left" }}
             value={saleData.memberName}
             onChange={e => setSaleData(d => ({ ...d, memberName: e.target.value }))}
@@ -210,7 +210,7 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={tdStyle}>
+      <td data-label="Product" style={tdStyle}>
         {editSale ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {/* Core product row */}
@@ -386,10 +386,10 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={tdRight}>
+      <td data-label="Enroll Fee" style={tdRight}>
         {editSale ? (
           <input
-            className="input-focus"
+            className="input-focus touch-target"
             style={SMALL_INP}
             type="number" step="0.01"
             value={saleData.enrollmentFee}
@@ -405,7 +405,7 @@ function EditableSaleRow({
         )}
       </td>
 
-      <td style={tdRight}>
+      <td data-label="Commission" style={tdRight}>
         <span style={{ color: (entry.status === "CLAWBACK_CROSS_PERIOD" || entry.status === "ZEROED_OUT_IN_PERIOD") ? C.danger : C.textPrimary, fontWeight: 700 }}>
           {(entry.status === "CLAWBACK_CROSS_PERIOD" || entry.status === "ZEROED_OUT_IN_PERIOD")
             ? formatDollar(Number(entry.netAmount ?? 0))
@@ -419,7 +419,7 @@ function EditableSaleRow({
       </td>
 
       {/* Actions */}
-      <td style={tdCenter}>
+      <td data-label="Actions" className="responsive-table-no-label" style={tdCenter}>
         {editSale ? (
           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
             <Button
@@ -564,7 +564,7 @@ function EditableSaleRow({
     </tr>
     {showNotes && hasNotes && (
       <tr>
-        <td colSpan={8} style={{ padding: 0 }}>
+        <td colSpan={8} className="responsive-table-no-label" style={{ padding: 0 }}>
           <div style={{
             padding: "10px 20px",
             background: colorAlpha(semanticColors.accentTealLight, 0.04),
@@ -758,6 +758,7 @@ export function WeekSection({
     }}>
       {/* Week header */}
       <div
+        className="stack-mobile gap-mobile-sm touch-target"
         style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: `${S[3]}px ${S[5]}px`,
@@ -767,13 +768,14 @@ export function WeekSection({
         }}
         onClick={() => { onToggleExpand(); onSelect(); }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
+        <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", alignItems: "center", gap: S[3], flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontSize: typography.sizes.md.fontSize, color: C.textPrimary }}>
             {fmtDate(period.weekStart)} {"\u2013"} {fmtDate(period.weekEnd)}
           </span>
           {period.status !== "FINALIZED" ? (
             <span
-              style={{ cursor: "pointer" }}
+              className="touch-target"
+              style={{ cursor: "pointer", display: "inline-flex", alignItems: "center" }}
               title={period.status === "OPEN" ? "Click to close period" : "Click to reopen period"}
               onClick={(e) => {
                 e.stopPropagation();
@@ -878,7 +880,7 @@ export function WeekSection({
                 }}
               />
               <input
-                className="input-focus"
+                className="input-focus touch-target"
                 disabled={allPaid}
                 style={{
                   ...SMALL_INP, width: 90,
@@ -897,7 +899,7 @@ export function WeekSection({
             <div>
               <div style={{ ...HEADER_LBL, padding: "4px 0" }}>Fronted</div>
               <input
-                className="input-focus"
+                className="input-focus touch-target"
                 disabled={allPaid}
                 style={{
                   ...SMALL_INP, width: 90,
@@ -929,7 +931,7 @@ export function WeekSection({
                 }}
               />
               <input
-                className="input-focus"
+                className="input-focus touch-target"
                 disabled={allPaid}
                 style={{
                   ...SMALL_INP, width: 90,
@@ -961,7 +963,7 @@ export function WeekSection({
           {/* Commission table */}
           {entries.length > 0 && (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize, minWidth: 860 }}>
+            <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize, minWidth: 860 }}>
               <thead>
                 <tr>
                   <th style={{ ...thCenter, width: 36, padding: "6px 4px" }}>
@@ -1005,9 +1007,9 @@ export function WeekSection({
                 ))}
                 {/* Subtotal */}
                 <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
-                  <td colSpan={6} style={{ ...tdStyle, fontWeight: 700, fontSize: typography.sizes.xs.fontSize, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
-                  <td style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
-                  <td />
+                  <td colSpan={6} className="responsive-table-no-label" style={{ ...tdStyle, fontWeight: 700, fontSize: typography.sizes.xs.fontSize, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
+                  <td data-label="Subtotal" style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
+                  <td className="responsive-table-no-label" />
                 </tr>
               </tbody>
             </table>

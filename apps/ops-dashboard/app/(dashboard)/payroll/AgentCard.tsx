@@ -108,6 +108,7 @@ export function AgentCard({
     }}>
       {/* Agent header */}
       <div
+        className="stack-mobile gap-mobile-sm touch-target"
         style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: `${S[4]}px ${S[5]}px`,
@@ -117,14 +118,14 @@ export function AgentCard({
         }}
         onClick={onToggleExpand}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: S[3] }}>
+        <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", alignItems: "center", gap: S[3] }}>
           <span style={{ fontWeight: 700, fontSize: typography.sizes.md.fontSize, color: C.textPrimary }}>{agentName}</span>
           {isTopEarner && <Badge color={C.primary400}>Top Earner</Badge>}
           <span style={{ fontSize: typography.sizes.xs2.fontSize, fontWeight: 400, color: C.textMuted }}>
             {saleCount} sale{saleCount !== 1 ? "s" : ""}
           </span>
         </div>
-        <div style={{ display: "flex", gap: S[3], fontSize: typography.sizes.sm.fontSize, alignItems: "center" }}>
+        <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", gap: S[3], fontSize: typography.sizes.sm.fontSize, alignItems: "center" }}>
           {/* Read-only financial summary of selected week */}
           <span style={{ color: C.textMuted }}>Commission: <strong style={{ color: C.textPrimary, fontWeight: 700, fontSize: typography.sizes.md.fontSize }}>{formatDollar(headerGross)}</strong></span>
           <span style={{ color: C.textMuted }}>Net: <strong style={{ color: headerNet >= 0 ? C.success : C.danger, fontWeight: 700, fontSize: typography.sizes.md.fontSize }}>{formatDollar(headerNet)}</strong></span>

@@ -32,7 +32,7 @@ A sales operations platform evolving from initial setup through full role-based 
 |-------|------|-------|--------|-----------|
 | 72 | Responsive Foundation | 1 | Complete | 2026-04-14 |
 | 73 | Manager Mobile | 1 | Complete | 2026-04-14 |
-| 74 | Payroll Mobile | TBD | Not started | — |
+| 74 | Payroll Mobile | 1 | Planning | — |
 | 75 | Owner Mobile | TBD | Not started | — |
 | 76 | CS Mobile | TBD | Not started | — |
 

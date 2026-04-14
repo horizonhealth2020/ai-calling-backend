@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState, ConfirmModal } from "@ops/ui";
+import { Badge, AnimatedNumber, Button, useToast, Card, EmptyState, ConfirmModal, MobileDrawer, useIsMobile } from "@ops/ui";
 import { colors, spacing, radius, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar, formatDate } from "@ops/utils";
@@ -222,6 +222,10 @@ export default function PayrollPeriods({
   const [selectedWeek, setSelectedWeek] = useState<Map<string, string>>(new Map());
 
   /* ── Sidebar agent selection state ─────────────────────── */
+  const { isMobile, mounted } = useIsMobile();
+  const showMobileDrawer = mounted && isMobile;
+  const [agentDrawerOpen, setAgentDrawerOpen] = useState(false);
+
   const [selectedAgent, setSelectedAgent] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       return sessionStorage.getItem("payroll_selectedAgent") ?? null;
@@ -1059,7 +1063,7 @@ export default function PayrollPeriods({
         </button>
         {showChargebacks && (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>Agent Name</th>
@@ -1081,8 +1085,8 @@ export default function PayrollPeriods({
                       ...(highlighted ? HIGHLIGHT_GLOW : {}),
                       transition: "background 0.3s",
                     }}>
-                      <td style={tdStyle}>{alert.agentName || "Unknown"}</td>
-                      <td style={tdStyle}>
+                      <td data-label="Agent Name" style={tdStyle}>{alert.agentName || "Unknown"}</td>
+                      <td data-label="Customer" style={tdStyle}>
                         {alert.customerName || alert.chargeback?.memberCompany || "Unknown"}
                         {isUnmatched && (
                           <span style={{
@@ -1106,9 +1110,9 @@ export default function PayrollPeriods({
                           </div>
                         )}
                       </td>
-                      <td style={tdRight}>{alert.amount != null ? formatDollar(Number(alert.amount)) : "--"}</td>
-                      <td style={tdStyle}>{formatDate(alert.createdAt)}</td>
-                      <td style={{ ...tdCenter, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+                      <td data-label="Amount" style={tdRight}>{alert.amount != null ? formatDollar(Number(alert.amount)) : "--"}</td>
+                      <td data-label="Date Submitted" style={tdStyle}>{formatDate(alert.createdAt)}</td>
+                      <td data-label="Actions" className="responsive-table-no-label" style={{ ...tdCenter, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
                         {approvingAlertId === alert.id ? (
                           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                             {isUnmatched && !pickedSaleId[alert.id] ? (
@@ -1351,16 +1355,55 @@ export default function PayrollPeriods({
         </Card>
       )}
 
-      {/* Sidebar + Content layout */}
+      {/* Sidebar + Content layout.
+          On mobile: inline AgentSidebar is NOT rendered; replaced by a
+          "Select Agent" trigger button at the top of the content area
+          which opens AgentSidebar inside a MobileDrawer.
+          On desktop: inline sidebar renders as today; no trigger button. */}
       {periods.length > 0 && (
-        <div style={LAYOUT}>
-          <AgentSidebar
-            salesAgents={sidebarSalesAgents}
-            csAgents={sidebarCSAgents}
-            selectedAgent={selectedAgent}
-            onSelectAgent={handleSelectAgent}
-          />
+        <div style={LAYOUT} className="stack-mobile">
+          {!showMobileDrawer && (
+            <AgentSidebar
+              salesAgents={sidebarSalesAgents}
+              csAgents={sidebarCSAgents}
+              selectedAgent={selectedAgent}
+              onSelectAgent={handleSelectAgent}
+            />
+          )}
           <div ref={contentRef} style={CONTENT_AREA}>
+            {showMobileDrawer && (
+              <button
+                type="button"
+                onClick={() => setAgentDrawerOpen(true)}
+                aria-label="Select agent"
+                aria-expanded={agentDrawerOpen}
+                aria-controls="payroll-agent-drawer"
+                className="touch-target full-width-mobile"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: spacing[2],
+                  padding: `${spacing[3]}px ${spacing[4]}px`,
+                  marginBottom: spacing[3],
+                  background: colors.bgSurfaceRaised,
+                  border: `1px solid ${colors.borderDefault}`,
+                  borderRadius: radius.lg,
+                  color: colors.textPrimary,
+                  fontSize: typography.sizes.sm.fontSize,
+                  fontWeight: typography.weights.semibold,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                <Users size={16} />
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {selectedAgent ?? "Select Agent"}
+                </span>
+              </button>
+            )}
             {!selectedAgent && (
               <Card style={{ borderRadius: R["2xl"], marginTop: S[8] }}>
                 <EmptyState
@@ -1576,6 +1619,24 @@ export default function PayrollPeriods({
             )}
           </div>
         </div>
+      )}
+      {/* MobileDrawer for AgentSidebar — sibling of LAYOUT so it isn't
+          clipped by LAYOUT's overflow:hidden. Only renders DOM when open. */}
+      {periods.length > 0 && (
+        <MobileDrawer
+          id="payroll-agent-drawer"
+          open={agentDrawerOpen}
+          onClose={() => setAgentDrawerOpen(false)}
+          ariaLabel="Agent selector"
+          side="left"
+        >
+          <AgentSidebar
+            salesAgents={sidebarSalesAgents}
+            csAgents={sidebarCSAgents}
+            selectedAgent={selectedAgent}
+            onSelectAgent={(name) => { handleSelectAgent(name); setAgentDrawerOpen(false); }}
+          />
+        </MobileDrawer>
       )}
       {/* ── Floating batch action bar (commission approval only) ── */}
       {selectedNeedsApprovalCount > 0 && (
