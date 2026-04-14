@@ -423,6 +423,76 @@ describe("getOutreachAnalytics", () => {
     expect(typeof parsed.saveRate).toBe("number");
   });
 
+  // ── Phase 70 hotfix regression — production vocabulary normalization ──
+
+  it("HOTFIX: chargeback resolutionType 'recovered' (production vocab) counts as saved", async () => {
+    cbFixture = [
+      { ...cb({ assignedTo: "Jane Doe", resolverName: "Jane Doe", resolvedAt: AFTER, submittedAt: AFTER }), resolutionType: "recovered" },
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.saved).toBe(1);
+    expect(jane.cancelled).toBe(0);
+  });
+
+  it("HOTFIX: chargeback resolutionType 'closed' (production vocab) counts as cancelled", async () => {
+    cbFixture = [
+      { ...cb({ assignedTo: "Jane Doe", resolverName: "Jane Doe", resolvedAt: AFTER, submittedAt: AFTER }), resolutionType: "closed" },
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.cancelled).toBe(1);
+    expect(jane.saved).toBe(0);
+  });
+
+  it("HOTFIX: pending term resolutionType 'saved' (lowercase, production vocab) counts as saved", async () => {
+    ptFixture = [
+      { ...cb({ assignedTo: "Jane Doe", resolverName: "Jane Doe", resolvedAt: AFTER, submittedAt: AFTER }), resolutionType: "saved" },
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.pendingTerms.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.saved).toBe(1);
+  });
+
+  it("HOTFIX: pending term cross-rep 'saved' (lowercase) credits resolver via assistSaves", async () => {
+    // The exact production scenario the user reported: Jasmine saves Alex's pending term
+    ptFixture = [
+      { ...cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolvedAt: AFTER, submittedAt: AFTER }), resolutionType: "saved" },
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.pendingTerms.leaderboard.find(r => r.repName === "Jane Doe")!;
+    const alice = result.pendingTerms.leaderboard.find(r => r.repName === "Alice Ng")!;
+    expect(jane.saved).toBe(1);
+    expect(jane.assistSaves).toBe(0);
+    expect(alice.saved).toBe(0);
+    expect(alice.assistSaves).toBe(1);
+  });
+
+  it("HOTFIX: chargeback cross-rep 'recovered' credits resolver via assistSaves", async () => {
+    cbFixture = [
+      { ...cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolvedAt: AFTER, submittedAt: AFTER }), resolutionType: "recovered" },
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    const alice = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")!;
+    expect(jane.saved).toBe(1);
+    expect(alice.assistSaves).toBe(1);
+  });
+
+  it("HOTFIX: unknown resolutionType normalizes to null (no false credit)", async () => {
+    cbFixture = [
+      { ...cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolvedAt: AFTER, submittedAt: AFTER }), resolutionType: "weird_value" },
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    const alice = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng");
+    expect(jane.saved).toBe(0);
+    expect(jane.cancelled).toBe(0);
+    expect(jane.noContact).toBe(0);
+    // Alice gets no row since she has no assigned + no assist
+    expect(alice).toBeUndefined();
+  });
+
   it("AC-10 cross-rep CANCELLED does not mutate existing resolver row", async () => {
     cbFixture = [
       // Alice's own assigned work — 3 records, 2 SAVED, 1 open

@@ -272,12 +272,50 @@ type RawRecord = {
   assignedTo: string | null;
   submittedAt: Date;
   resolvedAt: Date | null;
-  resolutionType: string | null;
+  /**
+   * Normalized outcome (Phase 70 hotfix):
+   *   - "saved"       — chargeback "recovered" or pending term "saved"
+   *   - "cancelled"   — chargeback "closed" or pending term "cancelled"
+   *   - "no_contact"  — both record types
+   *   - null          — unresolved or unrecognized value
+   *
+   * The DB stores type-specific vocabularies ("recovered"/"closed" for
+   * chargebacks, "saved"/"cancelled" for pending terms). Aggregation works
+   * against the normalized canonical form so we don't have to fork logic.
+   */
+  resolutionType: "saved" | "cancelled" | "no_contact" | null;
   bypassReason: string | null;
   attemptCount: number;
   /** Phase 69: User.name of resolver (null if unresolved). Used for resolver-credit. */
   resolverName: string | null;
 };
+
+/** Phase 70 hotfix: per-type outcome vocabulary → canonical form. */
+type OutcomeVocab = {
+  saved: string;       // value stored when outcome = saved
+  cancelled: string;   // value stored when outcome = cancelled
+  noContact: string;   // value stored when outcome = no_contact
+};
+
+const CHARGEBACK_VOCAB: OutcomeVocab = { saved: "recovered", cancelled: "closed", noContact: "no_contact" };
+const PENDING_TERM_VOCAB: OutcomeVocab = { saved: "saved", cancelled: "cancelled", noContact: "no_contact" };
+
+/**
+ * Normalize a raw resolutionType from the DB into the canonical form.
+ * Case-insensitive. Accepts:
+ *   - The type-specific vocab (production: "recovered"/"closed" for CB, "saved"/"cancelled" for PT)
+ *   - The canonical lowercase form ("saved"/"cancelled"/"no_contact") — for already-normalized inputs and tests
+ *   - Legacy uppercase variants — defensive against historical data
+ */
+function normalizeOutcome(raw: string | null | undefined, vocab: OutcomeVocab): RawRecord["resolutionType"] {
+  if (!raw) return null;
+  const v = raw.trim().toLowerCase();
+  // Canonical form (also covers PT vocab where saved="saved", cancelled="cancelled")
+  if (v === "saved" || v === vocab.saved.toLowerCase()) return "saved";
+  if (v === "cancelled" || v === vocab.cancelled.toLowerCase()) return "cancelled";
+  if (v === "no_contact" || v === vocab.noContact.toLowerCase()) return "no_contact";
+  return null;
+}
 
 type RosterEntry = { nameLower: string; canonical: string };
 
@@ -344,9 +382,9 @@ function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): Ou
     if (isV29 && rec.attemptCount > 0) acc.worked++;
 
     // outcome counters (any era — outcome data is backfillable)
-    if (rec.resolutionType === "SAVED") acc.saved++;
-    else if (rec.resolutionType === "CANCELLED") acc.cancelled++;
-    else if (rec.resolutionType === "NO_CONTACT") acc.noContact++;
+    if (rec.resolutionType === "saved") acc.saved++;
+    else if (rec.resolutionType === "cancelled") acc.cancelled++;
+    else if (rec.resolutionType === "no_contact") acc.noContact++;
 
     // resolved samples
     if (rec.resolvedAt) {
@@ -368,7 +406,7 @@ function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): Ou
   // Applies OUTCOME cutoff semantics: pre-v2.9 cross-rep SAVED records DO
   // produce assist credit, matching how saved/cancelled include pre-v2.9.
   for (const rec of records) {
-    if (rec.resolutionType !== "SAVED") continue;
+    if (rec.resolutionType !== "saved") continue;
     if (!rec.resolverName) continue;
 
     const assigneeName = canonicalizeRep(rec.assignedTo, roster);
@@ -429,7 +467,7 @@ function buildCorrelation(records: RawRecord[]): CorrelationBucket[] {
     const key = bucketFor(rec.attemptCount);
     const b = byKey.get(key)!;
     b.totalResolved++;
-    if (rec.resolutionType === "SAVED") b.savedCount++;
+    if (rec.resolutionType === "saved") b.savedCount++;
   }
 
   for (const b of buckets) b.saveRate = pct(b.savedCount, b.totalResolved);
@@ -454,7 +492,7 @@ async function getChargebackRecords(dw: DateWindow): Promise<RawRecord[]> {
     assignedTo: r.assignedTo,
     submittedAt: r.submittedAt,
     resolvedAt: r.resolvedAt,
-    resolutionType: r.resolutionType,
+    resolutionType: normalizeOutcome(r.resolutionType, CHARGEBACK_VOCAB),
     bypassReason: r.bypassReason,
     attemptCount: r._count.contactAttempts,
     resolverName: r.resolver?.name ?? null,
@@ -479,7 +517,7 @@ async function getPendingTermRecords(dw: DateWindow): Promise<RawRecord[]> {
     assignedTo: r.assignedTo,
     submittedAt: r.submittedAt,
     resolvedAt: r.resolvedAt,
-    resolutionType: r.resolutionType,
+    resolutionType: normalizeOutcome(r.resolutionType, PENDING_TERM_VOCAB),
     bypassReason: r.bypassReason,
     attemptCount: r._count.contactAttempts,
     resolverName: r.resolver?.name ?? null,
