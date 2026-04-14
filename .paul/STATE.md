@@ -65,7 +65,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-14: Enterprise audit on 70-01-PLAN.md. Applied 2+2. Verdict: enterprise-ready.
 
 ### Git State
-Last commit: bc84e01 — feat(69): resolver credit in outreach analytics (v2.9.1 50%)
+Last commit: d1e4ae4 — feat(70): test & ops hygiene — close all v2.8 deferred items (v2.9.1 shipped)
+Previous: bc84e01 — feat(69): resolver credit in outreach analytics
 Previous: d20cb28 — feat(68): CS Analytics Upgrade (v2.9 complete)
 Branch: main
 Feature branches merged: none
