@@ -805,8 +805,9 @@ function OutreachSection({
         Outreach Accountability
       </div>
 
-      {/* Two leaderboards side-by-side (stack on narrow) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(560px, 1fr))", gap: spacing.md }}>
+      {/* Leaderboards stacked — 11 columns can't fit side-by-side without
+          clipping the Avg Resolve column on typical viewports. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: spacing.md }}>
         <OutreachLeaderboard
           title="Chargebacks"
           rows={data.chargebacks.leaderboard}
@@ -898,8 +899,8 @@ function OutreachLeaderboard({
           No data in selected range
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize }}>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", minWidth: 880, borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize }}>
             <thead>
               <tr>
                 {LEADERBOARD_COLS.map(col => {
@@ -1033,22 +1034,32 @@ function BypassCallout({ rollup }: { rollup: BypassRollup }) {
           No gate overrides in this range.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.md }}>
-          <div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.md, minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted, textTransform: "uppercase" as const, marginBottom: 6 }}>Top Reasons</div>
             {rollup.topReasons.length ? rollup.topReasons.map((r, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: typography.sizes.sm.fontSize, borderBottom: `1px solid ${colorAlpha(colors.textMuted, 0.08)}` }}>
-                <span style={{ color: colors.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: 180 }}>{r.reason}</span>
-                <span style={{ color: colors.textPrimary, fontWeight: typography.weights.semibold }}>{r.count}</span>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0", fontSize: typography.sizes.sm.fontSize, borderBottom: `1px solid ${colorAlpha(colors.textMuted, 0.08)}`, minWidth: 0 }}>
+                <span
+                  title={r.reason}
+                  style={{ color: colors.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, minWidth: 0, flex: 1, cursor: "help" }}
+                >
+                  {r.reason}
+                </span>
+                <span style={{ color: colors.textPrimary, fontWeight: typography.weights.semibold, flexShrink: 0 }}>{r.count}</span>
               </div>
             )) : <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize }}>—</div>}
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted, textTransform: "uppercase" as const, marginBottom: 6 }}>Top Overriders</div>
             {rollup.perRep.length ? rollup.perRep.slice(0, 5).map((r, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: typography.sizes.sm.fontSize, borderBottom: `1px solid ${colorAlpha(colors.textMuted, 0.08)}` }}>
-                <span style={{ color: colors.textSecondary }}>{r.repName}</span>
-                <span style={{ color: colors.textPrimary, fontWeight: typography.weights.semibold }}>{r.count}</span>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0", fontSize: typography.sizes.sm.fontSize, borderBottom: `1px solid ${colorAlpha(colors.textMuted, 0.08)}`, minWidth: 0 }}>
+                <span
+                  title={r.repName}
+                  style={{ color: colors.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, minWidth: 0, flex: 1 }}
+                >
+                  {r.repName}
+                </span>
+                <span style={{ color: colors.textPrimary, fontWeight: typography.weights.semibold, flexShrink: 0 }}>{r.count}</span>
               </div>
             )) : <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm.fontSize }}>—</div>}
           </div>
