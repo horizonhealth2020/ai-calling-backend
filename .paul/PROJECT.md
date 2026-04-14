@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.9.1 |
+| Version | 2.9.2 |
 | Status | Production |
 | Last Updated | 2026-04-14 |
-| Milestones shipped | 20 (v1.0 through v2.9.1) |
-| Total phases | 70 |
+| Milestones shipped | 21 (v1.0 through v2.9.2) |
+| Total phases | 71 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -161,6 +161,12 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Production clawback cleanup dry-run — 0 orphans found, DB already clean — Phase 70
 - [x] Audit-log backfill script archived as not needed — Phase 70
 
+**v2.9.2 — Parser & Payroll Hotfix (2026-04-14)**
+- [x] Receipt parser ACH detection via Method-line fallback (routing# / Bank / Checking / Savings) for blank-Type receipts — Phase 71
+- [x] Net formula corrected: fronted excluded (was double-paying mid-week advances) — Phase 71
+- [x] computeNetAmount pure helper extracted; carryover.ts aligned to same source of truth — Phase 71
+- [x] 7-case regression test locking the net formula — Phase 71
+
 ### Active (In Progress)
 None.
 
@@ -231,7 +237,10 @@ None.
 | Submit-only form validation | Per-field inline errors on submit, not on-blur | Active |
 | Agent-first payroll hierarchy | AgentCard/WeekSection components, agent-level adjustments | Active |
 | Idempotent carryover via flag | carryoverExecuted prevents duplication on lock/unlock cycles | Active |
-| Fronted additive in net formula | Fronted is cash advance (positive), not deduction | Active |
+| Fronted additive in net formula | Fronted is cash advance (positive), not deduction | Reversed in Phase 71 (2026-04-14) |
+| Fronted EXCLUDED from net formula | Fronted is a mid-week cash advance — already in agent's pocket; additive double-paid. Net = payout + adj + bonus - hold. Fronted still drives next-period hold via carryover.ts on lock | Active |
+| computeNetAmount single source of truth | Any file computing agent net imports from services/payroll — prevents duplicate inline formulas drifting (bug discovered when carryover.ts had its own copy) | Active |
+| Parser Method-line ACH fallback | When receipt "Type:" line is blank, inspect "Method:" line for routing# or Bank/Checking/Savings keywords | Active |
 | halvingReason-driven approval | Approval based on halvingReason presence, not enrollment threshold | Active |
 | Convoso polling over webhooks | More reliable than webhooks for call log integration | Active |
 | Inline SVG sparklines for compact metrics | Sparklines for manager tracker trends, no heavy library needed | Active |
@@ -293,4 +302,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-14 after Phase 70 (v2.9.1 complete — all v2.8 deferred items closed)*
+*Last updated: 2026-04-14 after Phase 71 (v2.9.2 hotfix — parser ACH detection + fronted net formula reversal)*

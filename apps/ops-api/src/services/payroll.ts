@@ -12,6 +12,27 @@ export const ENROLLMENT_BONUS_THRESHOLD = 125;
 /** Dollar amount of the enrollment bonus */
 export const ENROLLMENT_BONUS_AMOUNT = 10;
 
+/**
+ * Pure helper: compute paycard net for a payroll entry.
+ *
+ * Formula: payout + adjustment + bonus - hold
+ *
+ * Fronted (mid-week cash advance) is intentionally EXCLUDED from net — the agent
+ * already has that money in hand. The `frontedAmount` column is still persisted
+ * per entry so `carryover.ts` can convert it to the next period's hold on lock.
+ *
+ * Chargebacks flow in as negative `adjustment` values (see `allowNegative` on
+ * `adjustmentAmount` Zod schema).
+ */
+export const computeNetAmount = (args: {
+  payout: number;
+  adjustment: number;
+  bonus: number;
+  hold: number;
+}): number => {
+  return args.payout + args.adjustment + args.bonus - args.hold;
+};
+
 export const getSundayWeekRange = (date: Date, shiftWeeks: number = 0) => {
   // Convert UTC date to Eastern time to determine the correct day-of-week
   const eastern = DateTime.fromJSDate(date, { zone: TIMEZONE });
@@ -388,10 +409,12 @@ export const upsertPayrollEntryForSale = async (saleId: string, tx?: PrismaTx) =
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
   });
   const bonus = existing ? Number(existing.bonusAmount) : 0;
-  const fronted = existing ? Number(existing.frontedAmount) : 0;
   const hold = existing ? Number(existing.holdAmount) : 0;
   const adjustment = existing ? Number(existing.adjustmentAmount) : 0;
-  const netAmount = payoutAmount + adjustment + bonus + fronted - hold;
+  // Fronted is a mid-week cash advance — already in the agent's pocket.
+  // It is NOT added to current-week net; carryover.ts converts it to next-period hold on lock.
+  // frontedAmount is still preserved on the entry for carryover to read.
+  const netAmount = computeNetAmount({ payout: payoutAmount, adjustment, bonus, hold });
 
   return db.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },

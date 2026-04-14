@@ -17,6 +17,37 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.8 | Hardening & Bulk Operations | 60-64 | Shipped | 2026-04-13 |
 | v2.9 | CS Accountability & Outreach Tracking | 65-68 | Shipped | 2026-04-14 |
 | v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | Shipped | 2026-04-14 |
+| v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
+
+## Completed Milestone: v2.9.2 Parser & Payroll Hotfix
+
+**Goal:** Fix two production bugs reported post-v2.9.1 — (1) sales receipt parser misreads ACH as CC when the `Type:` line is blank, (2) mid-week fronted advances are double-paid by being added to current-week net (reverses v2.1 "fronted additive" decision).
+**Status:** Shipped 2026-04-14
+**Progress:** [██████████] 100%
+
+## Phases
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 71 | Parser ACH Detection + Fronted Net Formula Fix | 1 | Complete | 2026-04-14 |
+
+### Phase 71: Parser ACH Detection + Fronted Net Formula Fix
+
+**Goal:** Receipt parser correctly detects ACH from BANK/routing-number receipts even when `Type:` line is blank; net formula no longer adds fronted (advance already paid out to agent). Forward-only — no retro recalc of historical entries.
+**Depends on:** v2.9.1 shipped
+**Research:** Unlikely (known files, known regex bug, documented formula)
+
+**Scope:**
+- Parser (ManagerEntry.tsx): line-scoped Type detection + Method-line ACH fallback (routing# / Bank / Checking / Savings keywords)
+- Payroll net formula (payroll.ts): dropped `+ fronted` from netAmount; extracted `computeNetAmount` pure helper
+- Scope extension (user-approved): carryover.ts:65 also used the old formula — aligned to same helper to prevent leak in prior-hold + new-fronted scenarios
+- New regression test suite (payroll-net-formula.test.ts, 7 cases) locking the formula
+- PROJECT.md decision reversed: "Fronted additive" → "Fronted EXCLUDED"
+
+**Plans:**
+- [x] 71-01: Parser ACH fallback + net formula fix + regression test
+
+---
 
 ## Completed Milestone: v2.9.1 CS Analytics Refinement & Hygiene
 
@@ -518,4 +549,4 @@ A sales operations platform evolving from initial setup through full role-based 
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-14 — Phase 70 complete, v2.9.1 milestone shipped*
+*Last updated: 2026-04-14 — Phase 71 complete, v2.9.2 milestone shipped*

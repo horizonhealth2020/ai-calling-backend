@@ -199,10 +199,36 @@ function parseReceipt(text: string): ParseResult {
 
   if (enrollmentFound) out.enrollmentFee = totalEnrollment.toFixed(2);
 
-  const payType = t.match(/Payment\s+Type:\s*(\w+)/i) || t.match(/Type:\s*(BANK|CARD|CC|ACH|CREDIT)/i);
-  if (payType) {
-    const pt = payType[1].toUpperCase();
+  // Payment type detection — line-scoped to avoid false matches:
+  //  - The Date line contains "Type: SALE" (transaction type, not payment type)
+  //  - Some receipts have a blank "Type:" line under Payment; the payment signal
+  //    is then in the "Method:" line (routing# / bank name).
+  // Prior regex greedily crossed tokens and captured "Method" as the payment type.
+  const paymentHeaderIdx = lines.findIndex(l => /^Payment$/i.test(l));
+  let typeLineValue = "";
+  let methodLineValue = "";
+  if (paymentHeaderIdx >= 0) {
+    for (let i = paymentHeaderIdx + 1; i < Math.min(paymentHeaderIdx + 6, lines.length); i++) {
+      const tm = lines[i].match(/^Type:\s*(.*)$/i);
+      if (tm && !typeLineValue) typeLineValue = tm[1].trim();
+      const mm = lines[i].match(/^Method:\s*(.*)$/i);
+      if (mm && !methodLineValue) methodLineValue = mm[1].trim();
+    }
+  }
+  const knownTypeMatch = typeLineValue.match(/\b(BANK|ACH|CARD|CC|CREDIT)\b/i);
+  if (knownTypeMatch) {
+    const pt = knownTypeMatch[1].toUpperCase();
     out.paymentType = (pt === "BANK" || pt === "ACH") ? "ACH" : "CC";
+  } else if (methodLineValue) {
+    // Fallback: blank/unknown Type line — inspect Method line for ACH signals.
+    // Routing numbers are 9 digits; bank-name receipts include "Bank"/"Checking"/"Savings".
+    const isAch =
+      /\b\d{9}\b/.test(methodLineValue) ||
+      /\bBank\b/i.test(methodLineValue) ||
+      /\bChecking\b/i.test(methodLineValue) ||
+      /\bSavings\b/i.test(methodLineValue);
+    if (isAch) out.paymentType = "ACH";
+    // else: leave undefined so the user picks manually
   }
 
   if (!out.memberName && !out.memberId) {

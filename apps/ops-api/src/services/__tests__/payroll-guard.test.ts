@@ -49,14 +49,15 @@ describe('payroll-guard', () => {
   });
 
   describe('net formula consistency', () => {
-    it('computes payout + adjustment + bonus + fronted - hold correctly', () => {
+    // Phase 71: fronted excluded from net. See payroll-net-formula.test.ts
+    // for the authoritative regression suite against computeNetAmount.
+    it('computes payout + adjustment + bonus - hold correctly', () => {
       const payout = 100;
       const adjustment = 10;
       const bonus = 5;
-      const fronted = 20;
       const hold = 3;
-      const net = payout + adjustment + bonus + fronted - hold;
-      expect(net).toBe(132);
+      const net = payout + adjustment + bonus - hold;
+      expect(net).toBe(112);
     });
   });
 });

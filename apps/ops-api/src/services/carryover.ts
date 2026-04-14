@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@ops/db";
-import { getSundayWeekRange } from "./payroll";
+import { getSundayWeekRange, computeNetAmount } from "./payroll";
 
 /**
  * Execute carryover logic when a payroll period is locked.
@@ -61,8 +61,17 @@ export async function executeCarryover(periodId: string): Promise<{ carried: num
     const agentEntries = (period as any).entries.filter((e: any) => e.agentId === adj.agentId);
     const totalPayout = agentEntries.reduce((s: number, e: any) => s + Number(e.payoutAmount), 0);
     const totalAdj = agentEntries.reduce((s: number, e: any) => s + Number(e.adjustmentAmount), 0);
-    // Net formula: payout + adjustment + bonus + fronted - hold (per NET-01)
-    const agentNet = totalPayout + totalAdj + Number(adj.bonusAmount) + Number(adj.frontedAmount) - Number(adj.holdAmount);
+    // Net formula: payout + adjustment + bonus - hold (Phase 71 — fronted is
+    // a mid-week cash advance, not additive to net). Fronted still triggers
+    // D-09 carry-as-hold below; excluding it from agentNet ensures D-10's
+    // negative-net detection reflects the true owed amount so prior holds +
+    // new fronted carry correctly to the next period.
+    const agentNet = computeNetAmount({
+      payout: totalPayout,
+      adjustment: totalAdj,
+      bonus: Number(adj.bonusAmount),
+      hold: Number(adj.holdAmount),
+    });
 
     let carryHold = 0;
 

@@ -113,8 +113,11 @@ describe('CARRY-02: Fronted auto-carries as hold', () => {
 describe('CARRY-03: Negative net carries as hold', () => {
   it('carries fronted + negative net as hold when net is negative', async () => {
     // Agent has fronted=100, hold=400, bonus=0, payout=50, adj=0
-    // Net = 50 + 0 + 0 + 100 - 400 = -250
-    // Carry = fronted(100) + abs(-250) = 350
+    // Phase 71 formula: Net = payout + adj + bonus - hold  (fronted EXCLUDED)
+    // Net = 50 + 0 + 0 - 400 = -350
+    // Carry = fronted(100) + abs(-350) = 450
+    // Why fronted is excluded from net: the agent already received it mid-week.
+    // Carrying the full negative ensures prior holds + new fronts don't leak.
     const adj = makeAdj({ frontedAmount: 100, holdAmount: 400, bonusAmount: 0 });
     const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 50, adjustmentAmount: 0 });
     const period = makePeriod({ agentAdjustments: [adj], entries: [entry] });
@@ -124,8 +127,8 @@ describe('CARRY-03: Negative net carries as hold', () => {
 
     expect(result.carried).toBe(1);
     const call = mockAdjUpsert.mock.calls[0][0];
-    expect(call.create.holdAmount).toBe(350);
-    expect(call.update.holdAmount).toEqual({ increment: 350 });
+    expect(call.create.holdAmount).toBe(450);
+    expect(call.update.holdAmount).toEqual({ increment: 450 });
   });
 });
 
