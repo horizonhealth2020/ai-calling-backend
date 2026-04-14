@@ -2,13 +2,13 @@
   "name": "ai-calling-backend",
   "version": "2.9.0",
   "milestone": {
-    "name": "CS Accountability & Outreach Tracking",
-    "version": "2.9.0",
-    "status": "shipped"
+    "name": "CS Analytics Refinement & Hygiene",
+    "version": "2.9.1",
+    "status": "in_progress"
   },
   "phase": {
-    "number": 68,
-    "name": "CS Analytics Upgrade",
+    "number": 69,
+    "name": "Resolver Credit in Outreach Analytics",
     "status": "complete"
   },
   "loop": {

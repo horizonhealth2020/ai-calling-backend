@@ -155,7 +155,12 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Save rate correlation by attempt count (validates 3-call gate policy) — Phase 68
 
 ### Active (In Progress)
-None.
+
+**v2.9.1 — CS Analytics Refinement & Hygiene (2026-04-14)**
+- [x] Resolver credit (assistSaves) for cross-rep SAVED outcomes — Phase 69
+- [x] Bypass rollup re-keyed to resolver (override-click accountability) — Phase 69
+- [ ] auditQueue.test.ts mock completion — Phase 70
+- [ ] Phase 60 backfill scripts reconciliation — Phase 70
 
 ### Planned (Next)
 None.
@@ -243,6 +248,10 @@ None.
 | Unknown assignees surface under "(unassigned/unknown)" | Attribution gaps must be visible to owners, never silently dropped | Active |
 | 366d max range cap on analytics endpoints | Prevents unbounded aggregation scans; 400 on over-range | Active |
 | Safe-default analytics error contract | Sub-query failures return empty arrays/zero counts, never null | Active |
+| Attribution model EXTENDED — assignee-credit preserved + resolver-credit added | Both accountability (who owns workload) and production (who actually saves) need to be visible | Active |
+| assistSaves follows OUTCOME cutoff semantics | Pre-v2.9 cross-rep SAVEDs count as assist — matches saved/cancelled rule | Active |
+| Bypass overrides credited to resolver, not assignee | Whoever clicks the override button owns that choice | Active |
+| Data-integrity signals surface, not hidden — "(unresolved)" + "(owner/admin override)" buckets | Edge cases must be visible to owners, never silently formatted | Active |
 
 ## Success Metrics
 
@@ -282,4 +291,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-14 after Phase 68 (v2.9 milestone shipped)*
+*Last updated: 2026-04-14 after Phase 69 (v2.9.1 refinement — resolver credit)*

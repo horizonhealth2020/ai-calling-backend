@@ -205,6 +205,14 @@ export type OutreachRow = {
   assigned: number;
   worked: number;
   saved: number;
+  /**
+   * assistSaves (Phase 69): count of records NOT assigned to this rep but
+   * resolved by this rep with resolutionType = "SAVED". Only counts when the
+   * resolver matches an active CsRepRoster entry (owner/admin resolves do not
+   * count as coverage). Follows OUTCOME cutoff semantics — pre-v2.9 records
+   * DO contribute, matching the saved/cancelled rule.
+   */
+  assistSaves: number;
   cancelled: number;
   noContact: number;
   open: number;
@@ -267,6 +275,8 @@ type RawRecord = {
   resolutionType: string | null;
   bypassReason: string | null;
   attemptCount: number;
+  /** Phase 69: User.name of resolver (null if unresolved). Used for resolver-credit. */
+  resolverName: string | null;
 };
 
 type RosterEntry = { nameLower: string; canonical: string };
@@ -293,7 +303,12 @@ function canonicalizeRep(raw: string | null | undefined, roster: Map<string, str
   return match ?? UNKNOWN_REP;
 }
 
-/** Build a per-rep leaderboard from a flat list of records. */
+/** Build a per-rep leaderboard from a flat list of records.
+ * Phase 69: two-pass.
+ *   Pass 1 — assignee credit (unchanged from Phase 68).
+ *   Pass 2 — resolver-credit assistSaves for cross-rep SAVED resolves where
+ *            the resolver is in the roster.
+ */
 function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): OutreachRow[] {
   type Acc = {
     assigned: number;
@@ -306,16 +321,21 @@ function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): Ou
     attemptSamples: number;   // v2.9+ resolved sample count for avgAttempts
     resolveMsSum: number;     // for resolved records (any era)
     resolveMsSamples: number;
+    assistSaves: number;      // Phase 69: resolver-credit
   };
+  const emptyAcc = (): Acc => ({
+    assigned: 0, worked: 0, saved: 0, cancelled: 0, noContact: 0,
+    resolved: 0, attemptSum: 0, attemptSamples: 0,
+    resolveMsSum: 0, resolveMsSamples: 0,
+    assistSaves: 0,
+  });
+
   const map = new Map<string, Acc>();
 
+  // ── Pass 1 — Assignee credit ────────────────────────────
   for (const rec of records) {
     const repName = canonicalizeRep(rec.assignedTo, roster);
-    const acc = map.get(repName) ?? {
-      assigned: 0, worked: 0, saved: 0, cancelled: 0, noContact: 0,
-      resolved: 0, attemptSum: 0, attemptSamples: 0,
-      resolveMsSum: 0, resolveMsSamples: 0,
-    };
+    const acc = map.get(repName) ?? emptyAcc();
     acc.assigned++;
 
     const isV29 = rec.submittedAt.getTime() >= V29_CUTOFF.getTime();
@@ -344,6 +364,27 @@ function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): Ou
     map.set(repName, acc);
   }
 
+  // ── Pass 2 — Resolver credit (assistSaves) ──────────────
+  // Applies OUTCOME cutoff semantics: pre-v2.9 cross-rep SAVED records DO
+  // produce assist credit, matching how saved/cancelled include pre-v2.9.
+  for (const rec of records) {
+    if (rec.resolutionType !== "SAVED") continue;
+    if (!rec.resolverName) continue;
+
+    const assigneeName = canonicalizeRep(rec.assignedTo, roster);
+    const resolverCanonical = roster.get(rec.resolverName.trim().toLowerCase());
+
+    // AC-4: resolver not in roster (owner/admin) — no assist credit
+    if (!resolverCanonical) continue;
+
+    // AC-2: same-rep — no self-assist (already credited via saved in Pass 1)
+    if (resolverCanonical === assigneeName) continue;
+
+    const existing = map.get(resolverCanonical) ?? emptyAcc();
+    existing.assistSaves++;
+    map.set(resolverCanonical, existing);
+  }
+
   const rows: OutreachRow[] = [...map.entries()].map(([repName, a]) => {
     const open = a.assigned - a.saved - a.cancelled - a.noContact;
     return {
@@ -351,6 +392,7 @@ function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): Ou
       assigned: a.assigned,
       worked: a.worked,
       saved: a.saved,
+      assistSaves: a.assistSaves,
       cancelled: a.cancelled,
       noContact: a.noContact,
       open: Math.max(0, open),
@@ -363,8 +405,15 @@ function buildLeaderboard(records: RawRecord[], roster: Map<string, string>): Ou
     };
   });
 
-  // Default sort: save rate desc, assigned desc as tiebreaker
-  rows.sort((a, b) => b.saveRate - a.saveRate || b.assigned - a.assigned);
+  // Phase 69: Default sort updated — saveRate desc, then total production
+  // (saved + assistSaves) desc, then assigned desc as final tiebreaker.
+  // Intentional behavior change from Phase 68: reps with identical save rates
+  // but higher total production now rank higher.
+  rows.sort((a, b) =>
+    b.saveRate - a.saveRate
+    || (b.saved + b.assistSaves) - (a.saved + a.assistSaves)
+    || b.assigned - a.assigned
+  );
   return rows;
 }
 
@@ -396,6 +445,7 @@ async function getChargebackRecords(dw: DateWindow): Promise<RawRecord[]> {
       resolvedAt: true,
       resolutionType: true,
       bypassReason: true,
+      resolver: { select: { name: true } },
       _count: { select: { contactAttempts: true } },
     },
   });
@@ -407,6 +457,7 @@ async function getChargebackRecords(dw: DateWindow): Promise<RawRecord[]> {
     resolutionType: r.resolutionType,
     bypassReason: r.bypassReason,
     attemptCount: r._count.contactAttempts,
+    resolverName: r.resolver?.name ?? null,
   }));
 }
 
@@ -419,6 +470,7 @@ async function getPendingTermRecords(dw: DateWindow): Promise<RawRecord[]> {
       resolvedAt: true,
       resolutionType: true,
       bypassReason: true,
+      resolver: { select: { name: true } },
       _count: { select: { contactAttempts: true } },
     },
   });
@@ -430,6 +482,7 @@ async function getPendingTermRecords(dw: DateWindow): Promise<RawRecord[]> {
     resolutionType: r.resolutionType,
     bypassReason: r.bypassReason,
     attemptCount: r._count.contactAttempts,
+    resolverName: r.resolver?.name ?? null,
   }));
 }
 
@@ -438,13 +491,25 @@ function buildBypass(cbRecords: RawRecord[], ptRecords: RawRecord[], roster: Map
   const repMap = new Map<string, number>();
   let total = 0;
 
+  // Phase 69: attribute overrides to the RESOLVER (whoever clicked the override
+  // button), not the assignee. Non-roster resolvers surface under
+  // "(owner/admin override)"; bypassReason set without resolvedBy surfaces
+  // under "(unresolved)" — that bucket's presence indicates a potential
+  // data-integrity issue (bypassReason should only be set during resolve).
   const consume = (r: RawRecord) => {
     const reason = (r.bypassReason ?? "").trim();
     if (!reason) return;
     total++;
     reasonMap.set(reason, (reasonMap.get(reason) ?? 0) + 1);
-    const repName = canonicalizeRep(r.assignedTo, roster);
-    repMap.set(repName, (repMap.get(repName) ?? 0) + 1);
+
+    let overriderName: string;
+    if (!r.resolverName) {
+      overriderName = "(unresolved)";
+    } else {
+      const canonical = roster.get(r.resolverName.trim().toLowerCase());
+      overriderName = canonical ?? "(owner/admin override)";
+    }
+    repMap.set(overriderName, (repMap.get(overriderName) ?? 0) + 1);
   };
 
   for (const r of cbRecords) consume(r);

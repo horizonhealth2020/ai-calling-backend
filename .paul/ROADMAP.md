@@ -16,6 +16,55 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.7 | Analytics & Command Center | 55-59 | Shipped | 2026-04-10 |
 | v2.8 | Hardening & Bulk Operations | 60-64 | Shipped | 2026-04-13 |
 | v2.9 | CS Accountability & Outreach Tracking | 65-68 | Shipped | 2026-04-14 |
+| v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | In Progress | - |
+
+## Active Milestone: v2.9.1 CS Analytics Refinement & Hygiene
+
+**Goal:** Close gaps identified within hours of v2.9 launch — add resolver-credit ("Assist Saves") to analytics so coverage reps get visible credit, and clean up lingering test + ops debt from v2.8.
+**Status:** In Progress
+**Progress:** [█████░░░░░] 50%
+
+## Phases
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 69 | Resolver Credit in Outreach Analytics | 1 | Complete | 2026-04-14 |
+| 70 | Test & Ops Hygiene | TBD | Not started | - |
+
+## Phase Details
+
+### Phase 69: Resolver Credit in Outreach Analytics
+
+**Goal:** Extend the outreach leaderboards with resolver-credit columns so coverage reps get visible credit when they resolve records assigned to other reps as SAVED. Shift bypass attribution from assignee to resolver (whoever clicks override owns the choice).
+**Depends on:** Phase 68 shipped
+**Research:** Unlikely (extends shipped aggregator)
+
+**Scope:**
+- Leaderboard adds `assistSaves` column = records NOT assigned to this rep but resolved by them as SAVED
+- Assist credit applies only to SAVED outcomes (not CANCELLED or NO_CONTACT — those are administrative)
+- Bypass callout re-attributed: overrider = resolver (not assignee)
+- Correlation chart unchanged — 3-call gate measures effort on assigned workload, assignee stays the anchor
+- No "Total Saves" column — Saved + Assist is enough
+- CSV export picks up the new column
+
+**Plans:**
+- [x] 69-01: assistSaves column + resolver-keyed bypass
+
+### Phase 70: Test & Ops Hygiene
+
+**Goal:** Close two lingering deferred items from v2.8: fix auditQueue test mocks and reconcile the Phase 60 backfill scripts (run or remove).
+**Depends on:** Phase 69
+**Research:** Unlikely (mechanical)
+
+**Scope:**
+- auditQueue.test.ts: add missing Prisma method mocks (convosoCallLog.updateMany + related) so 3 failing tests pass
+- Phase 60 backfill/cleanup scripts: decision — either user runs them against production with verification, or scripts are documented as obsolete and removed
+- No new features, no schema changes
+
+**Plans:**
+- [ ] TBD (defined during /paul:plan)
+
+---
 
 ## Completed Milestone: v2.9 CS Accountability & Outreach Tracking
 

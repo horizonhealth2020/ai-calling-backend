@@ -8,6 +8,8 @@ type RawCb = {
   resolutionType: string | null;
   bypassReason: string | null;
   attemptCount: number;
+  /** Phase 69: User.name of resolver (null if unresolved). */
+  resolverName: string | null;
 };
 
 let cbFixture: RawCb[] = [];
@@ -29,6 +31,7 @@ jest.mock("@ops/db", () => {
         resolvedAt: r.resolvedAt,
         resolutionType: r.resolutionType,
         bypassReason: r.bypassReason,
+        resolver: r.resolverName ? { name: r.resolverName } : null,
         _count: { contactAttempts: r.attemptCount },
       }));
   });
@@ -69,6 +72,7 @@ function cb(partial: Partial<RawCb>): RawCb {
     resolutionType: null,
     bypassReason: null,
     attemptCount: 0,
+    resolverName: null,
     ...partial,
   };
 }
@@ -238,5 +242,206 @@ describe("getOutreachAnalytics", () => {
     expect(row.saved).toBe(1);
     expect(row.cancelled).toBe(1);
     expect(row.open).toBe(1);
+  });
+
+  // ── Phase 69: Resolver credit (assistSaves) + resolver-keyed bypass ───
+
+  it("AC-1 assist credit: different rep resolves as SAVED", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    const alice = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")!;
+    expect(jane.saved).toBe(1);
+    expect(jane.assistSaves).toBe(0);
+    expect(alice.saved).toBe(0);
+    expect(alice.assistSaves).toBe(1);
+  });
+
+  it("AC-2 self-resolution produces no assist", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Jane Doe", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.saved).toBe(1);
+    expect(jane.assistSaves).toBe(0);
+    expect(result.chargebacks.leaderboard.filter(r => r.repName !== "Jane Doe")).toHaveLength(0);
+  });
+
+  it("AC-3a CANCELLED cross-rep does not produce assist", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "CANCELLED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.cancelled).toBe(1);
+    expect(jane.assistSaves).toBe(0);
+    expect(result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")).toBeUndefined();
+  });
+
+  it("AC-3b NO_CONTACT cross-rep does not produce assist", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "NO_CONTACT", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.noContact).toBe(1);
+    expect(jane.assistSaves).toBe(0);
+    expect(result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")).toBeUndefined();
+  });
+
+  it("AC-4 owner/admin resolver (not in roster) gets no assist", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Owner Boss", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.saved).toBe(1);
+    expect(jane.assistSaves).toBe(0);
+    // Owner Boss must NOT appear in leaderboard (not a CS rep)
+    expect(result.chargebacks.leaderboard.find(r => r.repName === "Owner Boss")).toBeUndefined();
+    expect(result.chargebacks.leaderboard.find(r => r.repName === "(owner/admin override)")).toBeUndefined();
+  });
+
+  it("AC-5 bypass perRep attributed to resolver, not assignee", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", bypassReason: "Customer urgent", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    expect(result.bypass.totalCount).toBe(1);
+    expect(result.bypass.topReasons[0]).toEqual({ reason: "Customer urgent", count: 1 });
+    const aliceEntry = result.bypass.perRep.find(p => p.repName === "Alice Ng");
+    expect(aliceEntry).toBeDefined();
+    expect(aliceEntry!.count).toBe(1);
+    // Jane (assignee) must NOT be credited for the override
+    expect(result.bypass.perRep.find(p => p.repName === "Jane Doe")).toBeUndefined();
+  });
+
+  it("AC-5 bypass from owner/admin surfaces as (owner/admin override)", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Owner Boss", bypassReason: "Exec escalation", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const adminEntry = result.bypass.perRep.find(p => p.repName === "(owner/admin override)");
+    expect(adminEntry).toBeDefined();
+    expect(adminEntry!.count).toBe(1);
+  });
+
+  it("AC-11 bypass with null resolver surfaces as (unresolved) — data-integrity signal", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: null, bypassReason: "Pending escalation", submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const unresolvedEntry = result.bypass.perRep.find(p => p.repName === "(unresolved)");
+    expect(unresolvedEntry).toBeDefined();
+    expect(unresolvedEntry!.count).toBe(1);
+    expect(result.bypass.totalCount).toBe(1);
+  });
+
+  it("assist saves counted separately per type (CB + PT not summed)", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    ptFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const aliceCb = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")!;
+    const alicePt = result.pendingTerms.leaderboard.find(r => r.repName === "Alice Ng")!;
+    // Each leaderboard is type-scoped — assists do NOT sum across
+    expect(aliceCb.assistSaves).toBe(1);
+    expect(alicePt.assistSaves).toBe(1);
+  });
+
+  it("conservation law: sum(saved) + sum(assistSaves) matches total roster SAVEDs (minus admin resolves)", async () => {
+    cbFixture = [
+      // Self-resolved SAVED (Jane) — saved=1, assist=0 expected
+      cb({ assignedTo: "Jane Doe", resolverName: "Jane Doe", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+      // Cross-rep SAVED (Jane assigned, Alice resolves) — Jane saved=1, Alice assist=1
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+      // Cross-rep CANCELLED (Jane assigned, Alice resolves) — Jane cancelled=1, Alice assist=0
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "CANCELLED", resolvedAt: AFTER, submittedAt: AFTER }),
+      // Admin SAVE (not counted as assist) — Jane saved=1, no assist anywhere
+      cb({ assignedTo: "Jane Doe", resolverName: "Owner Boss", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+      // Self-resolved SAVED (Alice) — Alice saved=1
+      cb({ assignedTo: "Alice Ng", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const sumSaved = result.chargebacks.leaderboard.reduce((s, r) => s + r.saved, 0);
+    const sumAssist = result.chargebacks.leaderboard.reduce((s, r) => s + r.assistSaves, 0);
+    // Total SAVED records in fixture: 4. Admin-resolved SAVED: 1. So:
+    // sum(saved) = 4 (every SAVED credits the assignee regardless of resolver)
+    // sum(assist) = 1 (only the Jane-assigned/Alice-resolved SAVED produces assist)
+    expect(sumSaved).toBe(4);
+    expect(sumAssist).toBe(1);
+  });
+
+  it("AC-8 pre-v2.9 cross-rep SAVED DOES count as assist (outcome semantics)", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: BEFORE, attemptCount: 2 }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    const alice = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")!;
+    // Outcome side of cutoff — included
+    expect(jane.saved).toBe(1);
+    expect(alice.assistSaves).toBe(1);
+    // Effort side of cutoff — excluded (Phase 68 rule preserved)
+    expect(jane.worked).toBe(0);
+    expect(jane.avgAttempts).toBe(0);
+    // Correlation still excludes pre-v2.9
+    const b2 = result.chargebacks.correlation.find(b => b.bucket === "2")!;
+    expect(b2.totalResolved).toBe(0);
+  });
+
+  it("AC-9 assist-only rep row renders cleanly (no NaN)", async () => {
+    cbFixture = [
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const alice = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")!;
+    // Assist-only: zero assigned, zero everything except assistSaves
+    expect(alice.assigned).toBe(0);
+    expect(alice.worked).toBe(0);
+    expect(alice.saved).toBe(0);
+    expect(alice.cancelled).toBe(0);
+    expect(alice.noContact).toBe(0);
+    expect(alice.open).toBe(0);
+    expect(alice.assistSaves).toBe(1);
+    // Critical: no NaN — all rates/averages must be 0
+    expect(alice.saveRate).toBe(0);
+    expect(alice.workedRate).toBe(0);
+    expect(alice.avgAttempts).toBe(0);
+    expect(alice.avgTimeToResolveHours).toBe(0);
+    expect(Number.isNaN(alice.saveRate)).toBe(false);
+    expect(Number.isNaN(alice.workedRate)).toBe(false);
+    // Serializable — no NaN would fail JSON.stringify's numeric encoding
+    expect(() => JSON.stringify(alice)).not.toThrow();
+    const parsed = JSON.parse(JSON.stringify(alice));
+    expect(typeof parsed.saveRate).toBe("number");
+  });
+
+  it("AC-10 cross-rep CANCELLED does not mutate existing resolver row", async () => {
+    cbFixture = [
+      // Alice's own assigned work — 3 records, 2 SAVED, 1 open
+      cb({ assignedTo: "Alice Ng", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+      cb({ assignedTo: "Alice Ng", resolverName: "Alice Ng", resolutionType: "SAVED", resolvedAt: AFTER, submittedAt: AFTER }),
+      cb({ assignedTo: "Alice Ng", submittedAt: AFTER }), // open
+      // Cross-rep: Alice CANCELS one of Jane's records — must NOT mutate Alice's row
+      cb({ assignedTo: "Jane Doe", resolverName: "Alice Ng", resolutionType: "CANCELLED", resolvedAt: AFTER, submittedAt: AFTER }),
+    ];
+    const result = await getOutreachAnalytics(WINDOW);
+    const alice = result.chargebacks.leaderboard.find(r => r.repName === "Alice Ng")!;
+    expect(alice.assigned).toBe(3);
+    expect(alice.saved).toBe(2);
+    expect(alice.open).toBe(1);
+    expect(alice.assistSaves).toBe(0);
+    // Critical: Alice.cancelled must be 0 — the cross-rep CANCELLED was on Jane's record
+    expect(alice.cancelled).toBe(0);
+    const jane = result.chargebacks.leaderboard.find(r => r.repName === "Jane Doe")!;
+    expect(jane.cancelled).toBe(1);
+    expect(jane.assistSaves).toBe(0);
   });
 });

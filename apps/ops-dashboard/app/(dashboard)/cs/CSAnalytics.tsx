@@ -76,12 +76,14 @@ type DrillDownItem = {
 
 type DrillDownResult = { items: DrillDownItem[]; total: number; hasMore: boolean };
 
-/* Phase 68 — Outreach Accountability types */
+/* Phase 68/69 — Outreach Accountability types */
 type OutreachRow = {
   repName: string;
   assigned: number;
   worked: number;
   saved: number;
+  /** Phase 69: cross-rep SAVED records resolved by this rep. Resolver-credit. */
+  assistSaves: number;
   cancelled: number;
   noContact: number;
   open: number;
@@ -683,11 +685,12 @@ function DrillDownPanel({ data, loading, onLoadMore, onClose }: {
 
 /* ── Phase 68: Outreach Accountability ──────────────────────────── */
 
-const LEADERBOARD_COLS: Array<{ key: keyof OutreachRow; label: string; align: "left" | "right"; format?: (v: number) => string }> = [
+const LEADERBOARD_COLS: Array<{ key: keyof OutreachRow; label: string; align: "left" | "right"; format?: (v: number) => string; tooltip?: string }> = [
   { key: "repName", label: "Rep", align: "left" },
   { key: "assigned", label: "Assigned", align: "right" },
   { key: "worked", label: "Worked", align: "right" },
   { key: "saved", label: "Saved", align: "right" },
+  { key: "assistSaves", label: "Assist Saves", align: "right", tooltip: "Records NOT assigned to this rep, resolved by them as SAVED" }, // Phase 69
   { key: "cancelled", label: "Cancelled", align: "right" },
   { key: "open", label: "Open", align: "right" },
   { key: "saveRate", label: "Save Rate", align: "right", format: v => `${v}%` },
@@ -909,6 +912,7 @@ function OutreachLeaderboard({
                       aria-sort={ariaSort}
                       role="button"
                       tabIndex={0}
+                      title={col.tooltip}
                       onClick={() => handleSort(col.key)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {

@@ -5,15 +5,15 @@
 See: .paul/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v2.9 shipped — ready to scope next milestone
+**Current focus:** v2.9.1 CS Analytics Refinement & Hygiene (Phase 69 + 70)
 
 ## Current Position
 
-Milestone: v2.9 CS Accountability & Outreach Tracking — SHIPPED 2026-04-14
-Phase: All 4 phases complete (65, 66, 67, 68)
+Milestone: v2.9.1 CS Analytics Refinement & Hygiene (50% — Phase 69 complete, Phase 70 remaining)
+Phase: 70 of 2 (Test & Ops Hygiene) — Not started
 Plan: None active
-Status: Milestone complete — ready for /paul:discuss-milestone (v2.10)
-Last activity: 2026-04-14 — Phase 68 + v2.9 milestone closed and documented
+Status: Phase 69 shipped — ready to plan Phase 70
+Last activity: 2026-04-14 — Phase 69 closed: SUMMARY written, PROJECT + ROADMAP evolved
 
 Progress:
 - Milestone: [██████████] 100%
@@ -24,12 +24,17 @@ Progress:
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Loop complete — phase transition pending]
+  ✓        ✓        ✓     [Phase 69 complete — ready to plan Phase 70]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+- 2026-04-14: Attribution model EXTENDED in Phase 69 — assignee-credit preserved; resolver-credit added alongside via assistSaves column
+- 2026-04-14: assistSaves follows OUTCOME cutoff (pre-v2.9 cross-rep SAVED records count as assist)
+- 2026-04-14: Bypass overrides credited to resolver (whoever clicked override), not assignee
+- 2026-04-14: "(unresolved)" bypass bucket surfaces data-integrity signal, not silently handled
+- 2026-04-14: Sort tiebreaker updated — saveRate desc, (saved + assistSaves) desc, assigned desc
 - 2026-04-14: Assignee-credit attribution locked (not resolver-credit) — accountability belongs to assigned rep
 - 2026-04-14: 366-day max range cap on /cs/analytics/outreach — prevents unbounded scans
 - 2026-04-14: V29_CUTOFF split — pre-v2.9 records excluded from attempt metrics, included in outcome metrics
@@ -57,6 +62,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-13: Enterprise audit on 66-01-PLAN.md. Applied 1+3. Verdict: enterprise-ready.
 - 2026-04-13: Enterprise audit on 67-01-PLAN.md. Applied 1+3. Verdict: enterprise-ready.
 - 2026-04-14: Enterprise audit on 68-01-PLAN.md. Applied 3+6. Verdict: enterprise-ready.
+- 2026-04-14: Enterprise audit on 69-01-PLAN.md. Applied 3+2. Verdict: enterprise-ready.
 
 ### Git State
 Last commit: d20cb28 — feat(68): CS Analytics Upgrade — outreach accountability (v2.9 complete)
@@ -69,14 +75,14 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-14
-Stopped at: v2.9 milestone shipped — Phase 68 complete, loop closed, PROJECT/ROADMAP evolved
-Next action: Stage phase files for git commit (requires user approval), then run /paul:discuss-milestone for v2.10
-Resume file: .paul/phases/68-cs-analytics-upgrade/68-01-SUMMARY.md
+Stopped at: Phase 69 complete — resolver credit + bypass attribution shipped
+Next action: Run /paul:plan 70 for Test & Ops Hygiene (auditQueue mocks + backfill reconciliation)
+Resume file: .paul/phases/69-resolver-credit/69-01-SUMMARY.md
 Resume context:
-- v2.9 shipped: Phases 65-68 all complete — outreach data model, logging UI, stale alerts, accountability analytics
-- Phase 68 delivered: getOutreachAnalytics + /cs/analytics/outreach + 11-test coverage + leaderboards + correlation chart + bypass callout
-- Git commit NOT yet created (requires user approval)
-- Enterprise audit verdict: enterprise-ready; 3 must-have + 6 strongly-recommended upgrades applied at plan time
+- v2.9.1 at 50%: Phase 69 complete, Phase 70 remaining (test + ops hygiene)
+- Phase 69 delivered: assistSaves column (resolver credit) + bypass resolver attribution + 13 new tests + all pre-existing Phase 68 metrics byte-identical
+- Git commit for Phase 69 pending approval
+- Phase 70 scope: fix auditQueue.test.ts 3 failing mocks + reconcile Phase 60 backfill scripts (run or remove)
 
 ---
 *STATE.md — Updated after every significant action*
