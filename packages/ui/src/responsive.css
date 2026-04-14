@@ -106,6 +106,10 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+  /* Escape valve: cells that should not render the data-label prefix
+     (e.g., Actions cells with buttons, inline-edit colspan rows). */
+  .responsive-table tbody td.responsive-table-no-label::before { content: none !important; }
+  .responsive-table tbody td.responsive-table-no-label { display: block; padding: 0; }
 }
 
 /* ── Tablet (768–1023px) ────────────────────────────────────── */

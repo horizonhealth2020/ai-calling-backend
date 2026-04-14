@@ -67,9 +67,13 @@ function getGroupLabels(groupBy: "dow" | "wom" | "moy"): { val: number; label: s
 /* -- Style constants -- */
 
 const COLS = VISIBLE_HOURS.length; // 12
+// Natural min width: 100px label column + 12 columns × ~50px each + gaps.
+// Ensures the grid overflows narrow viewports so the parent overflowX: auto
+// wrapper actually scrolls instead of squishing every column to <30px.
+const HEATMAP_MIN_WIDTH = 100 + COLS * 50 + COLS * 2;
 const SUBSECTION_LBL: React.CSSProperties = { fontSize: typography.sizes.xs.fontSize, fontWeight: 600, textTransform: "uppercase", letterSpacing: typography.tracking.caps, color: colors.textTertiary, marginBottom: spacing[2] };
 const CONTROLS_ROW: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing[4] };
-const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: `100px repeat(${COLS}, 1fr)`, gap: 2 };
+const GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: `100px repeat(${COLS}, 1fr)`, gap: 2, minWidth: HEATMAP_MIN_WIDTH };
 const GROUP_HEADER: React.CSSProperties = {
   gridColumn: `1 / -1`,
   fontSize: typography.sizes.xs.fontSize,

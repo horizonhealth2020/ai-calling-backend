@@ -183,7 +183,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
         </div>
       </div>
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               {["Rank", "Agent", "Avg Call", "Longest", "Quality", "Calls", "Sales", "Premium Total", "Lead Spend", "Cost / Sale"].map((h, i) => (
@@ -207,7 +207,7 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                     ...(highlightedAgentNames.has(row.agent) ? HIGHLIGHT_GLOW : {}),
                   }}
                 >
-                  <td style={{ ...baseTdStyle, fontWeight: 700 }}>
+                  <td data-label="Rank" style={{ ...baseTdStyle, fontWeight: 700 }}>
                     {rankIcon ? (
                       <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {rankIcon}
@@ -225,37 +225,37 @@ export default function ManagerTracker({ API, tracker, setTracker, highlightedAg
                       <span style={{ color: colors.textMuted }}>#{i + 1}</span>
                     )}
                   </td>
-                  <td style={{ ...baseTdStyle, fontWeight: isTop ? 700 : 500, color: isTop ? colors.textPrimary : colors.textSecondary, fontSize: isTop ? 14 : 13 }}>
+                  <td data-label="Agent" style={{ ...baseTdStyle, fontWeight: isTop ? 700 : 500, color: isTop ? colors.textPrimary : colors.textSecondary, fontSize: isTop ? 14 : 13 }}>
                     {row.agent}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
+                  <td data-label="Avg Call" style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
                     {fmtDuration(agentMetrics[row.agent]?.avgCallLength ?? 0)}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
+                  <td data-label="Longest" style={{ ...baseTdStyle, textAlign: "right", fontWeight: 500, color: colors.textSecondary, fontVariantNumeric: "tabular-nums" }}>
                     {fmtDuration(agentMetrics[row.agent]?.longestCall ?? 0)}
                   </td>
-                  <td style={{ ...baseTdStyle }}>
+                  <td data-label="Quality" style={{ ...baseTdStyle }}>
                     <CallQualityBar tiers={agentMetrics[row.agent]?.callsByTier ?? { short: 0, contacted: 0, engaged: 0, deep: 0 }} />
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
+                  <td data-label="Calls" style={{ ...baseTdStyle, textAlign: "right", color: colors.primary400, fontWeight: 600 }}>
                     {agentCalls ? <AnimatedNumber value={agentCalls} /> : <span style={{ color: colors.textMuted }}>{"\u2014"}</span>}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: isTop ? 700 : 400, color: colors.textPrimary }}>
+                  <td data-label="Sales" style={{ ...baseTdStyle, textAlign: "right", fontWeight: isTop ? 700 : 400, color: colors.textPrimary }}>
                     <AnimatedNumber value={row.salesCount} />
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right" }}>
+                  <td data-label="Premium Total" style={{ ...baseTdStyle, textAlign: "right" }}>
                     <span style={{ fontWeight: 800, fontSize: isTop ? 16 : 14, background: `linear-gradient(135deg, ${semanticColors.accentGreenBright}, ${semanticColors.accentGreenMid})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } as React.CSSProperties}>
                       <AnimatedNumber value={Number(row.premiumTotal)} prefix="$" decimals={2} />
                     </span>
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600 }}>
+                  <td data-label="Lead Spend" style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600 }}>
                     {!convosoConfigured
                       ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
                       : row.totalLeadCost > 0
                         ? <span style={{ color: colors.textPrimary }}>${Number(row.totalLeadCost).toFixed(2)}</span>
                         : <span style={{ color: colors.textSecondary }}>$0.00</span>}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: 600 }}>
+                  <td data-label="Cost / Sale" style={{ ...baseTdStyle, textAlign: "right", color: colors.warning, fontWeight: 600 }}>
                     {!convosoConfigured
                       ? <span style={{ color: colors.textMuted }}>{"\u2014"}</span>
                       : row.salesCount > 0 && row.totalLeadCost > 0

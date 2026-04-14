@@ -15,6 +15,7 @@ import {
   baseLabelStyle,
   semanticColors,
   colorAlpha,
+  useIsMobile,
 } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
 import { formatDollar } from "@ops/utils";
@@ -277,6 +278,8 @@ function matchProduct(name: string, products: Product[]): Product | undefined {
 /* -- Component -- */
 
 export default function ManagerEntry({ API, agents, products, leadSources, onSaleCreated }: ManagerEntryProps) {
+  const { isMobile, mounted } = useIsMobile();
+  const showMobileLayout = mounted && isMobile;
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const msgTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [submitting, setSubmitting] = useState(false);
@@ -564,9 +567,12 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
           {msg.text}
         </div>
       )}
-      <form onSubmit={submitSale}>
-        {/* Two-column layout: Form (left) + Receipt/Addons (right) */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }} className="stack-mobile">
+      <form onSubmit={submitSale} style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+        {/* Two-column layout: Form (left) + Receipt/Addons (right).
+            On mobile, .grid-mobile-1 collapses to single column (display: grid → 1fr).
+            Note: the previous .stack-mobile className was a no-op here because the
+            parent is `display: grid`, not flex (Phase 73 audit fix). */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }} className="grid-mobile-1">
 
         {/* -- LEFT COLUMN: Form fields -- */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="grid-mobile-1">
@@ -689,6 +695,38 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
             )}
           </div>
 
+          {/* Mobile-only mini preview row: shows commission + halvingReason warning
+              right above Submit so managers don't need to scroll past Submit to
+              see the right-column Preview panel (which stacks below on mobile). */}
+          {showMobileLayout && previewData && (
+            <div
+              aria-live="polite"
+              style={{
+                gridColumn: "1/-1",
+                marginTop: spacing[2],
+                padding: `${spacing[3]}px ${spacing[4]}px`,
+                background: previewData.halvingReason ? colors.warningBg : colors.successBg,
+                border: `1px solid ${previewData.halvingReason ? colors.warning : colors.success}`,
+                borderRadius: radius.lg,
+                display: "flex",
+                flexDirection: "column",
+                gap: spacing[1],
+              }}
+            >
+              <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textTertiary, fontWeight: typography.weights.bold, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Commission Preview
+              </div>
+              <div style={{ fontSize: typography.sizes.lg.fontSize, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                {formatDollar(previewData.commission)}
+              </div>
+              {previewData.halvingReason && (
+                <div style={{ fontSize: typography.sizes.xs2.fontSize, color: colors.warning, fontWeight: typography.weights.semibold }}>
+                  ⚠ {previewData.halvingReason}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Submit row */}
           <div style={{ gridColumn: "1/-1", paddingTop: 8 }}>
             <Button
@@ -697,6 +735,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
               fullWidth
               loading={submitting}
               disabled={!form.paymentType || !form.status || submitting}
+              className="touch-target"
               style={{
                 padding: "14px 32px",
                 borderRadius: radius.xl,
@@ -713,8 +752,11 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
         </div>
         {/* -- END LEFT COLUMN -- */}
 
-        {/* -- RIGHT COLUMN: Preview + Receipt Parser + Add-ons -- */}
-        <div style={{ position: "sticky", top: 20 }}>
+        {/* -- RIGHT COLUMN: Preview + Receipt Parser + Add-ons --
+            Sticky positioning only matters on desktop where this column sits beside
+            the form. On mobile (.grid-mobile-1 stacks columns) sticky would behave
+            oddly because there's nothing to scroll past. */}
+        <div style={{ position: showMobileLayout ? "static" : "sticky", top: 20 }}>
           {/* Commission Preview Panel */}
           <div style={PREVIEW_PANEL} aria-live="polite">
             <div style={PREVIEW_LABEL}>
@@ -825,7 +867,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
 
                 {acaMode === "bundled" ? (
                   <>
-                    <div style={ACA_FIELDS}>
+                    <div style={ACA_FIELDS} className="grid-mobile-1">
                       <div>
                         <label style={LBL}>Carrier</label>
                         <select
@@ -859,7 +901,7 @@ export default function ManagerEntry({ API, agents, products, leadSources, onSal
                   </>
                 ) : (
                   <>
-                    <div style={ACA_FORM_GRID}>
+                    <div style={ACA_FORM_GRID} className="grid-mobile-1">
                       <div>
                         <label style={LBL}>Agent</label>
                         <select

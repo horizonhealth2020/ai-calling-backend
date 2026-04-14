@@ -438,7 +438,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
         {["all", ...DAYS].map(day => (
           <button
             key={day}
-            className="btn-hover"
+            className="btn-hover touch-target"
             style={{
               padding: "6px 14px",
               borderRadius: radius.full,
@@ -481,7 +481,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
               </div>
             </div>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize }}>
+              <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize }}>
                 <thead>
                   <tr>
                     {["Date", "Member", "Carrier", "Product", "Lead Source", "Phone", "Premium", "Status", "", "", ""].map((h, i) => (
@@ -493,23 +493,23 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                   {sales.map(s => (
                     <React.Fragment key={s.id}>
                     <tr className="row-hover" style={{ transition: "box-shadow 1.5s ease-out", ...(highlightedSaleIds.has(s.id) ? HIGHLIGHT_GLOW : {}) }}>
-                      <td style={baseTdStyle}>{formatDate(s.saleDate)}</td>
-                      <td style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
-                      <td style={baseTdStyle}>{s.carrier}</td>
-                      <td style={baseTdStyle}>{s.product.name}{s.acaAttached ? ` + ${s.acaProductName ?? "ACA"}` : ""}</td>
-                      <td style={baseTdStyle}>{s.leadSource.name}</td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Date" style={baseTdStyle}>{formatDate(s.saleDate)}</td>
+                      <td data-label="Member" style={{ ...baseTdStyle, color: colors.textPrimary, fontWeight: 500 }}>{s.memberName}{s.memberId ? ` (${s.memberId})` : ""}</td>
+                      <td data-label="Carrier" style={baseTdStyle}>{s.carrier}</td>
+                      <td data-label="Product" style={baseTdStyle}>{s.product.name}{s.acaAttached ? ` + ${s.acaProductName ?? "ACA"}` : ""}</td>
+                      <td data-label="Lead Source" style={baseTdStyle}>{s.leadSource.name}</td>
+                      <td data-label="Phone" style={baseTdStyle}>
                         {s.leadPhone
                           ? formatPhone(s.leadPhone)
                           : <span style={{ color: colors.textMuted }}>&mdash;</span>}
                       </td>
-                      <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{(() => {
+                      <td data-label="Premium" style={{ ...baseTdStyle, textAlign: "right", fontWeight: 700, color: colors.success }}>{(() => {
                         const saleWithAddons = s as Sale & { addons?: { premium?: number | null }[] };
                         const addonTotal = saleWithAddons.addons?.reduce((aSum: number, a) => aSum + Number(a.premium ?? 0), 0) ?? 0;
                         const rowTotal = Number(s.premium ?? 0) + addonTotal;
                         return formatDollar(rowTotal);
                       })()}</td>
-                      <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                      <td data-label="Status" style={{ ...baseTdStyle, textAlign: "center" }}>
                         {s.hasPendingStatusChange ? (
                           <StatusBadge status="PENDING_RAN" />
                         ) : (
@@ -535,7 +535,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                           </select>
                         )}
                       </td>
-                      <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                      <td data-label="Notes" className="responsive-table-no-label" style={{ ...baseTdStyle, textAlign: "center" }}>
                         {s.notes ? (
                           <Button
                             variant="ghost"
@@ -555,7 +555,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                           <span style={{ color: colors.borderSubtle }}>&mdash;</span>
                         )}
                       </td>
-                      <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                      <td data-label="Edit" className="responsive-table-no-label" style={{ ...baseTdStyle, textAlign: "center" }}>
                         {s.hasPendingEditRequest ? (
                           <span style={PENDING_EDIT_BADGE}>Edit Pending</span>
                         ) : (
@@ -570,7 +570,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                           </Button>
                         )}
                       </td>
-                      <td style={{ ...baseTdStyle, textAlign: "center" }}>
+                      <td data-label="Delete" className="responsive-table-no-label" style={{ ...baseTdStyle, textAlign: "center" }}>
                         <Button
                           variant="danger"
                           size="sm"
@@ -584,7 +584,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                     </tr>
                     {expandedNoteIds.has(s.id) && s.notes && (
                       <tr>
-                        <td colSpan={11} style={{ padding: 0 }}>
+                        <td colSpan={11} className="responsive-table-no-label" style={{ padding: 0 }}>
                           <div className="animate-slide-down" style={{
                             padding: "10px 20px",
                             background: colorAlpha(semanticColors.accentTealLight, 0.04),
@@ -602,7 +602,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                     )}
                     {editingSaleId === s.id && (
                       <tr>
-                        <td colSpan={11} style={{ padding: 0 }}>
+                        <td colSpan={11} className="responsive-table-no-label" style={{ padding: 0 }}>
                           <div style={EDIT_ROW_EXPANSION} className="animate-slide-down">
                             {editOriginal._blocked ? (
                               <div style={{ fontSize: typography.sizes.base.fontSize, color: semanticColors.warningAmber, padding: spacing[4] }}>
@@ -612,7 +612,7 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                               <>
                                 <div style={{ ...PREVIEW_LABEL, marginBottom: spacing[4] }}>Edit Sale</div>
                                 {/* Two-column grid of editable fields */}
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[4] }}>
+                                <div className="grid-mobile-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing[4] }}>
                                   {/* Row 1: Product dropdown (full width) */}
                                   <div style={{ gridColumn: "1 / -1" }}>
                                     <label style={LBL}>Product</label>
@@ -773,14 +773,18 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                   })()}
                                 </div>
 
-                                {/* Action buttons */}
-                                <div style={{ marginTop: spacing[4], display: "flex", gap: spacing[3], justifyContent: "flex-end" }}>
-                                  <Button variant="secondary" size="sm" onClick={() => { setEditingSaleId(null); setEditForm({}); }}>
+                                {/* Action buttons. On mobile (.stack-mobile), Save and Discard
+                                    stack vertically full-width via .full-width-mobile so they're hard
+                                    to mis-tap. Visual differentiation comes from the variant prop
+                                    (success = primary teal; secondary = neutral). */}
+                                <div className="stack-mobile" style={{ marginTop: spacing[4], display: "flex", gap: spacing[3], justifyContent: "flex-end" }}>
+                                  <Button variant="secondary" size="sm" className="touch-target full-width-mobile" onClick={() => { setEditingSaleId(null); setEditForm({}); }}>
                                     Discard Changes
                                   </Button>
                                   <Button
                                     variant="success"
                                     size="sm"
+                                    className="touch-target full-width-mobile"
                                     onClick={saveEdit}
                                     disabled={editSaving}
                                   >

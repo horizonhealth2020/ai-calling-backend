@@ -16,8 +16,8 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Version | 2.9.2 |
 | Status | Production |
 | Last Updated | 2026-04-14 |
-| Milestones shipped | 21 (v1.0 through v2.9.2); v3.0 in progress (1/5 phases) |
-| Total phases | 72 |
+| Milestones shipped | 21 (v1.0 through v2.9.2); v3.0 in progress (2/5 phases) |
+| Total phases | 73 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -169,13 +169,14 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 
 ### Active (In Progress)
 
-**v3.0 — Mobile-Friendly Dashboards (in progress — 1/5 phases shipped)**
+**v3.0 — Mobile-Friendly Dashboards (in progress — 2/5 phases shipped)**
 - [x] Responsive foundation: breakpoint tokens (mobileMax/tabletMin/tabletMax/desktopMin/wideMin) + mediaQuery exports in @ops/ui — Phase 72
 - [x] SSR/hydration-safe responsive hooks (useBreakpoint, useIsMobile, useHasMounted) — Phase 72
 - [x] Accessible MobileDrawer primitive: focus trap, focus restoration, scroll-lock correctness, prefers-reduced-motion, required ariaLabel — Phase 72
 - [x] Extended responsive.css utilities (.touch-target, .bottom-sheet-base, .mobile-text-base/lg, .stack-mobile-md) — Phase 72
 - [x] Dashboard nav refactored to hamburger+drawer on mobile; desktop hover-collapse preserved — Phase 72
-- [ ] Manager dashboard mobile (ManagerEntry form, tracker tables → card view) — Phase 73
+- [x] Manager dashboard mobile: ManagerEntry stacked form + safe-area submit + mobile mini Commission Preview, ManagerSales card-per-sale via .responsive-table + data-label, ManagerTracker card-per-agent, LeadTimingHeatmap horizontal-scroll + textual swipe hint — Phase 73
+- [x] .responsive-table-no-label escape valve (4-line CSS addition) for action cells + colspan rows — Phase 73
 - [ ] Payroll dashboard mobile (AgentCard/WeekSection responsive, sidebar→drawer) — Phase 74
 - [ ] Owner dashboard mobile (command center, Trends, KPIs responsive) — Phase 75
 - [ ] CS dashboard mobile (tracking tables→cards, Work row→bottom sheet) — Phase 76
@@ -277,6 +278,11 @@ None.
 | Responsive hooks expose `mounted` flag; consumers MUST gate viewport-dependent JSX on it | Prevents React hydration mismatch when SSR markup (desktop default) differs from client first render on mobile devices | Active |
 | Dialog components in @ops/ui require `ariaLabel` at the TypeScript type level | Every dialog must be named — optional accessibility props silently regress. Compile-time enforcement is the only guardrail that scales | Active |
 | Mobile responsiveness via @ops/ui primitives + inline CSSProperties + responsive.css utilities | No Tailwind, no per-app CSS files. responsive.css is the one exception (design-system package) — classes are opt-in via className | Active |
+| Always inspect parent display mode before applying responsive utility classes | `.grid-mobile-1` is a no-op on `display: flex` parents; `.stack-mobile` is a no-op on `display: grid` parents. Audit-discovered bug in ManagerEntry where `.stack-mobile` had been silently failing | Active |
+| Project-wide horizontal-scroll affordance: textual hint "← swipe to see all hours →" | Decided in Phase 73; reusable across Phases 75 (Owner) and 76 (CS) for any wide data grid that can't sensibly stack | Active |
+| When key info lives in stacked-below sidebar on mobile, mirror it inline above primary CTA | Phase 73 ManagerEntry mini Commission Preview pattern — managers must see halvingReason warning before tapping Submit; right-column sidebar stacks below submit on mobile | Active |
+| `.responsive-table-no-label` for action cells + colspan rows | Cells containing buttons or full-width edit forms must escape per-field card formatting; added in Phase 73 as the one narrow exception to "no new responsive.css selectors" | Active |
+| Submit buttons on mobile: INLINE + safe-area padding, NOT sticky/fixed | Sticky submit on iOS Safari occludes the focused input when the soft keyboard opens. Inline + `paddingBottom: max(env(safe-area-inset-bottom), 16px)` is the project standard | Active |
 
 ## Success Metrics
 
@@ -316,4 +322,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-14 after Phase 72 (v3.0 Mobile Responsive Foundation — breakpoint tokens, hooks, MobileDrawer, dashboard mobile nav)*
+*Last updated: 2026-04-14 after Phase 73 (v3.0 Manager Mobile — sales entry stacked + mini commission preview, sales list cards, tracker cards, heatmap horizontal scroll)*

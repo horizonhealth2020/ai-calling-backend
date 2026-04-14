@@ -9,6 +9,7 @@ import {
   typography,
   baseCardStyle,
   motion,
+  useIsMobile,
 } from "@ops/ui";
 import type { DateRangeFilterValue } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
@@ -72,6 +73,8 @@ export interface LeadTimingSectionProps {
 }
 
 export default function LeadTimingSection({ API }: LeadTimingSectionProps) {
+  const { isMobile, mounted } = useIsMobile();
+  const showMobileHeatmap = mounted && isMobile;
   const [expanded, setExpanded] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -151,7 +154,21 @@ export default function LeadTimingSection({ API }: LeadTimingSectionProps) {
           ) : (
             <div style={BODY}>
               <BestSourceCard recommendation={recommendationData?.recommendation ?? null} />
-              <LeadTimingHeatmap data={heatmapData} groupBy={groupBy} onGroupByChange={setGroupBy} />
+              {/* Mobile-only scroll hint above heatmap (project-wide standard
+                  scroll-affordance pattern — reuse in Phases 75/76). */}
+              {showMobileHeatmap && (
+                <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted, textAlign: "center", marginBottom: -spacing[6] }}>
+                  ← swipe to see all hours →
+                </div>
+              )}
+              <div
+                style={{
+                  overflowX: showMobileHeatmap ? "auto" : "visible",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                <LeadTimingHeatmap data={heatmapData} groupBy={groupBy} onGroupByChange={setGroupBy} />
+              </div>
               <LeadTimingSparklines data={sparklinesData} />
             </div>
           )}

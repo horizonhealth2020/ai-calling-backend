@@ -24,14 +24,14 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Make every role dashboard (manager, payroll, owner, CS) usable on mobile phones — responsive layouts, touch-friendly targets, mobile navigation, and table-to-card transformations for narrow screens.
 **Status:** 🚧 In Progress
-**Progress:** [██░░░░░░░░] 20% — 1 of 5 phases complete
+**Progress:** [████░░░░░░] 40% — 2 of 5 phases complete
 
 ## Phases
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 72 | Responsive Foundation | 1 | Complete | 2026-04-14 |
-| 73 | Manager Mobile | TBD | Not started | — |
+| 73 | Manager Mobile | 1 | Complete | 2026-04-14 |
 | 74 | Payroll Mobile | TBD | Not started | — |
 | 75 | Owner Mobile | TBD | Not started | — |
 | 76 | CS Mobile | TBD | Not started | — |

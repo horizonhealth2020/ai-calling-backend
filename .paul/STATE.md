@@ -10,14 +10,14 @@ See: .paul/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Milestone: v3.0 Mobile-Friendly Dashboards
-Phase: 72 of 76 (Responsive Foundation) — Complete (last plan UNIFY'd)
-Plan: 72-01 complete — SUMMARY written
+Phase: 73 of 76 (Manager Mobile) — Complete (last plan UNIFY'd)
+Plan: 73-01 complete — SUMMARY written
 Status: UNIFY complete — transition pending (PROJECT.md / ROADMAP.md / git commit)
-Last activity: 2026-04-14 — Created .paul/phases/72-responsive-foundation/72-01-SUMMARY.md
+Last activity: 2026-04-14 — Created .paul/phases/73-manager-mobile/73-01-SUMMARY.md
 
 Progress:
-- Milestone v3.0: [██░░░░░░░░] 20% (1/5 phases)
-- Phase 72: [██████████] 100%
+- Milestone v3.0: [████░░░░░░] 40% (2/5 phases)
+- Phase 73: [██████████] 100%
 
 ## Loop Position
 
@@ -69,6 +69,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-14: Enterprise audit on 69-01-PLAN.md. Applied 3+2. Verdict: enterprise-ready.
 - 2026-04-14: Enterprise audit on 70-01-PLAN.md. Applied 2+2. Verdict: enterprise-ready.
 - 2026-04-14: Enterprise audit on 72-01-PLAN.md. Applied 5+5. Deferred 5. Verdict: conditionally acceptable → enterprise-ready after upgrades (hydration mismatch fix, focus trap, scroll-lock correctness, breakpoint renaming, hamburger a11y).
+- 2026-04-14: Enterprise audit on 73-01-PLAN.md. Applied 5+5. Deferred 5. Verdict: conditionally acceptable → enterprise-ready after upgrades (sticky→inline submit for iOS keyboard safety, .responsive-table-no-label escape valve for inline edit + Actions cell, display-mode-aware container choice, exhaustive data-label list, Save/Cancel visual differentiation, scroll-affordance pattern decided, keyboard a11y AC added).
 
 ### Git State
 Last commit: d1e4ae4 — feat(70): test & ops hygiene — close all v2.8 deferred items (v2.9.1 shipped)
@@ -83,8 +84,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-14
-Stopped at: Plan 72-01 UNIFY complete — transition pending
-Next action: Execute transition (ROADMAP mark Phase 72 shipped, git commit Phase 72), then /paul:plan Phase 73 (Manager Mobile)
+Stopped at: Plan 73-01 UNIFY complete — Phase 73 done; transition pending
+Next action: Execute transition (ROADMAP mark Phase 73 shipped, git commit Phase 73), then /paul:plan Phase 74 (Payroll Mobile)
+Resume file: .paul/phases/73-manager-mobile/73-01-SUMMARY.md
 Resume file: .paul/phases/72-responsive-foundation/72-01-PLAN.md
 Resume context:
 - v3.0 milestone = 5 phases (72-76): foundation, manager, payroll, owner, CS
