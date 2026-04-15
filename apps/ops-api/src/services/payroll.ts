@@ -250,7 +250,7 @@ export const calculateCommission = (sale: SaleWithProduct, bundleCtx?: BundleReq
 
   return {
     commission: Math.round((halvedCommission + enrollmentBonus) * 100) / 100,
-    halvingReason: combinedReason,
+    halvingReason: (combinedReason && !sale.commissionApproved) ? combinedReason : null,
   };
 };
 

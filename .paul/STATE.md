@@ -69,8 +69,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 ### Deferred Issues
 - 2026-04-15 (Phase 75): AC-4 `npx tsc --noEmit` not executed locally — tsc binary absent from apps/ops-dashboard/node_modules. Edits are attribute-only (className + data-label) + one comment, so new TS errors are structurally impossible. Confirm on next `npm run dashboard:dev`.
 - 2026-04-15 (Phase 76): AC-4 `npx tsc --noEmit` not executed locally — same tsc-absent condition as Phase 75. Edits in CSTracking/CSMyQueue/CSResolvedLog/CSSubmissions are attribute-only (className/data-label/inline style additions); CSAnalytics adds useIsMobile import + hook call + conditional JSX + empty fragment wrapper. TS risk on CSAnalytics is low (typed hook, standard JSX fragment). Confirm on next `npm run dashboard:dev`.
-- 2026-04-15 (Phase 76): CSMyQueue minor deviation — plan assumed `<table>` + "Work" row buttons; actual implementation uses `<div>` rows with no row-level action buttons. Applied responsive-table + data-labels to the StaleOverviewCard export helper table only (the one actual `<table>` in the file, embedded in CSTracking for owner/admin). No skipped tasks; matches plan intent for table retrofit.
-- 2026-04-14 (Phase 71): `commission.test.ts: calculateCommission > state-aware bundle commission > commissionApproved bypasses state halving` fails on clean `main` — expected `halvingReason` to be `null`, received `"Half commission - missing Compass VAB"`. Unrelated to Phase 71 changes (no commission.ts modifications). Needs standalone triage in a future phase.
+- 2026-04-15 (Phase 76): CSMyQueue deviation — closed. Plan assumed `<table>` + row buttons; actual uses `<div>` rows. Retrofit applied to StaleOverviewCard helper table only. No action needed; documented in SUMMARY.
+- 2026-04-15 (Phase 71 fix): `commission.test.ts halvingReason` bug fixed — `payroll.ts:253` now returns `null` when `commissionApproved=true` bypasses halving (was leaking the reason string even though commission wasn't halved). 1-line fix, zero financial impact.
 - All v2.8 deferred items closed in Phase 70 (2026-04-14): auditQueue test expectations aligned with shipped service behavior (31/31 passing); clawback cleanup dry-run against production found 0 orphans (DB already clean, no --execute needed); audit-log backfill script archived to prisma/scripts/archive/ as not needed (production feed organically populated in ~2 weeks).
 
 ### Audit Log
@@ -105,16 +105,15 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-15
-Stopped at: Session paused — v3.0 milestone SHIPPED (5/5 phases), Phase 76 fully closed + committed (c1f0c11). Clean stopping point.
-Next action: Optional — push 2 ahead commits to origin, plan next milestone via `/paul:discuss-milestone`, or new unrelated task. Run `/paul:resume` in new session.
+Stopped at: consider-issues triage complete — DEF-4 halvingReason bug fixed in payroll.ts:253, DEF-3 closed. Uncommitted changes on main.
+Next action: Commit payroll fix (`git add apps/ops-api/src/services/payroll.ts .paul/STATE.md && git commit`), then `/paul:discuss-milestone` for next milestone.
 Resume file: .paul/HANDOFF-2026-04-15.md
-Git strategy: main (commits c1f0c11 Phase 76 + e82d66d Phase 75 are on main, not yet pushed)
+Git strategy: main (3 commits ahead of origin/main — not pushed; payroll fix + STATE.md update uncommitted)
 Resume context:
-- v3.0 Mobile-Friendly Dashboards MILESTONE SHIPPED 2026-04-15: 72 Foundation + 73 Manager + 74 Payroll + 75 Owner + 76 CS = all role dashboards mobile-friendly at 375px
-- Phase 76 commit c1f0c11 closed the milestone: 5 CS files retrofit; AC-4 structural guarantee proven via git-diff +/- parity (handler signatures byte-identical); zero Recharts/sr-only modifications
-- Working tree clean — no WIP
-- Deferred: tsc verify (tsc binary absent — same as Phase 75, low risk); CSMyQueue plan-vs-actual structural deviation (logged, no action); Phase 71 commission.test.ts halvingReason failure (unrelated, standalone triage)
-- 2 commits ahead of origin/main (not pushed — no user direction given)
+- v3.0 SHIPPED — 76 phases complete, all role dashboards mobile-friendly at 375px
+- halvingReason bug fixed: payroll.ts:253 now returns null when commissionApproved=true (was leaking reason string; financial amounts were always correct)
+- Uncommitted: apps/ops-api/src/services/payroll.ts + .paul/STATE.md
+- Remaining deferred: tsc verify (Phase 75+76, low risk, confirm on next dashboard:dev)
 
 ---
 *STATE.md — Updated after every significant action*
