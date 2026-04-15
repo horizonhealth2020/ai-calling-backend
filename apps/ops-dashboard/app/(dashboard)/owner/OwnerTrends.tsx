@@ -287,10 +287,11 @@ export default function OwnerTrends({ API }: { API: string }) {
   return (
     <div>
       {/* Date Range Filter + Export */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[3], marginBottom: spacing.md }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", justifyContent: "flex-end", gap: spacing[3], marginBottom: spacing.md }}>
         {hasExportData && (
           <button
             onClick={exportTrendsCsv}
+            className="touch-target"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -366,12 +367,13 @@ export default function OwnerTrends({ API }: { API: string }) {
 
           {/* ── Agent KPI Trends ───────────────────────────── */}
           <div style={SECTION}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
+            <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
               <div style={SECTION_HEADER}>
                 <Users size={20} color={COLORS.calls} />
                 Agent KPI Trends
               </div>
               <select
+                className="touch-target full-width-mobile"
                 style={SELECT_STYLE}
                 value={selectedAgent}
                 onChange={e => setSelectedAgent(e.target.value)}

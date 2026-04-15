@@ -5,31 +5,39 @@
 See: .paul/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v3.0 Mobile-Friendly Dashboards — Phase 72 (Responsive Foundation) ready to plan
+**Current focus:** v3.0 Mobile-Friendly Dashboards — Phase 76 (CS Mobile) next
 
 ## Current Position
 
 Milestone: v3.0 Mobile-Friendly Dashboards
-Phase: 74 of 76 (Payroll Mobile) — Planning
-Plan: 74-01 APPLY complete — ready for UNIFY
-Status: All 3 tasks DONE, qualify PASS, zero new TS errors (55→55), print HTML strings byte-identical (grep=2 unchanged)
-Last activity: 2026-04-14 — Executed 74-01 (AgentSidebar→drawer, AgentCard header stack, WeekSection responsive table + touch-target on dollar inputs, PayrollPeriods chargeback table responsive, period status badge touchable)
+Phase: 75 of 76 (Owner Mobile) — Complete
+Plan: 75-01 shipped (SUMMARY written)
+Status: Loop closed, ready for Phase 76 (CS Mobile) planning
+Last activity: 2026-04-15 — UNIFY closed 75-01: owner dashboard mobile (4 files retrofit, attribute-only edits)
 
 Progress:
-- Milestone v3.0: [████░░░░░░] 40% (2/5 phases)
-- Phase 74: [░░░░░░░░░░] 0%
+- Milestone v3.0: [████████░░] 80% (4/5 phases)
+- Phase 75: [██████████] 100% Complete
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ○     [APPLY complete, ready to UNIFY]
+  ✓        ✓        ✓     [Loop complete — ready for Phase 76 PLAN]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+- 2026-04-15: Phase 75 — OwnerOverview `compact` state preserved alongside CSS classes (dual-responsive coexistence); documented inline
+- 2026-04-15: Phase 75 — stack-mobile scoped to Agent KPI parent only; pure-title SECTION_HEADER divs left inline to prevent icon-above-text bug
+- 2026-04-15: Phase 75 — Recharts component props untouched; ResponsiveContainer handles width, XAxis auto-hides overlapping labels
+- 2026-04-15: Phase 75 — OwnerConfig + OwnerUsers deferred as admin-only (not mobile consumption surfaces)
+- 2026-04-15: Phase 75 — sort controls NOT added to card mode; desktop power-user workflow
+- 2026-04-15: Phase 74 — AgentSidebar conditionally unmounted on mobile (not CSS-hidden) to avoid double-mount and layout-collapse
+- 2026-04-15: Phase 74 — MobileDrawer placed as sibling of LAYOUT div to avoid overflow:hidden clipping
+- 2026-04-15: Phase 74 — Financial accuracy guaranteed structurally: git diff shows zero formatDollar/computeNetAmount/Number() modifications
 - 2026-04-14: Phase 71 — REVERSED v2.1 "Fronted additive in net formula" decision. Net formula is now `payout + adjustment + bonus - hold` (fronted EXCLUDED). Rationale: fronted is a mid-week cash advance already given to the agent; additive formula was double-paying.
 - 2026-04-14: Phase 71 — computeNetAmount extracted as exported pure helper in payroll.ts; any file computing agent net must import it (no duplicate inline formulas). Pattern to follow for future financial math.
 - 2026-04-14: Phase 71 — Receipt parser detects ACH via Method-line fallback when Type: line is blank. Signals: 9-digit routing number, or "Bank"/"Checking"/"Savings" standalone word.
@@ -52,6 +60,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-13: bypassReason persisted on record for CS analytics drill-down
 
 ### Deferred Issues
+- 2026-04-15 (Phase 75): AC-4 `npx tsc --noEmit` not executed locally — tsc binary absent from apps/ops-dashboard/node_modules. Edits are attribute-only (className + data-label) + one comment, so new TS errors are structurally impossible. Confirm on next `npm run dashboard:dev`.
 - 2026-04-14 (Phase 71): `commission.test.ts: calculateCommission > state-aware bundle commission > commissionApproved bypasses state halving` fails on clean `main` — expected `halvingReason` to be `null`, received `"Half commission - missing Compass VAB"`. Unrelated to Phase 71 changes (no commission.ts modifications). Needs standalone triage in a future phase.
 - All v2.8 deferred items closed in Phase 70 (2026-04-14): auditQueue test expectations aligned with shipped service behavior (31/31 passing); clawback cleanup dry-run against production found 0 orphans (DB already clean, no --execute needed); audit-log backfill script archived to prisma/scripts/archive/ as not needed (production feed organically populated in ~2 weeks).
 
@@ -71,11 +80,12 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-14: Enterprise audit on 72-01-PLAN.md. Applied 5+5. Deferred 5. Verdict: conditionally acceptable → enterprise-ready after upgrades (hydration mismatch fix, focus trap, scroll-lock correctness, breakpoint renaming, hamburger a11y).
 - 2026-04-14: Enterprise audit on 73-01-PLAN.md. Applied 5+5. Deferred 5. Verdict: conditionally acceptable → enterprise-ready after upgrades (sticky→inline submit for iOS keyboard safety, .responsive-table-no-label escape valve for inline edit + Actions cell, display-mode-aware container choice, exhaustive data-label list, Save/Cancel visual differentiation, scroll-affordance pattern decided, keyboard a11y AC added).
 - 2026-04-14: Enterprise audit on 74-01-PLAN.md. Applied 4+2. Deferred 7. Verdict: conditionally acceptable → enterprise-ready (explicit sidebar mount-gate, WeekSection cell classification PRECONDITION, reading-first <th> discipline, structural net-accuracy argument via git diff + baseline triple, header status badge wrap-vs-stack inspection, pre-phase baseline capture step).
+- 2026-04-15: Enterprise audit on 75-01-PLAN.md. Applied 0+3. Deferred 4. Verdict: enterprise-ready (SECTION_HEADER stack-mobile scope fix, AC-2 XAxis clause grounded to Recharts default, dual-responsive-system documentation comment).
 
 ### Git State
-Last commit: d1e4ae4 — feat(70): test & ops hygiene — close all v2.8 deferred items (v2.9.1 shipped)
-Previous: bc84e01 — feat(69): resolver credit in outreach analytics
-Previous: d20cb28 — feat(68): CS Analytics Upgrade (v2.9 complete)
+Last commit: 9ab6593 — MOBILE VERSION (includes Phase 74 payroll mobile changes)
+Previous: 785fa02 — feat(73): manager dashboard mobile (v3.0 phase 2/5)
+Previous: ff16434 — feat(72): responsive foundation for v3.0 mobile-friendly dashboards
 Branch: main
 Feature branches merged: none
 
@@ -84,16 +94,15 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-14
-Stopped at: Plan 74-01 APPLY complete — all 3 tasks executed and qualified, structural net-accuracy guarantee verified via diff
-Next action: /paul:unify .paul/phases/74-payroll-mobile/74-01-PLAN.md (browser smoke recommended before UNIFY)
-Resume file: .paul/phases/74-payroll-mobile/74-01-PLAN.md
-Resume file: .paul/phases/72-responsive-foundation/72-01-PLAN.md
+Last session: 2026-04-15
+Stopped at: Phase 75 complete — loop closed, SUMMARY written, ready for Phase 76 (CS Mobile) planning
+Next action: Run phase transition (commit + ROADMAP update), then /paul:plan for Phase 76
+Resume file: .paul/phases/75-owner-mobile/75-01-SUMMARY.md
 Resume context:
-- v3.0 milestone = 5 phases (72-76): foundation, manager, payroll, owner, CS
-- Phase 72 is the gating dependency — viewport meta, breakpoint tokens, responsive primitives in @ops/ui, mobile nav — everything else consumes it
-- Inline CSSProperties constraint means responsiveness handled via conditional styles / media-query helpers, not CSS files
-- Prior session: v2.9.2 shipped (Phase 71 parser + fronted net formula). Also landed standalone CS tracking call-counter fix (commit 01c2d08) outside the milestone frame
+- v3.0 milestone at 80% (4/5 phases): 72 ✓ 73 ✓ 74 ✓ 75 ✓; 76 CS Mobile remaining
+- Phase 75 shipped: 4 owner dashboard files retrofit via attribute-only edits (className + data-label)
+- Deferred: local tsc verify for AC-4 (see Deferred Issues)
+- Phase 76 scope: CS dashboard + analytics surfaces mobile retrofit
 
 ---
 *STATE.md — Updated after every significant action*

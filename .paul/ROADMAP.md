@@ -24,7 +24,7 @@ A sales operations platform evolving from initial setup through full role-based 
 
 **Goal:** Make every role dashboard (manager, payroll, owner, CS) usable on mobile phones — responsive layouts, touch-friendly targets, mobile navigation, and table-to-card transformations for narrow screens.
 **Status:** 🚧 In Progress
-**Progress:** [████░░░░░░] 40% — 2 of 5 phases complete
+**Progress:** [████████░░] 80% — 4 of 5 phases complete
 
 ## Phases
 
@@ -32,8 +32,8 @@ A sales operations platform evolving from initial setup through full role-based 
 |-------|------|-------|--------|-----------|
 | 72 | Responsive Foundation | 1 | Complete | 2026-04-14 |
 | 73 | Manager Mobile | 1 | Complete | 2026-04-14 |
-| 74 | Payroll Mobile | 1 | Planning | — |
-| 75 | Owner Mobile | TBD | Not started | — |
+| 74 | Payroll Mobile | 1 | Complete | 2026-04-15 |
+| 75 | Owner Mobile | 1 | Complete | 2026-04-15 |
 | 76 | CS Mobile | TBD | Not started | — |
 
 ### Phase 72: Responsive Foundation
@@ -49,12 +49,14 @@ Plans: TBD (defined during /paul:plan)
 ### Phase 74: Payroll Mobile
 
 Focus: AgentCard / WeekSection / period controls responsive; payroll agent sidebar becomes a drawer on mobile; adjustment and clawback entry forms touch-sized.
-Plans: TBD (defined during /paul:plan)
+Plans:
+- [x] 74-01: AgentSidebar→drawer, responsive tables, touch-target inputs
 
 ### Phase 75: Owner Mobile
 
 Focus: Command center, Trends, KPIs, Scoring responsive — Recharts widths, KPI grid stacking, leaderboard card layout, activity feed narrow-screen treatment.
-Plans: TBD (defined during /paul:plan)
+Plans:
+- [x] 75-01: OwnerOverview + OwnerTrends + OwnerKPIs + OwnerScoring responsive retrofit (className + data-label only)
 
 ### Phase 76: CS Mobile
 
@@ -593,4 +595,4 @@ Plans: TBD (defined during /paul:plan)
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-14 — v3.0 Mobile-Friendly Dashboards milestone created (Phases 72-76)*
+*Last updated: 2026-04-15 — Phase 74 (Payroll Mobile) complete*

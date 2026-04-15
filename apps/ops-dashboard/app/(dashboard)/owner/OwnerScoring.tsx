@@ -130,7 +130,7 @@ function AgentScoreTable({ agents }: { agents: AgentScore[] }) {
         />
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: colors.bgSurfaceInset }}>
                 <th
@@ -156,13 +156,13 @@ function AgentScoreTable({ agents }: { agents: AgentScore[] }) {
             <tbody>
               {sorted.map((agent) => (
                 <tr key={agent.agentId} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
-                  <td style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                  <td data-label="Agent Name" style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                     {agent.agentName}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600, color: scoreColor(agent.avgScore) }}>
+                  <td data-label="Avg Score" style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600, color: scoreColor(agent.avgScore) }}>
                     {agent.avgScore}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.textSecondary }}>
+                  <td data-label="Audits" style={{ ...baseTdStyle, textAlign: "right", color: colors.textSecondary }}>
                     {agent.auditCount}
                   </td>
                 </tr>
@@ -195,7 +195,7 @@ function WeeklyTrendsTable({ trends }: { trends: WeeklyTrend[] }) {
         />
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: colors.bgSurfaceInset }}>
                 <th style={baseThStyle}>Week</th>
@@ -207,16 +207,16 @@ function WeeklyTrendsTable({ trends }: { trends: WeeklyTrend[] }) {
             <tbody>
               {trends.map((t) => (
                 <tr key={t.week} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
-                  <td style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                  <td data-label="Week" style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                     {t.week}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600, color: scoreColor(t.avgScore) }}>
+                  <td data-label="Avg Score" style={{ ...baseTdStyle, textAlign: "right", fontWeight: 600, color: scoreColor(t.avgScore) }}>
                     {t.avgScore}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right", color: colors.textSecondary }}>
+                  <td data-label="Audits" style={{ ...baseTdStyle, textAlign: "right", color: colors.textSecondary }}>
                     {t.auditCount}
                   </td>
-                  <td style={{ ...baseTdStyle, textAlign: "right" }}>
+                  <td data-label="Change" style={{ ...baseTdStyle, textAlign: "right" }}>
                     {t.delta === null || t.delta === 0 ? (
                       <span style={{ color: colors.textTertiary }}>--</span>
                     ) : t.delta > 0 ? (
@@ -302,7 +302,7 @@ export default function OwnerScoring({ API }: { API: string }) {
   return (
     <div className="animate-fade-in">
       {/* Header with date range filter */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>AI Scoring Dashboard</h2>
           <p style={SECTION_SUBTITLE}>Call quality scores, agent performance, and weekly trends</p>

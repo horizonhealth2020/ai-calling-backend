@@ -140,7 +140,7 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: colors.bgSurfaceInset }}>
                   <th
@@ -172,14 +172,14 @@ function AgentKPITable({ kpiData }: { kpiData: KpiData | null }) {
               <tbody>
                 {sorted.map((agent) => (
                   <tr key={agent.agentId} className="row-hover" style={{ transition: `background ${motion.duration.fast} ${motion.easing.out}` }}>
-                    <td style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{agent.agentName}</td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackCount > 0 ? colors.danger : colors.textSecondary }}>
+                    <td data-label="Agent Name" style={{ ...baseTdStyle, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{agent.agentName}</td>
+                    <td data-label="Chargebacks" style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackCount > 0 ? colors.danger : colors.textSecondary }}>
                       {agent.chargebackCount}
                     </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackTotal > 0 ? colors.danger : colors.textSecondary }}>
+                    <td data-label="Chargeback Total" style={{ ...baseTdStyle, textAlign: "right", color: agent.chargebackTotal > 0 ? colors.danger : colors.textSecondary }}>
                       {formatDollar(agent.chargebackTotal)}
                     </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right", color: agent.pendingTermCount > 0 ? (colors.warning ?? semanticColors.warningGold) : colors.textSecondary }}>
+                    <td data-label="Pending Terms" style={{ ...baseTdStyle, textAlign: "right", color: agent.pendingTermCount > 0 ? (colors.warning ?? semanticColors.warningGold) : colors.textSecondary }}>
                       {agent.pendingTermCount}
                     </td>
                   </tr>
@@ -219,7 +219,7 @@ export default function OwnerKPIs({ API }: { API: string }) {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <h2 style={{ ...SECTION_TITLE, fontSize: typography.sizes.lg.fontSize }}>Agent Retention KPIs</h2>
           <p style={SECTION_SUBTITLE}>Per-agent chargeback and pending term metrics</p>

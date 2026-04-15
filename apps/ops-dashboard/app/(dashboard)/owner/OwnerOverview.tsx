@@ -449,6 +449,7 @@ function StatCardsRow({ stats, hero }: { stats: CommandCenterData["statCards"]; 
 
   return (
     <div
+      className="grid-mobile-1"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
@@ -587,7 +588,7 @@ function LeaderboardSection({
 
   return (
     <div style={LEADERBOARD_CARD} className="animate-fade-in-up stagger-5">
-      <div style={{ ...LEADERBOARD_HEADER, justifyContent: "space-between" }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ ...LEADERBOARD_HEADER, justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
           <BarChart3 size={18} color={colors.accentTeal} />
           <div>
@@ -598,6 +599,7 @@ function LeaderboardSection({
         {sorted.length > 0 && (
           <button
             onClick={exportLeaderboardCsv}
+            className="touch-target"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -617,7 +619,7 @@ function LeaderboardSection({
       </div>
 
       <div style={{ overflowX: compact ? "auto" : undefined }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: colors.bgSurfaceInset }}>
               <th style={baseThStyle}>Rank</th>
@@ -634,7 +636,7 @@ function LeaderboardSection({
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={9} className="responsive-table-no-label">
                   <EmptyState
                     icon={<BarChart3 size={32} />}
                     title="No agent data yet"
@@ -655,6 +657,8 @@ function LeaderboardSection({
                 >
                   {/* Rank */}
                   <td
+                    data-label="Rank"
+                    className="responsive-table-no-label"
                     style={{
                       ...baseTdStyle,
                       textAlign: "center",
@@ -666,6 +670,7 @@ function LeaderboardSection({
 
                   {/* Agent */}
                   <td
+                    data-label="Agent"
                     style={{
                       ...baseTdStyle,
                       fontWeight: isTop3
@@ -681,6 +686,7 @@ function LeaderboardSection({
 
                   {/* Calls */}
                   <td
+                    data-label="Calls"
                     style={{
                       ...baseTdStyle,
                       textAlign: "right",
@@ -693,6 +699,7 @@ function LeaderboardSection({
 
                   {/* Avg Call Length */}
                   <td
+                    data-label="Avg"
                     style={{
                       ...baseTdStyle,
                       textAlign: "right",
@@ -706,6 +713,7 @@ function LeaderboardSection({
 
                   {/* Sales */}
                   <td
+                    data-label="Sales"
                     style={{
                       ...baseTdStyle,
                       textAlign: "right",
@@ -718,6 +726,7 @@ function LeaderboardSection({
 
                   {/* Premium */}
                   <td
+                    data-label="Premium"
                     style={{
                       ...baseTdStyle,
                       textAlign: "right",
@@ -752,6 +761,7 @@ function LeaderboardSection({
 
                   {/* Commission */}
                   <td
+                    data-label="Commission"
                     style={{
                       ...baseTdStyle,
                       textAlign: "right",
@@ -766,6 +776,7 @@ function LeaderboardSection({
 
                   {/* Cost/Sale */}
                   <td
+                    data-label="Cost/Sale"
                     style={{
                       ...baseTdStyle,
                       textAlign: "right",
@@ -780,6 +791,8 @@ function LeaderboardSection({
 
                   {/* Quality */}
                   <td
+                    data-label="Quality"
+                    className="responsive-table-no-label"
                     style={{
                       ...baseTdStyle,
                       textAlign: "center",
@@ -866,7 +879,7 @@ function ActivityFeed({ events }: { events: FeedEvent[] }) {
                   borderBottom: i < events.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined,
                   transition: `background ${motion.duration.fast} ${motion.easing.out}`,
                 }}
-                className="row-hover"
+                className="row-hover gap-mobile-sm"
               >
                 <span
                   style={{
@@ -930,7 +943,7 @@ export default function OwnerOverview({
   const dateRangeRef = useRef(dateRange);
   dateRangeRef.current = dateRange;
 
-  /* Responsive */
+  // compact: prop-driven responsive for HeroSection/LeaderboardSection. CSS classes (.stack-mobile etc.) handle the rest.
   useEffect(() => {
     const check = () => setCompact(window.innerWidth < 768);
     check();
@@ -1085,7 +1098,7 @@ export default function OwnerOverview({
       ) : (
         <>
           {/* Period Selector Bar */}
-          <div style={{
+          <div className="stack-mobile gap-mobile-sm" style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
