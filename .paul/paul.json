@@ -4,11 +4,11 @@
   "milestone": {
     "name": "Mobile-Friendly Dashboards",
     "version": "3.0",
-    "status": "in_progress"
+    "status": "shipped"
   },
   "phase": {
-    "number": 75,
-    "name": "Owner Mobile",
+    "number": 76,
+    "name": "CS Mobile",
     "status": "complete"
   },
   "loop": {
@@ -17,7 +17,7 @@
   },
   "timestamps": {
     "created_at": "2026-04-09T00:00:00Z",
-    "updated_at": "2026-04-15T12:00:00Z"
+    "updated_at": "2026-04-15T21:30:00Z"
   },
   "satellite": {
     "groom": true

@@ -7,6 +7,7 @@ import {
   SkeletonCard,
   EmptyState,
   useToast,
+  useIsMobile,
   colors,
   spacing,
   radius,
@@ -360,7 +361,7 @@ export default function CSAnalytics({ API }: { API: string }) {
   return (
     <div>
       {/* Header with DateRange + CSV Export */}
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: spacing.md, marginBottom: spacing.md }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: spacing.md, marginBottom: spacing.md }}>
         {data && (
           <button
             onClick={() => downloadCsv(generateCsv(data))}
@@ -436,7 +437,7 @@ export default function CSAnalytics({ API }: { API: string }) {
 
                 {/* Rep Performance Table */}
                 <div style={{ overflowX: "auto", marginTop: spacing.md }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>
                         <th style={baseThStyle}>Rep</th>
@@ -454,19 +455,19 @@ export default function CSAnalytics({ API }: { API: string }) {
                             onClick={() => toggleRep(rep.repName)}
                             style={{ cursor: "pointer" }}
                           >
-                            <td style={{ ...baseTdStyle, color: semanticColors.accentTealMid, fontWeight: typography.weights.semibold }}>
+                            <td data-label="Rep" style={{ ...baseTdStyle, color: semanticColors.accentTealMid, fontWeight: typography.weights.semibold }}>
                               {expandedRep === rep.repName ? <ChevronUp size={14} style={{ marginRight: 4, verticalAlign: "middle" }} /> : <ChevronDown size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />}
                               {rep.repName}
                             </td>
-                            <td style={{ ...baseTdStyle, textAlign: "right" }}>{rep.chargebackCount}</td>
-                            <td style={{ ...baseTdStyle, textAlign: "right" }}>{rep.pendingTermCount}</td>
-                            <td style={{ ...baseTdStyle, textAlign: "right" }}>{rep.resolvedCount}</td>
-                            <td style={{ ...baseTdStyle, textAlign: "right" }}>{rep.resolutionRate}%</td>
-                            <td style={{ ...baseTdStyle, textAlign: "right" }}>{rep.avgTurnaroundHours}h</td>
+                            <td data-label="Chargebacks" style={{ ...baseTdStyle, textAlign: "right" }}>{rep.chargebackCount}</td>
+                            <td data-label="Pending Terms" style={{ ...baseTdStyle, textAlign: "right" }}>{rep.pendingTermCount}</td>
+                            <td data-label="Resolved" style={{ ...baseTdStyle, textAlign: "right" }}>{rep.resolvedCount}</td>
+                            <td data-label="Rate" style={{ ...baseTdStyle, textAlign: "right" }}>{rep.resolutionRate}%</td>
+                            <td data-label="Avg Hours" style={{ ...baseTdStyle, textAlign: "right" }}>{rep.avgTurnaroundHours}h</td>
                           </tr>
                           {expandedRep === rep.repName && (
                             <tr>
-                              <td colSpan={6} style={{ padding: 0 }}>
+                              <td className="responsive-table-no-label" colSpan={6} style={{ padding: 0 }}>
                                 <DrillDownPanel
                                   data={drillData}
                                   loading={drillLoading}
@@ -625,7 +626,7 @@ function DrillDownPanel({ data, loading, onLoadMore, onClose }: {
         <div style={{ padding: spacing.md, color: colors.textMuted, fontSize: typography.sizes.sm.fontSize }}>No resolved items found.</div>
       ) : (
         <>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
                 <th style={{ ...baseThStyle, fontSize: typography.sizes.xs.fontSize }}>Type</th>
@@ -638,19 +639,19 @@ function DrillDownPanel({ data, loading, onLoadMore, onClose }: {
             <tbody>
               {data.items.map((item, i) => (
                 <tr key={i}>
-                  <td style={baseTdStyle}>
+                  <td data-label="Type" style={baseTdStyle}>
                     <span style={BADGE(item.type === "chargeback" ? COLORS.chargeback : COLORS.pendingTerm)}>
                       {item.type === "chargeback" ? "CB" : "PT"}
                     </span>
                   </td>
-                  <td style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize }}>{item.memberName}</td>
-                  <td style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary }}>
+                  <td data-label="Member" style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize }}>{item.memberName}</td>
+                  <td data-label="Resolved" style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize, color: colors.textSecondary }}>
                     {new Date(item.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </td>
-                  <td style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize }}>
+                  <td data-label="Resolution" style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize }}>
                     {item.resolutionType ?? "\u2014"}
                   </td>
-                  <td style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize, textAlign: "right" }}>
+                  <td data-label="Amount" style={{ ...baseTdStyle, fontSize: typography.sizes.sm.fontSize, textAlign: "right" }}>
                     {formatDollar(item.originalAmount)}
                   </td>
                 </tr>
@@ -858,6 +859,7 @@ function OutreachLeaderboard({
   accent: string;
 }) {
   const sorted = sortRows(rows, sort);
+  const { isMobile, mounted } = useIsMobile();
 
   const handleSort = (col: keyof OutreachRow) => {
     if (sort.col === col) {
@@ -869,7 +871,7 @@ function OutreachLeaderboard({
 
   return (
     <div style={{ ...baseCardStyle, padding: spacing.md }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm }}>
         <div style={{ fontSize: typography.sizes.md.fontSize, fontWeight: typography.weights.semibold, color: accent }}>
           {title}
         </div>
@@ -899,7 +901,13 @@ function OutreachLeaderboard({
           No data in selected range
         </div>
       ) : (
-        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <>
+          {mounted && isMobile && (
+            <div style={{ fontSize: typography.sizes.xs.fontSize, color: colors.textMuted, marginBottom: spacing.sm }}>
+              ← swipe to see all columns →
+            </div>
+          )}
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", minWidth: 880, borderCollapse: "collapse", fontSize: typography.sizes.sm.fontSize }}>
             <thead>
               <tr>
@@ -949,7 +957,8 @@ function OutreachLeaderboard({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -201,7 +201,7 @@ export function StaleOverviewCard({ API }: { API: string }) {
       {agents.length === 0 ? (
         <div style={{ color: colors.success, fontSize: typography.sizes.sm.fontSize }}>No stale items across all agents</div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th style={baseThStyle}>Agent</th>
@@ -213,14 +213,14 @@ export function StaleOverviewCard({ API }: { API: string }) {
           <tbody>
             {agents.map(agent => (
               <tr key={agent.name}>
-                <td style={baseTdStyle}>{agent.name}</td>
-                <td style={{ ...baseTdStyle, textAlign: "center", color: agent.staleChargebacks > 0 ? colors.danger : colors.textTertiary, fontWeight: agent.staleChargebacks > 0 ? typography.weights.bold : undefined }}>
+                <td data-label="Agent" style={baseTdStyle}>{agent.name}</td>
+                <td data-label="Stale CB" style={{ ...baseTdStyle, textAlign: "center", color: agent.staleChargebacks > 0 ? colors.danger : colors.textTertiary, fontWeight: agent.staleChargebacks > 0 ? typography.weights.bold : undefined }}>
                   {agent.staleChargebacks}
                 </td>
-                <td style={{ ...baseTdStyle, textAlign: "center", color: agent.stalePendingTerms > 0 ? colors.danger : colors.textTertiary, fontWeight: agent.stalePendingTerms > 0 ? typography.weights.bold : undefined }}>
+                <td data-label="Stale PT" style={{ ...baseTdStyle, textAlign: "center", color: agent.stalePendingTerms > 0 ? colors.danger : colors.textTertiary, fontWeight: agent.stalePendingTerms > 0 ? typography.weights.bold : undefined }}>
                   {agent.stalePendingTerms}
                 </td>
-                <td style={{ ...baseTdStyle, textAlign: "center", color: colors.danger, fontWeight: typography.weights.bold }}>
+                <td data-label="Total" style={{ ...baseTdStyle, textAlign: "center", color: colors.danger, fontWeight: typography.weights.bold }}>
                   {agent.totalStale}
                 </td>
               </tr>

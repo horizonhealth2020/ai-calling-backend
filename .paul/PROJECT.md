@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 2.9.2 |
+| Version | 3.0 |
 | Status | Production |
-| Last Updated | 2026-04-14 |
-| Milestones shipped | 21 (v1.0 through v2.9.2); v3.0 in progress (2/5 phases) |
-| Total phases | 73 |
+| Last Updated | 2026-04-15 |
+| Milestones shipped | 22 (v1.0 through v3.0) |
+| Total phases | 76 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -167,9 +167,7 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] computeNetAmount pure helper extracted; carryover.ts aligned to same source of truth — Phase 71
 - [x] 7-case regression test locking the net formula — Phase 71
 
-### Active (In Progress)
-
-**v3.0 — Mobile-Friendly Dashboards (in progress — 2/5 phases shipped)**
+**v3.0 — Mobile-Friendly Dashboards (2026-04-15)**
 - [x] Responsive foundation: breakpoint tokens (mobileMax/tabletMin/tabletMax/desktopMin/wideMin) + mediaQuery exports in @ops/ui — Phase 72
 - [x] SSR/hydration-safe responsive hooks (useBreakpoint, useIsMobile, useHasMounted) — Phase 72
 - [x] Accessible MobileDrawer primitive: focus trap, focus restoration, scroll-lock correctness, prefers-reduced-motion, required ariaLabel — Phase 72
@@ -177,9 +175,13 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Dashboard nav refactored to hamburger+drawer on mobile; desktop hover-collapse preserved — Phase 72
 - [x] Manager dashboard mobile: ManagerEntry stacked form + safe-area submit + mobile mini Commission Preview, ManagerSales card-per-sale via .responsive-table + data-label, ManagerTracker card-per-agent, LeadTimingHeatmap horizontal-scroll + textual swipe hint — Phase 73
 - [x] .responsive-table-no-label escape valve (4-line CSS addition) for action cells + colspan rows — Phase 73
-- [ ] Payroll dashboard mobile (AgentCard/WeekSection responsive, sidebar→drawer) — Phase 74
-- [ ] Owner dashboard mobile (command center, Trends, KPIs responsive) — Phase 75
-- [ ] CS dashboard mobile (tracking tables→cards, Work row→bottom sheet) — Phase 76
+- [x] Payroll dashboard mobile: AgentSidebar→MobileDrawer (conditional mount-gate), WeekSection + AgentCard responsive-table + data-label, touch-target inputs — Phase 74
+- [x] Owner dashboard mobile: OwnerOverview + OwnerTrends + OwnerKPIs + OwnerScoring retrofit (attribute-only), OwnerOverview dual-responsive coexistence (compact state + CSS classes), OwnerConfig + OwnerUsers deferred as admin-only — Phase 75
+- [x] CS dashboard mobile: CSTracking dual tables + expanded Work workspace (3 inner flex rows stacked, gate-override DOM order preserved above Save, inline safe-area submit), CSMyQueue StaleOverviewCard, CSSubmissions both review tables, CSResolvedLog, CSAnalytics leaderboards + wide-leaderboard useIsMobile-gated swipe hint, zero CS mutation-logic/Recharts/sr-only modifications (AC-4 structural guarantee via git-diff +/- parity) — Phase 76
+
+### Active (In Progress)
+
+None. v3.0 milestone shipped.
 
 ### Planned (Next)
 None.
@@ -283,6 +285,9 @@ None.
 | When key info lives in stacked-below sidebar on mobile, mirror it inline above primary CTA | Phase 73 ManagerEntry mini Commission Preview pattern — managers must see halvingReason warning before tapping Submit; right-column sidebar stacks below submit on mobile | Active |
 | `.responsive-table-no-label` for action cells + colspan rows | Cells containing buttons or full-width edit forms must escape per-field card formatting; added in Phase 73 as the one narrow exception to "no new responsive.css selectors" | Active |
 | Submit buttons on mobile: INLINE + safe-area padding, NOT sticky/fixed | Sticky submit on iOS Safari occludes the focused input when the soft keyboard opens. Inline + `paddingBottom: max(env(safe-area-inset-bottom), 16px)` is the project standard | Active |
+| Before adding stack-mobile-md to a workspace container, VERIFY it isn't already flexDirection:column | Discovered Phase 76: CSTracking expanded workspace outer div was already column-stacked. Adding stack-mobile-md would be a no-op; real stacking work is on inner flex rows (pill rows, button footers) | Active |
+| "Visible before CTA on mobile" is a VERIFY-and-ASSERT claim, not a relocation edit | Phase 76: gate-override block at CSTracking:1125/1417 already renders above Save Resolution footer at 1146/1438. PRECONDITION confirms DOM order; no JSX reorder. Misframing as a "lift" inflates risk | Active |
+| Mutation-logic preservation proven via git-diff +/- parity grep | Phase 76 pattern: counting `+count == -count` for handler call signatures (e.g., handleResolveCb) proves className-only additions, no body changes. Structural argument beats inspection | Active |
 
 ## Success Metrics
 
@@ -322,4 +327,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-14 after Phase 73 (v3.0 Manager Mobile — sales entry stacked + mini commission preview, sales list cards, tracker cards, heatmap horizontal scroll)*
+*Last updated: 2026-04-15 after Phase 76 (v3.0 CS Mobile — closes v3.0 Mobile-Friendly Dashboards milestone; 5/5 phases shipped across 72 Foundation → 73 Manager → 74 Payroll → 75 Owner → 76 CS)*

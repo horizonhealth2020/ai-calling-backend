@@ -131,7 +131,7 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
   return (
     <div style={baseCardStyle}>
       {/* Filter bar */}
-      <div style={{ display: "flex", gap: spacing[3], marginBottom: spacing[4], flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", gap: spacing[3], marginBottom: spacing[4], flexWrap: "wrap", alignItems: "flex-end" }}>
         <div>
           <select
             style={{ ...baseInputStyle, minWidth: 160, width: "auto" }}
@@ -174,7 +174,7 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
       {/* Table */}
       {!loading && !error && items.length > 0 && (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
                 <th scope="col" style={{ ...baseThStyle, width: 120 }}>Type</th>
@@ -191,23 +191,23 @@ export default function CSResolvedLog({ API }: CSResolvedLogProps) {
                 const badgeColors = TYPE_BADGE_COLORS[item.type];
                 return (
                   <tr key={i}>
-                    <td style={baseTdStyle}>
+                    <td data-label="Type" style={baseTdStyle}>
                       <Badge color={badgeColors.color} aria-label={item.type === "chargeback" ? "Chargeback" : "Pending Term"}>
                         {item.type === "chargeback" ? "Chargeback" : "Pending Term"}
                       </Badge>
                     </td>
-                    <td style={baseTdStyle}>{item.agentName}</td>
-                    <td style={baseTdStyle}>{item.memberName}</td>
-                    <td style={baseTdStyle}>
+                    <td data-label="Agent" style={baseTdStyle}>{item.agentName}</td>
+                    <td data-label="Member" style={baseTdStyle}>{item.memberName}</td>
+                    <td data-label="Resolution Date" style={baseTdStyle}>
                       {item.resolvedAt
                         ? new Date(item.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                         : "\u2014"}
                     </td>
-                    <td style={baseTdStyle}>{item.resolvedByName}</td>
-                    <td style={baseTdStyle}>
+                    <td data-label="Resolved By" style={baseTdStyle}>{item.resolvedByName}</td>
+                    <td data-label="Resolution Note" style={baseTdStyle}>
                       <TruncatedNote text={item.resolutionNote} />
                     </td>
-                    <td style={{ ...baseTdStyle, textAlign: "right" }}>{formatDollar(item.originalAmount)}</td>
+                    <td data-label="Original Amount" style={{ ...baseTdStyle, textAlign: "right" }}>{formatDollar(item.originalAmount)}</td>
                   </tr>
                 );
               })}

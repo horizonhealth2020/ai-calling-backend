@@ -751,7 +751,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
       </div>
 
       {/* Search + Filter + Export row */}
-      <div style={{ display: "flex", gap: `${spacing[2]}px`, alignItems: "center" }}>
+      <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", gap: `${spacing[2]}px`, alignItems: "center" }}>
         {/* Search input */}
         <div style={{ position: "relative", flex: 1 }}>
           <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: colors.textMuted, pointerEvents: "none" }} />
@@ -928,7 +928,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <SortHeader label="Date Posted" sortKey="postedDate" currentSort={cbSortKey} currentDir={cbSortDir} onSort={handleCbSort} />
@@ -949,14 +949,14 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                   return (
                     <React.Fragment key={cb.id}>
                       <tr style={{ opacity: cb.resolvedAt ? 0.5 : 1 }}>
-                        <td style={baseTdStyle}>{formatDate(cb.postedDate)}</td>
-                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.memberCompany || "--"}</td>
-                        <td style={baseTdStyle}>{cb.memberId || "--"}</td>
-                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.product || "--"}</td>
-                        <td style={baseTdStyle}>{cb.type || "--"}</td>
-                        <td style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
-                        <td style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
-                        <td style={baseTdStyle}>
+                        <td data-label="Date Posted" style={baseTdStyle}>{formatDate(cb.postedDate)}</td>
+                        <td data-label="Member" style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.memberCompany || "--"}</td>
+                        <td data-label="Member ID" style={baseTdStyle}>{cb.memberId || "--"}</td>
+                        <td data-label="Product" style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cb.product || "--"}</td>
+                        <td data-label="Type" style={baseTdStyle}>{cb.type || "--"}</td>
+                        <td data-label="Total" style={{ ...baseTdStyle, color: colors.danger }}>{cb.chargebackAmount ? formatDollar(parseFloat(cb.chargebackAmount)) : "--"}</td>
+                        <td data-label="Assigned To" style={baseTdStyle}>{cb.assignedTo || "Unassigned"}</td>
+                        <td data-label="Match" style={baseTdStyle}>
                           {cb.matchStatus === "MATCHED" ? (
                             <span style={{ color: colors.success, fontSize: typography.sizes.xs.fontSize, fontWeight: typography.weights.bold }}>
                               Matched
@@ -973,8 +973,8 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                             <span style={{ color: colors.textTertiary, fontSize: typography.sizes.xs.fontSize }}>--</span>
                           )}
                         </td>
-                        <td style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
-                        <td style={baseTdStyle}>
+                        <td data-label="Submitted" style={baseTdStyle}>{formatDate(cb.submittedAt)}</td>
+                        <td className="responsive-table-no-label" style={baseTdStyle}>
                           {!cb.resolvedAt ? (
                             <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
                               <span style={{
@@ -988,6 +988,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 {attemptCounts[cb.id] ? `${attemptCounts[cb.id].calls}/3 Calls` : "—"}
                               </span>
                               <button
+                                className="touch-target"
                                 onClick={() => {
                                   const isExpanding = expandedRowId !== cb.id;
                                   setExpandedRowId(isExpanding ? cb.id : null);
@@ -1019,7 +1020,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                   {cb.resolutionNote}
                                 </div>
                               )}
-                              <button onClick={() => requestConfirm("Unresolve Chargeback", "This will move the chargeback back to active tracking. Continue?", "danger", "Unresolve", () => handleUnresolveCb(cb.id))} style={{
+                              <button className="touch-target" onClick={() => requestConfirm("Unresolve Chargeback", "This will move the chargeback back to active tracking. Continue?", "danger", "Unresolve", () => handleUnresolveCb(cb.id))} style={{
                                 color: colors.textTertiary, background: "transparent", border: "none",
                                 cursor: "pointer", fontSize: typography.sizes.sm.fontSize, padding: 0, marginTop: 4,
                               }}>Unresolve</button>
@@ -1027,6 +1028,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                           )}
                           {canManageCS && !cb.resolvedAt && (
                             <button
+                              className="touch-target"
                               onClick={() => requestConfirm("Delete Chargeback", "Permanently delete this chargeback record?", "danger", "Delete", () => handleDeleteCb(cb.id))}
                               aria-label="Delete record"
                               style={{
@@ -1050,15 +1052,16 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         const cbAttemptList = attempts[cb.id] || [];
                         return (
                         <tr>
-                          <td colSpan={cbColCount} style={{ padding: 0, border: "none" }}>
+                          <td className="responsive-table-no-label" colSpan={cbColCount} style={{ padding: 0, border: "none" }}>
+                            {/* workspace outer div already flexDirection:column — mobile stacking targets inner rows, not this container */}
                             <div style={{ padding: spacing[5], background: colors.bgSurfaceInset, borderTop: `1px solid ${colors.borderSubtle}`, display: "flex", flexDirection: "column" as const, gap: spacing[5] }}>
 
                               {/* Section 1: Log Attempt */}
                               <div>
                                 <label style={baseLabelStyle}>Log Attempt</label>
-                                <div style={{ display: "flex", gap: spacing[2], marginBottom: spacing[3] }}>
+                                <div className="gap-mobile-sm" style={{ display: "flex", gap: spacing[2], marginBottom: spacing[3], flexWrap: "wrap" as const }}>
                                   {["CALL", "EMAIL", "TEXT"].map(t => (
-                                    <button key={t} onClick={() => setAttemptType(t)} style={{
+                                    <button key={t} className="touch-target" onClick={() => setAttemptType(t)} style={{
                                       background: attemptType === t ? colors.primary500 : "transparent",
                                       color: attemptType === t ? colors.textInverse : colors.textSecondary,
                                       border: attemptType === t ? `1px solid ${colors.primary500}` : `1px solid ${colors.borderDefault}`,
@@ -1069,7 +1072,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 </div>
                                 <textarea value={attemptNote} onChange={e => setAttemptNote(e.target.value)}
                                   placeholder="Describe the outreach attempt..." style={{ ...baseInputStyle, minHeight: 60, resize: "vertical" as const, marginBottom: spacing[2] }} />
-                                <button onClick={() => handleLogAttempt(cb.id, "chargeback")} disabled={!attemptType || !attemptNote.trim()}
+                                <button className="touch-target" onClick={() => handleLogAttempt(cb.id, "chargeback")} disabled={!attemptType || !attemptNote.trim()}
                                   style={{ ...baseButtonStyle, background: (!attemptType || !attemptNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
                                     color: (!attemptType || !attemptNote.trim()) ? colors.textMuted : colors.textInverse,
                                     cursor: (!attemptType || !attemptNote.trim()) ? "not-allowed" : "pointer", opacity: (!attemptType || !attemptNote.trim()) ? 0.5 : 1 }}>
@@ -1106,12 +1109,12 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                               {/* Section 3: Resolve */}
                               <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: spacing[4] }}>
                                 <label style={baseLabelStyle}>Resolution Type</label>
-                                <div style={{ display: "flex", gap: spacing[2] }}>
+                                <div className="gap-mobile-sm" style={{ display: "flex", gap: spacing[2], flexWrap: "wrap" as const }}>
                                   {["recovered", "closed", "no_contact"].map(t => {
                                     const tColor = t === "recovered" ? colors.success : t === "no_contact" ? colors.warning : colors.danger;
                                     const tBg = t === "recovered" ? colors.successBg : t === "no_contact" ? colors.warningBg : colors.dangerBg;
                                     return (
-                                      <button key={t} onClick={() => { setResolveType(t); setGateOverride(false); setGateBypassReason(""); }} style={{
+                                      <button key={t} className="touch-target" onClick={() => { setResolveType(t); setGateOverride(false); setGateBypassReason(""); }} style={{
                                         background: resolveType === t ? tBg : "transparent",
                                         color: resolveType === t ? tColor : colors.textSecondary,
                                         border: resolveType === t ? `1px solid ${tColor}` : `1px solid ${colors.borderDefault}`,
@@ -1127,7 +1130,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                     <div style={{ color: colors.warning, fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, marginBottom: spacing[2] }}>
                                       3 call attempts required. Current: {cbCallCount}/3
                                     </div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: spacing[2], cursor: "pointer", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
+                                    <label className="touch-target" style={{ display: "flex", alignItems: "center", gap: spacing[2], cursor: "pointer", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
                                       <input type="checkbox" checked={gateOverride} onChange={e => setGateOverride(e.target.checked)} />
                                       Override 3-call gate
                                     </label>
@@ -1143,12 +1146,12 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
                                   placeholder="Describe the resolution outcome..."
                                   style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }} />
-                                <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2], marginTop: spacing[3] }}>
-                                  <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason(""); }}
+                                <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2], marginTop: spacing[3], paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+                                  <button className="touch-target" onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason(""); }}
                                     style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
                                     Discard
                                   </button>
-                                  <button onClick={() => handleResolveCb(cb.id)} disabled={cbResolveDisabled}
+                                  <button className="touch-target" onClick={() => handleResolveCb(cb.id)} disabled={cbResolveDisabled}
                                     style={{ ...baseButtonStyle, background: cbResolveDisabled ? colors.bgSurfaceInset : colors.primary500,
                                       color: cbResolveDisabled ? colors.textMuted : colors.textInverse,
                                       cursor: cbResolveDisabled ? "not-allowed" : "pointer", opacity: cbResolveDisabled ? 0.5 : 1 }}>
@@ -1240,7 +1243,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <SortHeader label="Member Name" sortKey="memberName" currentSort={ptSortKey} currentDir={ptSortDir} onSort={handlePtSort} />
@@ -1259,14 +1262,14 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                   return (
                     <React.Fragment key={pt.id}>
                       <tr style={{ opacity: pt.resolvedAt ? 0.5 : 1 }}>
-                        <td style={baseTdStyle}>{pt.memberName || "--"}</td>
-                        <td style={baseTdStyle}>{pt.memberId || "--"}</td>
-                        <td style={baseTdStyle}>{pt.phone || "--"}</td>
-                        <td style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
-                        <td style={{ ...baseTdStyle, color: colors.danger }}>{formatDate(pt.holdDate)}</td>
-                        <td style={{ ...baseTdStyle, color: colors.success }}>{formatDate(pt.nextBilling)}</td>
-                        <td style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
-                        <td style={baseTdStyle}>
+                        <td data-label="Member Name" style={baseTdStyle}>{pt.memberName || "--"}</td>
+                        <td data-label="Member ID" style={baseTdStyle}>{pt.memberId || "--"}</td>
+                        <td data-label="Phone" style={baseTdStyle}>{pt.phone || "--"}</td>
+                        <td data-label="Product" style={{ ...baseTdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pt.product || undefined}>{pt.product || "--"}</td>
+                        <td data-label="Hold Date" style={{ ...baseTdStyle, color: colors.danger }}>{formatDate(pt.holdDate)}</td>
+                        <td data-label="Next Billing" style={{ ...baseTdStyle, color: colors.success }}>{formatDate(pt.nextBilling)}</td>
+                        <td data-label="Assigned To" style={baseTdStyle}>{pt.assignedTo || "Unassigned"}</td>
+                        <td className="responsive-table-no-label" style={baseTdStyle}>
                           {!pt.resolvedAt ? (
                             <div style={{ display: "flex", alignItems: "center", gap: spacing[2] }}>
                               <span style={{
@@ -1280,6 +1283,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 {attemptCounts[pt.id] ? `${attemptCounts[pt.id].calls}/3 Calls` : "—"}
                               </span>
                               <button
+                                className="touch-target"
                                 onClick={() => {
                                   const isExpanding = expandedRowId !== pt.id;
                                   setExpandedRowId(isExpanding ? pt.id : null);
@@ -1311,7 +1315,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                   {pt.resolutionNote}
                                 </div>
                               )}
-                              <button onClick={() => requestConfirm("Unresolve Pending Term", "This will move the pending term back to active tracking. Continue?", "danger", "Unresolve", () => handleUnresolvePt(pt.id))} style={{
+                              <button className="touch-target" onClick={() => requestConfirm("Unresolve Pending Term", "This will move the pending term back to active tracking. Continue?", "danger", "Unresolve", () => handleUnresolvePt(pt.id))} style={{
                                 color: colors.textTertiary, background: "transparent", border: "none",
                                 cursor: "pointer", fontSize: typography.sizes.sm.fontSize, padding: 0, marginTop: 4,
                               }}>Unresolve</button>
@@ -1319,6 +1323,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                           )}
                           {canManageCS && !pt.resolvedAt && (
                             <button
+                              className="touch-target"
                               onClick={() => requestConfirm("Delete Pending Term", "Permanently delete this pending term record?", "danger", "Delete", () => handleDeletePt(pt.id))}
                               aria-label="Delete record"
                               style={{
@@ -1342,15 +1347,16 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                         const ptAttemptList = attempts[pt.id] || [];
                         return (
                         <tr>
-                          <td colSpan={ptColCount} style={{ padding: 0, border: "none" }}>
+                          <td className="responsive-table-no-label" colSpan={ptColCount} style={{ padding: 0, border: "none" }}>
+                            {/* workspace outer div already flexDirection:column — mobile stacking targets inner rows, not this container */}
                             <div style={{ padding: spacing[5], background: colors.bgSurfaceInset, borderTop: `1px solid ${colors.borderSubtle}`, display: "flex", flexDirection: "column" as const, gap: spacing[5] }}>
 
                               {/* Section 1: Log Attempt */}
                               <div>
                                 <label style={baseLabelStyle}>Log Attempt</label>
-                                <div style={{ display: "flex", gap: spacing[2], marginBottom: spacing[3] }}>
+                                <div className="gap-mobile-sm" style={{ display: "flex", gap: spacing[2], marginBottom: spacing[3], flexWrap: "wrap" as const }}>
                                   {["CALL", "EMAIL", "TEXT"].map(t => (
-                                    <button key={t} onClick={() => setAttemptType(t)} style={{
+                                    <button key={t} className="touch-target" onClick={() => setAttemptType(t)} style={{
                                       background: attemptType === t ? colors.primary500 : "transparent",
                                       color: attemptType === t ? colors.textInverse : colors.textSecondary,
                                       border: attemptType === t ? `1px solid ${colors.primary500}` : `1px solid ${colors.borderDefault}`,
@@ -1361,7 +1367,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 </div>
                                 <textarea value={attemptNote} onChange={e => setAttemptNote(e.target.value)}
                                   placeholder="Describe the outreach attempt..." style={{ ...baseInputStyle, minHeight: 60, resize: "vertical" as const, marginBottom: spacing[2] }} />
-                                <button onClick={() => handleLogAttempt(pt.id, "pending_term")} disabled={!attemptType || !attemptNote.trim()}
+                                <button className="touch-target" onClick={() => handleLogAttempt(pt.id, "pending_term")} disabled={!attemptType || !attemptNote.trim()}
                                   style={{ ...baseButtonStyle, background: (!attemptType || !attemptNote.trim()) ? colors.bgSurfaceInset : colors.primary500,
                                     color: (!attemptType || !attemptNote.trim()) ? colors.textMuted : colors.textInverse,
                                     cursor: (!attemptType || !attemptNote.trim()) ? "not-allowed" : "pointer", opacity: (!attemptType || !attemptNote.trim()) ? 0.5 : 1 }}>
@@ -1398,12 +1404,12 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                               {/* Section 3: Resolve */}
                               <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: spacing[4] }}>
                                 <label style={baseLabelStyle}>Resolution Type</label>
-                                <div style={{ display: "flex", gap: spacing[2] }}>
+                                <div className="gap-mobile-sm" style={{ display: "flex", gap: spacing[2], flexWrap: "wrap" as const }}>
                                   {["saved", "cancelled", "no_contact"].map(t => {
                                     const tColor = t === "saved" ? colors.success : t === "no_contact" ? colors.warning : colors.danger;
                                     const tBg = t === "saved" ? colors.successBg : t === "no_contact" ? colors.warningBg : colors.dangerBg;
                                     return (
-                                      <button key={t} onClick={() => { setResolveType(t); setGateOverride(false); setGateBypassReason(""); }} style={{
+                                      <button key={t} className="touch-target" onClick={() => { setResolveType(t); setGateOverride(false); setGateBypassReason(""); }} style={{
                                         background: resolveType === t ? tBg : "transparent",
                                         color: resolveType === t ? tColor : colors.textSecondary,
                                         border: resolveType === t ? `1px solid ${tColor}` : `1px solid ${colors.borderDefault}`,
@@ -1419,7 +1425,7 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                     <div style={{ color: colors.warning, fontSize: typography.sizes.sm.fontSize, fontWeight: typography.weights.bold, marginBottom: spacing[2] }}>
                                       3 call attempts required. Current: {ptCallCount}/3
                                     </div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: spacing[2], cursor: "pointer", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
+                                    <label className="touch-target" style={{ display: "flex", alignItems: "center", gap: spacing[2], cursor: "pointer", fontSize: typography.sizes.sm.fontSize, color: colors.textPrimary }}>
                                       <input type="checkbox" checked={gateOverride} onChange={e => setGateOverride(e.target.checked)} />
                                       Override 3-call gate
                                     </label>
@@ -1435,12 +1441,12 @@ function TrackingTabInner({ socket, API, userRoles, canManageCS }: CSTrackingPro
                                 <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
                                   placeholder="Describe the resolution outcome..."
                                   style={{ ...baseInputStyle, minHeight: 80, resize: "vertical" as const }} />
-                                <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2], marginTop: spacing[3] }}>
-                                  <button onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason(""); }}
+                                <div className="stack-mobile gap-mobile-sm" style={{ display: "flex", justifyContent: "flex-end", gap: spacing[2], marginTop: spacing[3], paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+                                  <button className="touch-target" onClick={() => { setExpandedRowId(null); setResolveNote(""); setResolveType(""); setGateOverride(false); setGateBypassReason(""); }}
                                     style={{ ...baseButtonStyle, background: "transparent", color: colors.textSecondary, border: `1px solid ${colors.borderDefault}` }}>
                                     Discard
                                   </button>
-                                  <button onClick={() => handleResolvePt(pt.id)} disabled={ptResolveDisabled}
+                                  <button className="touch-target" onClick={() => handleResolvePt(pt.id)} disabled={ptResolveDisabled}
                                     style={{ ...baseButtonStyle, background: ptResolveDisabled ? colors.bgSurfaceInset : colors.primary500,
                                       color: ptResolveDisabled ? colors.textMuted : colors.textInverse,
                                       cursor: ptResolveDisabled ? "not-allowed" : "pointer", opacity: ptResolveDisabled ? 0.5 : 1 }}>

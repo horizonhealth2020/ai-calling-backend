@@ -845,7 +845,7 @@ function SubmissionsContent({
               </h3>
             </div>
             <div style={TABLE_WRAP}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={{ ...baseThStyle, width: 120 }}>Date Posted</th>
@@ -869,7 +869,7 @@ function SubmissionsContent({
                         transition: `background ${motion.duration.fast} ${motion.easing.out}`,
                       }}
                     >
-                      <td style={baseTdStyle}>
+                      <td data-label="Date Posted" style={baseTdStyle}>
                         <input
                           type="date"
                           style={COMPACT_INPUT}
@@ -878,7 +878,7 @@ function SubmissionsContent({
                           disabled={submitting}
                         />
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Member" style={baseTdStyle}>
                         <input
                           type="text"
                           style={COMPACT_INPUT}
@@ -887,10 +887,10 @@ function SubmissionsContent({
                           disabled={submitting}
                         />
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Member ID" style={baseTdStyle}>
                         <span style={{ color: colors.textSecondary }}>{rec.memberId || "--"}</span>
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Product" style={baseTdStyle}>
                         <span
                           style={{
                             display: "block",
@@ -905,7 +905,7 @@ function SubmissionsContent({
                           {rec.product || <span style={{ color: colors.textMuted }}>--</span>}
                         </span>
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Agent" style={baseTdStyle}>
                         <select
                           style={{ ...COMPACT_INPUT, color: rec.memberAgentCompany ? colors.textPrimary : colors.textMuted }}
                           value={rec.memberAgentCompany ?? ""}
@@ -921,7 +921,7 @@ function SubmissionsContent({
                           )}
                         </select>
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Transaction Type" style={baseTdStyle}>
                         <select
                           style={COMPACT_INPUT}
                           value={rec.type ?? ""}
@@ -937,7 +937,7 @@ function SubmissionsContent({
                           )}
                         </select>
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Total" style={baseTdStyle}>
                         <input
                           type="text"
                           style={COMPACT_INPUT}
@@ -950,7 +950,7 @@ function SubmissionsContent({
                           disabled={submitting}
                         />
                       </td>
-                      <td style={baseTdStyle}>
+                      <td data-label="Assigned To" style={baseTdStyle}>
                         <select
                           style={COMPACT_INPUT}
                           value={rec.assignedTo}
@@ -974,6 +974,7 @@ function SubmissionsContent({
               display: "flex",
               justifyContent: "flex-end",
               padding: `${spacing[4]}px ${spacing[6]}px`,
+              paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
               borderTop: `1px solid ${colors.borderSubtle}`,
             }}>
               <Button
@@ -1015,7 +1016,7 @@ function SubmissionsContent({
               </h3>
             </div>
             <div style={TABLE_WRAP}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={baseThStyle}>Member Name</th>
@@ -1030,7 +1031,7 @@ function SubmissionsContent({
                   {ptRecords.map((rec, idx) => (
                     <tr key={idx}>
                       {/* Member Name (editable) */}
-                      <td style={baseTdStyle}>
+                      <td data-label="Member Name" style={baseTdStyle}>
                         <input
                           type="text"
                           style={COMPACT_INPUT}
@@ -1040,11 +1041,11 @@ function SubmissionsContent({
                         />
                       </td>
                       {/* Member ID (read-only) */}
-                      <td style={baseTdStyle}>
+                      <td data-label="Member ID" style={baseTdStyle}>
                         <span style={{ color: colors.textSecondary }}>{rec.memberId || "--"}</span>
                       </td>
                       {/* Product (read-only) */}
-                      <td style={baseTdStyle}>
+                      <td data-label="Product" style={baseTdStyle}>
                         <span
                           style={{
                             display: "block",
@@ -1060,7 +1061,7 @@ function SubmissionsContent({
                         </span>
                       </td>
                       {/* Monthly Amt (editable) */}
-                      <td style={baseTdStyle}>
+                      <td data-label="Monthly Amt" style={baseTdStyle}>
                         <input
                           type="number"
                           step="0.01"
@@ -1074,7 +1075,7 @@ function SubmissionsContent({
                         />
                       </td>
                       {/* Hold Date (editable) */}
-                      <td style={baseTdStyle}>
+                      <td data-label="Hold Date" style={baseTdStyle}>
                         <input
                           type="date"
                           style={COMPACT_INPUT}
@@ -1084,7 +1085,7 @@ function SubmissionsContent({
                         />
                       </td>
                       {/* Assigned To (editable select) */}
-                      <td style={baseTdStyle}>
+                      <td data-label="Assigned To" style={baseTdStyle}>
                         <select
                           style={COMPACT_INPUT}
                           value={rec.assignedTo}
@@ -1108,6 +1109,7 @@ function SubmissionsContent({
               display: "flex",
               justifyContent: "flex-end",
               padding: `${spacing[4]}px ${spacing[6]}px`,
+              paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
               borderTop: `1px solid ${colors.borderSubtle}`,
             }}>
               <Button
