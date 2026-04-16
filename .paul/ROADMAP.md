@@ -24,8 +24,8 @@ A sales operations platform evolving from initial setup through full role-based 
 ## Current Milestone
 
 **v3.1 CS + Payroll Gap Closure**
-Status: 🚧 In Progress
-Phases: 1 of 2 complete
+Status: ✅ Complete (pending ceremony)
+Phases: 2 of 2 complete
 
 **Goal:** Close functional gaps and visual polish surfaced after v3.0 rollout — MyQueue rep-visibility bug, dedupe correctness on same-week re-submissions, commission reversibility while period OPEN, payroll card consistency between screen and print, and fronted formula correction (same-week deduction; reverses Phase 71 carry-to-next-period semantics).
 
@@ -34,7 +34,7 @@ Phases: 1 of 2 complete
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 77 | CS Fixes | 1 | Complete | 2026-04-16 |
-| 78 | Payroll Polish + Fronted Fix | 3 | Planning | - |
+| 78 | Payroll Polish + Fronted Fix | 3 | Complete | 2026-04-16 |
 
 ### Phase 77: CS Fixes
 
@@ -45,7 +45,10 @@ Plans:
 ### Phase 78: Payroll Polish + Fronted Fix
 
 Focus: Restore unapprove-commission button while period `OPEN` (hidden when LOCKED/FINALIZED/paid-guarded) + CS payroll card cosmetics (rep name bold/top/centered, Total label + amount green) + agent card sort by `Sale.memberNumber` ascending + ACH print row green highlight to match on-screen + **fronted formula correction**: same-week deduction `Net = payout + adj + bonus - hold - fronted` (reverses Phase 71 "excluded + carry-to-next-period-as-hold" semantics). Carryover logic (`carryover.ts` fronted→hold on lock) becomes dead code under the new formula — removed. Regression test `payroll-net-formula.test.ts` (7-case, Phase 71) rewritten to lock new formula. Forward-only — historical paycards computed under Phase 71 formula remain as-is.
-Plans: TBD (defined during /paul:plan)
+Plans:
+- [x] 78-01: Sale edit bugs — addon premium inputs, [object Object] fix, string error (numeric coercion)
+- [x] 78-02: Fronted formula reversal — net = payout+adj+bonus-hold-fronted; D-09 removed; 9-case test suite
+- [x] 78-03: Payroll polish — unapprove gate, notes box, ACH print, CS card cosmetics, CS print per-agent
 
 ---
 

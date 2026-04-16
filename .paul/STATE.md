@@ -11,25 +11,29 @@ See: .paul/PROJECT.md (updated 2026-04-15)
 
 Milestone: v3.1 CS + Payroll Gap Closure
 Phase: 78 of 78 (Payroll Polish + Fronted Fix) — Planning
-Plan: 78-02 unified; 78-03 pending apply
-Status: 78-01+02 unified; 78-03 pending
-Last activity: 2026-04-16 — /paul:unify 78-02. Loop closed; 2/3 plans complete.
+Plan: 78-03 unified — Phase 78 complete
+Status: All 3 plans unified; Phase 78 complete; ready for complete-milestone
+Last activity: 2026-04-16 — /paul:unify 78-03. Phase 78 loop closed.
 
 Progress:
-- v3.1 CS + Payroll Gap Closure: [█████░░░░░] 50% (1/2 phases complete)
-- Phase 78: [██████░░░░] 60% (78-01+02 unified; 78-03 pending)
+- v3.1 CS + Payroll Gap Closure: [██████████] 100% (2/2 phases complete)
+- Phase 78: [██████████] 100% (all 3 plans complete)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [78-02 loop closed; 78-03 next]
+  ✓        ✓        ✓     [Phase 78 complete — ready for complete-milestone]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+- 2026-04-16: Phase 78-03 — ACH print: print-color-adjust: exact required on BOTH tr and td; browser strips tr background without it.
+- 2026-04-16: Phase 78-03 — CS print restructured to per-agent cards; agent name right-aligned on same line as "Customer Service Payroll" header.
+- 2026-04-16: Phase 78-03 — liveNet formula in WeekSection + PATCH /payroll/entries/:id both had Phase 71 formula (fronted additive); both fixed to Phase 78 (fronted deducts).
+- 2026-04-16: Phase 78-03 — baseInputStyle not imported in WeekSection; SMALL_INP is the correct compact style constant.
 - 2026-04-16: Phase 78-02 — REVERSED Phase 71 fronted formula. New formula: `net = payout + adj + bonus - hold - fronted`. D-09 (carryover.ts fronted→hold carry on lock) removed. D-10 (negative-net carry) preserved. agentNet in carryover.ts updated to include fronted for accurate D-10 detection.
 - 2026-04-16: Phase 78-02 — carryover.ts agentNet kept (plan said "remove if only in removed block" but D-10 still uses it). computeNetAmount call updated to pass `fronted: Number(adj.frontedAmount)` so D-10 reflects Phase 78 net semantics.
 - 2026-04-16: Phase 78-01 — String error root cause: HTML `<input type="number">` stores strings; Zod `z.number()` rejects them. Fix: `parseFloat()` coercion in `saveEdit()` before PATCH. Server-side sales.ts + change-requests.ts were already correct (`{ old, new }` wrapping + `.new` reads); zero server changes needed.
@@ -117,9 +121,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-16
-Stopped at: 78-02 unified — fronted formula reversed, D-09 removed, 186 tests pass
-Next action: `/paul:apply 78-03` (payroll UI polish — unapprove gate, notes, sort, ACH print, CS card)
-Resume file: .paul/phases/78-payroll-polish/78-02-SUMMARY.md
+Stopped at: Phase 78 unified — all v3.1 work complete
+Next action: `/paul:complete-milestone` (ship v3.1 CS + Payroll Gap Closure)
+Resume file: .paul/phases/78-payroll-polish/78-03-SUMMARY.md
 Git strategy: main is in sync with origin after v3.0 ceremony push; v3.1 work starts clean
 Resume context:
 - v3.1 CS + Payroll Gap Closure — 2 phases: 77 CS Fixes, 78 Payroll Polish
