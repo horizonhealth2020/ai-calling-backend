@@ -134,7 +134,7 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   // Wrap createMany + matching + clawback creation + cursor advance in a single
   // transaction so a failed insert rolls back the round-robin cursor (Bug 3 fix).
   // Socket emits / audit logs that don't need atomicity stay outside the tx below.
-  const { result, clawbackAuditPayloads, alertPayloads, duplicates } = await prisma.$transaction(async (tx: PrismaTx) => {
+  const { result, clawbackAuditPayloads, alertPayloads, duplicates, matchedCount, deferredClawbackCount } = await prisma.$transaction(async (tx: PrismaTx) => {
     // Soft dedupe: composite key (memberCompany, memberId, postedDate) before insert.
     // TOCTOU accepted risk: concurrent manual-paste POSTs at human pace are negligible.
     const incomingMemberIds = records.map(r => r.memberId).filter(Boolean) as string[];
@@ -254,9 +254,13 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
 
     const auditPayloads: Array<{ clawbackId: string; saleId: string; status: string; amount: number; mode?: string; entryId?: string }> = [];
     const alertPayloadsLocal: Array<{ chargebackId: string; agentName?: string; memberName?: string; amount: number }> = [];
+    // Phase 79-01: track matched-vs-deferred counts for audit trail.
+    let matchedCount = 0;
+    let deferredClawbackCount = 0;
 
     for (const cb of refreshedChargebacks) {
       if (cb.matchStatus === "MATCHED" && cb.matchedSaleId) {
+        matchedCount++;
         // ── EXISTING MATCHED PATH (now uses shared applyChargebackToEntry helper) ──
         const sale = await tx.sale.findUnique({
           where: { id: cb.matchedSaleId },
@@ -289,27 +293,43 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
         // align chargebacks.ts and payroll.ts with it.
         const chargebackAmount = referenceEntry ? Number(referenceEntry.payoutAmount) : Math.abs(Number(cb.chargebackAmount));
 
-        const clawback = await tx.clawback.create({
-          data: {
-            saleId: sale.id,
-            agentId: sale.agentId,
-            matchedBy: cb.memberId ? "member_id" : "member_name",
-            matchedValue: cb.memberId || cb.memberCompany || "",
-            amount: chargebackAmount,
-            status: "ZEROED",
-            appliedPayrollPeriodId: openPeriodId || undefined,
-            notes: `Batch chargeback (${batchId})`,
-          },
-        });
+        // Phase 79-01 approval gate: CS-submitted chargebacks DEFER clawback creation +
+        // paycard mutation to alert approval time. Only payroll-direct (source="PAYROLL")
+        // submissions apply inline — payroll IS the approver for those.
+        // The WR-06 dedupe guard at alerts.ts:173-203 (createdAt >= cbCreatedAt on
+        // member_id/member_name branches) remains load-bearing: it prevents duplicate
+        // clawbacks if the alert-approval path re-attempts; the new-fresh clawback from
+        // alerts.ts uses matchedBy="chargeback_alert" (unique on chargebackSubmissionId)
+        // so it cannot false-positive match against prior-batch clawbacks.
+        if (source !== "CS") {
+          const clawback = await tx.clawback.create({
+            data: {
+              saleId: sale.id,
+              agentId: sale.agentId,
+              matchedBy: cb.memberId ? "member_id" : "member_name",
+              matchedValue: cb.memberId || cb.memberCompany || "",
+              amount: chargebackAmount,
+              status: "ZEROED",
+              appliedPayrollPeriodId: openPeriodId || undefined,
+              notes: `Batch chargeback (${batchId})`,
+            },
+          });
 
-        // Shared helper: in-period zero vs cross-period negative insert
-        const outcome = await applyChargebackToEntry(
-          tx,
-          { id: sale.id, agentId: sale.agentId, payrollEntries: sale.payrollEntries },
-          chargebackAmount,
-        );
+          // Shared helper: in-period zero vs cross-period negative insert
+          const outcome = await applyChargebackToEntry(
+            tx,
+            { id: sale.id, agentId: sale.agentId, payrollEntries: sale.payrollEntries },
+            chargebackAmount,
+          );
 
-        auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount, mode: outcome.mode, entryId: outcome.entryId });
+          auditPayloads.push({ clawbackId: clawback.id, saleId: sale.id, status: clawback.status, amount: chargebackAmount, mode: outcome.mode, entryId: outcome.entryId });
+        } else {
+          // CS source: defer clawback creation to alerts.ts:approveAlert. Paycard remains
+          // unchanged until payroll approves. alertPayload is still pushed below so the
+          // alert-creation loop outside the tx creates the PayrollAlert row.
+          deferredClawbackCount++;
+        }
+
         alertPayloadsLocal.push({
           chargebackId: cb.id,
           agentName: sale.agent?.name,
@@ -334,8 +354,16 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
       await batchRoundRobinAssign("chargeback", created.count, { persist: true, tx });
     }
 
-    return { result: created, clawbackAuditPayloads: auditPayloads, alertPayloads: alertPayloadsLocal, duplicates: dupesFound };
+    return { result: created, clawbackAuditPayloads: auditPayloads, alertPayloads: alertPayloadsLocal, duplicates: dupesFound, matchedCount, deferredClawbackCount };
   }, { timeout: 30000 });
+
+  // Phase 79-01: positive-confirmation log when CS-matched chargebacks defer clawback creation.
+  if (source === "CS" && deferredClawbackCount > 0) {
+    console.info(
+      `[chargebacks] batch ${batchId}: source=CS, matched=${matchedCount}, ` +
+      `deferredClawbackCount=${deferredClawbackCount} — clawback creation deferred to payroll alert approval`,
+    );
+  }
 
   // 409 for single-record submissions that are fully duplicate
   if (duplicates.length > 0 && result.count === 0 && records.length === 1) {
@@ -429,9 +457,13 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     );
   }
 
+  // Phase 79-01: include matchedCount + deferredClawbackCount for audit-trail reconstruction
+  // of pending-approval state (how many CS-submitted clawbacks are awaiting payroll sign-off).
   logAudit(req.user!.id, "CREATE", "ChargebackSubmission", batchId, {
     count: result.count,
     source,
+    matchedCount,
+    deferredClawbackCount,
   });
   emitCSChanged({ type: "chargeback", batchId, count: result.count });
 
