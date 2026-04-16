@@ -760,7 +760,12 @@ export function WeekSection({
     }}>
       <style>{`
         @media print {
-          tr[data-ach="true"] { background-color: rgba(52,211,153,0.15) !important; }
+          tr[data-ach="true"],
+          tr[data-ach="true"] td {
+            background-color: rgba(52,211,153,0.20) !important;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
           .print-hide-if-empty:placeholder-shown { display: none !important; }
         }
       `}</style>
