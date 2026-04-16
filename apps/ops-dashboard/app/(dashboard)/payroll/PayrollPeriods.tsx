@@ -987,26 +987,27 @@ export default function PayrollPeriods({
   td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
   .right { text-align: right; } .center { text-align: center; }
   .green { color: #059669; } .red { color: #dc2626; } .purple { color: #059669; font-weight: 800; }
-  .agent-name-row td { text-align: center; font-size: 16px; font-weight: 800; color: #1e293b; padding: 12px 8px 6px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
   @media print { body { padding: 0; } }
 </style></head><body>
-<div class="header">
-  <h1>Customer Service Payroll</h1>
-  <div class="meta">Sunday ${fmtDate(period.weekStart)} \u2013 Saturday ${fmtDate(period.weekEnd)} &nbsp;\u00B7&nbsp; ${period.quarterLabel}</div>
-</div>
-<div class="total">Total: $${total.toFixed(2)}</div>
-<table>
-  <thead><tr><th class="right">Base Pay</th><th class="right" style="color:#dc2626">Fronted</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#059669">Total</th></tr></thead>
-  <tbody>${serviceEntries.map(se => {
+${serviceEntries.map(se => {
       const bd = (se.bonusBreakdown ?? {}) as Record<string, number>;
       const fAmt = Number(se.frontedAmount ?? 0);
-      const colCount = 3 + cats.length;
-      return `<tr class="agent-name-row"><td colspan="${colCount}">${se.serviceAgent.name}</td></tr><tr><td class="right">$${Number(se.basePay).toFixed(2)}</td><td class="right red">${fAmt > 0 ? "$" + fAmt.toFixed(2) : "\u2014"}</td>${cats.map(c => {
+      return `<div class="header">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+    <h1>Customer Service Payroll</h1>
+    <span style="font-size:18px;font-weight:800;color:#1e293b;">${se.serviceAgent.name}</span>
+  </div>
+  <div class="meta">Sunday ${fmtDate(period.weekStart)} \u2013 Saturday ${fmtDate(period.weekEnd)} &nbsp;\u00B7&nbsp; ${period.quarterLabel}</div>
+</div>
+<div class="total">Total: $${Number(se.totalPay).toFixed(2)}</div>
+<table>
+  <thead><tr><th class="right">Base Pay</th><th class="right" style="color:#dc2626">Fronted</th>${cats.map(c => `<th class="center"${c.isDeduction ? ' style="color:#dc2626"' : ""}>${c.name}</th>`).join("")}<th class="right" style="color:#059669">Total</th></tr></thead>
+  <tbody><tr><td class="right">$${Number(se.basePay).toFixed(2)}</td><td class="right red">${fAmt > 0 ? "$" + fAmt.toFixed(2) : "\u2014"}</td>${cats.map(c => {
         const amt = bd[c.name] ?? 0;
         return `<td class="center ${amt > 0 ? (c.isDeduction ? "red" : "green") : ""}">${amt > 0 ? "$" + amt.toFixed(2) : "\u2014"}</td>`;
-      }).join("")}<td class="right purple">$${Number(se.totalPay).toFixed(2)}</td></tr>`;
-    }).join("")}</tbody>
-</table>
+      }).join("")}<td class="right purple">$${Number(se.totalPay).toFixed(2)}</td></tr></tbody>
+</table>`;
+    }).join("<div style='page-break-after:always'></div>")}
 </body></html>`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
