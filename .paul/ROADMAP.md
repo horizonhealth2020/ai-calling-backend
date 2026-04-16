@@ -34,7 +34,7 @@ Phases: 1 of 2 complete
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 77 | CS Fixes | 1 | Complete | 2026-04-16 |
-| 78 | Payroll Polish + Fronted Fix | TBD | Not started | - |
+| 78 | Payroll Polish + Fronted Fix | 3 | Planning | - |
 
 ### Phase 77: CS Fixes
 

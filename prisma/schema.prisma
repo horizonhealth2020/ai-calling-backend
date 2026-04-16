@@ -715,6 +715,7 @@ model AgentPeriodAdjustment {
   holdAmount              Decimal  @default(0) @map("hold_amount") @db.Decimal(12, 2)
   bonusLabel              String?  @map("bonus_label")
   holdLabel               String?  @map("hold_label")
+  notes                   String?  @map("notes")
   bonusFromCarryover      Boolean  @default(false) @map("bonus_from_carryover")
   holdFromCarryover       Boolean  @default(false) @map("hold_from_carryover")
   carryoverSourcePeriodId String?  @map("carryover_source_period_id")

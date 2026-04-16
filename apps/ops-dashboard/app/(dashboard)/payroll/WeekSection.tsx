@@ -84,7 +84,7 @@ function CarryoverHint({ show }: { show: boolean }) {
 
 function EditableSaleRow({
   entry, onSaleUpdate, onApprove, onUnapprove, onDelete, products, highlighted, isPaid, isLate,
-  isSelectable, isSelected, onToggleSelect,
+  isSelectable, isSelected, onToggleSelect, periodStatus,
 }: {
   entry: Entry;
   onSaleUpdate: (saleId: string, data: Record<string, unknown>) => void | Promise<void>;
@@ -98,6 +98,7 @@ function EditableSaleRow({
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  periodStatus?: string;
 }) {
   const HIGHLIGHT_GLOW = { boxShadow: `0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.4)}, inset 0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.05)}` };
   const [editSale, setEditSale] = useState(false);
@@ -154,6 +155,7 @@ function EditableSaleRow({
     <>
     <tr
       className="row-hover"
+      {...(entry.sale?.paymentType === "ACH" ? { 'data-ach': 'true' } : {})}
       style={{
         borderTop: `1px solid ${C.borderSubtle}`,
         ...rowBg,
@@ -538,7 +540,7 @@ function EditableSaleRow({
                 <CheckCircle size={12} /> Approve
               </Button>
             )}
-            {isApproved && (
+            {isApproved && periodStatus === "OPEN" && !isPaid && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -756,6 +758,12 @@ export function WeekSection({
       background: isSelected ? colorAlpha(semanticColors.accentTealMid, 0.03) : "transparent",
       transition: "all 150ms ease-out",
     }}>
+      <style>{`
+        @media print {
+          tr[data-ach="true"] { background-color: rgba(52,211,153,0.15) !important; }
+          .print-hide-if-empty:placeholder-shown { display: none !important; }
+        }
+      `}</style>
       {/* Week header */}
       <div
         className="stack-mobile gap-mobile-sm touch-target"
@@ -947,16 +955,38 @@ export function WeekSection({
               />
               <CarryoverHint show={!!adjustment?.holdFromCarryover && Number(headerHold) > 0} />
             </div>
-            <div style={{ marginLeft: "auto" }}>
-              <div style={HEADER_LBL}>Net</div>
-              {(() => {
-                const liveNet = agentGross + (Number(headerBonus) || 0) + (Number(headerFronted) || 0) - (Number(headerHold) || 0);
-                return (
-                  <div style={{ fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
-                    <AnimatedNumber value={liveNet} prefix="$" decimals={2} />
-                  </div>
-                );
-              })()}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "flex-start", gap: 16 }}>
+              <div>
+                <div style={HEADER_LBL}>Net</div>
+                {(() => {
+                  // Phase 78 formula: fronted deducts same-week
+                  const liveNet = agentGross + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
+                  return (
+                    <div style={{ fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
+                      <AnimatedNumber value={liveNet} prefix="$" decimals={2} />
+                    </div>
+                  );
+                })()}
+              </div>
+              <div>
+                <div style={HEADER_LBL}>Note</div>
+                <textarea
+                  className="print-hide-if-empty"
+                  style={{ ...baseInputStyle, minWidth: 160, maxWidth: 240, minHeight: 40, resize: "vertical" as const, fontSize: typography.sizes.sm.fontSize }}
+                  placeholder="Week note..."
+                  defaultValue={(adjustment as { notes?: string | null } | null)?.notes ?? ""}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim() || null;
+                    const noteAgentId = adjustment?.agentId ?? allAgents.find(a => a.name === agentName)?.id;
+                    if (!noteAgentId) return;
+                    await authFetch(`${API}/api/payroll/adjustments/notes`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ agentId: noteAgentId, payrollPeriodId: period.id, notes: val }),
+                    });
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -1003,6 +1033,7 @@ export function WeekSection({
                     isSelectable={!!e.halvingReason && !e.sale?.commissionApproved}
                     isSelected={selectedEntries.has(e.id)}
                     onToggleSelect={() => onToggleEntry(e.id, e.sale?.id ?? "", !!e.halvingReason && !e.sale?.commissionApproved)}
+                    periodStatus={period.status}
                   />
                 ))}
                 {/* Subtotal */}

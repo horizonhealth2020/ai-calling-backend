@@ -389,7 +389,7 @@ export default function PayrollService({
                       {cat.name}
                     </th>
                   ))}
-                  <th style={{ ...thRight, color: C.info }}>Total</th>
+                  <th style={{ ...thRight, color: C.success, fontWeight: typography.weights.bold }}>Total</th>
                   <th style={thCenter}></th>
                 </tr>
               </thead>
@@ -416,7 +416,7 @@ export default function PayrollService({
                       className="row-hover"
                       style={{ borderTop: `1px solid ${C.borderSubtle}` }}
                     >
-                      <td style={{ ...tdStyle, fontWeight: 600, color: C.textPrimary }}>
+                      <td style={{ ...tdStyle, fontWeight: typography.weights.bold, color: C.textPrimary, textAlign: "center" as const }}>
                         {agent.name}
                         {existingEntry && (
                           <span style={{ fontSize: typography.sizes["2xs"].fontSize, color: C.info, marginLeft: 6, fontWeight: 500 }}>
@@ -455,7 +455,7 @@ export default function PayrollService({
                           />
                         </td>
                       ))}
-                      <td style={{ ...tdRight, fontWeight: 800, fontSize: 15, color: C.info }}>
+                      <td style={{ ...tdRight, fontWeight: 800, fontSize: 15, color: C.success }}>
                         <AnimatedNumber value={total} prefix="$" decimals={2} />
                       </td>
                       <td style={tdCenter}>

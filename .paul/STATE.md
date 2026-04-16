@@ -10,26 +10,30 @@ See: .paul/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Milestone: v3.1 CS + Payroll Gap Closure
-Phase: 78 of 78 (Payroll Polish + Fronted Fix) — Not started
-Plan: Phase 77 complete (77-01 unified); ready to plan Phase 78
-Status: Phase 77 loop closed; starting Phase 78
-Last activity: 2026-04-16 — /paul:unify 77-01. Phase 77 complete.
+Phase: 78 of 78 (Payroll Polish + Fronted Fix) — Planning
+Plan: 78-02 unified; 78-03 pending apply
+Status: 78-01+02 unified; 78-03 pending
+Last activity: 2026-04-16 — /paul:unify 78-02. Loop closed; 2/3 plans complete.
 
 Progress:
 - v3.1 CS + Payroll Gap Closure: [█████░░░░░] 50% (1/2 phases complete)
-- Phase 78: [░░░░░░░░░░] 0% (not started)
+- Phase 78: [██████░░░░] 60% (78-01+02 unified; 78-03 pending)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Phase 77 loop closed — ready for Phase 78 PLAN]
+  ✓        ✓        ✓     [78-02 loop closed; 78-03 next]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+- 2026-04-16: Phase 78-02 — REVERSED Phase 71 fronted formula. New formula: `net = payout + adj + bonus - hold - fronted`. D-09 (carryover.ts fronted→hold carry on lock) removed. D-10 (negative-net carry) preserved. agentNet in carryover.ts updated to include fronted for accurate D-10 detection.
+- 2026-04-16: Phase 78-02 — carryover.ts agentNet kept (plan said "remove if only in removed block" but D-10 still uses it). computeNetAmount call updated to pass `fronted: Number(adj.frontedAmount)` so D-10 reflects Phase 78 net semantics.
+- 2026-04-16: Phase 78-01 — String error root cause: HTML `<input type="number">` stores strings; Zod `z.number()` rejects them. Fix: `parseFloat()` coercion in `saveEdit()` before PATCH. Server-side sales.ts + change-requests.ts were already correct (`{ old, new }` wrapping + `.new` reads); zero server changes needed.
+- 2026-04-16: Phase 78-01 — Addon premium input wrapper: `<div>` not `<label>` around addon row, so clicking the premium input doesn't toggle the checkbox (HTML label click-through).
 - 2026-04-16: Phase 77 — No member-collapse existed in tracking list; CSTracking filteredChargebacks/filteredPending and GET routes already show each submission as its own row. AC-1 was pre-satisfied.
 - 2026-04-16: Phase 77 — Soft dedupe uses composite key (memberCompany/memberName + memberId + date) queried by memberId IN [...] inside the transaction. Null-memberId records without a matching memberId query skip dedup (edge case; accepted). TOCTOU: concurrent POSTs at human paste-pace accepted without DB index.
 - 2026-04-16: Phase 77 — stale-summary resolves rep name via DB lookup (prisma.user.findUnique at request time), not JWT payload. JWT is signed at login and won't carry csRepRosterId until session refresh.
@@ -95,13 +99,16 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-14: Enterprise audit on 74-01-PLAN.md. Applied 4+2. Deferred 7. Verdict: conditionally acceptable → enterprise-ready (explicit sidebar mount-gate, WeekSection cell classification PRECONDITION, reading-first <th> discipline, structural net-accuracy argument via git diff + baseline triple, header status badge wrap-vs-stack inspection, pre-phase baseline capture step).
 - 2026-04-15: Enterprise audit on 75-01-PLAN.md. Applied 0+3. Deferred 4. Verdict: enterprise-ready (SECTION_HEADER stack-mobile scope fix, AC-2 XAxis clause grounded to Recharts default, dual-responsive-system documentation comment).
 - 2026-04-15: Enterprise audit on 76-01-PLAN.md. Applied 6+4. Deferred 4. Verdict: conditionally acceptable → enterprise-ready after upgrades (workspace stacking retargeted to inner rows not already-stacked outer, gate-override reframed as verify-not-lift, Task 3 step 6 deterministic rewrite, AC-6 keyboard a11y, responsive.css import precondition, exhaustive data-label enumeration for 2 CSTracking tables, Recharts grep scope widened, "Work" button + other touch-targets enumerated, baseline-triple, handler-level boundaries).
+- 2026-04-16: Enterprise audit on 78-03-PLAN.md. Applied 3+2. Deferred 3. Verdict: conditionally acceptable → enterprise-ready after upgrades (server-side unapprove gate added to sales.ts, PATCH→POST composite-key notes endpoint, explicit notes select in GET payroll/periods, sales.ts added to files_modified).
+- 2026-04-16: Enterprise audit on 78-02-PLAN.md. Applied 4+2. Deferred 2. Verdict: conditionally acceptable → enterprise-ready after upgrades (AC-6 OPEN-period mixed semantics, call-site inventory, carryover.ts JSDoc Phase 78 update, Case 8 transition boundary test, Task 4 OPEN-period audit query + compliance note).
+- 2026-04-16: Enterprise audit on 78-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (numeric string coercion root cause added as parallel string-error investigation, { old, new } wrapping made server-authoritative, commission baseline/delta verification concretized, CHANGES display line range added, addonProductIds initialization guard added).
 - 2026-04-16: Enterprise audit on 77-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (@unique on csRepRosterId for Prisma 1:1 migration, stale-summary filter pivoted to DB lookup vs JWT read, AC-6 rewritten to match Option A post-submit, /api/cs-reps PRECONDITION added, TOCTOU accepted-risk documented).
 
 ### Git State
-Last commit: c1f0c11 — feat(76): cs dashboard mobile (v3.0 phase 5/5 — milestone shipped)
+Last commit: 5af1e55 — feat(77): cs fixes — composite-key dedupe, User.csRepRosterId FK, roster admin UI
+Previous: c1f0c11 — feat(76): cs dashboard mobile (v3.0 phase 5/5 — milestone shipped)
 Previous: e82d66d — feat(75): owner dashboard mobile (v3.0 phase 4/5)
-Previous: 9ab6593 — MOBILE VERSION (Phase 74 payroll mobile changes)
-Branch: main (2 commits ahead of origin/main)
+Branch: main (3 commits ahead of origin/main)
 Feature branches merged: none
 
 ### Blockers/Concerns
@@ -110,9 +117,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-16
-Stopped at: Phase 77 unified — loop closed, git committed, ROADMAP updated
-Next action: `/paul:discuss 78` or `/paul:plan 78-01` (Phase 78: Payroll Polish + Fronted Fix)
-Resume file: .paul/phases/77-cs-fixes/77-01-SUMMARY.md
+Stopped at: 78-02 unified — fronted formula reversed, D-09 removed, 186 tests pass
+Next action: `/paul:apply 78-03` (payroll UI polish — unapprove gate, notes, sort, ACH print, CS card)
+Resume file: .paul/phases/78-payroll-polish/78-02-SUMMARY.md
 Git strategy: main is in sync with origin after v3.0 ceremony push; v3.1 work starts clean
 Resume context:
 - v3.1 CS + Payroll Gap Closure — 2 phases: 77 CS Fixes, 78 Payroll Polish

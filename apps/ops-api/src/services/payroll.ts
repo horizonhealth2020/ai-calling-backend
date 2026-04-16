@@ -15,11 +15,12 @@ export const ENROLLMENT_BONUS_AMOUNT = 10;
 /**
  * Pure helper: compute paycard net for a payroll entry.
  *
- * Formula: payout + adjustment + bonus - hold
+ * Formula: payout + adjustment + bonus - hold - fronted
  *
- * Fronted (mid-week cash advance) is intentionally EXCLUDED from net — the agent
- * already has that money in hand. The `frontedAmount` column is still persisted
- * per entry so `carryover.ts` can convert it to the next period's hold on lock.
+ * Fronted (mid-week cash advance) is deducted from net same-week — same semantics
+ * as hold. The `frontedAmount` column is still persisted per entry.
+ * `fronted` is optional (default 0) for backward compatibility with callers that
+ * do not yet pass it.
  *
  * Chargebacks flow in as negative `adjustment` values (see `allowNegative` on
  * `adjustmentAmount` Zod schema).
@@ -29,8 +30,9 @@ export const computeNetAmount = (args: {
   adjustment: number;
   bonus: number;
   hold: number;
+  fronted?: number;
 }): number => {
-  return args.payout + args.adjustment + args.bonus - args.hold;
+  return args.payout + args.adjustment + args.bonus - args.hold - (args.fronted ?? 0);
 };
 
 export const getSundayWeekRange = (date: Date, shiftWeeks: number = 0) => {
@@ -411,10 +413,10 @@ export const upsertPayrollEntryForSale = async (saleId: string, tx?: PrismaTx) =
   const bonus = existing ? Number(existing.bonusAmount) : 0;
   const hold = existing ? Number(existing.holdAmount) : 0;
   const adjustment = existing ? Number(existing.adjustmentAmount) : 0;
-  // Fronted is a mid-week cash advance — already in the agent's pocket.
-  // It is NOT added to current-week net; carryover.ts converts it to next-period hold on lock.
-  // frontedAmount is still preserved on the entry for carryover to read.
-  const netAmount = computeNetAmount({ payout: payoutAmount, adjustment, bonus, hold });
+  const fronted = existing ? Number(existing.frontedAmount) : 0;
+  // Phase 78: fronted is a same-week deduction (reversed Phase 71 exclusion).
+  // frontedAmount column is still persisted on the entry.
+  const netAmount = computeNetAmount({ payout: payoutAmount, adjustment, bonus, hold, fronted });
 
   return db.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },

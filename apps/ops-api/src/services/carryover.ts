@@ -4,10 +4,11 @@ import { getSundayWeekRange, computeNetAmount } from "./payroll";
 
 /**
  * Execute carryover logic when a payroll period is locked.
- * - Fronted amount carries as hold in the next period (D-09)
+ * - As of Phase 78, fronted is deducted same-week in computeNetAmount (D-09 removed).
  * - If agent net is negative, the unpaid portion carries as hold (D-10)
  * - Carryover amounts ADD to existing values via increment (D-11, CARRY-07)
  * - Idempotent: skips if carryoverExecuted is already true (D-14, CARRY-06)
+ * - reverseCarryover still handles historical rows with stored carryoverAmount metadata.
  */
 export async function executeCarryover(periodId: string): Promise<{ carried: number; skipped: boolean }> {
   // 1. Load period with agentAdjustments and entries
@@ -61,22 +62,18 @@ export async function executeCarryover(periodId: string): Promise<{ carried: num
     const agentEntries = (period as any).entries.filter((e: any) => e.agentId === adj.agentId);
     const totalPayout = agentEntries.reduce((s: number, e: any) => s + Number(e.payoutAmount), 0);
     const totalAdj = agentEntries.reduce((s: number, e: any) => s + Number(e.adjustmentAmount), 0);
-    // Net formula: payout + adjustment + bonus - hold (Phase 71 — fronted is
-    // a mid-week cash advance, not additive to net). Fronted still triggers
-    // D-09 carry-as-hold below; excluding it from agentNet ensures D-10's
-    // negative-net detection reflects the true owed amount so prior holds +
-    // new fronted carry correctly to the next period.
+    // Net formula (Phase 78+): payout + adjustment + bonus - hold - fronted
+    // Fronted now deducted same-week by computeNetAmount — no longer carried (D-09 removed).
+    // agentNet used for D-10 (negative-net carry) — reflects true owed amount.
     const agentNet = computeNetAmount({
       payout: totalPayout,
       adjustment: totalAdj,
       bonus: Number(adj.bonusAmount),
       hold: Number(adj.holdAmount),
+      fronted: Number(adj.frontedAmount),
     });
 
     let carryHold = 0;
-
-    // D-09: Fronted carries as hold
-    carryHold += Number(adj.frontedAmount);
 
     // D-10: Negative net carries as hold (unpaid portion)
     if (agentNet < 0) {

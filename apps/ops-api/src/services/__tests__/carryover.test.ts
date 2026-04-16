@@ -88,9 +88,11 @@ beforeEach(() => {
   mockAdjUpdate.mockResolvedValue({});
 });
 
-// ── CARRY-02: Fronted carries as hold ─────────────────────────────
+// ── CARRY-02: Fronted no longer carries (Phase 78) ────────────────
 describe('CARRY-02: Fronted auto-carries as hold', () => {
-  it('creates hold=200 in next period when agent has fronted=200 and net >= 0', async () => {
+  it('no longer carries fronted to next period (D-09 removed in Phase 78)', async () => {
+    // Phase 78: fronted is deducted same-week by computeNetAmount.
+    // payout=300, fronted=200, net = 300 - 200 = 100 (positive) → no D-10 carry either.
     const adj = makeAdj({ frontedAmount: 200, holdAmount: 0, bonusAmount: 0 });
     const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 300, adjustmentAmount: 0 });
     const period = makePeriod({ agentAdjustments: [adj], entries: [entry] });
@@ -98,26 +100,22 @@ describe('CARRY-02: Fronted auto-carries as hold', () => {
 
     const result = await executeCarryover('period-1');
 
-    expect(result.carried).toBe(1);
+    expect(result.carried).toBe(0);
     expect(result.skipped).toBe(false);
-    expect(mockAdjUpsert).toHaveBeenCalledTimes(1);
-    const call = mockAdjUpsert.mock.calls[0][0];
-    expect(call.create.holdAmount).toBe(200);
-    expect(call.create.holdFromCarryover).toBe(true);
-    expect(call.create.holdLabel).toBe('Fronted Hold');
-    expect(call.update.holdAmount).toEqual({ increment: 200 });
+    // No adj upsert — fronted is now a same-week deduction, no carry needed
+    expect(mockAdjUpsert).not.toHaveBeenCalled();
+    // carryoverExecuted is still set (idempotency flag)
+    expect(mockPeriodUpdate).toHaveBeenCalled();
   });
 });
 
 // ── CARRY-03: Negative net carries as hold ────────────────────────
 describe('CARRY-03: Negative net carries as hold', () => {
-  it('carries fronted + negative net as hold when net is negative', async () => {
-    // Agent has fronted=100, hold=400, bonus=0, payout=50, adj=0
-    // Phase 71 formula: Net = payout + adj + bonus - hold  (fronted EXCLUDED)
-    // Net = 50 + 0 + 0 - 400 = -350
-    // Carry = fronted(100) + abs(-350) = 450
-    // Why fronted is excluded from net: the agent already received it mid-week.
-    // Carrying the full negative ensures prior holds + new fronts don't leak.
+  it('carries negative net as hold when net is negative (D-10)', async () => {
+    // Agent has frontedAmount=100, holdAmount=400, bonusAmount=0, payout=50, adj=0
+    // Phase 78 formula: Net = payout + adj + bonus - hold - fronted
+    // Net = 50 + 0 + 0 - 400 - 100 = -450
+    // Carry = abs(-450) = 450 (D-10 only — D-09 removed)
     const adj = makeAdj({ frontedAmount: 100, holdAmount: 400, bonusAmount: 0 });
     const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 50, adjustmentAmount: 0 });
     const period = makePeriod({ agentAdjustments: [adj], entries: [entry] });
@@ -149,9 +147,11 @@ describe('CARRY-06: Carryover idempotent', () => {
 
 // ── CARRY-07: Carryover increments existing values ────────────────
 describe('CARRY-07: Carryover adds to existing hold (no overwrite)', () => {
-  it('uses increment in update clause to add to existing holdAmount', async () => {
-    const adj = makeAdj({ frontedAmount: 150 });
-    const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 200 });
+  it('uses increment in update clause for D-10 negative-net carry', async () => {
+    // D-10: large hold creates negative net → carry abs(net) to next period
+    // payout=50, hold=200, fronted=0 → net = 50 - 200 = -150 → carry 150
+    const adj = makeAdj({ frontedAmount: 0, holdAmount: 200, bonusAmount: 0 });
+    const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 50, adjustmentAmount: 0 });
     const period = makePeriod({ agentAdjustments: [adj], entries: [entry] });
     mockPeriodFindUnique.mockResolvedValue(period);
 
@@ -249,46 +249,49 @@ describe('CARRY-08: reverseCarryover fully clears carryover-only hold', () => {
   });
 });
 
-// ── CARRY-09: Full cycle — lock, unlock, edit, re-lock ───────────
-describe('CARRY-09: lock -> unlock -> edit front -> re-lock carries new amount', () => {
-  it('first lock carries 200, unlock reverses, re-lock after edit carries 300', async () => {
-    // --- Step 1: first lock with fronted=200 ---
-    const adjV1 = makeAdj({ frontedAmount: 200 });
-    const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 300 });
+// ── CARRY-09: Full cycle — lock, unlock, edit, re-lock (D-10) ────
+describe('CARRY-09: lock -> unlock -> edit hold -> re-lock carries new amount', () => {
+  it('first lock carries negative-net, unlock reverses, re-lock after edit carries updated amount', async () => {
+    // Phase 78: D-09 removed. Test D-10 cycle (negative-net carry).
+    // payout=50, hold=300, fronted=0 → net = -250 → carry 250
+
+    // --- Step 1: first lock ---
+    const adjV1 = makeAdj({ holdAmount: 300, frontedAmount: 0 });
+    const entry = makeEntry({ agentId: 'agent-1', payoutAmount: 50 });
     const periodV1 = makePeriod({ agentAdjustments: [adjV1], entries: [entry], carryoverExecuted: false });
     mockPeriodFindUnique.mockResolvedValueOnce(periodV1);
 
     const r1 = await executeCarryover('period-1');
     expect(r1.carried).toBe(1);
     const firstUpsert = mockAdjUpsert.mock.calls[0][0];
-    expect(firstUpsert.create.holdAmount).toBe(200);
-    expect(firstUpsert.create.carryoverAmount).toBe(200);
+    expect(firstUpsert.create.holdAmount).toBe(250);
+    expect(firstUpsert.create.carryoverAmount).toBe(250);
 
     // --- Step 2: unlock -> reverseCarryover ---
     mockPeriodFindUnique.mockResolvedValueOnce({ id: 'period-1', carryoverExecuted: true });
     mockAdjFindMany.mockResolvedValueOnce([
       {
         id: 'next-adj-1',
-        holdAmount: 200,
+        holdAmount: 250,
         holdFromCarryover: true,
         holdLabel: 'Fronted Hold',
         carryoverSourcePeriodId: 'period-1',
-        carryoverAmount: 200,
+        carryoverAmount: 250,
       },
     ]);
 
     const r2 = await reverseCarryover('period-1');
-    expect(r2.reversed).toBe(200);
+    expect(r2.reversed).toBe(250);
     expect(r2.rowsTouched).toBe(1);
-    // Source reset
     expect(mockPeriodUpdate).toHaveBeenCalledWith({
       where: { id: 'period-1' },
       data: { carryoverExecuted: false },
     });
 
-    // --- Step 3: edit fronted to 300 -> re-lock ---
+    // --- Step 3: reduce hold → re-lock carries 150 ---
     mockAdjUpsert.mockClear();
-    const adjV2 = makeAdj({ frontedAmount: 300 });
+    const adjV2 = makeAdj({ holdAmount: 200, frontedAmount: 0 });
+    // payout=50, hold=200 → net = -150 → carry 150
     const periodV2 = makePeriod({ agentAdjustments: [adjV2], entries: [entry], carryoverExecuted: false });
     mockPeriodFindUnique.mockResolvedValueOnce(periodV2);
 
@@ -296,24 +299,26 @@ describe('CARRY-09: lock -> unlock -> edit front -> re-lock carries new amount',
     expect(r3.carried).toBe(1);
     expect(r3.skipped).toBe(false);
     const secondUpsert = mockAdjUpsert.mock.calls[0][0];
-    expect(secondUpsert.create.holdAmount).toBe(300);
-    expect(secondUpsert.create.carryoverAmount).toBe(300);
-    expect(secondUpsert.update.holdAmount).toEqual({ increment: 300 });
-    expect(secondUpsert.update.carryoverAmount).toEqual({ increment: 300 });
+    expect(secondUpsert.create.holdAmount).toBe(150);
+    expect(secondUpsert.create.carryoverAmount).toBe(150);
+    expect(secondUpsert.update.holdAmount).toEqual({ increment: 150 });
+    expect(secondUpsert.update.carryoverAmount).toEqual({ increment: 150 });
   });
 });
 
 // ── CARRY-11: Next-period selection across timezone boundary ─────
 describe('CARRY-11: executeCarryover writes carryover to NEXT period, not source period (timezone regression)', () => {
   it('upserts the carryover hold on the next week id, not the source id, across the EDT/UTC boundary', async () => {
-    // Real UTC-midnight dates that exercise the EDT/UTC boundary that broke first-lock.
+    // Real UTC-midnight dates that exercise the EDT/UTC boundary.
+    // Phase 78: use D-10 trigger (negative net) instead of D-09 (fronted carry).
     const sourceWeekStart = new Date('2026-03-29T00:00:00.000Z');
     const sourceWeekEnd = new Date('2026-04-04T00:00:00.000Z');
     const sourceId = `${sourceWeekStart.toISOString()}_${sourceWeekEnd.toISOString()}`;
     const expectedNextId = '2026-04-05T00:00:00.000Z_2026-04-11T00:00:00.000Z';
 
-    const adj = makeAdj({ agentId: 'A1', frontedAmount: 200, holdAmount: 0, bonusAmount: 0 });
-    const entry = makeEntry({ agentId: 'A1', payoutAmount: 300, adjustmentAmount: 0 });
+    // payout=50, hold=300 → net = 50 - 300 = -250 → carry 250 to next period
+    const adj = makeAdj({ agentId: 'A1', frontedAmount: 0, holdAmount: 300, bonusAmount: 0 });
+    const entry = makeEntry({ agentId: 'A1', payoutAmount: 50, adjustmentAmount: 0 });
     mockPeriodFindUnique.mockResolvedValueOnce({
       id: sourceId,
       weekStart: sourceWeekStart,
@@ -340,9 +345,9 @@ describe('CARRY-11: executeCarryover writes carryover to NEXT period, not source
     expect(adjUpsertCall.where.agentId_payrollPeriodId.payrollPeriodId).toBe(expectedNextId);
     expect(adjUpsertCall.where.agentId_payrollPeriodId.payrollPeriodId).not.toBe(sourceId);
 
-    // Assertion 3: hold amount equals the fronted amount (D-09 contract preserved).
-    expect(Number(adjUpsertCall.create.holdAmount)).toBe(200);
-    expect(Number(adjUpsertCall.create.carryoverAmount)).toBe(200);
+    // Assertion 3: hold amount equals abs(negative net) = 250 (D-10 contract).
+    expect(Number(adjUpsertCall.create.holdAmount)).toBe(250);
+    expect(Number(adjUpsertCall.create.carryoverAmount)).toBe(250);
     expect(adjUpsertCall.create.carryoverSourcePeriodId).toBe(sourceId);
   });
 });

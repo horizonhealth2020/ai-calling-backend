@@ -14,7 +14,14 @@ router.get("/payroll/periods", requireAuth, requireRole("PAYROLL", "MANAGER", "S
   res.json(await prisma.payrollPeriod.findMany({
     include: {
       agentAdjustments: {
-        include: { agent: { select: { id: true, name: true } } },
+        select: {
+          id: true, agentId: true, payrollPeriodId: true,
+          bonusAmount: true, frontedAmount: true, holdAmount: true,
+          bonusLabel: true, holdLabel: true, notes: true,
+          bonusFromCarryover: true, holdFromCarryover: true,
+          carryoverSourcePeriodId: true, carryoverAmount: true,
+          agent: { select: { id: true, name: true } },
+        },
       },
       entries: {
         include: {
@@ -395,7 +402,8 @@ router.patch("/payroll/entries/:id", requireAuth, requireRole("PAYROLL", "SUPER_
   const bonus = parsed.data.bonusAmount ?? Number(entry.bonusAmount);
   const fronted = parsed.data.frontedAmount ?? Number(entry.frontedAmount);
   const hold = parsed.data.holdAmount ?? Number(entry.holdAmount);
-  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus + fronted - hold;
+  // Phase 78 formula: fronted is a same-week deduction
+  const net = Number(entry.payoutAmount) + Number(entry.adjustmentAmount) + bonus - fronted - hold;
   const updated = await prisma.payrollEntry.update({
     where: { id: pp.data.id },
     data: { bonusAmount: bonus, frontedAmount: fronted, holdAmount: hold, netAmount: net },
@@ -448,6 +456,25 @@ router.patch("/payroll/adjustments/:id", requireAuth, requireRole("PAYROLL", "SU
   });
   await logAudit(req.user!.id, "UPDATE", "AgentPeriodAdjustment", pp.data.id, parsed.data);
   res.json(updated);
+}));
+
+// POST /payroll/adjustments/notes -- save week-level note for agent+period
+router.post("/payroll/adjustments/notes", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
+  const schema = z.object({
+    agentId: z.string(),
+    payrollPeriodId: z.string(),
+    notes: z.string().max(2000).nullable(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(zodErr(parsed.error));
+  const { agentId, payrollPeriodId, notes } = parsed.data;
+  const adjustment = await prisma.agentPeriodAdjustment.upsert({
+    where: { agentId_payrollPeriodId: { agentId, payrollPeriodId } },
+    create: { agentId, payrollPeriodId, notes, bonusAmount: 0, frontedAmount: 0, holdAmount: 0 },
+    update: { notes },
+  });
+  await logAudit(req.user!.id, "UPDATE", "AgentPeriodAdjustment", agentId, { payrollPeriodId, notesLength: notes?.length ?? 0 });
+  res.json(adjustment);
 }));
 
 // POST /payroll/adjustments -- create/upsert adjustment for agent+period

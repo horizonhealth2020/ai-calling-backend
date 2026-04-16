@@ -803,6 +803,23 @@ router.patch("/sales/:id/approve-commission", requireAuth, requireRole("PAYROLL"
 router.patch("/sales/:id/unapprove-commission", requireAuth, requireRole("PAYROLL", "SUPER_ADMIN"), asyncHandler(async (req, res) => {
   const pp = idParamSchema.safeParse(req.params);
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
+
+  // Block unapprove on locked or finalized periods — only OPEN periods allow commission reversal
+  const payrollEntries = await prisma.payrollEntry.findMany({
+    where: { saleId: pp.data.id },
+    include: { payrollPeriod: { select: { status: true } } },
+  });
+  const hasNonOpenPeriod = payrollEntries.some(
+    (e: { payrollPeriod: { status: string } }) => e.payrollPeriod.status !== "OPEN"
+  );
+  if (hasNonOpenPeriod) {
+    await logAudit(req.user!.id, "UNAPPROVE_BLOCKED", "Sale", pp.data.id, {
+      reason: "Period not OPEN",
+      periodStatuses: payrollEntries.map((e: { payrollPeriod: { status: string } }) => e.payrollPeriod.status),
+    });
+    return res.status(400).json({ error: "Cannot unapprove commission on a locked or finalized period" });
+  }
+
   const sale = await prisma.sale.update({
     where: { id: pp.data.id },
     data: { commissionApproved: false },

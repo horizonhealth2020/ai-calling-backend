@@ -278,6 +278,18 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
       return;
     }
 
+    // Coerce numeric string inputs back to expected types (HTML inputs return strings)
+    if (typeof changes.premium === 'string') {
+      changes.premium = changes.premium === '' ? 0 : parseFloat(changes.premium);
+    }
+    if (typeof changes.enrollmentFee === 'string') {
+      changes.enrollmentFee = changes.enrollmentFee === '' ? null : parseFloat(changes.enrollmentFee);
+    }
+    // When only addon premiums change, include current addonProductIds so server can upsert addons
+    if ('addonPremiums' in changes && !('addonProductIds' in changes)) {
+      changes.addonProductIds = editForm.addonProductIds ?? [];
+    }
+
     try {
       const res = await authFetch(`${API}/api/sales/${editingSaleId}`, {
         method: "PATCH",
@@ -662,22 +674,42 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                       {products.filter(p => p.active && (p.type === "ADDON" || p.type === "AD_D")).map(ap => {
                                         const isChecked = (editForm.addonProductIds || []).includes(ap.id);
                                         return (
-                                          <label key={ap.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: typography.sizes.xs2.fontSize, color: colors.textPrimary, cursor: "pointer" }}>
-                                            <input type="checkbox" checked={isChecked} style={{ accentColor: colors.primary400 }}
-                                              onChange={e => {
-                                                if (e.target.checked) {
-                                                  setEditForm((f: Record<string, any>) => ({ ...f, addonProductIds: [...(f.addonProductIds || []), ap.id] }));
-                                                } else {
+                                          <div key={ap.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: typography.sizes.xs2.fontSize, color: colors.textPrimary }}>
+                                            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                                              <input type="checkbox" checked={isChecked} style={{ accentColor: colors.primary400 }}
+                                                onChange={e => {
+                                                  if (e.target.checked) {
+                                                    setEditForm((f: Record<string, any>) => ({ ...f, addonProductIds: [...(f.addonProductIds || []), ap.id] }));
+                                                  } else {
+                                                    setEditForm((f: Record<string, any>) => ({
+                                                      ...f,
+                                                      addonProductIds: (f.addonProductIds || []).filter((id: string) => id !== ap.id),
+                                                      addonPremiums: Object.fromEntries(Object.entries(f.addonPremiums || {}).filter(([k]) => k !== ap.id)),
+                                                    }));
+                                                  }
+                                                  triggerEditPreview(true);
+                                                }} />
+                                              {ap.name}
+                                            </label>
+                                            {isChecked && (
+                                              <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="Premium"
+                                                style={{ ...baseInputStyle, width: 80, padding: "4px 8px", fontSize: typography.sizes.sm.fontSize, display: "inline-block" }}
+                                                value={editForm.addonPremiums?.[ap.id] ?? ""}
+                                                onChange={e => {
+                                                  const val = e.target.value;
                                                   setEditForm((f: Record<string, any>) => ({
                                                     ...f,
-                                                    addonProductIds: (f.addonProductIds || []).filter((id: string) => id !== ap.id),
-                                                    addonPremiums: Object.fromEntries(Object.entries(f.addonPremiums || {}).filter(([k]) => k !== ap.id)),
+                                                    addonPremiums: { ...(f.addonPremiums ?? {}), [ap.id]: val === "" ? 0 : Number(val) },
                                                   }));
-                                                }
-                                                triggerEditPreview(true);
-                                              }} />
-                                            {ap.name}
-                                          </label>
+                                                  triggerEditPreview(true);
+                                                }}
+                                              />
+                                            )}
+                                          </div>
                                         );
                                       })}
                                     </div>
@@ -757,9 +789,9 @@ export default function ManagerSales({ API, agents, products, leadSources, sales
                                         {changedKeys.map(k => (
                                           <div key={k} style={{ display: "flex", gap: spacing[2], alignItems: "center" }}>
                                             <span style={{ fontSize: typography.sizes.base.fontSize, color: colors.textSecondary, minWidth: 120 }}>{k}:</span>
-                                            <span style={DIFF_OLD}>{String(editOriginal[k])}</span>
+                                            <span style={DIFF_OLD}>{typeof editOriginal[k] === 'object' ? JSON.stringify(editOriginal[k]) : String(editOriginal[k] ?? '')}</span>
                                             <span style={{ color: colors.textMuted }}>&rarr;</span>
-                                            <span style={DIFF_NEW}>{String(editForm[k])}</span>
+                                            <span style={DIFF_NEW}>{typeof editForm[k] === 'object' ? JSON.stringify(editForm[k]) : String(editForm[k] ?? '')}</span>
                                           </div>
                                         ))}
                                         {editPreview && (
