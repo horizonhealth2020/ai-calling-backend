@@ -19,16 +19,33 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | Shipped | 2026-04-14 |
 | v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
 | v3.0 | Mobile-Friendly Dashboards | 72-76 | Shipped | 2026-04-15 |
+| v3.1 | CS + Payroll Gap Closure | 77-78 | In Progress | - |
 
 ## Current Milestone
 
-**None — awaiting next milestone definition.**
+**v3.1 CS + Payroll Gap Closure**
+Status: 🚧 In Progress
+Phases: 1 of 2 complete
 
-Run `/paul:discuss-milestone` or `/paul:milestone` to define the next direction.
+**Goal:** Close functional gaps and visual polish surfaced after v3.0 rollout — MyQueue rep-visibility bug, dedupe correctness on same-week re-submissions, commission reversibility while period OPEN, payroll card consistency between screen and print, and fronted formula correction (same-week deduction; reverses Phase 71 carry-to-next-period semantics).
 
-## Next Milestone
+### Phases (v3.1)
 
-TBD — see `.paul/MILESTONES.md` for v3.0 closure summary and accumulated decisions.
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 77 | CS Fixes | 1 | Complete | 2026-04-16 |
+| 78 | Payroll Polish + Fronted Fix | TBD | Not started | - |
+
+### Phase 77: CS Fixes
+
+Focus: (A) Tracking list fix — new rows visible after prior resolution, no member-level collapse + (B) Submission-time dedupe on composite keys `memberName`+`memberID`+`postedDate` (CB) / `memberName`+`memberID`+`holdDate` (PT) — server-side app-logic, no DB unique index; batch accepts non-dupes + flags dupes + (C) MyQueue rep-visibility via new `User.csRepRosterId` FK + admin-UI dropdown in Users page to link each CUSTOMER_SERVICE user to a `CsRepRoster` entry; auto-sync on user creation. Forward-only. One FK migration.
+Plans:
+- [x] 77-01: Composite-key dedupe (CB+PT) + User.csRepRosterId FK + OwnerUsers roster dropdown + stale-summary FK filter + auto-sync on user creation (184 tests pass)
+
+### Phase 78: Payroll Polish + Fronted Fix
+
+Focus: Restore unapprove-commission button while period `OPEN` (hidden when LOCKED/FINALIZED/paid-guarded) + CS payroll card cosmetics (rep name bold/top/centered, Total label + amount green) + agent card sort by `Sale.memberNumber` ascending + ACH print row green highlight to match on-screen + **fronted formula correction**: same-week deduction `Net = payout + adj + bonus - hold - fronted` (reverses Phase 71 "excluded + carry-to-next-period-as-hold" semantics). Carryover logic (`carryover.ts` fronted→hold on lock) becomes dead code under the new formula — removed. Regression test `payroll-net-formula.test.ts` (7-case, Phase 71) rewritten to lock new formula. Forward-only — historical paycards computed under Phase 71 formula remain as-is.
+Plans: TBD (defined during /paul:plan)
 
 ---
 
@@ -608,4 +625,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-16 — v3.0 milestone ceremony closed; awaiting next milestone definition (see `.paul/MILESTONES.md`)*
+*Last updated: 2026-04-16 — Phase 77 CS Fixes complete (dedupe + FK + roster UI); Phase 78 Payroll Polish next*

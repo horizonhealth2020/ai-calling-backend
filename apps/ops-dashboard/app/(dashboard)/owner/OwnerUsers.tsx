@@ -32,7 +32,8 @@ import {
   Lock,
 } from "lucide-react";
 
-type User = { id: string; name: string; email: string; roles: string[]; active: boolean; createdAt: string };
+type User = { id: string; name: string; email: string; roles: string[]; active: boolean; createdAt: string; csRepRosterId?: string | null };
+type CsRepRosterEntry = { id: string; name: string; active: boolean };
 type PermUser = { id: string; name: string; roles: string[]; permissions: Record<string, { granted: boolean; isDefault: boolean; isOverride: boolean }> };
 type PermData = { users: PermUser[]; configurablePermissions: string[] };
 
@@ -165,14 +166,19 @@ function UserRow({
   user,
   onSave,
   onDelete,
+  rosterEntries,
+  onLinkRoster,
 }: {
   user: User;
   onSave: (id: string, data: Partial<User> & { password?: string }) => Promise<string | null>;
   onDelete: (id: string) => Promise<string | null>;
+  rosterEntries: CsRepRosterEntry[];
+  onLinkRoster: (userId: string, csRepRosterId: string | null) => Promise<string | null>;
 }) {
+  const isCS = user.roles.includes("CUSTOMER_SERVICE");
   const [edit, setEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [d, setD] = useState({ name: user.name, email: user.email, roles: user.roles, active: user.active, password: "" });
+  const [d, setD] = useState({ name: user.name, email: user.email, roles: user.roles, active: user.active, password: "", csRepRosterId: user.csRepRosterId ?? "" });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const { toast } = useToast();
@@ -312,6 +318,22 @@ function UserRow({
             <option value="false">Inactive</option>
           </Select>
         </div>
+        {isCS && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={LBL}>CS Roster Link</label>
+            <select
+              className="input-focus"
+              style={{ ...baseInputStyle, boxSizing: "border-box", minHeight: 44, touchAction: "manipulation" }}
+              value={d.csRepRosterId ?? ""}
+              onChange={(e) => setD((x) => ({ ...x, csRepRosterId: e.target.value || "" }))}
+            >
+              <option value="">(none — not linked)</option>
+              {rosterEntries.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}{r.active ? "" : " (inactive)"}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {err && (
           <div
             className="animate-fade-in"
@@ -344,10 +366,20 @@ function UserRow({
               if (e) {
                 setErr(e);
                 setSaving(false);
-              } else {
-                toast("success", `${d.name} saved successfully`);
-                setEdit(false);
+                return;
               }
+              // For CS users: also persist the roster link if it changed
+              if (isCS) {
+                const newRosterId = d.csRepRosterId || null;
+                const rosterErr = await onLinkRoster(user.id, newRosterId);
+                if (rosterErr) {
+                  setErr(`Saved user but roster link failed: ${rosterErr}`);
+                  setSaving(false);
+                  return;
+                }
+              }
+              toast("success", `${d.name} saved successfully`);
+              setEdit(false);
             }}
           >
             Save Changes
@@ -376,12 +408,16 @@ function UsersSection({
   usersLoaded,
   onSave,
   onDelete,
+  rosterEntries,
+  onLinkRoster,
   API,
 }: {
   users: User[];
   usersLoaded: boolean;
   onSave: (id: string, data: Partial<User> & { password?: string }) => Promise<string | null>;
   onDelete: (id: string) => Promise<string | null>;
+  rosterEntries: CsRepRosterEntry[];
+  onLinkRoster: (userId: string, csRepRosterId: string | null) => Promise<string | null>;
   API: string;
 }) {
   const { toast } = useToast();
@@ -539,7 +575,7 @@ function UsersSection({
                     </td>
                   </tr>
                 ) : (
-                  users.map((u) => <UserRow key={u.id} user={u} onSave={onSave} onDelete={onDelete} />)
+                  users.map((u) => <UserRow key={u.id} user={u} onSave={onSave} onDelete={onDelete} rosterEntries={rosterEntries} onLinkRoster={onLinkRoster} />)
                 )}
               </tbody>
             </table>
@@ -733,6 +769,7 @@ export default function OwnerUsers({ API }: { API: string }) {
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [permData, setPermData] = useState<PermData | null>(null);
+  const [rosterEntries, setRosterEntries] = useState<CsRepRosterEntry[]>([]);
 
   useEffect(() => {
     authFetch(`${API}/api/users`)
@@ -744,6 +781,11 @@ export default function OwnerUsers({ API }: { API: string }) {
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { setPermData(d); })
       .catch(() => { toast("error", "Failed to load users"); });
+
+    authFetch(`${API}/api/cs-rep-roster`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((d: CsRepRosterEntry[]) => setRosterEntries(d))
+      .catch(() => {});
   }, [API]);
 
   async function saveUser(id: string, data: Partial<User> & { password?: string }): Promise<string | null> {
@@ -780,6 +822,25 @@ export default function OwnerUsers({ API }: { API: string }) {
     }
   }
 
+  async function linkRoster(id: string, csRepRosterId: string | null): Promise<string | null> {
+    try {
+      const res = await authFetch(`${API}/api/users/${id}/link-roster`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csRepRosterId }),
+      });
+      if (res.ok) {
+        const u = await res.json();
+        setUsers((prev) => prev.map((x) => (x.id === id ? u : x)));
+        return null;
+      }
+      const err = await res.json().catch(() => ({}));
+      return err.error ?? "Failed to link roster";
+    } catch (e: unknown) {
+      return `Unable to reach API \u2014 ${e instanceof Error ? e.message : "network error"}`;
+    }
+  }
+
   async function savePermissions(overrides: { userId: string; permission: string; granted: boolean }[]): Promise<void> {
     const res = await authFetch(`${API}/api/permissions`, {
       method: "PUT",
@@ -801,6 +862,8 @@ export default function OwnerUsers({ API }: { API: string }) {
         usersLoaded={usersLoaded}
         onSave={saveUser}
         onDelete={deleteUser}
+        rosterEntries={rosterEntries}
+        onLinkRoster={linkRoster}
         API={API}
       />
       <PermissionTable permData={permData} onSavePermissions={savePermissions} />

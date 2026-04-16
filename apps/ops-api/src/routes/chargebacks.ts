@@ -134,9 +134,34 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
   // Wrap createMany + matching + clawback creation + cursor advance in a single
   // transaction so a failed insert rolls back the round-robin cursor (Bug 3 fix).
   // Socket emits / audit logs that don't need atomicity stay outside the tx below.
-  const { result, clawbackAuditPayloads, alertPayloads } = await prisma.$transaction(async (tx: PrismaTx) => {
+  const { result, clawbackAuditPayloads, alertPayloads, duplicates } = await prisma.$transaction(async (tx: PrismaTx) => {
+    // Soft dedupe: composite key (memberCompany, memberId, postedDate) before insert.
+    // TOCTOU accepted risk: concurrent manual-paste POSTs at human pace are negligible.
+    const incomingMemberIds = records.map(r => r.memberId).filter(Boolean) as string[];
+    const existingCandidates = incomingMemberIds.length > 0
+      ? await tx.chargebackSubmission.findMany({
+          where: { memberId: { in: incomingMemberIds } },
+          select: { memberCompany: true, memberId: true, postedDate: true },
+        })
+      : [];
+    const existingKeySet = new Set(
+      existingCandidates.map(e =>
+        `${(e.memberCompany || "").toLowerCase().trim()}|${e.memberId || ""}|${e.postedDate ? e.postedDate.toISOString().split("T")[0] : ""}`,
+      ),
+    );
+    const toCreate: typeof records = [];
+    const dupesFound: Array<{ memberId: string | null; memberCompany: string | null; postedDate: string | null; reason: string }> = [];
+    for (const r of records) {
+      const key = `${(r.memberCompany || "").toLowerCase().trim()}|${r.memberId || ""}|${r.postedDate ? r.postedDate.split("T")[0] : ""}`;
+      if (existingKeySet.has(key)) {
+        dupesFound.push({ memberId: r.memberId, memberCompany: r.memberCompany, postedDate: r.postedDate, reason: "already_exists" });
+      } else {
+        toCreate.push(r);
+      }
+    }
+
     const created = await tx.chargebackSubmission.createMany({
-      data: records.map((r) => ({
+      data: toCreate.map((r) => ({
         postedDate: r.postedDate ? new Date(r.postedDate) : null,
         type: r.type,
         payeeId: r.payeeId,
@@ -304,12 +329,18 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
       }
     }
 
-    // Advance the round-robin cursor by exactly the number of rows inserted, inside
-    // the same tx so a thrown error above rolls the cursor back to its pre-submit value.
-    await batchRoundRobinAssign("chargeback", created.count, { persist: true, tx });
+    // Advance cursor only for actually-created rows; skip if all were dupes.
+    if (created.count > 0) {
+      await batchRoundRobinAssign("chargeback", created.count, { persist: true, tx });
+    }
 
-    return { result: created, clawbackAuditPayloads: auditPayloads, alertPayloads: alertPayloadsLocal };
+    return { result: created, clawbackAuditPayloads: auditPayloads, alertPayloads: alertPayloadsLocal, duplicates: dupesFound };
   }, { timeout: 30000 });
+
+  // 409 for single-record submissions that are fully duplicate
+  if (duplicates.length > 0 && result.count === 0 && records.length === 1) {
+    return res.status(409).json({ count: 0, created: 0, batchId, duplicates });
+  }
 
   // Post-commit side effects: audit log writes (best-effort, non-atomic).
   for (const payload of clawbackAuditPayloads) {
@@ -402,14 +433,17 @@ router.post("/chargebacks", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIEW"
     count: result.count,
     source,
   });
+  emitCSChanged({ type: "chargeback", batchId, count: result.count });
 
   return res.status(201).json({
     count: result.count,
+    created: result.count,
     batchId,
     source,
     alertCount: alertSuccessCount,
     alertAttempted: alertPayloads.length,
     alertFailed: alertErrors.length,
+    duplicates,
   });
 }));
 
@@ -624,7 +658,24 @@ router.get("/chargebacks/totals", requireAuth, asyncHandler(async (req, res) => 
 // ─── Stale Summary (spans chargebacks + pending terms) ─────────
 
 router.get("/stale-summary", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
-  const assignedToFilter = typeof req.query.assignedTo === "string" ? req.query.assignedTo.toLowerCase().trim() : null;
+  // Resolve the assignedTo filter via FK when possible.
+  // CRITICAL: Do not read csRepRosterId from JWT — JWT is signed at login and won't have the new field.
+  // DB-lookup ensures the most current value is used regardless of session age.
+  let assignedToFilter: string | null = null;
+  if (req.user?.id) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.user.id }, select: { csRepRosterId: true, name: true } });
+    if (dbUser?.csRepRosterId) {
+      const roster = await prisma.csRepRoster.findUnique({ where: { id: dbUser.csRepRosterId }, select: { name: true } });
+      assignedToFilter = roster?.name?.toLowerCase().trim() ?? null;
+    } else if (dbUser?.name) {
+      // Fallback: use name match for pre-linked users
+      assignedToFilter = dbUser.name.toLowerCase().trim();
+    }
+  }
+  // OWNER_VIEW / SUPER_ADMIN: allow explicit ?assignedTo= override for cross-rep queries
+  if ((req.user?.roles?.includes("OWNER_VIEW") || req.user?.roles?.includes("SUPER_ADMIN")) && typeof req.query.assignedTo === "string") {
+    assignedToFilter = req.query.assignedTo.toLowerCase().trim() || null;
+  }
   const now = new Date();
   const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
 

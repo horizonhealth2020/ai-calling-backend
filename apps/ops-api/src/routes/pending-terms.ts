@@ -44,9 +44,33 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
 
   // Wrap createMany + cursor advance in a single transaction so a failed insert
   // rolls back the round-robin cursor (Bug 3 fix). Socket emits stay outside.
-  const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  const { result, duplicates } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Soft dedupe: composite key (memberName, memberId, holdDate) before insert.
+    const incomingMemberIds = records.map(r => r.memberId).filter(Boolean) as string[];
+    const existingCandidates = incomingMemberIds.length > 0
+      ? await tx.pendingTerm.findMany({
+          where: { memberId: { in: incomingMemberIds } },
+          select: { memberName: true, memberId: true, holdDate: true },
+        })
+      : [];
+    const existingKeySet = new Set(
+      existingCandidates.map(e =>
+        `${(e.memberName || "").toLowerCase().trim()}|${e.memberId || ""}|${e.holdDate ? e.holdDate.toISOString().split("T")[0] : ""}`,
+      ),
+    );
+    const toCreate: typeof records = [];
+    const dupesFound: Array<{ memberId: string | null; memberName: string | null; holdDate: string | null; reason: string }> = [];
+    for (const r of records) {
+      const key = `${(r.memberName || "").toLowerCase().trim()}|${r.memberId || ""}|${r.holdDate ? r.holdDate.split("T")[0] : ""}`;
+      if (existingKeySet.has(key)) {
+        dupesFound.push({ memberId: r.memberId, memberName: r.memberName, holdDate: r.holdDate, reason: "already_exists" });
+      } else {
+        toCreate.push(r);
+      }
+    }
+
     const created = await tx.pendingTerm.createMany({
-      data: records.map((r) => ({
+      data: toCreate.map((r) => ({
         agentName: r.agentName,
         agentIdField: r.agentIdField,
         memberId: r.memberId,
@@ -72,19 +96,25 @@ router.post("/pending-terms", requireAuth, requireRole("SUPER_ADMIN", "OWNER_VIE
       })),
     });
 
-    // Advance the round-robin cursor by exactly the number of rows inserted, inside
-    // the same tx so a thrown error rolls the cursor back to its pre-submit value.
-    await batchRoundRobinAssign("pending_term", created.count, { persist: true, tx });
+    // Advance cursor only for actually-created rows; skip if all were dupes.
+    if (created.count > 0) {
+      await batchRoundRobinAssign("pending_term", created.count, { persist: true, tx });
+    }
 
-    return created;
+    return { result: created, duplicates: dupesFound };
   });
+
+  // 409 for single-record submissions that are fully duplicate
+  if (duplicates.length > 0 && result.count === 0 && records.length === 1) {
+    return res.status(409).json({ count: 0, created: 0, batchId, duplicates });
+  }
 
   // Emit CS changed event for real-time updates (post-commit, non-atomic)
   emitCSChanged({ type: "pending_term", batchId, count: result.count });
 
   logAudit(req.user!.id, "CREATE", "PendingTerm", batchId, { count: result.count });
 
-  return res.status(201).json({ count: result.count, batchId });
+  return res.status(201).json({ count: result.count, created: result.count, batchId, duplicates });
 }));
 
 router.get("/pending-terms", requireAuth, asyncHandler(async (req, res) => {

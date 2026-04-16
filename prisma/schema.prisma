@@ -83,6 +83,8 @@ model User {
   permissionOverrides          PermissionOverride[]
   grantedPermissions           PermissionOverride[]   @relation("PermissionGrantedBy")
   contactAttempts              ContactAttempt[]       @relation("ContactAttemptAgent")
+  csRepRosterId                String?                @unique @map("cs_rep_roster_id")
+  csRepRoster                  CsRepRoster?           @relation("CsRepRosterUser", fields: [csRepRosterId], references: [id])
 
   @@map("users")
 }
@@ -656,6 +658,7 @@ model CsRepRoster {
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
   serviceAgent   ServiceAgent? @relation(fields: [serviceAgentId], references: [id])
+  user           User?         @relation("CsRepRosterUser")
 
   @@map("cs_rep_roster")
 }

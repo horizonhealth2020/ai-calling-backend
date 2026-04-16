@@ -5,30 +5,35 @@
 See: .paul/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v3.0 Mobile-Friendly Dashboards SHIPPED — next milestone TBD by user
+**Current focus:** v3.1 CS + Payroll Gap Closure — Phase 77 complete; Phase 78 Payroll Polish next
 
 ## Current Position
 
-Milestone: Awaiting next milestone
-Phase: None active
-Plan: None
-Status: Milestone v3.0 Mobile-Friendly Dashboards complete — ready for next
-Last activity: 2026-04-16 — /paul:complete-milestone ceremony closed v3.0 (MILESTONES.md created, archive written, ROADMAP.md reorganized)
+Milestone: v3.1 CS + Payroll Gap Closure
+Phase: 78 of 78 (Payroll Polish + Fronted Fix) — Not started
+Plan: Phase 77 complete (77-01 unified); ready to plan Phase 78
+Status: Phase 77 loop closed; starting Phase 78
+Last activity: 2026-04-16 — /paul:unify 77-01. Phase 77 complete.
 
 Progress:
-- v3.0 Mobile-Friendly Dashboards: [██████████] 100% ✓ Shipped 2026-04-15
+- v3.1 CS + Payroll Gap Closure: [█████░░░░░] 50% (1/2 phases complete)
+- Phase 78: [░░░░░░░░░░] 0% (not started)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ○        ○        ○     [Milestone complete — ready for next]
+  ✓        ✓        ✓     [Phase 77 loop closed — ready for Phase 78 PLAN]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+- 2026-04-16: Phase 77 — No member-collapse existed in tracking list; CSTracking filteredChargebacks/filteredPending and GET routes already show each submission as its own row. AC-1 was pre-satisfied.
+- 2026-04-16: Phase 77 — Soft dedupe uses composite key (memberCompany/memberName + memberId + date) queried by memberId IN [...] inside the transaction. Null-memberId records without a matching memberId query skip dedup (edge case; accepted). TOCTOU: concurrent POSTs at human paste-pace accepted without DB index.
+- 2026-04-16: Phase 77 — stale-summary resolves rep name via DB lookup (prisma.user.findUnique at request time), not JWT payload. JWT is signed at login and won't carry csRepRosterId until session refresh.
+- 2026-04-16: Phase 77 — Round-robin cursor advance guarded: only advances if `created.count > 0` (skips if all submitted records were dupes).
 - 2026-04-15: Phase 76 — Gate-override block (CSTracking:1125/1417) already renders above Save Resolution footer (1146/1438) in current JSX — VERIFY-and-ASSERT pattern (no lift needed). Audit caught plan over-claim; DOM-order precondition confirms on apply
 - 2026-04-15: Phase 76 — Workspace outer div at CSTracking:1054/1346 already flexDirection:column — stack-mobile-md retargeted to 3 inner flex rows (Log Attempt pills, Resolution Type pills, Save/Discard footer). Audit-caught: would have been a no-op
 - 2026-04-15: Phase 76 — Bottom-sheet component NOT needed — inline expanded-row pattern behaves natively as card-below-card when parent table uses `.responsive-table`. Resolved CONTEXT.md hedge
@@ -90,6 +95,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-14: Enterprise audit on 74-01-PLAN.md. Applied 4+2. Deferred 7. Verdict: conditionally acceptable → enterprise-ready (explicit sidebar mount-gate, WeekSection cell classification PRECONDITION, reading-first <th> discipline, structural net-accuracy argument via git diff + baseline triple, header status badge wrap-vs-stack inspection, pre-phase baseline capture step).
 - 2026-04-15: Enterprise audit on 75-01-PLAN.md. Applied 0+3. Deferred 4. Verdict: enterprise-ready (SECTION_HEADER stack-mobile scope fix, AC-2 XAxis clause grounded to Recharts default, dual-responsive-system documentation comment).
 - 2026-04-15: Enterprise audit on 76-01-PLAN.md. Applied 6+4. Deferred 4. Verdict: conditionally acceptable → enterprise-ready after upgrades (workspace stacking retargeted to inner rows not already-stacked outer, gate-override reframed as verify-not-lift, Task 3 step 6 deterministic rewrite, AC-6 keyboard a11y, responsive.css import precondition, exhaustive data-label enumeration for 2 CSTracking tables, Recharts grep scope widened, "Work" button + other touch-targets enumerated, baseline-triple, handler-level boundaries).
+- 2026-04-16: Enterprise audit on 77-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (@unique on csRepRosterId for Prisma 1:1 migration, stale-summary filter pivoted to DB lookup vs JWT read, AC-6 rewritten to match Option A post-submit, /api/cs-reps PRECONDITION added, TOCTOU accepted-risk documented).
 
 ### Git State
 Last commit: c1f0c11 — feat(76): cs dashboard mobile (v3.0 phase 5/5 — milestone shipped)
@@ -104,16 +110,17 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-16
-Stopped at: Milestone v3.0 Mobile-Friendly Dashboards complete (ceremony closed)
-Next action: `/paul:discuss-milestone` to define the next milestone direction
-Resume file: .paul/MILESTONES.md
-Git strategy: main (4 commits ahead of origin/main — not pushed; milestone ceremony commit pending; git tag decision deferred to user)
+Stopped at: Phase 77 unified — loop closed, git committed, ROADMAP updated
+Next action: `/paul:discuss 78` or `/paul:plan 78-01` (Phase 78: Payroll Polish + Fronted Fix)
+Resume file: .paul/phases/77-cs-fixes/77-01-SUMMARY.md
+Git strategy: main is in sync with origin after v3.0 ceremony push; v3.1 work starts clean
 Resume context:
-- v3.0 SHIPPED + formally closed — 22 milestones total, 76 phases complete
-- All role-based dashboards (manager, payroll, owner, CS) mobile-friendly at 375px
-- MILESTONES.md created; .paul/milestones/v3.0-ROADMAP.md archive written
-- Pending user decisions: (1) package.json 1.0.0 / config.md 0.0.0 vs PAUL-canonical 3.0 — align or treat as separate namespaces? (2) git tag v3.0 — also backfill v2.3-v2.9.2 skipped tags?
-- Remaining deferred: tsc verify (Phase 75+76, low risk, confirm on next dashboard:dev)
+- v3.1 CS + Payroll Gap Closure — 2 phases: 77 CS Fixes, 78 Payroll Polish
+- Phase 77: (A) Tracking-list fix (no member collapse) + (B) Server-side soft dedupe on composite keys (app-logic, no DB index; batch accepts non-dupes + flags dupes) + (C) `User.csRepRosterId` FK + admin-UI dropdown to link users to CsRepRoster + auto-sync on user creation (forward-only; one migration)
+- Phase 78: Unapprove while OPEN + CS payroll card cosmetics (bold centered name, green totals) + agent card memberNumber ASC sort + ACH print highlight parity + **fronted formula correction (same-week deduction; reverses Phase 71; carryover.ts fronted→hold logic removed; regression test rewritten)**
+- Rep roster reported: Alex, Jasmine, Ibrahim, Willomar, Amer, Ally (CUSTOMER_SERVICE, Active)
+- Constraints: forward-only, period-lifecycle guards preserved (unapprove only while OPEN), attribution-model preservation
+- Remaining deferred from v3.0: tsc verify on Phase 75+76 (low risk, confirm on next dashboard:dev)
 
 ---
 *STATE.md — Updated after every significant action*

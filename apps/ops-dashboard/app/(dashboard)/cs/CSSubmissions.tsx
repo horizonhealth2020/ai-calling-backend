@@ -663,26 +663,36 @@ function SubmissionsContent({
       if (res.status === 201) {
         const data = await res.json() as {
           count: number;
+          created?: number;
+          duplicates?: Array<{ memberId: string | null; memberCompany: string | null; postedDate: string | null; reason: string }>;
           alertCount?: number;
           alertAttempted?: number;
           alertFailed?: number;
         };
         onRawTextClear();
-        // GAP-46-UAT-05 (46-10): surface alert pipeline outcome so CS sees when
-        // their submission queued alerts (matched or manual-review) and when any
-        // failed to write. Silent on the happy "0 alerts" path to avoid noise.
+        const dupes = data.duplicates ?? [];
+        const created = data.created ?? data.count;
         const attempted = data.alertAttempted ?? 0;
         const failed = data.alertFailed ?? 0;
         const succeeded = data.alertCount ?? 0;
-        let msg = `${data.count} chargebacks submitted`;
-        if (attempted > 0) {
-          if (failed > 0) {
-            msg += ` · ${succeeded}/${attempted} alerts queued (${failed} failed)`;
-          } else {
-            msg += ` · ${succeeded} alert${succeeded === 1 ? "" : "s"} queued for payroll review`;
+        let msg: string;
+        if (dupes.length > 0) {
+          msg = `${dupes.length} record${dupes.length !== 1 ? "s" : ""} already exist (same member + date). ${created} new record${created !== 1 ? "s" : ""} submitted.`;
+        } else {
+          msg = `${created} chargeback${created !== 1 ? "s" : ""} submitted`;
+          if (attempted > 0) {
+            if (failed > 0) {
+              msg += ` · ${succeeded}/${attempted} alerts queued (${failed} failed)`;
+            } else {
+              msg += ` · ${succeeded} alert${succeeded === 1 ? "" : "s"} queued for payroll review`;
+            }
           }
         }
         toast(failed > 0 ? "error" : "success", msg);
+      } else if (res.status === 409) {
+        const data = await res.json().catch(() => ({})) as { duplicates?: Array<unknown> };
+        const dupeCount = (data.duplicates ?? []).length;
+        toast("error", `${dupeCount > 0 ? dupeCount : "All"} record${dupeCount !== 1 ? "s" : ""} already exist (same member + date). Nothing new was submitted.`);
       } else {
         toast("error", `Failed to submit (${res.status})`);
       }
@@ -743,9 +753,22 @@ function SubmissionsContent({
         }),
       });
       if (res.status === 201) {
-        const data = await res.json();
+        const data = await res.json() as {
+          count: number;
+          created?: number;
+          duplicates?: Array<{ memberId: string | null; memberName: string | null; holdDate: string | null; reason: string }>;
+        };
         onPtRawPasteClear();
-        toast("success", `${data.count} pending terms submitted`);
+        const dupes = data.duplicates ?? [];
+        const created = data.created ?? data.count;
+        const msg = dupes.length > 0
+          ? `${dupes.length} record${dupes.length !== 1 ? "s" : ""} already exist (same member + date). ${created} new record${created !== 1 ? "s" : ""} submitted.`
+          : `${created} pending term${created !== 1 ? "s" : ""} submitted`;
+        toast("success", msg);
+      } else if (res.status === 409) {
+        const data = await res.json().catch(() => ({})) as { duplicates?: Array<unknown> };
+        const dupeCount = (data.duplicates ?? []).length;
+        toast("error", `${dupeCount > 0 ? dupeCount : "All"} record${dupeCount !== 1 ? "s" : ""} already exist (same member + date). Nothing new was submitted.`);
       } else {
         toast("error", `Failed to submit (${res.status})`);
       }
