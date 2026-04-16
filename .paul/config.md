@@ -8,7 +8,7 @@
 ```yaml
 project:
   name: ai-calling-backend
-  version: 0.0.0
+  version: 3.0
 ```
 
 ## Integrations

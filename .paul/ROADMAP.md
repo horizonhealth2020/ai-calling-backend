@@ -20,6 +20,18 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
 | v3.0 | Mobile-Friendly Dashboards | 72-76 | Shipped | 2026-04-15 |
 
+## Current Milestone
+
+**None — awaiting next milestone definition.**
+
+Run `/paul:discuss-milestone` or `/paul:milestone` to define the next direction.
+
+## Next Milestone
+
+TBD — see `.paul/MILESTONES.md` for v3.0 closure summary and accumulated decisions.
+
+---
+
 ## Completed Milestone: v3.0 Mobile-Friendly Dashboards
 
 **Goal:** Make every role dashboard (manager, payroll, owner, CS) usable on mobile phones — responsive layouts, touch-friendly targets, mobile navigation, and table-to-card transformations for narrow screens.
@@ -596,4 +608,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-15 — v3.0 Mobile-Friendly Dashboards SHIPPED (5/5 phases: 72 Foundation, 73 Manager, 74 Payroll, 75 Owner, 76 CS)*
+*Last updated: 2026-04-16 — v3.0 milestone ceremony closed; awaiting next milestone definition (see `.paul/MILESTONES.md`)*
