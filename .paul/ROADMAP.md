@@ -19,13 +19,16 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.9.1 | CS Analytics Refinement & Hygiene | 69-70 | Shipped | 2026-04-14 |
 | v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
 | v3.0 | Mobile-Friendly Dashboards | 72-76 | Shipped | 2026-04-15 |
-| v3.1 | CS + Payroll Gap Closure | 77-78 | In Progress | - |
+| v3.1 | CS + Payroll Gap Closure | 77-78 | Shipped | 2026-04-16 |
 
 ## Current Milestone
 
-**v3.1 CS + Payroll Gap Closure**
-Status: ✅ Complete (pending ceremony)
+**v3.1 CS + Payroll Gap Closure** — ✅ Shipped 2026-04-16
 Phases: 2 of 2 complete
+
+## Next Milestone
+
+Run `/paul:discuss-milestone` or `/paul:milestone` to define.
 
 **Goal:** Close functional gaps and visual polish surfaced after v3.0 rollout — MyQueue rep-visibility bug, dedupe correctness on same-week re-submissions, commission reversibility while period OPEN, payroll card consistency between screen and print, and fronted formula correction (same-week deduction; reverses Phase 71 carry-to-next-period semantics).
 
@@ -628,4 +631,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-16 — Phase 77 CS Fixes complete (dedupe + FK + roster UI); Phase 78 Payroll Polish next*
+*Last updated: 2026-04-16 — v3.1 CS + Payroll Gap Closure shipped; 23 milestones complete*

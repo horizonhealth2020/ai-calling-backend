@@ -4,6 +4,7 @@ Completed milestone log for this project.
 
 | Milestone | Completed | Duration | Stats |
 |-----------|-----------|----------|-------|
+| v3.1 CS + Payroll Gap Closure | 2026-04-16 | ~1 day | 2 phases, 4 plans, 15+ files |
 | v3.0 Mobile-Friendly Dashboards | 2026-04-15 | ~2 days | 5 phases, 5 plans, 24 files |
 
 ---
@@ -14,6 +15,43 @@ MILESTONES.md was created at v3.0 closure. Prior milestones (v1.0 through v2.9.2
 - `.paul/ROADMAP.md` — per-milestone sections with phase tables
 - `.paul/PROJECT.md` — "Validated (Shipped)" section with requirement-level detail
 - Git tags (v1.0 through v2.2 only — later tags were skipped)
+
+---
+
+## ✅ v3.1 CS + Payroll Gap Closure
+
+**Completed:** 2026-04-16
+**Duration:** ~1 day (2026-04-16)
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Phases | 2 (77 CS Fixes, 78 Payroll Polish + Fronted Fix) |
+| Plans | 4 (77-01, 78-01, 78-02, 78-03) |
+| Files changed | ~15 unique (schema, migrations, API routes, dashboard components) |
+| Tests | 186 passing (from 184 at v3.0 + 2 net new) |
+| Audit rounds | 3 enterprise audits (one per 78-0x plan); avg 3.3 fixes applied |
+
+### Key Accomplishments
+
+- **CS rep identity fixed**: `User.csRepRosterId` FK links CUSTOMER_SERVICE logins to `CsRepRoster` entries — MyQueue and stale alerts now resolve the correct rep by DB lookup (not fragile name-string match). All 6 active CS reps can see their queues.
+- **Submission-time soft dedupe**: Composite-key dedupe `(memberCompany, memberId, postedDate)` on POST /chargebacks and `(memberName, memberId, holdDate)` on POST /pending-terms — server-side, no DB index; batch returns `duplicates[]` array; 409 for single-record all-dupes.
+- **Fronted formula corrected**: `Net = payout + adj + bonus - hold - fronted` (reversed Phase 71 carry-to-next-period semantics). Same-week deduction eliminates the multi-week double-hit. 9-case test suite locks the formula. carryover.ts D-09 removed; D-10 (negative-net carry) preserved.
+- **Sale edit bugs fixed**: HTML `<input type="number">` returns strings; Zod z.number() rejected them — fixed with parseFloat coercion in saveEdit(). Per-addon premium inputs added to edit form. CHANGES display fixed (JSON.stringify vs String()).
+- **Unapprove gated**: Server-side 400 + logAudit when period is LOCKED/FINALIZED; client hides button. Defense in depth.
+- **Payroll week note box**: `AgentPeriodAdjustment.notes` schema field, migration, POST endpoint, textarea in WeekSection (blur-save, print-hidden when empty).
+- **ACH full-row print green**: `print-color-adjust: exact` on both `tr[data-ach="true"]` and `tr[data-ach="true"] td` — browser print mode strips `tr` backgrounds without this flag.
+- **CS payroll print per-agent cards**: Restructured from shared table to per-agent cards with agent name right-aligned on same line as "Customer Service Payroll"; page breaks between agents.
+- **Phase 78 formula leaked to routes**: Discovered and fixed liveNet display in WeekSection + `PATCH /payroll/entries/:id` both still used Phase 71 formula (fronted additive). Fixed as bonus scope.
+
+### Key Decisions
+
+- CS rep identity resolved via DB lookup at request time (not JWT payload) — JWT is signed at login and won't carry new fields until session refresh
+- TOCTOU window accepted for soft dedupe — CS reps paste manually at human pace; no DB index needed
+- Fronted deduction is forward-only — existing locked/finalized entries retain Phase 71 semantics; OPEN periods at deployment have mixed semantics (documented)
+- CS print restructured: per-agent card layout with name on header line (not table cell) — matches "top and center" UX intent
+- print-color-adjust: exact is a permanent pattern for any table row background in print context
 
 ---
 

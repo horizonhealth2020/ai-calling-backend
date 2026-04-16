@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 3.0 |
+| Version | 3.1 |
 | Status | Production |
 | Last Updated | 2026-04-16 |
-| Milestones shipped | 22 (v1.0 through v3.0) |
-| Total phases | 76 |
+| Milestones shipped | 23 (v1.0 through v3.1) |
+| Total phases | 78 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -179,9 +179,19 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] Owner dashboard mobile: OwnerOverview + OwnerTrends + OwnerKPIs + OwnerScoring retrofit (attribute-only), OwnerOverview dual-responsive coexistence (compact state + CSS classes), OwnerConfig + OwnerUsers deferred as admin-only — Phase 75
 - [x] CS dashboard mobile: CSTracking dual tables + expanded Work workspace (3 inner flex rows stacked, gate-override DOM order preserved above Save, inline safe-area submit), CSMyQueue StaleOverviewCard, CSSubmissions both review tables, CSResolvedLog, CSAnalytics leaderboards + wide-leaderboard useIsMobile-gated swipe hint, zero CS mutation-logic/Recharts/sr-only modifications (AC-4 structural guarantee via git-diff +/- parity) — Phase 76
 
+**v3.1 — CS + Payroll Gap Closure (2026-04-16)**
+- [x] CS rep identity: `User.csRepRosterId` FK — MyQueue + stale alerts resolve by DB lookup, not name-string — Phase 77
+- [x] Submission-time soft dedupe on composite keys (CB + PT); batch returns duplicates[]; no DB index — Phase 77
+- [x] Sale edit: per-addon premium inputs; string error (numeric coercion); CHANGES display JSON fix — Phase 78
+- [x] Fronted formula: same-week deduction `net = payout + adj + bonus - hold - fronted`; D-09 carry removed — Phase 78
+- [x] Unapprove gated to OPEN periods (server-side 400 + logAudit + client-side hide) — Phase 78
+- [x] Week note box per agent-period (schema + API + WeekSection blur-save + print-hidden when empty) — Phase 78
+- [x] ACH print full-row green (print-color-adjust: exact on tr + td) — Phase 78
+- [x] CS payroll print per-agent cards with name on header line — Phase 78
+
 ### Active (In Progress)
 
-None. v3.0 milestone shipped.
+None. v3.1 milestone shipped.
 
 ### Planned (Next)
 None.
@@ -251,7 +261,7 @@ None.
 | Agent-first payroll hierarchy | AgentCard/WeekSection components, agent-level adjustments | Active |
 | Idempotent carryover via flag | carryoverExecuted prevents duplication on lock/unlock cycles | Active |
 | Fronted additive in net formula | Fronted is cash advance (positive), not deduction | Reversed in Phase 71 (2026-04-14) |
-| Fronted EXCLUDED from net formula | Fronted is a mid-week cash advance — already in agent's pocket; additive double-paid. Net = payout + adj + bonus - hold. Fronted still drives next-period hold via carryover.ts on lock | Active |
+| Fronted deducted same-week (Phase 78) | Net = payout + adj + bonus - hold - fronted. Fronted is a same-week deduction like hold. D-09 (carry-to-next-period) removed. Reverses Phase 71 exclusion. Forward-only. | Active |
 | computeNetAmount single source of truth | Any file computing agent net imports from services/payroll — prevents duplicate inline formulas drifting (bug discovered when carryover.ts had its own copy) | Active |
 | Parser Method-line ACH fallback | When receipt "Type:" line is blank, inspect "Method:" line for routing# or Bank/Checking/Savings keywords | Active |
 | halvingReason-driven approval | Approval based on halvingReason presence, not enrollment threshold | Active |
@@ -288,6 +298,10 @@ None.
 | Before adding stack-mobile-md to a workspace container, VERIFY it isn't already flexDirection:column | Discovered Phase 76: CSTracking expanded workspace outer div was already column-stacked. Adding stack-mobile-md would be a no-op; real stacking work is on inner flex rows (pill rows, button footers) | Active |
 | "Visible before CTA on mobile" is a VERIFY-and-ASSERT claim, not a relocation edit | Phase 76: gate-override block at CSTracking:1125/1417 already renders above Save Resolution footer at 1146/1438. PRECONDITION confirms DOM order; no JSX reorder. Misframing as a "lift" inflates risk | Active |
 | Mutation-logic preservation proven via git-diff +/- parity grep | Phase 76 pattern: counting `+count == -count` for handler call signatures (e.g., handleResolveCb) proves className-only additions, no body changes. Structural argument beats inspection | Active |
+| CS rep identity via DB lookup (not JWT) | JWT is signed at login; new fields like csRepRosterId won't appear until session refresh. Always DB-lookup at request time for fields added after initial auth | Active |
+| Submission dedupe: composite key, no DB index, TOCTOU accepted | CS reps paste manually at human pace; concurrent-POST risk negligible. Soft dedupe returns duplicates[] array for UX; 409 for single-record all-dup | Active |
+| print-color-adjust: exact required on tr AND td | Browser print mode strips background-color from tr elements without -webkit-print-color-adjust: exact on both the tr and its td children | Active |
+| HTML number inputs store strings — coerce before Zod z.number() | e.target.value always returns a string; must parseFloat() in saveEdit() before PATCH; Zod z.number() rejects strings without coercion | Active |
 
 ## Success Metrics
 
@@ -327,4 +341,4 @@ None.
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-16 after v3.0 milestone ceremony — 22 milestones shipped, 76 phases complete, all role-based dashboards mobile-friendly at 375px*
+*Last updated: 2026-04-16 after v3.1 milestone ceremony — 23 milestones shipped, 78 phases complete, CS gaps closed + fronted formula corrected*

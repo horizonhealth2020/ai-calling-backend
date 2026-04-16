@@ -5,26 +5,25 @@
 See: .paul/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v3.1 CS + Payroll Gap Closure — Phase 77 complete; Phase 78 Payroll Polish next
+**Current focus:** Awaiting next milestone — v3.1 CS + Payroll Gap Closure shipped 2026-04-16
 
 ## Current Position
 
-Milestone: v3.1 CS + Payroll Gap Closure
-Phase: 78 of 78 (Payroll Polish + Fronted Fix) — Planning
-Plan: 78-03 unified — Phase 78 complete
-Status: All 3 plans unified; Phase 78 complete; ready for complete-milestone
-Last activity: 2026-04-16 — /paul:unify 78-03. Phase 78 loop closed.
+Milestone: Awaiting next milestone
+Phase: None active
+Plan: None
+Status: Milestone v3.1 complete — ready for next
+Last activity: 2026-04-16 — Milestone v3.1 CS + Payroll Gap Closure completed.
 
 Progress:
-- v3.1 CS + Payroll Gap Closure: [██████████] 100% (2/2 phases complete)
-- Phase 78: [██████████] 100% (all 3 plans complete)
+- v3.1 CS + Payroll Gap Closure: [██████████] 100% ✓ Shipped
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Phase 78 complete — ready for complete-milestone]
+  ○        ○        ○     [Milestone complete — ready for next]
 ```
 
 ## Accumulated Context
@@ -80,10 +79,11 @@ PLAN ──▶ APPLY ──▶ UNIFY
 
 ### Deferred Issues
 - 2026-04-15 (Phase 75): AC-4 `npx tsc --noEmit` not executed locally — tsc binary absent from apps/ops-dashboard/node_modules. Edits are attribute-only (className + data-label) + one comment, so new TS errors are structurally impossible. Confirm on next `npm run dashboard:dev`.
-- 2026-04-15 (Phase 76): AC-4 `npx tsc --noEmit` not executed locally — same tsc-absent condition as Phase 75. Edits in CSTracking/CSMyQueue/CSResolvedLog/CSSubmissions are attribute-only (className/data-label/inline style additions); CSAnalytics adds useIsMobile import + hook call + conditional JSX + empty fragment wrapper. TS risk on CSAnalytics is low (typed hook, standard JSX fragment). Confirm on next `npm run dashboard:dev`.
-- 2026-04-15 (Phase 76): CSMyQueue deviation — closed. Plan assumed `<table>` + row buttons; actual uses `<div>` rows. Retrofit applied to StaleOverviewCard helper table only. No action needed; documented in SUMMARY.
-- 2026-04-15 (Phase 71 fix): `commission.test.ts halvingReason` bug fixed — `payroll.ts:253` now returns `null` when `commissionApproved=true` bypasses halving (was leaking the reason string even though commission wasn't halved). 1-line fix, zero financial impact.
-- All v2.8 deferred items closed in Phase 70 (2026-04-14): auditQueue test expectations aligned with shipped service behavior (31/31 passing); clawback cleanup dry-run against production found 0 orphans (DB already clean, no --execute needed); audit-log backfill script archived to prisma/scripts/archive/ as not needed (production feed organically populated in ~2 weeks).
+- 2026-04-15 (Phase 76): AC-4 `npx tsc --noEmit` not executed locally — same tsc-absent condition as Phase 75. Edits in CSTracking/CSMyQueue/CSResolvedLog/CSSubmissions are attribute-only; CSAnalytics adds useIsMobile import + hook + conditional JSX. Confirm on next `npm run dashboard:dev`.
+- 2026-04-16 (Phase 78-02): OPEN-period SQL audit — run before next production payroll lock to identify agents with mixed Phase 71/78 semantics in OPEN periods.
+- ~~2026-04-15 (Phase 76): CSMyQueue deviation — closed~~ **CLOSED**
+- ~~2026-04-15 (Phase 71 fix): halvingReason bug fixed~~ **CLOSED**
+- 2026-04-16 (Phase 78-03): AgentPeriodAdjustment.notes migration confirmed applied; notes feature functional.
 
 ### Audit Log
 - 2026-04-13: Enterprise audit on 60-01-PLAN.md. Applied 3+3. Verdict: enterprise-ready.
@@ -121,9 +121,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-16
-Stopped at: Phase 78 unified — all v3.1 work complete
-Next action: `/paul:complete-milestone` (ship v3.1 CS + Payroll Gap Closure)
-Resume file: .paul/phases/78-payroll-polish/78-03-SUMMARY.md
+Stopped at: v3.1 milestone ceremony complete
+Next action: `/paul:discuss-milestone` (define v3.2 or next milestone)
+Resume file: .paul/MILESTONES.md
 Git strategy: main is in sync with origin after v3.0 ceremony push; v3.1 work starts clean
 Resume context:
 - v3.1 CS + Payroll Gap Closure — 2 phases: 77 CS Fixes, 78 Payroll Polish
