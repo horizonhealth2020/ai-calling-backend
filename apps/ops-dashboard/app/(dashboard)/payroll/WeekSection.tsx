@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Badge, AnimatedNumber, Button, ConfirmModal } from "@ops/ui";
 import { colors, spacing, radius, motion, semanticColors, colorAlpha, typography } from "@ops/ui";
 import { authFetch } from "@ops/auth/client";
-import { formatDollar } from "@ops/utils";
+import { formatDollar, formatDollarSigned } from "@ops/utils";
 import {
   ChevronDown, CheckCircle,
   XCircle, Printer, Plus, Edit3, Trash2,
@@ -138,7 +138,7 @@ function EditableSaleRow({
   const statusCfg = SALE_STATUS_COLORS[saleStatus] ?? SALE_STATUS_COLORS.RAN;
 
   const rowBg: React.CSSProperties = entry.status === "CLAWBACK_CROSS_PERIOD"
-    ? { backgroundColor: "rgba(251,146,60,0.10)", borderLeft: "3px solid rgba(251,146,60,0.6)" }
+    ? { backgroundColor: colorAlpha(semanticColors.statusDead, 0.08), borderLeft: `3px solid ${colorAlpha(semanticColors.statusDead, 0.4)}` }
     : entry.status === "ZEROED_OUT_IN_PERIOD"
     ? { backgroundColor: "rgba(234,179,8,0.10)", borderLeft: "3px solid rgba(234,179,8,0.6)" }
     : entry.status === "CLAWBACK_APPLIED"
@@ -410,7 +410,7 @@ function EditableSaleRow({
       <td data-label="Commission" style={tdRight}>
         <span style={{ color: (entry.status === "CLAWBACK_CROSS_PERIOD" || entry.status === "ZEROED_OUT_IN_PERIOD") ? C.danger : C.textPrimary, fontWeight: 700 }}>
           {(entry.status === "CLAWBACK_CROSS_PERIOD" || entry.status === "ZEROED_OUT_IN_PERIOD")
-            ? formatDollar(Number(entry.netAmount ?? 0))
+            ? formatDollarSigned(Number(entry.netAmount ?? 0))
             : formatDollar(Number(entry.payoutAmount))}
         </span>
         {entry.halvingReason && (
@@ -595,6 +595,7 @@ interface WeekSectionProps {
   adjustment?: AgentAdjustment;
   agentGross: number;
   agentNet: number;
+  entryAdj: number;
   activeCount: number;
   products: Product[];
   allAgents: { id: string; name: string }[];
@@ -632,7 +633,7 @@ interface WeekSectionProps {
 
 export function WeekSection({
   agentName, entries, period, adjustment,
-  agentGross, agentNet, activeCount,
+  agentGross, agentNet, entryAdj, activeCount,
   products, allAgents, pendingRequests, pendingEditRequests,
   approvingId, rejectingId, approvingEditId, rejectingEditId,
   expanded, isSelected, onToggleExpand, onSelect,
@@ -964,8 +965,8 @@ export function WeekSection({
               <div>
                 <div style={HEADER_LBL}>Net</div>
                 {(() => {
-                  // Phase 78 formula: fronted deducts same-week
-                  const liveNet = agentGross + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
+                  // Phase 79-01: align to server computeNetAmount — Phase 78 with entryAdj included.
+                  const liveNet = agentGross + entryAdj + (Number(headerBonus) || 0) - (Number(headerFronted) || 0) - (Number(headerHold) || 0);
                   return (
                     <div style={{ fontSize: typography.sizes.md.fontSize, fontWeight: 700, color: liveNet >= 0 ? C.success : C.danger }}>
                       <AnimatedNumber value={liveNet} prefix="$" decimals={2} />
@@ -1044,7 +1045,7 @@ export function WeekSection({
                 {/* Subtotal */}
                 <tr style={{ borderTop: `2px solid ${C.borderDefault}`, background: C.bgSurface }}>
                   <td colSpan={6} className="responsive-table-no-label" style={{ ...tdStyle, fontWeight: 700, fontSize: typography.sizes.xs.fontSize, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Subtotal</td>
-                  <td data-label="Subtotal" style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross)}</td>
+                  <td data-label="Subtotal" style={{ ...tdRight, fontWeight: 700, color: C.textPrimary }}>{formatDollar(agentGross + entryAdj)}</td>
                   <td className="responsive-table-no-label" />
                 </tr>
               </tbody>

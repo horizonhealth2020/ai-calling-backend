@@ -117,6 +117,8 @@ export type AgentPeriodData = {
   entries: Entry[];
   adjustment?: AgentAdjustment;
   gross: number;
+  /** Phase 79-01: sum of per-entry adjustmentAmount (includes CLAWBACK_CROSS_PERIOD negative rows). Frontend net math mirrors server computeNetAmount exactly: `net = gross + entryAdj + bonus - fronted - hold`. */
+  entryAdj: number;
   net: number;
   activeCount: number;
 };

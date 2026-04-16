@@ -330,12 +330,14 @@ export default function PayrollPeriods({
         const bonus = adj ? Number(adj.bonusAmount) : 0;
         const fronted = adj ? Number(adj.frontedAmount) : 0;
         const hold = adj ? Number(adj.holdAmount) : 0;
+        // Phase 79-01: align to server computeNetAmount (payroll.ts:28-36). Phase 78 semantics — fronted deducts.
         map.get(agentName)!.periods.push({
           period: p,
           entries,
           adjustment: adj,
           gross,
-          net: gross + bonus + fronted - hold + entryAdj,
+          entryAdj,
+          net: gross + entryAdj + bonus - fronted - hold,
           activeCount: active.length,
         });
       }
@@ -426,10 +428,12 @@ export default function PayrollPeriods({
 
     const activeEntries = current.entries.filter(isActiveEntry);
     const gross = activeEntries.reduce((s, e) => s + Number(e.payoutAmount), 0);
+    const entryAdj = activeEntries.reduce((s, e) => s + Number(e.adjustmentAmount), 0);
     const bonus = (current.agentAdjustments ?? []).reduce((s, a) => s + Number(a.bonusAmount ?? 0), 0);
     const fronted = (current.agentAdjustments ?? []).reduce((s, a) => s + Number(a.frontedAmount ?? 0), 0);
     const hold = (current.agentAdjustments ?? []).reduce((s, a) => s + Number(a.holdAmount ?? 0), 0);
-    const net = gross + bonus + fronted - hold;
+    // Phase 79-01: align to server computeNetAmount (payroll.ts:28-36). Phase 78 — fronted deducts; include entryAdj.
+    const net = gross + entryAdj + bonus - fronted - hold;
     const svcTotal = (current.serviceEntries ?? []).reduce((s, e) => s + Number(e.totalPay), 0);
 
     return {
@@ -889,7 +893,8 @@ export default function PayrollPeriods({
         const agentBonus   = agentAdj ? Number(agentAdj.bonusAmount) : 0;
         const agentFronted = agentAdj ? Number(agentAdj.frontedAmount) : 0;
         const agentHold    = agentAdj ? Number(agentAdj.holdAmount) : 0;
-        const agentNet     = agentGross + agentBonus + agentFronted - agentHold + agentEntryAdj;
+        // Phase 79-01: align to server computeNetAmount (payroll.ts:28-36). Phase 78 — fronted deducts.
+        const agentNet     = agentGross + agentEntryAdj + agentBonus - agentFronted - agentHold;
         return `<div class="agent-card">
   <div class="header">
     <h1>${agentName} <span style="font-size:13px;font-weight:400;color:#64748b;margin-left:8px">${entries.length} sale${entries.length !== 1 ? "s" : ""}</span></h1>

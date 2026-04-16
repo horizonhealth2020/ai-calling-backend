@@ -153,6 +153,7 @@ export function AgentCard({
               adjustment={pd.adjustment}
               agentGross={pd.gross}
               agentNet={pd.net}
+              entryAdj={pd.entryAdj ?? 0}
               activeCount={pd.activeCount}
               products={products}
               allAgents={allAgents}
