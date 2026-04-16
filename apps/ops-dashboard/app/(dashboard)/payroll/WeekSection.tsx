@@ -972,7 +972,7 @@ export function WeekSection({
                 <div style={HEADER_LBL}>Note</div>
                 <textarea
                   className="print-hide-if-empty"
-                  style={{ ...baseInputStyle, minWidth: 160, maxWidth: 240, minHeight: 40, resize: "vertical" as const, fontSize: typography.sizes.sm.fontSize }}
+                  style={{ ...SMALL_INP, minWidth: 160, maxWidth: 240, minHeight: 40, resize: "vertical" as const, fontSize: typography.sizes.sm.fontSize, padding: "6px 8px" }}
                   placeholder="Week note..."
                   defaultValue={(adjustment as { notes?: string | null } | null)?.notes ?? ""}
                   onBlur={async (e) => {
