@@ -962,6 +962,15 @@ export default function PayrollPeriods({
               : e.status === "CLAWBACK_APPLIED" ? "row-clawback-applied"
               : e.sale?.paymentType === "ACH" ? "row-ach"
               : "";
+            // Phase 79-01 post-UAT: clawback rows render netAmount with signed format
+            // (payoutAmount is 0 for CLAWBACK_CROSS_PERIOD; real value lives on netAmount).
+            // Mirrors WeekSection.tsx:411-415 screen logic.
+            const commValue = (e.status === "CLAWBACK_CROSS_PERIOD" || e.status === "ZEROED_OUT_IN_PERIOD")
+              ? Number(e.netAmount ?? 0)
+              : Number(e.payoutAmount);
+            const commDisplay = commValue < 0
+              ? `-$${Math.abs(commValue).toFixed(2)}`
+              : `$${commValue.toFixed(2)}`;
             return `<tr${rowClass ? ` class="${rowClass}"` : ""}>
         <td>${e.sale?.memberId ?? "\u2014"}</td>
         <td>${e.sale?.memberName ?? "\u2014"}</td>
@@ -969,15 +978,23 @@ export default function PayrollPeriods({
         <td class="center addon">${printProd(byType.ADDON)}</td>
         <td class="center add">${printProd(byType.AD_D)}</td>
         <td class="right">${fee}${enrollBonusHtml}</td>
-        <td class="right" style="font-weight:700">${commFlagHtml}$${Number(e.payoutAmount).toFixed(2)}</td>
+        <td class="right" style="font-weight:700">${commFlagHtml}${commDisplay}</td>
       </tr>`;
           }).join("") +
-          `<tr class="subtotal">
+          // Phase 79-01 post-UAT: subtotal column includes entryAdj to match WeekSection.tsx:1048
+          // on-screen subtotal. Sum of displayed commission cells = agentGross + entryAdj.
+          (() => {
+            const subtotalVal = agentGross + agentEntryAdj;
+            const subtotalDisplay = subtotalVal < 0
+              ? `-$${Math.abs(subtotalVal).toFixed(2)}`
+              : `$${subtotalVal.toFixed(2)}`;
+            return `<tr class="subtotal">
         <td colspan="5" class="right">SUBTOTAL</td>
-        <td class="right">$${agentGross.toFixed(2)}</td>
+        <td class="right">${subtotalDisplay}</td>
         <td class="right green">$${agentNet.toFixed(2)}</td>
       </tr>
     </tbody></table></div>`;
+          })();
       }).join("") +
       `</body></html>`;
     const w = window.open("", "_blank");
