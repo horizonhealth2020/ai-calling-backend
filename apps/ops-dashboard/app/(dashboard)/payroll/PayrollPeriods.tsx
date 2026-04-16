@@ -880,10 +880,17 @@ export default function PayrollPeriods({
   .pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-right: 4px; }
   .pill-approved { background: #d1fae5; color: #059669; }
   .pill-warn { background: #fef3c7; color: #d97706; }
-  .row-cross-period { background: #fed7aa; border-left: 3px solid #f97316; }
-  .row-in-period-zero { background: #fef3c7; border-left: 3px solid #eab308; }
-  .row-clawback-applied { background: #fee2e2; border-left: 3px solid #ef4444; }
-  .row-ach { background: #d1fae5; border-left: 3px solid #059669; }
+  /* Phase 79-01 post-UAT fix: cross-period now RED (matches CLAWBACK_APPLIED + Phase 79 on-screen);
+     print-color-adjust: exact required on BOTH tr and td because browsers strip tr backgrounds
+     in print mode without it (Phase 78-03 pattern). */
+  .row-cross-period { background: #fee2e2; border-left: 3px solid #ef4444; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-cross-period td { background: #fee2e2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-in-period-zero { background: #fef3c7; border-left: 3px solid #eab308; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-in-period-zero td { background: #fef3c7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-clawback-applied { background: #fee2e2; border-left: 3px solid #ef4444; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-clawback-applied td { background: #fee2e2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-ach { background: #d1fae5; border-left: 3px solid #059669; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row-ach td { background: #d1fae5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   @media print { body { padding: 0; } .agent-card { padding: 2px 0; } }
 </style></head><body>` +
       agents.map(([agentName, entries]) => {
