@@ -5,25 +5,26 @@
 See: .paul/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** Awaiting next milestone — v3.1 CS + Payroll Gap Closure shipped 2026-04-16
+**Current focus:** v3.2 Chargeback Correctness — Phase 79 ready to plan (approval gate + paycard display)
 
 ## Current Position
 
-Milestone: Awaiting next milestone
-Phase: None active
-Plan: None
-Status: Milestone v3.1 complete — ready for next
-Last activity: 2026-04-16 — Milestone v3.1 CS + Payroll Gap Closure completed.
+Milestone: v3.2 Chargeback Correctness — LOOP COMPLETE (phase 79 only)
+Phase: 79 of 79 (Chargeback Approval Gate + Paycard Display) — Complete
+Plan: 79-01 complete
+Status: Loop closed. Phase 79 complete. Milestone v3.2 ready for transition (PROJECT.md evolve + git commit + tag) pending manual UAT + pre-deploy SQL query.
+Last activity: 2026-04-16 — UNIFY of 79-01 complete. SUMMARY.md written. 186/186 tests pass. 1 deviation + 1 auto-fix + 1 deferred item logged.
 
 Progress:
-- v3.1 CS + Payroll Gap Closure: [██████████] 100% ✓ Shipped
+- v3.2 Chargeback Correctness: [██████████] 100% (pending UAT + ceremony)
+- Phase 79: [██████████] 100% ✓
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ○        ○        ○     [Milestone complete — ready for next]
+  ✓        ✓        ✓     [Loop complete — phase 79 done; milestone v3.2 ready for transition]
 ```
 
 ## Accumulated Context
@@ -76,6 +77,12 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-13: UTC midnight baseline for 48-hour stale deadline
 - 2026-04-13: Gate override always visible when < 3 calls
 - 2026-04-13: bypassReason persisted on record for CS analytics drill-down
+- 2026-04-16: Phase 79-01 — CS chargeback approval gate: POST /chargebacks only creates Clawback + applies paycard mutation for source !== "CS". CS-source defers to alerts.ts:approveAlert. WR-06 dedupe guard (createdAt >= cbCreatedAt on member_id/member_name branches) preserved as defense-in-depth.
+- 2026-04-16: Phase 79-01 — formatDollarSigned() added to packages/utils as ADDITIVE utility (formatDollar unchanged to protect 40+ call sites). Leading-minus format for values that can legitimately be negative (chargeback cross-period rows, adjustments).
+- 2026-04-16: Phase 79-01 — Frontend net math boundary: all 5 sites (WeekSection liveNet, WeekSection subtotal, PayrollPeriods per-agent pd, PayrollPeriods sidebar, PayrollPeriods print) now mirror server `computeNetAmount` at payroll.ts:28-36 exactly. Phase 71 `+ fronted` residue eliminated. entryAdj (sum of entry-level adjustmentAmount) threaded through AgentPeriodData type → AgentCard prop → WeekSection consumers.
+- 2026-04-16: Phase 79-01 — CLAWBACK_CROSS_PERIOD row tint changed to `colorAlpha(semanticColors.statusDead, 0.08)` (red, matching CLAWBACK_APPLIED). ZEROED_OUT_IN_PERIOD stays yellow (in-period state still visually distinct from cross-period).
+- 2026-04-16: Phase 79-01 — logAudit on ChargebackSubmission extended with matchedCount + deferredClawbackCount for SOC-style reconstruction of pending-approval state.
+- 2026-04-16: Phase 79-01 — AgentPeriodData type extended with entryAdj field (payroll-types.ts) — audit-added deviation, not in plan files_modified. Required for TypeScript strict-mode enforcement of the new pd.entryAdj field.
 
 ### Deferred Issues
 - 2026-04-15 (Phase 75): AC-4 `npx tsc --noEmit` not executed locally — tsc binary absent from apps/ops-dashboard/node_modules. Edits are attribute-only (className + data-label) + one comment, so new TS errors are structurally impossible. Confirm on next `npm run dashboard:dev`.
@@ -84,6 +91,9 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - ~~2026-04-15 (Phase 76): CSMyQueue deviation — closed~~ **CLOSED**
 - ~~2026-04-15 (Phase 71 fix): halvingReason bug fixed~~ **CLOSED**
 - 2026-04-16 (Phase 78-03): AgentPeriodAdjustment.notes migration confirmed applied; notes feature functional.
+- 2026-04-16 (Phase 79-01): **79-DEFER-01 — Handler-level integration tests for POST /chargebacks approval gate.** Plan required 3 new tests in chargeback-flow.test.ts (CS submission → alert-only, CS approval → clawback, PAYROLL source → inline). Existing test infrastructure is unit-only (Prisma mocks via @ops/db, no supertest + test DB). Test-infra upgrade judged scope-creep vs the 3-fix plan. Compensating controls: 4 structural grep audits pass, plan UAT mandates explicit assertions, 14 existing applyChargebackToEntry helper tests still pass. Future chargeback-flow changes should evaluate whether to unblock this before shipping similar gate logic.
+- 2026-04-16 (Phase 79-01): Pre-deploy SQL query for pre-fix PENDING PayrollAlerts with associated pre-fix Clawbacks — must run against prod BEFORE shipping + brief payroll team on CLEAR-vs-APPROVE policy for dirty alerts. Query in 79-01-PLAN.md Verification section.
+- 2026-04-16 (Phase 79-01): Manual UAT outstanding — Victoria Checkal numeric check ($603.07 / -$76.04), Socket.IO cross-tab cascade, CS-submit-no-paycard-change verification.
 
 ### Audit Log
 - 2026-04-13: Enterprise audit on 60-01-PLAN.md. Applied 3+3. Verdict: enterprise-ready.
@@ -107,12 +117,14 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-16: Enterprise audit on 78-02-PLAN.md. Applied 4+2. Deferred 2. Verdict: conditionally acceptable → enterprise-ready after upgrades (AC-6 OPEN-period mixed semantics, call-site inventory, carryover.ts JSDoc Phase 78 update, Case 8 transition boundary test, Task 4 OPEN-period audit query + compliance note).
 - 2026-04-16: Enterprise audit on 78-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (numeric string coercion root cause added as parallel string-error investigation, { old, new } wrapping made server-authoritative, commission baseline/delta verification concretized, CHANGES display line range added, addonProductIds initialization guard added).
 - 2026-04-16: Enterprise audit on 77-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (@unique on csRepRosterId for Prisma 1:1 migration, stale-summary filter pivoted to DB lookup vs JWT read, AC-6 rewritten to match Option A post-submit, /api/cs-reps PRECONDITION added, TOCTOU accepted-risk documented).
+- 2026-04-16: Enterprise audit on 79-01-PLAN.md. Applied 1+6. Deferred 3. Verdict: conditionally acceptable → enterprise-ready after upgrades (pre-deploy SQL check for pre-fix dirty PENDING alerts + admin CLEAR-vs-APPROVE policy, logAudit extended with matchedCount/deferredClawbackCount, Socket.IO cross-tab cascade UAT, chargeback-flow.test.ts fixture-reuse precondition, Phase 47 WR-06 dedupe invariant named + grep-verified, print-view subtotal parity check, frontend-mirrors-server net-formula boundary codified).
 
 ### Git State
-Last commit: 5af1e55 — feat(77): cs fixes — composite-key dedupe, User.csRepRosterId FK, roster admin UI
-Previous: c1f0c11 — feat(76): cs dashboard mobile (v3.0 phase 5/5 — milestone shipped)
-Previous: e82d66d — feat(75): owner dashboard mobile (v3.0 phase 4/5)
-Branch: main (3 commits ahead of origin/main)
+Last commit: 78685af — chore(paul): v3.1 milestone ceremony
+Previous: bcfbc68 — chore(paul): close phase 78 — payroll polish + fronted fix
+Previous: 5af1e55 — feat(77): cs fixes
+Tag: v3.1 created
+Branch: main
 Feature branches merged: none
 
 ### Blockers/Concerns
@@ -121,17 +133,35 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-16
-Stopped at: v3.1 milestone ceremony complete
-Next action: `/paul:discuss-milestone` (define v3.2 or next milestone)
-Resume file: .paul/MILESTONES.md
-Git strategy: main is in sync with origin after v3.0 ceremony push; v3.1 work starts clean
+Stopped at: Phase 79 UNIFY complete. Loop closed. Milestone v3.2 ready for ceremony.
+Next action: Manual UAT + pre-deploy SQL query → `/paul:complete-milestone` (evolve PROJECT.md, update ROADMAP milestone status, git commit + tag v3.2) — OR if UAT defers, pause here and run ceremony later.
+Resume file: .paul/phases/79-chargeback-gate-and-display/79-01-SUMMARY.md
+Deviations from 79-01 plan (full detail in 79-01-SUMMARY.md):
+- Auto-fix: AgentPeriodData type extended in payroll-types.ts (not in plan files_modified) — required for tsc clean.
+- Scope reduction (79-DEFER-01): 3 handler-level integration tests NOT added; test-infra is unit-only. Compensated by grep audits + UAT + unchanged unit tests.
+Uncommitted files (awaiting user authorization per Claude Code global rule):
+- apps/ops-api/src/routes/chargebacks.ts
+- packages/utils/src/index.ts
+- apps/ops-dashboard/app/(dashboard)/payroll/WeekSection.tsx
+- apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx
+- apps/ops-dashboard/app/(dashboard)/payroll/AgentCard.tsx
+- apps/ops-dashboard/app/(dashboard)/payroll/payroll-types.ts
+- .paul/* (STATE, ROADMAP, paul.json, phase 79 artifacts, phase 80 SKIPPED stub, MILESTONES.md pending ceremony)
+Resume file: .paul/phases/79-chargeback-gate-and-display/79-01-PLAN.md
+Git strategy: main clean after v3.1 ceremony push (tag v3.1); v3.2 starts clean
 Resume context:
-- v3.1 CS + Payroll Gap Closure — 2 phases: 77 CS Fixes, 78 Payroll Polish
-- Phase 77: (A) Tracking-list fix (no member collapse) + (B) Server-side soft dedupe on composite keys (app-logic, no DB index; batch accepts non-dupes + flags dupes) + (C) `User.csRepRosterId` FK + admin-UI dropdown to link users to CsRepRoster + auto-sync on user creation (forward-only; one migration)
-- Phase 78: Unapprove while OPEN + CS payroll card cosmetics (bold centered name, green totals) + agent card memberNumber ASC sort + ACH print highlight parity + **fronted formula correction (same-week deduction; reverses Phase 71; carryover.ts fronted→hold logic removed; regression test rewritten)**
-- Rep roster reported: Alex, Jasmine, Ibrahim, Willomar, Amer, Ally (CUSTOMER_SERVICE, Active)
-- Constraints: forward-only, period-lifecycle guards preserved (unapprove only while OPEN), attribution-model preservation
-- Remaining deferred from v3.0: tsc verify on Phase 75+76 (low risk, confirm on next dashboard:dev)
+- v3.2 Chargeback Correctness — 1 phase (Phase 79). Phase 80 MyQueue Rep Linkage SKIPPED — Phase 77 already shipped the OwnerUsers role-edit dropdown; admin will manually link the 3 active CS users (Alex, Ally, Jasmin all have csRepRosterId=NULL per prod SQL).
+- Phase 79 — 5 atomic fixes, all code-cited HIGH confidence:
+  (1) chargebacks.ts:258-310 — gate Clawback + applyChargebackToEntry on `source !== "CS"` so CS-submitted chargebacks only hit paycard at alert approval (not at submission)
+  (2) packages/utils/src/index.ts — introduce formatDollarSigned() (leading minus); swap at WeekSection.tsx:412 for clawback rows
+  (3) PayrollPeriods.tsx:326-333,427-432 + WeekSection.tsx:968,1047 — thread per-entry adjustmentAmount into agent subtotal + liveNet (print at :892 already correct)
+  (4) PayrollPeriods.tsx:432,892 — replace `+ fronted` (Phase 71) with `- fronted` (Phase 78) to match WeekSection liveNet
+  (5) WeekSection.tsx:141 — CLAWBACK_CROSS_PERIOD row tint → RED (semanticColors.statusDead alpha-08); ZEROED_OUT_IN_PERIOD stays yellow
+- User decisions locked: cross-period row = red, in-period row = yellow, negative format = leading minus `-$76.04`
+- Constraints: forward-only (no retroactive paycard recompute); no schema changes; preserve source="PAYROLL" immediate-apply path; additive formatDollarSigned (don't regress 40+ formatDollar call sites)
+- Discovery artifacts for the skipped Phase 80 preserved at .paul/phases/80-myqueue-rep-linkage/DISCOVERY.md — can revive if admin-linkage workflow proves insufficient
+- Remaining deferred from v3.1: OPEN-period SQL audit (fronted formula mixed semantics) — run before next payroll lock as standalone ops task, not scoped into v3.2
+- User-provided ground truth: image.png at repo root showing Victoria Checkal row $76.04 without minus, peach tint, not deducted from $679.11 net
 
 ---
 *STATE.md — Updated after every significant action*

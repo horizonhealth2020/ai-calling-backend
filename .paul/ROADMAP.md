@@ -20,17 +20,37 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
 | v3.0 | Mobile-Friendly Dashboards | 72-76 | Shipped | 2026-04-15 |
 | v3.1 | CS + Payroll Gap Closure | 77-78 | Shipped | 2026-04-16 |
+| v3.2 | Chargeback Correctness | 79 | In Progress | — |
 
 ## Current Milestone
 
-**v3.1 CS + Payroll Gap Closure** — ✅ Shipped 2026-04-16
-Phases: 2 of 2 complete
+**v3.2 Chargeback Correctness** — 🚧 In Progress
+Phases: 0 of 1 complete
 
-## Next Milestone
+**Goal:** Close chargeback correctness regressions surfaced after v3.1 — CS chargeback approval gate was never actually gating (POST /chargebacks mutates the paycard at submission regardless of source; alert approval is theater), plus cross-period paycard math/display holes (formatDollar strips sign, agentGross omits adjustmentAmount, Phase 71 residue in PayrollPeriods sidebar net, CLAWBACK_CROSS_PERIOD row tint is orange instead of red). Forward-only. No schema changes.
 
-Run `/paul:discuss-milestone` or `/paul:milestone` to define.
+**Scope note — Phase 80 (MyQueue Rep Linkage) SKIPPED from this milestone.** Discovery confirmed Phase 77 shipped a fully functional admin dropdown under OwnerUsers role edit that assigns `CsRepRoster` → `User.csRepRosterId`. The 3 active CS users simply need the admin to link them via the existing UI — no code work required. Discovery artifacts preserved at `.paul/phases/80-myqueue-rep-linkage/` for reference; can be revived as a future phase if name-fallback or admin visibility bugs recur.
 
-**Goal:** Close functional gaps and visual polish surfaced after v3.0 rollout — MyQueue rep-visibility bug, dedupe correctness on same-week re-submissions, commission reversibility while period OPEN, payroll card consistency between screen and print, and fronted formula correction (same-week deduction; reverses Phase 71 carry-to-next-period semantics).
+### Phases (v3.2)
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 79 | Chargeback Approval Gate + Paycard Display | 1 | Complete | 2026-04-16 |
+
+### Phase 79: Chargeback Approval Gate + Paycard Display
+
+Focus: Five atomic correctness/display fixes — (1) gate `Clawback` creation + `applyChargebackToEntry` on `source !== "CS"` in `POST /chargebacks` so CS-submitted chargebacks ONLY apply to the paycard upon alert approval (payroll-direct path preserved; they ARE the approver); (2) introduce `formatDollarSigned()` in `packages/utils` that preserves leading minus (`-$76.04`), swap in `WeekSection.tsx:413` for clawback rows (existing `formatDollar` kept to avoid 40+ call-site regression); (3) thread per-entry `adjustmentAmount` sum into agent card subtotal + liveNet so cross-period chargeback rows deduct from on-screen totals (print view at `PayrollPeriods.tsx:892` aligned to screen); (4) replace Phase 71 residue (`+ fronted`) with Phase 78 (`- fronted`) in `PayrollPeriods.tsx:432,892`; (5) change CLAWBACK_CROSS_PERIOD row tint to RED (`semanticColors.statusDead` alpha-08), ZEROED_OUT_IN_PERIOD stays yellow. Forward-only; no schema changes.
+Discovery: `.paul/phases/79-chargeback-gate-and-display/DISCOVERY.md` (HIGH confidence)
+Plans:
+- [x] 79-01: Approval gate + formatDollarSigned + entryAdj threading + Phase 78 alignment + red cross-period tint (186/186 tests pass; 1 auto-fix deviation + 1 deferred item documented in 79-01-SUMMARY.md)
+
+---
+
+## Completed Milestone: v3.1 CS + Payroll Gap Closure
+
+**Goal:** Close functional gaps and visual polish surfaced after v3.0 rollout — MyQueue rep-visibility, dedupe on same-week re-submissions, unapprove while OPEN, payroll card consistency screen/print, fronted formula correction (same-week deduction; reverses Phase 71).
+**Status:** Shipped 2026-04-16
+**Progress:** [██████████] 100% — 2 of 2 phases complete
 
 ### Phases (v3.1)
 
@@ -631,4 +651,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-16 — v3.1 CS + Payroll Gap Closure shipped; 23 milestones complete*
+*Last updated: 2026-04-16 — v3.2 Chargeback Correctness opened (Phase 79 only; Phase 80 MyQueue Rep Linkage skipped, admin will use existing Phase 77 dropdown)*

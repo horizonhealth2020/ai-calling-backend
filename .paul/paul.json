@@ -1,14 +1,14 @@
 {
   "name": "ai-calling-backend",
-  "version": "3.1",
+  "version": "3.2",
   "milestone": {
-    "name": "CS + Payroll Gap Closure",
-    "version": "3.1",
-    "status": "complete"
+    "name": "Chargeback Correctness",
+    "version": "3.2",
+    "status": "ready_for_ceremony"
   },
   "phase": {
-    "number": 78,
-    "name": "Payroll Polish + Fronted Fix",
+    "number": 79,
+    "name": "Chargeback Approval Gate + Paycard Display",
     "status": "complete"
   },
   "loop": {
@@ -17,7 +17,7 @@
   },
   "timestamps": {
     "created_at": "2026-04-09T00:00:00Z",
-    "updated_at": "2026-04-16T18:00:00Z"
+    "updated_at": "2026-04-16T20:15:00Z"
   },
   "satellite": {
     "groom": true
