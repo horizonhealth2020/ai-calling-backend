@@ -136,8 +136,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-17
-Stopped at: 81-03-FIX APPLY complete — Clawback-finder widened in CS resolve handler (chargebacks.ts:607-634) to match by memberId/memberCompany alone when submission.matchedSaleId IS NULL (UAT-005 fix). UAT-004 closed as misdiagnosis (live DB audit proved real cause was a separate POST /clawbacks call, not unresolve). UAT-003 fix verified via user UAT in prior step. 198/198 tests pass.
-Next action: Manual re-UAT of UAT-005 fix on the Donna Zarembski fixture (click "recovered" on that chargeback — should now create a RECOVERY alert), then `/paul:unify` to close 81-01 + 81-02 + 81-03.
+Stopped at: 81-04-FIX APPLY complete — PATCH /unresolve now tx-wrapped + reinstates the most-recent CLEARED SUBMISSION alert to PENDING + logAudit on both actions (fills the audit gap that made UAT-004 diagnosis hard). Fixes the round-trip gap where CS resolve "recovered" (auto-clearing orphan SUBMISSION alert via M-3) + CS unresolve left the alert CLEARED with no payroll-visible way to act on it. 198/198 tests pass.
+Next action: Manual re-UAT round-trip on Zarembski (submit → recover → unresolve → confirm SUBMISSION alert back to PENDING in payroll dashboard), then `/paul:unify` to close 81-01 + 81-02 + 81-03 + 81-04.
 Resume file: .paul/phases/81-chargeback-recovery/81-01-PLAN.md
 Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; v3.3 work will branch from main per GIT rules
 

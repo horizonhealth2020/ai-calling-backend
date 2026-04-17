@@ -702,16 +702,53 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
 router.patch("/chargebacks/:id/unresolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {
   const pp = idParamSchema.safeParse(req.params);
   if (!pp.success) return res.status(400).json(zodErr(pp.error));
-  const record = await prisma.chargebackSubmission.update({
-    where: { id: pp.data.id },
-    data: {
-      resolvedAt: null,
-      resolvedBy: null,
-      resolutionNote: null,
-      resolutionType: null,
-    },
+
+  // Phase 81-04: Round-trip correctness for recovery workflow.
+  // If CS previously resolved as "recovered" and the orphan-cleanup (M-3) auto-cleared a
+  // PENDING SUBMISSION alert, unresolving must un-clear that alert so payroll has a visible
+  // alert to act on again. Without this, the chargeback is effectively forgotten.
+  // Also wraps the whole thing in a single tx so resolution-fields-null and alert-reinstate
+  // commit atomically.
+  const result = await prisma.$transaction(async (tx) => {
+    const record = await tx.chargebackSubmission.update({
+      where: { id: pp.data.id },
+      data: {
+        resolvedAt: null,
+        resolvedBy: null,
+        resolutionNote: null,
+        resolutionType: null,
+      },
+    });
+
+    const clearedSubmission = await tx.payrollAlert.findFirst({
+      where: {
+        chargebackSubmissionId: pp.data.id,
+        type: "SUBMISSION",
+        status: "CLEARED",
+      },
+      orderBy: { clearedAt: "desc" },
+    });
+    let reinstatedAlertId: string | null = null;
+    if (clearedSubmission) {
+      await tx.payrollAlert.update({
+        where: { id: clearedSubmission.id },
+        data: { status: "PENDING", clearedAt: null, clearedBy: null },
+      });
+      reinstatedAlertId = clearedSubmission.id;
+    }
+
+    return { record, reinstatedAlertId };
   });
-  return res.json(record);
+
+  // Post-commit logAudit (also fills the audit-log gap that made UAT-004 hard to diagnose).
+  logAudit(req.user!.id, "UPDATE", "ChargebackSubmission", pp.data.id, { action: "unresolve" });
+  if (result.reinstatedAlertId) {
+    logAudit(req.user!.id, "submission_alert_reinstated_on_unresolve", "PayrollAlert", result.reinstatedAlertId, {
+      chargebackSubmissionId: pp.data.id,
+    });
+  }
+
+  return res.json(result.record);
 }));
 
 router.get("/chargebacks", requireAuth, asyncHandler(async (req, res) => {
