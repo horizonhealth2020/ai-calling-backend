@@ -1,8 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@ops/db";
-import { emitAlertCreated, emitAlertResolved, emitClawbackCreated } from "../socket";
+import { emitAlertCreated, emitAlertResolved, emitClawbackCreated, emitClawbackReversed } from "../socket";
 import { logAudit } from "./audit";
-import { findOldestOpenPeriodForAgent, applyChargebackToEntry } from "./payroll";
+import { findOldestOpenPeriodForAgent, applyChargebackToEntry, reverseClawback } from "./payroll";
+
+/** Client accepted by both createRecoveryAlert and approveAlert RECOVERY branch — caller-owned tx or the module-level prisma. */
+type AlertClient = Prisma.TransactionClient | typeof prisma;
 
 export async function createAlertFromChargeback(
   chargebackId: string,
@@ -37,6 +40,81 @@ export async function getPendingAlerts() {
   });
 }
 
+/**
+ * Phase 81: Create a RECOVERY-type PayrollAlert when CS marks a chargeback
+ * as "recovered" AND a Clawback already exists for that chargeback.
+ *
+ * Idempotent: if a PENDING RECOVERY alert already exists for the same
+ * `clawbackId`, returns it unchanged (no duplicate row, no re-emit).
+ *
+ * Accepts either a Prisma TransactionClient or the module-level prisma,
+ * so callers can run this inside a larger transaction (see chargebacks.ts
+ * PATCH /chargebacks/:id/resolve handler).
+ *
+ * Returns { alert, pendingRecoveryAlertsForAgent } — the count is OTHER
+ * PENDING RECOVERY alerts for the same agent, for observability via logAudit.
+ */
+export async function createRecoveryAlert(
+  client: AlertClient,
+  params: {
+    chargebackSubmissionId: string;
+    clawbackId: string;
+    agentId?: string | null;
+    agentName?: string | null;
+    customerName?: string | null;
+    amount?: number | null;
+  },
+): Promise<{ alert: Awaited<ReturnType<typeof prisma.payrollAlert.findUnique>>; pendingRecoveryAlertsForAgent: number }> {
+  // Idempotency: return existing PENDING RECOVERY for this clawbackId.
+  const existing = await client.payrollAlert.findFirst({
+    where: { type: "RECOVERY", clawbackId: params.clawbackId, status: "PENDING" },
+  });
+  if (existing) {
+    const pendingCount = params.agentId
+      ? await client.payrollAlert.count({
+          where: { type: "RECOVERY", status: "PENDING", agentId: params.agentId, id: { not: existing.id } },
+        })
+      : 0;
+    return { alert: existing, pendingRecoveryAlertsForAgent: pendingCount };
+  }
+
+  const created = await client.payrollAlert.create({
+    data: {
+      type: "RECOVERY",
+      chargebackSubmissionId: params.chargebackSubmissionId,
+      clawbackId: params.clawbackId,
+      agentId: params.agentId ?? null,
+      agentName: params.agentName ?? null,
+      customerName: params.customerName ?? null,
+      amount: params.amount ?? null,
+      status: "PENDING",
+    },
+  });
+
+  const pendingCount = params.agentId
+    ? await client.payrollAlert.count({
+        where: { type: "RECOVERY", status: "PENDING", agentId: params.agentId, id: { not: created.id } },
+      })
+    : 0;
+
+  // Emit socket event wrapped in try/catch (mirror line 24-28 pattern).
+  // Note: caller controls tx commit — emit may fire before commit, which is
+  // acceptable for an "alert:created" broadcast (worst case: dashboard shows
+  // an alert that rolls back; next refetch corrects). Matches existing
+  // createAlertFromChargeback pattern above.
+  try {
+    emitAlertCreated({
+      alertId: created.id,
+      agentName: params.agentName ?? undefined,
+      amount: params.amount ?? undefined,
+    });
+  } catch (err) {
+    console.error("[alerts] emitAlertCreated (recovery) failed (non-fatal):", err);
+  }
+
+  return { alert: created, pendingRecoveryAlertsForAgent: pendingCount };
+}
+
 export async function approveAlert(
   alertId: string,
   periodId: string | undefined,
@@ -63,6 +141,88 @@ export async function approveAlert(
   });
   if (!alert) throw new Error("Alert not found");
   if (alert.status !== "PENDING") throw new Error("Alert already resolved");
+
+  // Phase 81: RECOVERY-type branch — reverse the Clawback instead of creating one.
+  // Null-safe default for any pre-migration rows that slip through before Prisma client regen.
+  const alertType = (alert as { type?: string | null }).type ?? "SUBMISSION";
+  if (alertType === "RECOVERY") {
+    const recoveryClawbackId = (alert as { clawbackId?: string | null }).clawbackId;
+    if (!recoveryClawbackId) throw new Error("RECOVERY alert missing clawbackId — data integrity bug");
+
+    // Pre-tx OPEN-period check. If race-loser (clawback already deleted by a peer
+    // approver), re-check alert state and return APPROVED idempotently.
+    const cbPre = await prisma.clawback.findUnique({
+      where: { id: recoveryClawbackId },
+      include: { appliedPayrollPeriod: true, sale: { include: { agent: true } } },
+    });
+    if (!cbPre) {
+      const currentAlert = await prisma.payrollAlert.findUnique({ where: { id: alertId } });
+      if (currentAlert?.status === "APPROVED") {
+        try { emitAlertResolved({ alertId, status: "APPROVED" }); } catch { /* non-fatal */ }
+        return currentAlert;
+      }
+      throw new Error("Clawback not found for RECOVERY alert");
+    }
+    if (cbPre.appliedPayrollPeriod?.status !== "OPEN") {
+      throw new Error(
+        `Cannot reverse clawback: applied period is ${cbPre.appliedPayrollPeriod?.status ?? "unknown"}. Payroll admin reversal required.`,
+      );
+    }
+
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Re-read inside tx to detect race (M-5).
+      const alertInTx = await tx.payrollAlert.findUnique({ where: { id: alertId } });
+      if (!alertInTx) throw new Error("Alert disappeared");
+      if (alertInTx.status === "APPROVED") {
+        // Peer tx committed first — return APPROVED state, do NOT double-reverse.
+        return alertInTx;
+      }
+      if (alertInTx.status !== "PENDING") {
+        throw new Error(`Alert already resolved: ${alertInTx.status}`);
+      }
+
+      let result;
+      try {
+        result = await reverseClawback(tx, recoveryClawbackId);
+      } catch (err: unknown) {
+        // Race-loser: if clawback vanished mid-tx AND alert is now APPROVED, treat as idempotent.
+        if (err instanceof Error && err.message === "Clawback not found") {
+          const latest = await tx.payrollAlert.findUnique({ where: { id: alertId } });
+          if (latest?.status === "APPROVED") return latest;
+        }
+        throw err;
+      }
+      const updated = await tx.payrollAlert.update({
+        where: { id: alertId },
+        data: { status: "APPROVED", approvedBy: userId, approvedAt: new Date() },
+      });
+
+      try {
+        emitClawbackReversed({
+          clawbackId: recoveryClawbackId,
+          saleId: result.saleId,
+          agentId: result.agentId,
+          agentName: cbPre.sale?.agent?.name,
+          periodId: result.periodId,
+          amount: result.amount,
+          mode: result.mode,
+        });
+        emitAlertResolved({ alertId, status: "APPROVED" });
+      } catch (err) {
+        console.error("[alerts] recovery emit failed (non-fatal):", err);
+      }
+      await logAudit(userId, "alert_approved_recovery", "PayrollAlert", alertId, {
+        clawbackId: recoveryClawbackId,
+        reversalMode: result.mode,
+        affectedEntryId: result.entryId,
+        newEntryId: result.newEntryId,
+        periodId: result.periodId,
+      });
+      return updated;
+    }, { timeout: 15000 });
+  }
+
+  // Below this branch: existing SUBMISSION path (byte-identical to pre-Phase-81).
 
   // If no periodId provided, auto-select oldest OPEN period for the agent.
   // findOldestOpenPeriodForAgent uses the module-level prisma client by design;

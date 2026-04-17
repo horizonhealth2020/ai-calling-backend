@@ -5,25 +5,26 @@
 See: .paul/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** Awaiting next milestone — v3.2 Chargeback Correctness shipped 2026-04-17
+**Current focus:** v3.3 Chargeback Recovery — enable CS-driven chargeback reversal via payroll-approved alert
 
 ## Current Position
 
-Milestone: Awaiting next milestone
-Phase: None active
-Plan: None
-Status: Milestone v3.2 Chargeback Correctness complete — ready for next
-Last activity: 2026-04-17 — Milestone v3.2 ceremony complete. UAT passed (Victoria Checkal $603.07 / -$76.04 / red tint, print highlights + clawback net verified).
+Milestone: v3.3 Chargeback Recovery
+Phase: 81 of 81 (Chargeback Recovery Alert + Reversal) — APPLY complete
+Plan: 81-01 applied
+Status: APPLY complete — 198/198 tests pass; structural grep guards green; ready for UAT/UNIFY
+Last activity: 2026-04-17 — All 3 tasks executed. Task 1: schema migration `20260417000001_add_payroll_alert_type_and_clawback_fk` (additive: `type` DEFAULT 'SUBMISSION' + `clawbackId` nullable FK with ON DELETE SET NULL); `emitClawbackReversed` in socket.ts; `reverseClawback(tx, id, {upsertFn?})` helper in payroll.ts with DI for testability; `createRecoveryAlert(client, ...)` in alerts.ts; 12 unit tests covering in_period/cross_period/state-mismatch/LOCKED/FINALIZED/missing-clawback/race-loser/idempotent-create. Task 2: `PATCH /chargebacks/:id/resolve` wrapped in `prisma.$transaction`; RECOVERY branch in `approveAlert` with pre-tx OPEN-period check + intra-tx alert re-read for race idempotency + catch of "Clawback not found" from reverseClawback; null-safe type branching via `(alert.type ?? "SUBMISSION")`. Task 3 (one deviation from plan): recovery banner rendered as new adjacent "Recoveries (N)" section in PayrollPeriods.tsx (NOT per-AgentCard) — plan's parenthetical in AC-5 allowed either approach; global section chosen for UX consistency with existing Chargebacks banner. Alert type in payroll-types.ts extended with `type` + `clawbackId`. `clawback:reversed` Socket.IO listener in page.tsx triggers `refreshPeriods()` (does NOT fetch the deleted Clawback). Structural grep battery all green: `tx.clawback.create(` = 1, `applyChargebackToEntry(` = 1, `emitClawbackCreated(` = 1 in alerts.ts (SUBMISSION path byte-identical); `reverseClawback(` = 1, `emitClawbackReversed(` = 1 (RECOVERY path added once). P-7 re-grep confirmed no new Clawback FK children post-plan-write (only expected new PayrollAlert.clawback inverse). Cannot run manual UAT in this session (requires live DB + browser); deferred to Verify phase.
 
 Progress:
-- v3.2 Chargeback Correctness: [██████████] 100% ✓ Shipped
+- v3.3 Chargeback Recovery: [████████░░] 80% (APPLY complete, UAT + UNIFY pending)
+- Phase 81: [████████░░] 80%
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ○        ○        ○     [Milestone complete — ready for next]
+  ✓        ✓        ○     [APPLY complete; ready for UAT/UNIFY]
 ```
 
 ## Accumulated Context
@@ -119,6 +120,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - 2026-04-16: Enterprise audit on 78-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (numeric string coercion root cause added as parallel string-error investigation, { old, new } wrapping made server-authoritative, commission baseline/delta verification concretized, CHANGES display line range added, addonProductIds initialization guard added).
 - 2026-04-16: Enterprise audit on 77-01-PLAN.md. Applied 3+2. Deferred 1. Verdict: conditionally acceptable → enterprise-ready after upgrades (@unique on csRepRosterId for Prisma 1:1 migration, stale-summary filter pivoted to DB lookup vs JWT read, AC-6 rewritten to match Option A post-submit, /api/cs-reps PRECONDITION added, TOCTOU accepted-risk documented).
 - 2026-04-16: Enterprise audit on 79-01-PLAN.md. Applied 1+6. Deferred 3. Verdict: conditionally acceptable → enterprise-ready after upgrades (pre-deploy SQL check for pre-fix dirty PENDING alerts + admin CLEAR-vs-APPROVE policy, logAudit extended with matchedCount/deferredClawbackCount, Socket.IO cross-tab cascade UAT, chargeback-flow.test.ts fixture-reuse precondition, Phase 47 WR-06 dedupe invariant named + grep-verified, print-view subtotal parity check, frontend-mirrors-server net-formula boundary codified).
+- 2026-04-17: Enterprise audit on 81-01-PLAN.md. Applied 5+9. Deferred 3. Verdict: conditionally acceptable → enterprise-ready after upgrades (in-period reversal via upsertPayrollEntryForSale single-source-of-truth not guessed status, tx-wrapped CS resolve handler, orphan PENDING SUBMISSION auto-clear on CS recovery, Clawback FK back-relation enumeration P-7, race-idempotent concurrent RECOVERY approve M-5, cross-period pre-delete state-verify SR-6, socket payload enriched with agentId+periodId+mode SR-3, null-safe type branching SR-4, observability via agentPendingRecoveryAlerts logAudit metadata SR-5, migration rollback SQL documented SR-9, AC-6 grep battery codified SR-8, role-gate made explicit SR-2, P-1 "recovered" vs "SAVED" discrepancy resolved as out-of-scope per P-6).
 
 ### Git State
 Last commit: 78685af — chore(paul): v3.1 milestone ceremony
@@ -133,11 +135,11 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-16
-Stopped at: Milestone v3.2 Chargeback Correctness ceremony complete
-Next action: `/paul:discuss-milestone` or `/paul:milestone` to define next milestone
-Resume file: .paul/MILESTONES.md
-Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; next milestone starts clean
+Last session: 2026-04-17
+Stopped at: Plan 81-01 APPLY complete (198/198 tests pass; 1 deviation on Task 3 banner placement — global section vs per-AgentCard, justified by plan's parenthetical)
+Next action: `/paul:verify` (manual UAT of recovery flow) OR `/paul:unify .paul/phases/81-chargeback-recovery/81-01-PLAN.md` (reconcile + close loop)
+Resume file: .paul/phases/81-chargeback-recovery/81-01-PLAN.md
+Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; v3.3 work will branch from main per GIT rules
 
 ---
 *STATE.md — Updated after every significant action*

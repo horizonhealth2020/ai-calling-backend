@@ -21,15 +21,25 @@ A sales operations platform evolving from initial setup through full role-based 
 | v3.0 | Mobile-Friendly Dashboards | 72-76 | Shipped | 2026-04-15 |
 | v3.1 | CS + Payroll Gap Closure | 77-78 | Shipped | 2026-04-16 |
 | v3.2 | Chargeback Correctness | 79 | Shipped | 2026-04-17 |
+| v3.3 | Chargeback Recovery | 81 | In Progress | - |
 
 ## Current Milestone
 
-**v3.2 Chargeback Correctness** — ✅ Shipped 2026-04-17
-Phases: 1 of 1 complete
+**v3.3 Chargeback Recovery** — 🚧 In Progress
+Phases: 0 of 1 complete
 
-## Next Milestone
+**Goal:** Enable CS-driven chargeback recovery. When CS resolves a chargeback as `SAVED`, create a `PayrollAlert` (type=`CHARGEBACK_RECOVERED`, FK to the original `Clawback`). Inline alert banner on affected paycard/WeekSection so payroll can verify. Payroll approves → reverses the Clawback: same-week `ZEROED_OUT_IN_PERIOD` entries restore `payoutAmount`; cross-period negative rows delete. OPEN-period only — reject with 400 if original entry's period is LOCKED/FINALIZED. Forward-only. Mirrors Phase 79 approval-gate pattern in reverse.
 
-Run `/paul:discuss-milestone` or `/paul:milestone` to define.
+### Phases (v3.3)
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 81 | Chargeback Recovery Alert + Reversal | 1 | Planning | - |
+
+### Phase 81: Chargeback Recovery Alert + Reversal
+
+Focus: CS resolution=`SAVED` auto-creates `PayrollAlert` (type=`CHARGEBACK_RECOVERED`, `clawbackId` FK); inline payroll-alert banner on affected paycard; payroll approves → reverses Clawback (restore `payoutAmount` for same-week `ZEROED_OUT_IN_PERIOD` or delete cross-period negative entry + `entryAdj` cleanup); OPEN-period gate (400 on LOCKED/FINALIZED); `logAudit` on both CS-mark and payroll-approve sides.
+Plans: TBD (defined during /paul:plan)
 
 ---
 

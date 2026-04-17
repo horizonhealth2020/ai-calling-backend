@@ -551,6 +551,139 @@ export async function applyChargebackToEntry(
 }
 
 /**
+ * Phase 81: Reverse a Clawback — the inverse of `applyChargebackToEntry`.
+ *
+ * Used by `approveAlert` on RECOVERY-type PayrollAlerts. Caller MUST wrap in a
+ * `prisma.$transaction` and handle socket emit + logAudit after commit.
+ *
+ * Modes:
+ *   - in_period:      Delete the ZEROED_OUT_IN_PERIOD entry and call
+ *                     `upsertPayrollEntryForSale(saleId, tx)` — re-derives
+ *                     payoutAmount/netAmount/status via the SAME path that
+ *                     originally created the entry (single source of truth).
+ *   - cross_period:   Pre-delete state-verify (audit SR-6): entry must still
+ *                     have payoutAmount === -clawback.amount AND status === CLAWBACK_CROSS_PERIOD.
+ *                     If mismatch (payroll manually edited the row), throw
+ *                     "Entry modified post-clawback; manual reconciliation required".
+ *                     Otherwise delete the negative row.
+ *
+ * After entry handling, deletes ClawbackProduct children (FK), then Clawback.
+ * If Prisma P2025 (RecordNotFound) fires on the Clawback delete, re-throw as
+ * "Clawback not found" so caller's race-detection path can treat as idempotent.
+ *
+ * Throws (caller maps to HTTP errors):
+ *   - "Clawback not found"
+ *   - "Cannot reverse clawback: applied period is <status>. Payroll admin reversal required."
+ *   - "Entry modified post-clawback (amount mismatch: expected X, got Y). Manual reconciliation required."
+ *   - "Clawback <id>: cannot locate affected entry — manual reconciliation required"
+ */
+export async function reverseClawback(
+  tx: Prisma.TransactionClient,
+  clawbackId: string,
+  options?: {
+    // Test-only dependency injection for the upsert path. Production callers
+    // omit this — reverseClawback uses the in-module upsertPayrollEntryForSale.
+    upsertFn?: (saleId: string, tx?: PrismaTx) => Promise<{ id: string } | null>;
+  },
+): Promise<{
+  mode: "in_period" | "cross_period";
+  entryId: string;
+  newEntryId?: string;
+  periodId: string;
+  saleId: string;
+  agentId: string;
+  amount: number;
+}> {
+  const upsert = options?.upsertFn ?? upsertPayrollEntryForSale;
+  const clawback = await tx.clawback.findUnique({
+    where: { id: clawbackId },
+    include: {
+      sale: {
+        include: {
+          payrollEntries: { orderBy: { createdAt: "asc" } },
+          agent: true,
+        },
+      },
+      appliedPayrollPeriod: true,
+    },
+  });
+  if (!clawback) throw new Error("Clawback not found");
+
+  if (clawback.appliedPayrollPeriod?.status !== "OPEN") {
+    throw new Error(
+      `Cannot reverse clawback: applied period is ${clawback.appliedPayrollPeriod?.status ?? "unknown"}. Payroll admin reversal required.`,
+    );
+  }
+
+  if (!clawback.appliedPayrollPeriodId) {
+    throw new Error(`Clawback ${clawbackId}: missing appliedPayrollPeriodId — manual reconciliation required`);
+  }
+
+  // Locate the entry this clawback mutated, scoped to the applied period.
+  const entries = clawback.sale?.payrollEntries ?? [];
+  const inPeriodEntry = entries.find(
+    (e) => e.payrollPeriodId === clawback.appliedPayrollPeriodId && e.status === "ZEROED_OUT_IN_PERIOD",
+  );
+  const crossPeriodEntry = entries.find(
+    (e) => e.payrollPeriodId === clawback.appliedPayrollPeriodId && e.status === "CLAWBACK_CROSS_PERIOD",
+  );
+
+  const clawbackAmt = Number(clawback.amount);
+  const saleId = clawback.saleId;
+  const agentId = clawback.agentId;
+  const periodId = clawback.appliedPayrollPeriodId;
+
+  let mode: "in_period" | "cross_period";
+  let entryId: string;
+  let newEntryId: string | undefined;
+
+  if (inPeriodEntry) {
+    mode = "in_period";
+    entryId = inPeriodEntry.id;
+    // Delete the ZEROED row, then re-upsert via single source of truth.
+    await tx.payrollEntry.delete({ where: { id: inPeriodEntry.id } });
+    const rebirth = await upsert(saleId, tx);
+    newEntryId = rebirth?.id;
+  } else if (crossPeriodEntry) {
+    mode = "cross_period";
+    entryId = crossPeriodEntry.id;
+    // SR-6: pre-delete state verify — payroll may have manually edited the row.
+    const actualPayout = Number(crossPeriodEntry.payoutAmount);
+    const actualAdjustment = Number((crossPeriodEntry as { adjustmentAmount?: unknown }).adjustmentAmount ?? 0);
+    // The clawback creates a row with payoutAmount=0 and adjustmentAmount=-clawbackAmt.
+    // Verify both still match (tolerance 0.01 for Decimal/Number conversion).
+    if (Math.abs(actualPayout - 0) > 0.01 || Math.abs(actualAdjustment - -clawbackAmt) > 0.01) {
+      throw new Error(
+        `Entry modified post-clawback (amount mismatch: expected payout=0 adjustment=-${clawbackAmt}, got payout=${actualPayout} adjustment=${actualAdjustment}). Manual reconciliation required.`,
+      );
+    }
+    if (crossPeriodEntry.status !== "CLAWBACK_CROSS_PERIOD") {
+      throw new Error(
+        `Entry modified post-clawback (status is ${crossPeriodEntry.status}, expected CLAWBACK_CROSS_PERIOD). Manual reconciliation required.`,
+      );
+    }
+    await tx.payrollEntry.delete({ where: { id: crossPeriodEntry.id } });
+  } else {
+    throw new Error(`Clawback ${clawbackId}: cannot locate affected entry — manual reconciliation required`);
+  }
+
+  // Delete FK children first, then the Clawback itself.
+  await tx.clawbackProduct.deleteMany({ where: { clawbackId } });
+  try {
+    await tx.clawback.delete({ where: { id: clawbackId } });
+  } catch (err: unknown) {
+    // Prisma P2025 = record not found (race loser). Re-throw as "Clawback not found"
+    // so caller's race-detection path handles idempotency.
+    if (err && typeof err === "object" && "code" in err && (err as { code?: string }).code === "P2025") {
+      throw new Error("Clawback not found");
+    }
+    throw err;
+  }
+
+  return { mode, entryId, newEntryId, periodId, saleId, agentId, amount: clawbackAmt };
+}
+
+/**
  * Calculate commission for specific products in a sale (partial chargeback).
  * If productIds includes all products or is empty, returns the full payout amount.
  */

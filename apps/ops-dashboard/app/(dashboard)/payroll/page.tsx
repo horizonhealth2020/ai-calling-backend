@@ -205,17 +205,25 @@ function PayrollInner() {
     const onAlertResolved = (data: { alertId: string }) => {
       setAlerts(prev => prev.filter(a => a.id !== data.alertId));
     };
+    // Phase 81: clawback:reversed fires when a RECOVERY alert is approved.
+    // Payload shape: { clawbackId, saleId, agentId, agentName, periodId, amount, mode }.
+    // Scope refetch by agentId + periodId — DO NOT attempt to re-fetch the deleted clawback.
+    const onClawbackReversed = () => {
+      refreshPeriods();
+    };
 
     socket.on("sale:changed", onSaleChanged);
     socket.on("connect", onReconnect);
     socket.on("alert:created", onAlertCreated);
     socket.on("alert:resolved", onAlertResolved);
+    socket.on("clawback:reversed", onClawbackReversed);
 
     return () => {
       socket.off("sale:changed", onSaleChanged);
       socket.off("connect", onReconnect);
       socket.off("alert:created", onAlertCreated);
       socket.off("alert:resolved", onAlertResolved);
+      socket.off("clawback:reversed", onClawbackReversed);
     };
   }, [socket, handleSaleChanged, refreshPeriods, fetchAlerts]);
 

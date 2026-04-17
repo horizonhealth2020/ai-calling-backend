@@ -148,3 +148,23 @@ export function emitClawbackCreated(payload: ClawbackCreatedPayload) {
     console.error("Socket.IO emit error (clawback:created):", err);
   }
 }
+
+// Phase 81: Chargeback Recovery — Clawback row has been deleted.
+// Listeners scope refetch by agentId + periodId (do NOT re-fetch the deleted Clawback).
+export interface ClawbackReversedPayload {
+  clawbackId: string; // last-known id for correlation only; row is deleted
+  saleId: string;
+  agentId: string;
+  agentName?: string;
+  periodId: string;
+  amount: number;
+  mode: "in_period" | "cross_period";
+}
+
+export function emitClawbackReversed(payload: ClawbackReversedPayload) {
+  try {
+    io?.emit("clawback:reversed", payload);
+  } catch (err) {
+    console.error("Socket.IO emit error (clawback:reversed):", err);
+  }
+}

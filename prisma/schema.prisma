@@ -409,6 +409,7 @@ model Clawback {
   agent                Agent          @relation(fields: [agentId], references: [id])
   appliedPayrollPeriod PayrollPeriod? @relation(fields: [appliedPayrollPeriodId], references: [id])
   clawbackProducts     ClawbackProduct[]
+  payrollAlerts        PayrollAlert[]  // Phase 81: inverse for PayrollAlert.clawback (RECOVERY alert points here)
 
   @@map("clawbacks")
 }
@@ -635,6 +636,8 @@ model PayrollAlert {
   customerName           String?   @map("customer_name")
   amount                 Decimal?  @db.Decimal(12, 2)
   status                 String    @default("PENDING") // PENDING, APPROVED, CLEARED
+  type                   String    @default("SUBMISSION") @db.VarChar(24) // Phase 81: SUBMISSION | RECOVERY
+  clawbackId             String?   @map("clawback_id") // Phase 81: populated for RECOVERY alerts
   approvedPeriodId       String?   @map("approved_period_id")
   approvedBy             String?   @map("approved_by")
   approvedAt             DateTime? @map("approved_at")
@@ -645,6 +648,7 @@ model PayrollAlert {
 
   chargeback     ChargebackSubmission @relation(fields: [chargebackSubmissionId], references: [id])
   approvedPeriod PayrollPeriod?       @relation("AlertApprovedPeriod", fields: [approvedPeriodId], references: [id])
+  clawback       Clawback?            @relation(fields: [clawbackId], references: [id])
 
   @@map("payroll_alerts")
 }

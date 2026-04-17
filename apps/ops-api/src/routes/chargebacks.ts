@@ -8,7 +8,7 @@ import { logAudit } from "../services/audit";
 import { zodErr, asyncHandler, dateRange, dateRangeQuerySchema, idParamSchema } from "./helpers";
 import { matchChargebacksToSales } from "../services/chargebacks";
 import { batchRoundRobinAssign } from "../services/repSync";
-import { createAlertFromChargeback } from "../services/alerts";
+import { createAlertFromChargeback, createRecoveryAlert } from "../services/alerts";
 
 const router = Router();
 
@@ -582,19 +582,104 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
     }
   }
 
-  const record = await prisma.chargebackSubmission.update({
-    where: { id: pp.data.id },
-    data: {
-      resolvedAt: new Date(),
-      resolvedBy: req.user!.id,
-      resolutionNote: parsed.data.resolutionNote,
-      resolutionType: parsed.data.resolutionType,
-      bypassReason: parsed.data.bypassReason || null,
-    },
+  // Phase 81: Wrap resolution write + recovery-alert creation (or orphan-submission
+  // auto-clear) in a single transaction. Prevents partial commit where the
+  // ChargebackSubmission is marked resolved but the downstream alert work failed.
+  const result = await prisma.$transaction(async (tx) => {
+    const record = await tx.chargebackSubmission.update({
+      where: { id: pp.data.id },
+      data: {
+        resolvedAt: new Date(),
+        resolvedBy: req.user!.id,
+        resolutionNote: parsed.data.resolutionNote,
+        resolutionType: parsed.data.resolutionType,
+        bypassReason: parsed.data.bypassReason || null,
+      },
+    });
+
+    let recoveryAlertCreated: { id: string; pendingForAgent: number; clawbackId: string } | null = null;
+    let submissionAlertCleared: string | null = null;
+
+    if (parsed.data.resolutionType === "recovered") {
+      // Locate any existing Clawback for this chargeback.
+      // WR-06 dedupe pattern applied: Clawback.matchedValue === chargebackSubmissionId for
+      // chargeback_alert path; member_id / member_name branches scoped to saleId when
+      // matchedSaleId is present.
+      const clawbackWhereOrs: Array<Record<string, unknown>> = [
+        { matchedBy: "chargeback_alert", matchedValue: pp.data.id },
+      ];
+      if (record.matchedSaleId) {
+        clawbackWhereOrs.push(
+          { saleId: record.matchedSaleId, matchedBy: "member_id", matchedValue: record.memberId ?? "__none__" },
+          { saleId: record.matchedSaleId, matchedBy: "member_name", matchedValue: record.memberCompany ?? "__none__" },
+        );
+      }
+      const clawback = await tx.clawback.findFirst({
+        where: { OR: clawbackWhereOrs },
+        include: { sale: { include: { agent: true } } },
+      });
+
+      if (clawback) {
+        // Path A: Clawback exists → create RECOVERY alert (inside tx).
+        const { alert, pendingRecoveryAlertsForAgent } = await createRecoveryAlert(tx, {
+          chargebackSubmissionId: pp.data.id,
+          clawbackId: clawback.id,
+          agentId: clawback.agentId,
+          agentName: clawback.sale?.agent?.name ?? null,
+          customerName: record.memberName ?? record.memberCompany ?? null,
+          amount: Number(clawback.amount),
+        });
+        if (alert) {
+          recoveryAlertCreated = { id: alert.id, pendingForAgent: pendingRecoveryAlertsForAgent, clawbackId: clawback.id };
+        }
+      } else {
+        // Path B: No Clawback. Check for orphan PENDING SUBMISSION alert to auto-clear
+        // (audit-added M-3: prevents payroll approving a submission for a chargeback
+        // CS has already said was recovered).
+        const pendingSubmission = await tx.payrollAlert.findFirst({
+          where: {
+            chargebackSubmissionId: pp.data.id,
+            status: "PENDING",
+            type: "SUBMISSION", // explicit; null type defaults via schema to 'SUBMISSION'
+          },
+        });
+        if (pendingSubmission) {
+          await tx.payrollAlert.update({
+            where: { id: pendingSubmission.id },
+            data: {
+              status: "CLEARED",
+              clearedBy: req.user!.id,
+              clearedAt: new Date(),
+            },
+          });
+          submissionAlertCleared = pendingSubmission.id;
+        }
+      }
+    }
+
+    return { record, recoveryAlertCreated, submissionAlertCleared };
   });
+
+  // Post-commit logAudit + socket emits (outside tx).
   logAudit(req.user!.id, "UPDATE", "ChargebackSubmission", pp.data.id, { resolutionType: parsed.data.resolutionType });
+  if (result.recoveryAlertCreated) {
+    logAudit(req.user!.id, "chargeback_recovery_alert_created", "PayrollAlert", result.recoveryAlertCreated.id, {
+      chargebackSubmissionId: pp.data.id,
+      clawbackId: result.recoveryAlertCreated.clawbackId,
+      agentPendingRecoveryAlerts: result.recoveryAlertCreated.pendingForAgent,
+    });
+  } else if (result.submissionAlertCleared) {
+    logAudit(req.user!.id, "submission_alert_auto_cleared_on_recovery", "PayrollAlert", result.submissionAlertCleared, {
+      chargebackSubmissionId: pp.data.id,
+      reason: "cs_recovered_before_payroll_approval",
+    });
+  } else if (parsed.data.resolutionType === "recovered") {
+    logAudit(req.user!.id, "chargeback_resolved_recovered_no_clawback", "ChargebackSubmission", pp.data.id, {
+      reason: "no_matching_clawback_and_no_pending_submission",
+    });
+  }
   emitCSChanged({ type: "chargeback", batchId: "resolution", count: 1 });
-  return res.json(record);
+  return res.json(result.record);
 }));
 
 router.patch("/chargebacks/:id/unresolve", requireAuth, requireRole("CUSTOMER_SERVICE", "SUPER_ADMIN", "OWNER_VIEW"), asyncHandler(async (req, res) => {

@@ -1044,6 +1044,12 @@ ${serviceEntries.map(se => {
 
   /* ── Render ──────────────────────────────────────────────── */
 
+  // Phase 81: Split alerts into submission (incoming chargebacks, red) and
+  // recovery (CS marked recovered, green). Default `type` to SUBMISSION for
+  // defensive null-safety against any pre-migration rows.
+  const submissionAlerts = alerts.filter(a => (a.type ?? "SUBMISSION") !== "RECOVERY");
+  const recoveryAlerts = alerts.filter(a => a.type === "RECOVERY");
+
   return (
     <div className="animate-fade-in" style={{ display: "grid", gap: S[4] }}>
 
@@ -1053,10 +1059,10 @@ ${serviceEntries.map(se => {
       <div style={{
         background: C.bgSurface,
         borderLeft: `4px solid ${C.danger}`,
-        borderRadius: alerts.length === 0 ? R.lg : R["2xl"],
-        padding: alerts.length === 0 ? S[3] : S[4],
+        borderRadius: submissionAlerts.length === 0 ? R.lg : R["2xl"],
+        padding: submissionAlerts.length === 0 ? S[3] : S[4],
       }}>
-        {alerts.length === 0 ? (
+        {submissionAlerts.length === 0 ? (
           <div style={{
             display: "flex",
             alignItems: "center",
@@ -1088,7 +1094,7 @@ ${serviceEntries.map(se => {
           }}
         >
           <AlertTriangle size={14} color={C.danger} />
-          <span>Chargebacks ({alerts.length})</span>
+          <span>Chargebacks ({submissionAlerts.length})</span>
           <span style={{ fontSize: typography.sizes.xs.fontSize, color: C.textMuted, fontWeight: 500 }}>
             {showChargebacks ? "(click to collapse)" : "(click to expand)"}
           </span>
@@ -1106,7 +1112,7 @@ ${serviceEntries.map(se => {
                 </tr>
               </thead>
               <tbody>
-                {alerts.map(alert => {
+                {submissionAlerts.map(alert => {
                   const highlighted = highlightedAlertIds.has(alert.id);
                   const HIGHLIGHT_GLOW = { boxShadow: `0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.4)}, inset 0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.05)}` };
                   // GAP-46-UAT-05 (46-10): UNMATCHED/MULTIPLE detection + raw member identity for the picker.
@@ -1358,6 +1364,110 @@ ${serviceEntries.map(se => {
         </>
         )}
       </div>
+
+      {/* Phase 81: Recovery Alerts (CS marked recovered → payroll approves → Clawback reversed).
+          Rendered only when recoveryAlerts.length > 0 to avoid clutter. Green styling
+          distinguishes from red chargeback-submission alerts above. */}
+      {recoveryAlerts.length > 0 && (
+        <div style={{
+          background: C.bgSurface,
+          borderLeft: `4px solid ${semanticColors.statusRan}`,
+          borderRadius: R["2xl"],
+          padding: S[4],
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: S[3],
+            fontSize: typography.sizes.sm.fontSize,
+            fontWeight: 700,
+            color: C.textPrimary,
+          }}>
+            <Check size={14} color={semanticColors.statusRan} />
+            <span>Recoveries ({recoveryAlerts.length})</span>
+            <span style={{
+              padding: "2px 6px",
+              fontSize: typography.sizes["2xs"].fontSize,
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              background: colorAlpha(semanticColors.statusRan, 0.12),
+              color: semanticColors.statusRan,
+              borderRadius: R.sm,
+              border: `1px solid ${semanticColors.statusRan}`,
+            }}>
+              Approve to restore agent pay
+            </span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Agent Name</th>
+                  <th style={thStyle}>Customer</th>
+                  <th style={thRight}>Amount</th>
+                  <th style={thStyle}>Recovered</th>
+                  <th style={thCenter}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recoveryAlerts.map(alert => {
+                  const highlighted = highlightedAlertIds.has(alert.id);
+                  const HIGHLIGHT_GLOW = { boxShadow: `0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.4)}, inset 0 0 20px ${colorAlpha(semanticColors.accentTealMid, 0.05)}` };
+                  return (
+                    <tr key={alert.id} style={{
+                      ...(highlighted ? HIGHLIGHT_GLOW : {}),
+                      transition: "background 0.3s",
+                      background: colorAlpha(semanticColors.statusRan, 0.04),
+                    }}>
+                      <td data-label="Agent Name" style={tdStyle}>{alert.agentName || "Unknown"}</td>
+                      <td data-label="Customer" style={tdStyle}>{alert.customerName || alert.chargeback?.memberCompany || "Unknown"}</td>
+                      <td data-label="Amount" style={tdRight}>{alert.amount != null ? formatDollar(Number(alert.amount)) : "--"}</td>
+                      <td data-label="Recovered" style={tdStyle}>{formatDate(alert.createdAt)}</td>
+                      <td data-label="Actions" className="responsive-table-no-label" style={{ ...tdCenter, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={async () => {
+                            // Recovery approval: no periodId needed — server derives from clawback.appliedPayrollPeriodId.
+                            try {
+                              const res = await authFetch(`${API}/api/alerts/${alert.id}/approve`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({}),
+                              });
+                              if (res.ok) {
+                                setAlerts(prev => prev.filter(a => a.id !== alert.id));
+                                await refreshPeriods();
+                                toast("success", "Recovery approved — agent pay restored");
+                              } else {
+                                const body = await res.json().catch(() => ({}));
+                                toast("error", body.error || `Request failed (${res.status})`);
+                              }
+                            } catch { toast("error", "Failed to approve recovery"); }
+                          }}
+                        >
+                          <Check size={12} style={{ marginRight: 3 }} />
+                          Approve Recovery
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleClearAlert(alert.id)}
+                        >
+                          <X size={12} style={{ marginRight: 3 }} />
+                          Clear
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Current week summary strip */}
       {currentWeekTotals && (

@@ -93,6 +93,11 @@ export type Alert = {
   customerName: string | null;
   amount: number | null;
   createdAt: string;
+  // Phase 81: type field distinguishes SUBMISSION (incoming chargeback)
+  // from RECOVERY (CS marked recovered; approve → reverses Clawback).
+  // Defaults server-side to SUBMISSION for backward compat.
+  type?: "SUBMISSION" | "RECOVERY" | null;
+  clawbackId?: string | null; // Phase 81: populated for RECOVERY alerts
   // GAP-46-UAT-05 (46-10): identity + match status from the chargeback include
   chargebackSubmissionId: string;
   chargeback?: {
