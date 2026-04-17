@@ -13,11 +13,11 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 | Attribute | Value |
 |-----------|-------|
 | Type | Application |
-| Version | 3.1 |
+| Version | 3.2 |
 | Status | Production |
-| Last Updated | 2026-04-16 |
-| Milestones shipped | 23 (v1.0 through v3.1) |
-| Total phases | 78 |
+| Last Updated | 2026-04-17 |
+| Milestones shipped | 24 (v1.0 through v3.2) |
+| Total phases | 79 |
 | LOC | ~135,000 TypeScript/TSX |
 | Timeline | 2026-03-14 to present |
 
@@ -189,9 +189,19 @@ A sale entered once flows correctly to every dashboard with accurate commission 
 - [x] ACH print full-row green (print-color-adjust: exact on tr + td) — Phase 78
 - [x] CS payroll print per-agent cards with name on header line — Phase 78
 
+**v3.2 — Chargeback Correctness (2026-04-17)**
+- [x] CS chargeback approval gate: `POST /chargebacks` only creates Clawback + applies paycard mutation for `source !== "CS"`; CS-source defers to alerts.ts:approveAlert; WR-06 dedupe preserved — Phase 79
+- [x] `formatDollarSigned()` additive utility in `packages/utils` — leading-minus format for negative-legit values; `formatDollar` unchanged to protect ~40 call sites — Phase 79
+- [x] Cross-period chargeback row deducts from agent subtotal + liveNet + sidebar net + print net via per-entry `adjustmentAmount` threading — Phase 79
+- [x] All 5 frontend net-formula sites mirror server `computeNetAmount` exactly; Phase 71 `+ fronted` residue eliminated — Phase 79
+- [x] CLAWBACK_CROSS_PERIOD row tint → RED (matching CLAWBACK_APPLIED); ZEROED_OUT_IN_PERIOD stays yellow — Phase 79
+- [x] logAudit on ChargebackSubmission extended with matchedCount + deferredClawbackCount for SOC-style reconstruction — Phase 79
+- [x] Print card row highlights fixed post-UAT: `.row-cross-period` CSS red; `print-color-adjust: exact` on all 4 row classes (tr + td) — Phase 79 post-UAT
+- [x] Print card commission cell parity: clawback statuses render `netAmount` with signed format (was `$0.00` via payoutAmount); SUBTOTAL gross includes entryAdj — Phase 79 post-UAT
+
 ### Active (In Progress)
 
-None. v3.1 milestone shipped.
+None. v3.2 milestone shipped.
 
 ### Planned (Next)
 None.
@@ -302,6 +312,13 @@ None.
 | Submission dedupe: composite key, no DB index, TOCTOU accepted | CS reps paste manually at human pace; concurrent-POST risk negligible. Soft dedupe returns duplicates[] array for UX; 409 for single-record all-dup | Active |
 | print-color-adjust: exact required on tr AND td | Browser print mode strips background-color from tr elements without -webkit-print-color-adjust: exact on both the tr and its td children | Active |
 | HTML number inputs store strings — coerce before Zod z.number() | e.target.value always returns a string; must parseFloat() in saveEdit() before PATCH; Zod z.number() rejects strings without coercion | Active |
+| CS chargeback approval gate: source-branch inside POST /chargebacks | `if (source !== "CS")` wraps Clawback creation + applyChargebackToEntry. Single-line conditional, minimal blast radius. Alert approval path unchanged; WR-06 dedupe guard preserved as defense-in-depth. | Active (Phase 79) |
+| formatDollarSigned is additive; formatDollar preserved | Swapping formatDollar would regress ~40 call sites using absolute-magnitude display (hold, fronted shown as positive). formatDollarSigned for negative-legit values only (cross-period chargebacks, adjustments). | Active (Phase 79) |
+| Frontend net math mirrors server computeNetAmount exactly | All 5 frontend net-formula sites align to `apps/ops-api/src/services/payroll.ts:28-36` — divergence is a correctness bug, never an approximation. Print view included. | Active (Phase 79) |
+| Print card commission cell uses netAmount with signed format for clawback statuses | CLAWBACK_CROSS_PERIOD + ZEROED_OUT_IN_PERIOD rows store 0 in payoutAmount; real value lives on netAmount. Print mirrors screen logic. | Active (Phase 79 post-UAT) |
+| print-color-adjust: exact extended to ALL row classes (not just ACH) | Pattern established Phase 78-03 for ACH; propagated Phase 79 post-UAT to cross-period, in-period-zero, clawback-applied, ach — browsers strip tr backgrounds without this flag on both tr and td. | Active (Phase 79 post-UAT) |
+| logAudit on ChargebackSubmission captures matchedCount + deferredClawbackCount | Enables point-in-time SOC-style reconstruction of "how many chargebacks were pending approval at T?". | Active (Phase 79) |
+| Pre-fix dirty PENDING alerts = manual admin reconciliation | Alerts that predated the approval gate have pre-applied Clawbacks. APPROVE is safe (dedupe no-op). CLEAR leaves agent docked — requires manual Clawback reversal. Policy: payroll team briefed pre-deploy per pre-deploy SQL query. | Active (Phase 79) |
 
 ## Success Metrics
 
@@ -327,7 +344,7 @@ None.
 | Deployment | Railway + Docker Compose | Railway for prod, Docker for local |
 | Styling | Inline React.CSSProperties | Dark glassmorphism theme with design tokens |
 
-## Lessons Learned (from 13 milestones)
+## Lessons Learned (from 24 milestones)
 
 1. Fix the critical path first — everything downstream is blocked until it works
 2. Commission calculation is the highest-risk code — TDD pure functions pay off immediately
@@ -338,7 +355,10 @@ None.
 7. Idempotency flags are the simplest correct solution for lock/unlock cycles
 8. Auto-seeding defaults on first access eliminates "missing data" bugs
 9. Timezone handling is best solved once with a proper library (Luxon)
+10. Scope discipline in payroll visuals: on-screen ≠ print. Any row-color or value change needs explicit print-view parity — same-day UAT patches in v3.2 show the cost of scoping screen-only
+11. print-color-adjust: exact on BOTH tr AND td is a permanent pattern — browsers strip tr backgrounds in print; establishing this once for ACH (Phase 78-03) didn't propagate automatically to other row classes
+12. Additive utilities beat mutating ones for cross-cutting formatters — formatDollarSigned alongside formatDollar (Phase 79) preserved 40+ call sites while adding the new behavior; swap-in-place would have silently regressed holds/fronteds displayed as magnitude
 
 ---
 *Created: 2026-04-09*
-*Last updated: 2026-04-16 after v3.1 milestone ceremony — 23 milestones shipped, 78 phases complete, CS gaps closed + fronted formula corrected*
+*Last updated: 2026-04-17 after v3.2 milestone ceremony — 24 milestones shipped, 79 phases complete, chargeback approval gate enforced + paycard display corrected end-to-end (screen + print)*

@@ -20,16 +20,24 @@ A sales operations platform evolving from initial setup through full role-based 
 | v2.9.2 | Parser & Payroll Hotfix | 71 | Shipped | 2026-04-14 |
 | v3.0 | Mobile-Friendly Dashboards | 72-76 | Shipped | 2026-04-15 |
 | v3.1 | CS + Payroll Gap Closure | 77-78 | Shipped | 2026-04-16 |
-| v3.2 | Chargeback Correctness | 79 | In Progress | — |
+| v3.2 | Chargeback Correctness | 79 | Shipped | 2026-04-17 |
 
 ## Current Milestone
 
-**v3.2 Chargeback Correctness** — 🚧 In Progress
-Phases: 0 of 1 complete
+**v3.2 Chargeback Correctness** — ✅ Shipped 2026-04-17
+Phases: 1 of 1 complete
 
-**Goal:** Close chargeback correctness regressions surfaced after v3.1 — CS chargeback approval gate was never actually gating (POST /chargebacks mutates the paycard at submission regardless of source; alert approval is theater), plus cross-period paycard math/display holes (formatDollar strips sign, agentGross omits adjustmentAmount, Phase 71 residue in PayrollPeriods sidebar net, CLAWBACK_CROSS_PERIOD row tint is orange instead of red). Forward-only. No schema changes.
+## Next Milestone
 
-**Scope note — Phase 80 (MyQueue Rep Linkage) SKIPPED from this milestone.** Discovery confirmed Phase 77 shipped a fully functional admin dropdown under OwnerUsers role edit that assigns `CsRepRoster` → `User.csRepRosterId`. The 3 active CS users simply need the admin to link them via the existing UI — no code work required. Discovery artifacts preserved at `.paul/phases/80-myqueue-rep-linkage/` for reference; can be revived as a future phase if name-fallback or admin visibility bugs recur.
+Run `/paul:discuss-milestone` or `/paul:milestone` to define.
+
+---
+
+## Completed Milestone: v3.2 Chargeback Correctness
+
+**Goal:** Close chargeback correctness regressions surfaced after v3.1 — CS chargeback approval gate was never actually gating, plus cross-period paycard math/display holes (formatDollar strips sign, agentGross omits adjustmentAmount, Phase 71 residue, CLAWBACK_CROSS_PERIOD row tint orange instead of red). Forward-only. No schema changes.
+**Status:** Shipped 2026-04-17
+**Progress:** [██████████] 100% — 1 of 1 phase complete (Phase 80 MyQueue Rep Linkage SKIPPED — Phase 77 admin dropdown already shipped; discovery artifacts preserved at `.paul/phases/80-myqueue-rep-linkage/`)
 
 ### Phases (v3.2)
 
@@ -39,8 +47,7 @@ Phases: 0 of 1 complete
 
 ### Phase 79: Chargeback Approval Gate + Paycard Display
 
-Focus: Five atomic correctness/display fixes — (1) gate `Clawback` creation + `applyChargebackToEntry` on `source !== "CS"` in `POST /chargebacks` so CS-submitted chargebacks ONLY apply to the paycard upon alert approval (payroll-direct path preserved; they ARE the approver); (2) introduce `formatDollarSigned()` in `packages/utils` that preserves leading minus (`-$76.04`), swap in `WeekSection.tsx:413` for clawback rows (existing `formatDollar` kept to avoid 40+ call-site regression); (3) thread per-entry `adjustmentAmount` sum into agent card subtotal + liveNet so cross-period chargeback rows deduct from on-screen totals (print view at `PayrollPeriods.tsx:892` aligned to screen); (4) replace Phase 71 residue (`+ fronted`) with Phase 78 (`- fronted`) in `PayrollPeriods.tsx:432,892`; (5) change CLAWBACK_CROSS_PERIOD row tint to RED (`semanticColors.statusDead` alpha-08), ZEROED_OUT_IN_PERIOD stays yellow. Forward-only; no schema changes.
-Discovery: `.paul/phases/79-chargeback-gate-and-display/DISCOVERY.md` (HIGH confidence)
+Focus: Five atomic correctness/display fixes — (1) gate `Clawback` creation + `applyChargebackToEntry` on `source !== "CS"` in `POST /chargebacks`; (2) `formatDollarSigned()` additive utility; (3) thread `adjustmentAmount` sum into agent subtotal + liveNet + sidebar + print; (4) replace Phase 71 `+ fronted` with Phase 78 `- fronted`; (5) CLAWBACK_CROSS_PERIOD red tint. Two same-day post-UAT patches: print card row highlight colors + print-color-adjust; print row net for clawback statuses.
 Plans:
 - [x] 79-01: Approval gate + formatDollarSigned + entryAdj threading + Phase 78 alignment + red cross-period tint (186/186 tests pass; 1 auto-fix deviation + 1 deferred item documented in 79-01-SUMMARY.md)
 
@@ -651,4 +658,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-04-09*
-*Last updated: 2026-04-16 — v3.2 Chargeback Correctness opened (Phase 79 only; Phase 80 MyQueue Rep Linkage skipped, admin will use existing Phase 77 dropdown)*
+*Last updated: 2026-04-17 — v3.2 Chargeback Correctness shipped; 24 milestones complete, 79 phases shipped*

@@ -4,7 +4,7 @@
   "milestone": {
     "name": "Chargeback Correctness",
     "version": "3.2",
-    "status": "ready_for_ceremony"
+    "status": "complete"
   },
   "phase": {
     "number": 79,
@@ -17,7 +17,7 @@
   },
   "timestamps": {
     "created_at": "2026-04-09T00:00:00Z",
-    "updated_at": "2026-04-16T20:15:00Z"
+    "updated_at": "2026-04-17T14:00:00Z"
   },
   "satellite": {
     "groom": true

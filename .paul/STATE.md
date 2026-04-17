@@ -5,26 +5,25 @@
 See: .paul/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Sales managers can track agent performance and enter sales that flow through to the sales board and payroll, with dedicated CS and owner dashboards.
-**Current focus:** v3.2 Chargeback Correctness — Phase 79 ready to plan (approval gate + paycard display)
+**Current focus:** Awaiting next milestone — v3.2 Chargeback Correctness shipped 2026-04-17
 
 ## Current Position
 
-Milestone: v3.2 Chargeback Correctness — LOOP COMPLETE (phase 79 only)
-Phase: 79 of 79 (Chargeback Approval Gate + Paycard Display) — Complete
-Plan: 79-01 complete
-Status: Loop closed. Phase 79 complete. Milestone v3.2 ready for transition (PROJECT.md evolve + git commit + tag) pending manual UAT + pre-deploy SQL query.
-Last activity: 2026-04-16 — UNIFY of 79-01 complete. SUMMARY.md written. 186/186 tests pass. 1 deviation + 1 auto-fix + 1 deferred item logged.
+Milestone: Awaiting next milestone
+Phase: None active
+Plan: None
+Status: Milestone v3.2 Chargeback Correctness complete — ready for next
+Last activity: 2026-04-17 — Milestone v3.2 ceremony complete. UAT passed (Victoria Checkal $603.07 / -$76.04 / red tint, print highlights + clawback net verified).
 
 Progress:
-- v3.2 Chargeback Correctness: [██████████] 100% (pending UAT + ceremony)
-- Phase 79: [██████████] 100% ✓
+- v3.2 Chargeback Correctness: [██████████] 100% ✓ Shipped
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Loop complete — phase 79 done; milestone v3.2 ready for transition]
+  ○        ○        ○     [Milestone complete — ready for next]
 ```
 
 ## Accumulated Context
@@ -134,35 +133,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-16
-Stopped at: Phase 79 UNIFY complete. Loop closed. Milestone v3.2 ready for ceremony.
-Next action: Manual UAT + pre-deploy SQL query → `/paul:complete-milestone` (evolve PROJECT.md, update ROADMAP milestone status, git commit + tag v3.2) — OR if UAT defers, pause here and run ceremony later.
-Resume file: .paul/phases/79-chargeback-gate-and-display/79-01-SUMMARY.md
-Deviations from 79-01 plan (full detail in 79-01-SUMMARY.md):
-- Auto-fix: AgentPeriodData type extended in payroll-types.ts (not in plan files_modified) — required for tsc clean.
-- Scope reduction (79-DEFER-01): 3 handler-level integration tests NOT added; test-infra is unit-only. Compensated by grep audits + UAT + unchanged unit tests.
-Uncommitted files (awaiting user authorization per Claude Code global rule):
-- apps/ops-api/src/routes/chargebacks.ts
-- packages/utils/src/index.ts
-- apps/ops-dashboard/app/(dashboard)/payroll/WeekSection.tsx
-- apps/ops-dashboard/app/(dashboard)/payroll/PayrollPeriods.tsx
-- apps/ops-dashboard/app/(dashboard)/payroll/AgentCard.tsx
-- apps/ops-dashboard/app/(dashboard)/payroll/payroll-types.ts
-- .paul/* (STATE, ROADMAP, paul.json, phase 79 artifacts, phase 80 SKIPPED stub, MILESTONES.md pending ceremony)
-Resume file: .paul/phases/79-chargeback-gate-and-display/79-01-PLAN.md
-Git strategy: main clean after v3.1 ceremony push (tag v3.1); v3.2 starts clean
-Resume context:
-- v3.2 Chargeback Correctness — 1 phase (Phase 79). Phase 80 MyQueue Rep Linkage SKIPPED — Phase 77 already shipped the OwnerUsers role-edit dropdown; admin will manually link the 3 active CS users (Alex, Ally, Jasmin all have csRepRosterId=NULL per prod SQL).
-- Phase 79 — 5 atomic fixes, all code-cited HIGH confidence:
-  (1) chargebacks.ts:258-310 — gate Clawback + applyChargebackToEntry on `source !== "CS"` so CS-submitted chargebacks only hit paycard at alert approval (not at submission)
-  (2) packages/utils/src/index.ts — introduce formatDollarSigned() (leading minus); swap at WeekSection.tsx:412 for clawback rows
-  (3) PayrollPeriods.tsx:326-333,427-432 + WeekSection.tsx:968,1047 — thread per-entry adjustmentAmount into agent subtotal + liveNet (print at :892 already correct)
-  (4) PayrollPeriods.tsx:432,892 — replace `+ fronted` (Phase 71) with `- fronted` (Phase 78) to match WeekSection liveNet
-  (5) WeekSection.tsx:141 — CLAWBACK_CROSS_PERIOD row tint → RED (semanticColors.statusDead alpha-08); ZEROED_OUT_IN_PERIOD stays yellow
-- User decisions locked: cross-period row = red, in-period row = yellow, negative format = leading minus `-$76.04`
-- Constraints: forward-only (no retroactive paycard recompute); no schema changes; preserve source="PAYROLL" immediate-apply path; additive formatDollarSigned (don't regress 40+ formatDollar call sites)
-- Discovery artifacts for the skipped Phase 80 preserved at .paul/phases/80-myqueue-rep-linkage/DISCOVERY.md — can revive if admin-linkage workflow proves insufficient
-- Remaining deferred from v3.1: OPEN-period SQL audit (fronted formula mixed semantics) — run before next payroll lock as standalone ops task, not scoped into v3.2
-- User-provided ground truth: image.png at repo root showing Victoria Checkal row $76.04 without minus, peach tint, not deducted from $679.11 net
+Stopped at: Milestone v3.2 Chargeback Correctness ceremony complete
+Next action: `/paul:discuss-milestone` or `/paul:milestone` to define next milestone
+Resume file: .paul/MILESTONES.md
+Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; next milestone starts clean
 
 ---
 *STATE.md — Updated after every significant action*
