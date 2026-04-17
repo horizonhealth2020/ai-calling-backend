@@ -625,29 +625,38 @@ export async function reverseClawback(
   });
   if (!clawback) throw new Error("Clawback not found");
 
-  if (clawback.appliedPayrollPeriod?.status !== "OPEN") {
+  // Phase 81-05: Locate the affected entry by STATUS alone (scoped to this sale's entries).
+  // Do NOT require entry.payrollPeriodId === clawback.appliedPayrollPeriodId — approveAlert
+  // sets appliedPayrollPeriodId = findOldestOpenPeriodForAgent BEFORE applyChargebackToEntry
+  // decides whether to run in_period or cross_period mode. For in_period (when the original
+  // entry's period is OPEN), the Clawback record's appliedPayrollPeriodId points at the
+  // "oldest open" period, but the actual ZEROED entry is in the original sale's period
+  // (which may be a different OPEN period). Source of truth is the entry status, not the
+  // Clawback's recorded period.
+  const entries = clawback.sale?.payrollEntries ?? [];
+  const inPeriodEntry = entries.find((e) => e.status === "ZEROED_OUT_IN_PERIOD");
+  const crossPeriodEntry = entries.find((e) => e.status === "CLAWBACK_CROSS_PERIOD");
+
+  // Verify the ENTRY's period is OPEN (not the Clawback's recorded period, which may diverge).
+  // Fetch the affected entry's period once we know which one we're reversing.
+  const affectedEntry = inPeriodEntry ?? crossPeriodEntry;
+  if (!affectedEntry) {
+    throw new Error(`Clawback ${clawbackId}: cannot locate affected entry — manual reconciliation required`);
+  }
+  const affectedPeriod = await tx.payrollPeriod.findUnique({
+    where: { id: affectedEntry.payrollPeriodId },
+    select: { status: true },
+  });
+  if (affectedPeriod?.status !== "OPEN") {
     throw new Error(
-      `Cannot reverse clawback: applied period is ${clawback.appliedPayrollPeriod?.status ?? "unknown"}. Payroll admin reversal required.`,
+      `Cannot reverse clawback: affected entry's period is ${affectedPeriod?.status ?? "unknown"}. Payroll admin reversal required.`,
     );
   }
-
-  if (!clawback.appliedPayrollPeriodId) {
-    throw new Error(`Clawback ${clawbackId}: missing appliedPayrollPeriodId — manual reconciliation required`);
-  }
-
-  // Locate the entry this clawback mutated, scoped to the applied period.
-  const entries = clawback.sale?.payrollEntries ?? [];
-  const inPeriodEntry = entries.find(
-    (e) => e.payrollPeriodId === clawback.appliedPayrollPeriodId && e.status === "ZEROED_OUT_IN_PERIOD",
-  );
-  const crossPeriodEntry = entries.find(
-    (e) => e.payrollPeriodId === clawback.appliedPayrollPeriodId && e.status === "CLAWBACK_CROSS_PERIOD",
-  );
 
   const clawbackAmt = Number(clawback.amount);
   const saleId = clawback.saleId;
   const agentId = clawback.agentId;
-  const periodId = clawback.appliedPayrollPeriodId;
+  const periodId = affectedEntry.payrollPeriodId; // use entry's actual period, not Clawback's recorded one
 
   let mode: "in_period" | "cross_period";
   let entryId: string;

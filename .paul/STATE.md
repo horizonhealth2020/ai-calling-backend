@@ -136,8 +136,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-17
-Stopped at: 81-04-FIX APPLY complete — PATCH /unresolve now tx-wrapped + reinstates the most-recent CLEARED SUBMISSION alert to PENDING + logAudit on both actions (fills the audit gap that made UAT-004 diagnosis hard). Fixes the round-trip gap where CS resolve "recovered" (auto-clearing orphan SUBMISSION alert via M-3) + CS unresolve left the alert CLEARED with no payroll-visible way to act on it. 198/198 tests pass.
-Next action: Manual re-UAT round-trip on Zarembski (submit → recover → unresolve → confirm SUBMISSION alert back to PENDING in payroll dashboard), then `/paul:unify` to close 81-01 + 81-02 + 81-03 + 81-04.
+Stopped at: 81-05-FIX APPLY complete — reverseClawback now locates affected entry by status alone (not by Clawback.appliedPayrollPeriodId match) + verifies ENTRY's period is OPEN. Fixes 500 on Approve Recovery that surfaced when Clawback.appliedPayrollPeriodId diverges from the actual ZEROED entry's period (pre-existing divergence in approveAlert's SUBMISSION path where appliedPayrollPeriodId is set from "oldest open period" before applyChargebackToEntry decides in_period vs cross_period). 198/198 tests pass; 12/12 chargeback-recovery unit tests pass including updated LOCKED/FINALIZED tests gated on entry's period.
+Next action: Re-try Approve Recovery on the Donna Zarembski PENDING RECOVERY alert (`cmo39x974000sctay59y3wimh`) — should succeed now. Then `/paul:unify` to close 81-01 + 81-02 + 81-03 + 81-04 + 81-05 together.
 Resume file: .paul/phases/81-chargeback-recovery/81-01-PLAN.md
 Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; v3.3 work will branch from main per GIT rules
 

@@ -56,6 +56,9 @@ function buildMockTx(overrides: {
   clawback?: ReturnType<typeof makeClawback> | null;
   deleteClawbackThrows?: { code?: string; message?: string } | null;
   payrollAlert?: { findFirst?: jest.Mock; create?: jest.Mock; count?: jest.Mock };
+  // Phase 81-05: mock tx.payrollPeriod.findUnique for the ENTRY's actual-period OPEN check.
+  // Default: returns OPEN unless overridden.
+  entryPeriodStatus?: 'OPEN' | 'LOCKED' | 'FINALIZED';
 } = {}) {
   const clawbackFindUnique = jest.fn().mockResolvedValue(overrides.clawback ?? null);
   const payrollEntryDelete = jest.fn().mockResolvedValue({ id: 'deleted' });
@@ -63,10 +66,12 @@ function buildMockTx(overrides: {
   const clawbackDelete = overrides.deleteClawbackThrows
     ? jest.fn().mockRejectedValue(overrides.deleteClawbackThrows)
     : jest.fn().mockResolvedValue({ id: 'deleted' });
+  const payrollPeriodFindUnique = jest.fn().mockResolvedValue({ status: overrides.entryPeriodStatus ?? 'OPEN' });
 
   const tx = {
     clawback: { findUnique: clawbackFindUnique, delete: clawbackDelete },
     payrollEntry: { delete: payrollEntryDelete },
+    payrollPeriod: { findUnique: payrollPeriodFindUnique },
     clawbackProduct: { deleteMany: clawbackProductDeleteMany },
     payrollAlert: {
       findFirst: overrides.payrollAlert?.findFirst ?? jest.fn().mockResolvedValue(null),
@@ -75,7 +80,7 @@ function buildMockTx(overrides: {
     },
   } as unknown as Prisma.TransactionClient;
 
-  return { tx, clawbackFindUnique, payrollEntryDelete, clawbackProductDeleteMany, clawbackDelete };
+  return { tx, clawbackFindUnique, payrollEntryDelete, clawbackProductDeleteMany, clawbackDelete, payrollPeriodFindUnique };
 }
 
 // ── Tests: reverseClawback ──────────────────────────────────────
@@ -164,19 +169,23 @@ describe('reverseClawback', () => {
     });
   });
 
-  describe('period-status gating', () => {
-    it('throws on LOCKED applied period', async () => {
-      const clawback = makeClawback({ appliedPeriodStatus: 'LOCKED' });
-      const { tx } = buildMockTx({ clawback });
+  describe('period-status gating (Phase 81-05: gated on entry\'s actual period)', () => {
+    it('throws on LOCKED entry period', async () => {
+      const clawback = makeClawback({
+        entries: [{ id: 'entry-zeroed', payrollPeriodId: 'period-1', payoutAmount: 0, status: 'ZEROED_OUT_IN_PERIOD' }],
+      });
+      const { tx } = buildMockTx({ clawback, entryPeriodStatus: 'LOCKED' });
 
-      await expect(reverseClawback(tx, 'cb-1')).rejects.toThrow(/applied period is LOCKED/);
+      await expect(reverseClawback(tx, 'cb-1')).rejects.toThrow(/period is LOCKED/);
     });
 
-    it('throws on FINALIZED applied period', async () => {
-      const clawback = makeClawback({ appliedPeriodStatus: 'FINALIZED' });
-      const { tx } = buildMockTx({ clawback });
+    it('throws on FINALIZED entry period', async () => {
+      const clawback = makeClawback({
+        entries: [{ id: 'entry-zeroed', payrollPeriodId: 'period-1', payoutAmount: 0, status: 'ZEROED_OUT_IN_PERIOD' }],
+      });
+      const { tx } = buildMockTx({ clawback, entryPeriodStatus: 'FINALIZED' });
 
-      await expect(reverseClawback(tx, 'cb-1')).rejects.toThrow(/applied period is FINALIZED/);
+      await expect(reverseClawback(tx, 'cb-1')).rejects.toThrow(/period is FINALIZED/);
     });
   });
 
