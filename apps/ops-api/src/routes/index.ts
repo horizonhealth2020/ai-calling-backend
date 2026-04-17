@@ -19,6 +19,7 @@ import adminRoutes from "./admin";
 import archiveRoutes from "./archive";
 import leadTimingRoutes from "./lead-timing";
 import contactAttemptRoutes from "./contact-attempts";
+import workflowRoutes from "./workflow";
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use(adminRoutes);
 router.use(archiveRoutes);
 router.use(leadTimingRoutes);
 router.use(contactAttemptRoutes);
+router.use(workflowRoutes);
 
 export default router;
