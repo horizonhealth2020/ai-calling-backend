@@ -3,21 +3,14 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
-import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import routes from "./routes";
 import { setIO } from "./socket";
 import { startConvosoKpiPoller } from "./workers/convosoKpiPoller";
 import { startAutoScorePolling } from "./services/auditQueue";
-import { startWorkflowSweeper } from "./jobs/workflow-sweeper";
-import { logAudit } from "./services/audit";
-
-// Single-process identity — used as claimed_by on workflow claims so graceful
-// shutdown can release ONLY this process's in-flight claims (not another replica's).
-export const CLAIMED_BY_SELF = `ops-api-${process.pid}-${randomUUID()}`;
 
 // ── Validate required environment variables ─────────────────────
-const required = ["DATABASE_URL", "AUTH_JWT_SECRET", "WORKFLOW_API_TOKEN"];
+const required = ["DATABASE_URL", "AUTH_JWT_SECRET"];
 const missing = required.filter(k => !process.env[k]);
 if (missing.length > 0) {
   console.error(`\n  FATAL: Missing required environment variables:\n${missing.map(k => `    - ${k}`).join("\n")}\n\n  Set them in your .env file or environment before starting.\n`);
@@ -97,43 +90,8 @@ io.on("connection", (socket) => {
 });
 
 const port = Number(process.env.PORT || 8080);
-const sweeper = startWorkflowSweeper();
 server.listen(port, () => {
-  console.log(`ops-api listening on ${port} (claimed_by=${CLAIMED_BY_SELF})`);
+  console.log(`ops-api listening on ${port}`);
   startConvosoKpiPoller();
   startAutoScorePolling();
 });
-
-// ── Graceful shutdown: release this-process workflow claims ────
-// SIGTERM fires on Railway redeploy and docker-compose stop. Reduces the
-// orphan window for in-flight claims from 10-min sweeper sweep to seconds.
-let shuttingDown = false;
-async function gracefulShutdown(signal: string) {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  console.log(`[shutdown] received ${signal}; stopping sweeper + releasing claims`);
-  try {
-    sweeper.stop();
-    const released = await sweeper.releaseInFlight(CLAIMED_BY_SELF);
-    await logAudit(null, "workflow.shutdown_release", "WorkflowQueue", undefined, {
-      signal,
-      claimed_by: CLAIMED_BY_SELF,
-      count: released,
-    });
-    console.log(`[shutdown] released ${released} in-flight claims`);
-  } catch (err) {
-    console.error("[shutdown] error releasing claims:", err);
-  }
-  // 30s hard-exit timeout if server.close() hangs on open connections
-  const hardExit = setTimeout(() => {
-    console.error("[shutdown] timeout; forcing exit");
-    process.exit(1);
-  }, 30_000);
-  hardExit.unref?.();
-  server.close(() => {
-    clearTimeout(hardExit);
-    process.exit(0);
-  });
-}
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
