@@ -24,7 +24,7 @@ Progress:
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ○     [APPLY complete; ready for UAT/UNIFY]
+  ✓        ✓        ○     [81-01 UAT complete; 81-02-FIX plan created for UAT-003 (pre-existing bug); awaiting apply]
 ```
 
 ## Accumulated Context
@@ -136,8 +136,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-17
-Stopped at: Plan 81-01 APPLY complete (198/198 tests pass; 1 deviation on Task 3 banner placement — global section vs per-AgentCard, justified by plan's parenthetical)
-Next action: `/paul:verify` (manual UAT of recovery flow) OR `/paul:unify .paul/phases/81-chargeback-recovery/81-01-PLAN.md` (reconcile + close loop)
+Stopped at: 81-02-FIX APPLY complete — `upsertPayrollEntryForSale` guard in place at payroll.ts:428-434 (clawback-affected entries get metadata-only update; prevents Sale Edit from undoing chargebacks). 222/222 tests pass; no regression in Phase 81-01 recovery flow. New test-cases scope-narrowed with Phase 79 DEFER-01 precedent.
+Next action: Manual re-UAT of UAT-003 fix (Edit sale + Save on ZEROED row → verify DB row state preserved), then `/paul:unify` to close both 81-01 and 81-02 plans together.
 Resume file: .paul/phases/81-chargeback-recovery/81-01-PLAN.md
 Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; v3.3 work will branch from main per GIT rules
 

@@ -418,6 +418,22 @@ export const upsertPayrollEntryForSale = async (saleId: string, tx?: PrismaTx) =
   // frontedAmount column is still persisted on the entry.
   const netAmount = computeNetAmount({ payout: payoutAmount, adjustment, bonus, hold, fronted });
 
+  // Phase 81-02 (UAT-003): Preserve clawback-affected state. If an existing entry
+  // is in a clawback status, refreshing payoutAmount/netAmount would silently
+  // undo the chargeback (agent gets paid for a clawed-back sale). The only safe
+  // paths OUT of a clawback state are explicit reversals:
+  //   - payroll approves a RECOVERY alert → reverseClawback DELETES the row first,
+  //     so upsert's CREATE branch runs (guard's `existing` is null at that point)
+  //   - admin DELETE /chargebacks/:id → deletes Clawback + clawback entries, then recalcs
+  const clawbackStates = new Set(["ZEROED_OUT_IN_PERIOD", "CLAWBACK_APPLIED", "CLAWBACK_CROSS_PERIOD"]);
+  if (existing && clawbackStates.has(existing.status ?? "")) {
+    // Metadata-only update — preserves payout/net/status as-is.
+    return db.payrollEntry.update({
+      where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
+      data: { halvingReason },
+    });
+  }
+
   return db.payrollEntry.upsert({
     where: { payrollPeriodId_saleId: { payrollPeriodId: period.id, saleId } },
     create: {

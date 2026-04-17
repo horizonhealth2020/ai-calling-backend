@@ -34,12 +34,14 @@ Phases: 0 of 1 complete
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
-| 81 | Chargeback Recovery Alert + Reversal | 1 | Planning | - |
+| 81 | Chargeback Recovery Alert + Reversal | 2 | In Progress | - |
 
 ### Phase 81: Chargeback Recovery Alert + Reversal
 
-Focus: CS resolution=`SAVED` auto-creates `PayrollAlert` (type=`CHARGEBACK_RECOVERED`, `clawbackId` FK); inline payroll-alert banner on affected paycard; payroll approves → reverses Clawback (restore `payoutAmount` for same-week `ZEROED_OUT_IN_PERIOD` or delete cross-period negative entry + `entryAdj` cleanup); OPEN-period gate (400 on LOCKED/FINALIZED); `logAudit` on both CS-mark and payroll-approve sides.
-Plans: TBD (defined during /paul:plan)
+Focus: CS resolution=`recovered` auto-creates `PayrollAlert` (type=`RECOVERY`, `clawbackId` FK); inline payroll-alert banner on affected paycard; payroll approves → reverses Clawback (in_period restore via upsertPayrollEntryForSale single-source-of-truth, cross_period delete with pre-delete state-verify); OPEN-period gate (400 on LOCKED/FINALIZED); `logAudit` on both CS-mark and payroll-approve sides. Plan 81-02-FIX added to close pre-existing UAT-003 (upsertPayrollEntryForSale silently un-chargebacks on Sale Edit).
+Plans:
+- [x] 81-01: Recovery alert + reversal (schema + createRecoveryAlert + reverseClawback + approveAlert branch + banner UI + 12 unit tests; UAT Pass on AC-1/2/3)
+- [ ] 81-02-FIX: Guard upsertPayrollEntryForSale against overwriting clawback-affected entries (UAT-003 fix — pre-existing bug surfaced during 81-01 UAT)
 
 ---
 
