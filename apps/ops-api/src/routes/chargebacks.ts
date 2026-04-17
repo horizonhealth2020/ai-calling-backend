@@ -609,14 +609,31 @@ router.patch("/chargebacks/:id/resolve", requireAuth, requireRole("CUSTOMER_SERV
         { matchedBy: "chargeback_alert", matchedValue: pp.data.id },
       ];
       if (record.matchedSaleId) {
+        // Normal path: submission is linked to a live sale. Scope member-based match
+        // by saleId to prevent false-positive against a different sale's Clawback for
+        // the same member.
         clawbackWhereOrs.push(
           { saleId: record.matchedSaleId, matchedBy: "member_id", matchedValue: record.memberId ?? "__none__" },
           { saleId: record.matchedSaleId, matchedBy: "member_name", matchedValue: record.memberCompany ?? "__none__" },
         );
+      } else {
+        // Phase 81-03 (UAT-005): Submission orphaned (matched_sale_id IS NULL). Original
+        // sale likely deleted + re-entered; the original Clawback was cascade-deleted too,
+        // but a NEW Clawback may exist for the same member via POST /clawbacks on the
+        // re-entered sale. Widen the search — unscoped by saleId. Accepted risk: may
+        // false-positive across sales for the same member; orderBy createdAt desc picks
+        // the most recent, which is almost always the correct one.
+        if (record.memberId) {
+          clawbackWhereOrs.push({ matchedBy: "member_id", matchedValue: record.memberId });
+        }
+        if (record.memberCompany) {
+          clawbackWhereOrs.push({ matchedBy: "member_name", matchedValue: record.memberCompany });
+        }
       }
       const clawback = await tx.clawback.findFirst({
         where: { OR: clawbackWhereOrs },
         include: { sale: { include: { agent: true } } },
+        orderBy: { createdAt: "desc" }, // Phase 81-03 (UAT-005): prefer most recent Clawback when multiple match
       });
 
       if (clawback) {

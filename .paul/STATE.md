@@ -136,8 +136,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-17
-Stopped at: 81-02-FIX APPLY complete — `upsertPayrollEntryForSale` guard in place at payroll.ts:428-434 (clawback-affected entries get metadata-only update; prevents Sale Edit from undoing chargebacks). 222/222 tests pass; no regression in Phase 81-01 recovery flow. New test-cases scope-narrowed with Phase 79 DEFER-01 precedent.
-Next action: Manual re-UAT of UAT-003 fix (Edit sale + Save on ZEROED row → verify DB row state preserved), then `/paul:unify` to close both 81-01 and 81-02 plans together.
+Stopped at: 81-03-FIX APPLY complete — Clawback-finder widened in CS resolve handler (chargebacks.ts:607-634) to match by memberId/memberCompany alone when submission.matchedSaleId IS NULL (UAT-005 fix). UAT-004 closed as misdiagnosis (live DB audit proved real cause was a separate POST /clawbacks call, not unresolve). UAT-003 fix verified via user UAT in prior step. 198/198 tests pass.
+Next action: Manual re-UAT of UAT-005 fix on the Donna Zarembski fixture (click "recovered" on that chargeback — should now create a RECOVERY alert), then `/paul:unify` to close 81-01 + 81-02 + 81-03.
 Resume file: .paul/phases/81-chargeback-recovery/81-01-PLAN.md
 Git strategy: main in sync with origin after v3.2 ceremony push; tag v3.2 created; v3.3 work will branch from main per GIT rules
 
