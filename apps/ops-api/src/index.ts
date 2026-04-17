@@ -10,7 +10,7 @@ import { startConvosoKpiPoller } from "./workers/convosoKpiPoller";
 import { startAutoScorePolling } from "./services/auditQueue";
 
 // ── Validate required environment variables ─────────────────────
-const required = ["DATABASE_URL", "AUTH_JWT_SECRET"];
+const required = ["DATABASE_URL", "AUTH_JWT_SECRET", "WORKFLOW_API_TOKEN"];
 const missing = required.filter(k => !process.env[k]);
 if (missing.length > 0) {
   console.error(`\n  FATAL: Missing required environment variables:\n${missing.map(k => `    - ${k}`).join("\n")}\n\n  Set them in your .env file or environment before starting.\n`);
